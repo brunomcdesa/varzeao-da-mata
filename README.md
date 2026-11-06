@@ -14,7 +14,7 @@ Jogo de futebol interativo no Instagram: seguidores se inscrevem pelos comentár
 | `packages/shared` | Tipos de domínio, Times, Clássicos, limites de OVR |
 | `packages/sim` | Motor determinístico com testes e calibração |
 | `packages/renderer` | Linha do tempo pura, desenho em Canvas 9:16, página de Replay (`pnpm demo`) e gravação do Reels em MP4 (`pnpm gravar`) |
-| `packages/worker` | Banco (PostgreSQL), leitor de Comandos (ENTRO / CRAQUE), Inscrições, votos e Escalações com rodízio |
+| `packages/worker` | Banco (PostgreSQL), leitor de Comandos (ENTRO / CRAQUE), Inscrições, votos, Escalações com rodízio, calendário, job `partida` (escalar → simular → gravar o Reels) e Resumo da Rodada |
 | `edge`, `site` | A fazer |
 
 ## Comandos
@@ -49,6 +49,22 @@ pnpm --filter @liga/renderer exec playwright install chromium
 | 85 × 60 | 73% | 14% | 3,8 |
 
 A variação média de OVR por Partida fica entre 0,00 e 0,03 em todas as faixas, então não há bola de neve. Qualquer mudança em `src/parametros.ts` exige subir `VERSAO_SIM` (ADR-0002).
+
+## A Liga no seu computador
+
+Sem Instagram e sem servidor: o banco fica em `.cache/liga-local` (Postgres embutido) e os vídeos vão para `~/varzeao-videos`.
+
+```bash
+pnpm liga temporada --inicio 2026-11-09     # cria a Temporada (7 Rodadas, jogos às 12h, 14h, 16h e 18h)
+pnpm liga inscricoes-de-teste --quantidade 60   # "comentários" ENTRO de seguidores fictícios
+pnpm liga comentar --de rafa "ENTRO CAPIVARA ATA"
+pnpm liga jogar                              # joga a próxima Rodada e grava os 4 Reels (--sem-video para só simular)
+pnpm liga resumo                             # grava o Reels do Resumo da Rodada
+pnpm liga comentar --de fa1 "CRAQUE @fulano"   # vota no Craque (vale até a próxima Rodada começar)
+pnpm liga tabela | elencos | status
+```
+
+Para recomeçar do zero, apague a pasta `.cache/liga-local`.
 
 ## Voz do Locutor (Gemini TTS)
 

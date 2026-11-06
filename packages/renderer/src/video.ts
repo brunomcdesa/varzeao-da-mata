@@ -54,7 +54,7 @@ const suave = (f: number) => f * f * (3 - 2 * f);
 const entre = (f: number, a: number, b: number) => suave(Math.min(1, Math.max(0, (f - a) / (b - a))));
 
 /** O escudo é redondo: recorta em círculo para não aparecer o fundo quadrado da imagem. */
-function desenharEscudoDaLiga(pin: Pincel, img: CanvasImageSource, cx: number, cy: number, t: number): void {
+export function desenharEscudoDaLiga(pin: Pincel, img: CanvasImageSource, cx: number, cy: number, t: number): void {
   const c = pin.ctx;
   c.save();
   c.beginPath();
@@ -66,7 +66,7 @@ function desenharEscudoDaLiga(pin: Pincel, img: CanvasImageSource, cx: number, c
   c.imageSmoothingEnabled = false;
 }
 
-function veu(pin: Pincel, alpha: number): void {
+export function veu(pin: Pincel, alpha: number): void {
   pin.ctx.save();
   pin.ctx.globalAlpha = alpha;
   pin.r(0, 0, COLUNAS, LINHAS, COR.mata);
@@ -74,7 +74,7 @@ function veu(pin: Pincel, alpha: number): void {
 }
 
 /** Texto acompanhando a onda da faixa, letra por letra. */
-function textoNaFaixa(pin: Pincel, txt: string, y: number, tamanho: number, fonte: string, cor: string, onda: (x: number) => number, centro = COLUNAS / 2): void {
+export function textoNaFaixa(pin: Pincel, txt: string, y: number, tamanho: number, fonte: string, cor: string, onda: (x: number) => number, centro = COLUNAS / 2): void {
   pin.ctx.font = `400 ${tamanho * pin.px}px ${fonte}`;
   const larguras = [...txt].map((ch) => pin.ctx.measureText(ch).width / pin.px);
   let x = centro - larguras.reduce((s, w) => s + w, 0) / 2;

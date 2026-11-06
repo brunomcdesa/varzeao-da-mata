@@ -10,6 +10,8 @@ import pixelify700 from '@fontsource/pixelify-sans/files/pixelify-sans-latin-700
 import escudoDaLigaPng from '../../../docs/marca/escudo.png';
 import { TIMES, type TimeId } from '@liga/shared';
 import { ALTURA_ESCUDO, LARGURA_ESCUDO, escudo as escudoDoTime } from '../src/escudos.js';
+import type { VarzeaApi } from './api.js';
+import { RoteiroResumo, desenharQuadroResumo, type DadosDoResumo } from '../src/resumo.js';
 import { Roteiro, Timeline, desenharQuadroVideo, type OpcoesVideo, type PartidaParaVideo } from '../src/index.js';
 
 const FONTES: [string, string, string][] = [
@@ -24,6 +26,8 @@ const ctx = canvas.getContext('2d')!;
 
 let roteiro: Roteiro | null = null;
 let opcoes: OpcoesVideo | null = null;
+/** Quando preenchido, a página grava o Resumo da Rodada em vez de uma Partida. */
+let resumo: RoteiroResumo | null = null;
 let fps = 30;
 
 const escudo = new Image();
@@ -44,6 +48,7 @@ const fontesProntas = Promise.all(
 async function preparar(dados: PartidaParaVideo, quadrosPorSegundo = 30): Promise<{ duracao: number; totalQuadros: number }> {
   await Promise.all([fontesProntas, escudoPronto]);
   fps = quadrosPorSegundo;
+  resumo = null;
   roteiro = new Roteiro(new Timeline(dados.resultado, dados.escalacoes), dados.roteiro);
   opcoes = {
     times: dados.resultado.times,
@@ -54,7 +59,19 @@ async function preparar(dados: PartidaParaVideo, quadrosPorSegundo = 30): Promis
   return { duracao: roteiro.duracao, totalQuadros: roteiro.totalQuadros(fps) };
 }
 
+async function prepararResumo(
+  dados: DadosDoResumo,
+  minimos: Record<number, { antes?: number }> = {},
+  quadrosPorSegundo = 30,
+): Promise<{ duracao: number; totalQuadros: number }> {
+  await Promise.all([fontesProntas, escudoPronto]);
+  fps = quadrosPorSegundo;
+  resumo = new RoteiroResumo(dados, minimos);
+  return { duracao: resumo.duracao, totalQuadros: resumo.totalQuadros(fps) };
+}
+
 function desenhar(n: number): void {
+  if (resumo) return desenharQuadroResumo(ctx, resumo, n / fps, { escudo });
   if (!roteiro || !opcoes) throw new Error('chame varzea.preparar antes');
   desenharQuadroVideo(ctx, roteiro, n / fps, opcoes);
 }
@@ -71,6 +88,7 @@ function capturar(inicio: number, quantos: number, qualidade = 0.92): string[] {
 
 /** Segmentos do roteiro (para a prévia escolher quadros-chave). */
 function segmentos(): { tipo: string; inicio: number; fim: number; resolucao?: number }[] {
+  if (resumo) return resumo.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
   if (!roteiro) throw new Error('chame varzea.preparar antes');
   return roteiro.segmentos.map((s) => ({ tipo: s.tipo, inicio: s.inicio, fim: s.fim, ...(s.resolucao !== undefined ? { resolucao: s.resolucao } : {}) }));
 }
@@ -86,10 +104,5 @@ function escudoPng(time: TimeId, escala: number): string {
   return c.toDataURL('image/png').slice('data:image/png;base64,'.length);
 }
 
-const api = { preparar, desenhar, capturar, segmentos, escudoPng, times: () => [...TIMES] };
-declare global {
-  interface Window {
-    varzea: typeof api;
-  }
-}
+const api: VarzeaApi = { preparar, prepararResumo, desenhar, capturar, segmentos, escudoPng, times: () => [...TIMES] };
 window.varzea = api;

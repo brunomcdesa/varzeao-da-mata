@@ -170,7 +170,7 @@ const FOLGA = { inicio: 0.25, entre: 0.15, fim: 0.3, fimDoVideo: 1.0 };
  * sem acelerar nem cortar. O resultado vai em `OpcoesRoteiro.minimos`; como os textos
  * não dependem do tempo, a narração montada no Roteiro esticado é a mesma.
  */
-export function exigenciasDaNarracao(roteiro: Roteiro, falas: Fala[], duracao: (id: string) => number): Record<number, { antes?: number; depois?: number }> {
+export function exigenciasDaNarracao(roteiro: Pick<Roteiro, 'segmentos'>, falas: Fala[], duracao: (id: string) => number): Record<number, { antes?: number; depois?: number }> {
   const exige: Record<number, { antes?: number; depois?: number }> = {};
   const ultimo = roteiro.segmentos.length - 1;
   for (let indice = 0; indice <= ultimo; indice++) {

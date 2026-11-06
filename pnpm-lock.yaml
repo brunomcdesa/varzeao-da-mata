@@ -59,6 +59,9 @@ importers:
 
   packages/worker:
     dependencies:
+      '@liga/renderer':
+        specifier: workspace:*
+        version: link:../renderer
       '@liga/shared':
         specifier: workspace:*
         version: link:../shared

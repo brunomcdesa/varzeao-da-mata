@@ -9,7 +9,8 @@
     "demo": "pnpm --filter @liga/renderer demo",
     "gravar": "pnpm --filter @liga/renderer gravar",
     "vozes": "pnpm --filter @liga/renderer vozes",
-    "testar-grito": "pnpm --filter @liga/renderer testar-grito"
+    "testar-grito": "pnpm --filter @liga/renderer testar-grito",
+    "liga": "pnpm --filter @liga/worker liga"
   },
   "devDependencies": {
     "typescript": "^5.6.0",
