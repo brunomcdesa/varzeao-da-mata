@@ -4,18 +4,30 @@
  *
  * Tudo aqui é função pura de t. Por isso o mesmo código serve ao vídeo (quadro a quadro)
  * e ao site (Ao Vivo e Replay), e qualquer instante pode ser desenhado sem "tocar" o anterior.
+ *
+ * A coreografia de cada lance (quem passa para quem, de onde sai o chute) fica em jogada.ts.
  */
 import type { Escalacao, Posicao } from '@liga/shared';
 import type { Lado, Lance, ResultadoPartida, SlotRef } from '@liga/sim';
+import {
+  F_RESOLUCAO_CHUTE,
+  F_RESOLUCAO_DESARME,
+  MEIO,
+  montarPlano,
+  sentido,
+  type AcaoJogador,
+  type Alvo,
+  type EstiloJogada,
+  type Plano,
+  type Ponto,
+  type QuadroAtor,
+} from './jogada.js';
+
+export type { Ponto, AcaoJogador, EstiloJogada } from './jogada.js';
 
 export const DURACAO_JOGO = 90 * 60;
 /** Velocidade do Ao Vivo: 90 minutos de jogo em cerca de 6 minutos (ADR-0005). */
 export const VELOCIDADE_AO_VIVO = 15;
-
-export interface Ponto {
-  x: number;
-  y: number;
-}
 
 export type TipoDestaque = 'GOL' | 'DEFESA' | 'DESARME' | 'FORA';
 
@@ -28,15 +40,30 @@ export interface Destaque {
   progresso: number;
 }
 
+export interface JogadorNoQuadro {
+  slot: SlotRef;
+  posicao: Posicao;
+  pos: Ponto;
+  /** Deslocamento por segundo de jogo (para escolher o sprite e a direção). */
+  vel: Ponto;
+  /** Para onde o Jogador olha quando está parado (normalmente a bola). */
+  olhar: Ponto;
+  acao: AcaoJogador;
+}
+
 export interface EstadoQuadro {
   t: number;
   minuto: number;
   placar: Record<Lado, number>;
   bola: Ponto;
-  jogadores: { slot: SlotRef; posicao: Posicao; pos: Ponto }[];
+  /** Altura da bola, 0 (no chão) a 1 (bem alta). */
+  bolaAltura: number;
+  jogadores: JogadorNoQuadro[];
   destaque: Destaque | null;
   /** Lance em andamento (índice em `lances`), ou -1. */
   lanceAtual: number;
+  /** Estilo da jogada em andamento, se houver. */
+  estilo: EstiloJogada | null;
   encerrada: boolean;
 }
 
@@ -48,11 +75,10 @@ interface Janela {
   resolucao: number;
 }
 
-/** Fração da janela em que a jogada se resolve. */
-const F_RESOLUCAO_CHUTE = 0.78;
-const F_RESOLUCAO_DESARME = 0.6;
 /** Por quantos segundos de jogo um destaque fica na tela. */
 const DURACAO_DESTAQUE: Record<TipoDestaque, number> = { GOL: 75, DEFESA: 40, DESARME: 25, FORA: 30 };
+/** Intervalo (s de jogo) usado para medir a velocidade de cada Jogador. */
+const DT_VEL = 0.6;
 
 /** Posições-base (lado mandante, que ataca para y = 0). O visitante é espelhado. */
 const BASE_POR_POSICAO: Record<Posicao, Ponto[]> = {
@@ -62,10 +88,7 @@ const BASE_POR_POSICAO: Record<Posicao, Ponto[]> = {
   ATA: [{ x: 0.4, y: 0.44 }, { x: 0.6, y: 0.44 }],
 };
 
-const sentido = (lado: Lado): number => (lado === 'mandante' ? -1 : 1);
-const golAlvo = (ataque: Lado): number => (ataque === 'mandante' ? 0.02 : 0.98);
 const espelhar = (p: Ponto, lado: Lado): Ponto => (lado === 'mandante' ? p : { x: 1 - p.x, y: 1 - p.y });
-
 const lerp = (a: number, b: number, f: number): number => a + (b - a) * f;
 const lerpP = (a: Ponto, b: Ponto, f: number): Ponto => ({ x: lerp(a.x, b.x, f), y: lerp(a.y, b.y, f) });
 const suave = (f: number): number => f * f * (3 - 2 * f);
@@ -73,10 +96,13 @@ const limitar = (x: number, min = 0, max = 1): number => Math.min(max, Math.max(
 /** 0 fora de [a, d]; sobe de a até b; 1 de b até c; desce de c até d. */
 const trapezio = (f: number, a: number, b: number, c: number, d: number): number =>
   f <= a || f >= d ? 0 : f < b ? suave((f - a) / (b - a)) : f <= c ? 1 : suave((d - f) / (d - c));
+const chave = (s: SlotRef) => `${s.lado}:${s.indice}`;
 
 export class Timeline {
   readonly janelas: Janela[];
+  readonly planos: Plano[];
   private readonly bases: Record<Lado, Ponto[]>;
+  private readonly trilhas: Map<string, QuadroAtor[]>[];
 
   constructor(
     readonly resultado: ResultadoPartida,
@@ -87,6 +113,8 @@ export class Timeline {
       visitante: posicoesBase(escalacoes.visitante, 'visitante'),
     };
     this.janelas = montarJanelas(resultado.lances);
+    this.planos = resultado.lances.map((l) => montarPlano(l, this.bases, escalacoes, resultado.seed));
+    this.trilhas = this.planos.map((p) => new Map(p.atores.map((a) => [chave(a.slot), a.quadros])));
   }
 
   get duracao(): number {
@@ -108,95 +136,118 @@ export class Timeline {
 
   estado(tBruto: number): EstadoQuadro {
     const t = limitar(tBruto, 0, DURACAO_JOGO);
-    const placar = this.placarEm(t);
-    const indice = this.janelas.findIndex((j) => t >= j.inicio && t < j.fim);
-    const janela = indice >= 0 ? this.janelas[indice]! : null;
+    const indice = this.indiceEm(t);
+    const { pos: bola, altura } = this.bolaEm(t, indice);
+    const agora = this.posicoesEm(t, indice, bola);
+    const tAntes = Math.max(0, t - DT_VEL);
+    const iAntes = this.indiceEm(tAntes);
+    const antes = this.posicoesEm(tAntes, iAntes, this.bolaEm(tAntes, iAntes).pos);
+    const plano = indice >= 0 ? this.planos[indice]! : null;
+    const f = indice >= 0 ? this.fracao(indice, t) : 0;
 
-    const bola = janela ? this.bolaNaJanela(janela, t) : { x: 0.5, y: 0.5 };
-    const jogadores = this.jogadoresEm(janela, t, bola);
+    const jogadores: JogadorNoQuadro[] = agora.map((j, k) => {
+      const a = antes[k]!.pos;
+      const vel = { x: (j.pos.x - a.x) / DT_VEL, y: (j.pos.y - a.y) / DT_VEL };
+      const especial = plano?.acoes.find((x) => x.slot.lado === j.slot.lado && x.slot.indice === j.slot.indice && f >= x.de && f < x.ate);
+      const correndo = Math.hypot(vel.x, vel.y) > 0.0016;
+      return { ...j, vel, olhar: bola, acao: especial?.acao ?? (correndo ? 'CORRENDO' : 'PARADO') };
+    });
 
     return {
       t,
       minuto: Math.min(90, Math.floor(t / 60) + 1),
-      placar,
+      placar: this.placarEm(t),
       bola,
+      bolaAltura: altura,
       jogadores,
       destaque: this.destaqueEm(t),
       lanceAtual: indice,
+      estilo: plano?.estilo ?? null,
       encerrada: t >= DURACAO_JOGO,
     };
   }
 
-  private posDe(slot: SlotRef): Ponto {
-    return this.bases[slot.lado][slot.indice]!;
+  private indiceEm(t: number): number {
+    return this.janelas.findIndex((j) => t >= j.inicio && t < j.fim);
   }
 
-  private bolaNaJanela(j: Janela, t: number): Ponto {
-    const f = (t - j.inicio) / (j.fim - j.inicio);
-    const { lance } = j;
-    const dir = sentido(lance.ataque);
-    const alvo = golAlvo(lance.ataque);
-    const criador = this.posDe(lance.criador);
-    const meio: Ponto = { x: 0.5, y: 0.5 };
-    const conducao: Ponto = { x: criador.x, y: 0.5 + dir * 0.12 };
-    const zona: Ponto = { x: lerp(criador.x, 0.5, 0.3), y: alvo - dir * 0.3 };
-
-    const quadros: [number, Ponto][] = [
-      [0, meio],
-      [0.2, conducao],
-      [0.45, zona],
-    ];
-
-    if (lance.tipo === 'DESARME') {
-      quadros.push([F_RESOLUCAO_DESARME, zona], [0.85, { x: 0.5, y: 0.5 - dir * 0.08 }], [1, meio]);
-    } else {
-      const fin = lance.finalizador ? this.posDe(lance.finalizador) : criador;
-      const recepcao: Ponto = { x: lerp(fin.x, 0.5, 0.4), y: alvo - dir * 0.17 };
-      const destino: Ponto =
-        lance.tipo === 'GOL'
-          ? { x: 0.5 + (fin.x - 0.5) * 0.25, y: alvo + dir * 0.012 }
-          : lance.tipo === 'DEFESA'
-            ? { x: 0.5 + (fin.x - 0.5) * 0.15, y: alvo - dir * 0.045 }
-            : { x: fin.x < 0.5 ? 0.33 : 0.67, y: alvo + dir * 0.01 };
-      quadros.push([0.62, recepcao], [F_RESOLUCAO_CHUTE, destino], [0.9, destino], [1, meio]);
-    }
-    return interpolar(quadros, f);
+  private fracao(indice: number, t: number): number {
+    const j = this.janelas[indice]!;
+    return (t - j.inicio) / (j.fim - j.inicio);
   }
 
-  private jogadoresEm(janela: Janela | null, t: number, bola: Ponto): EstadoQuadro['jogadores'] {
-    const f = janela ? (t - janela.inicio) / (janela.fim - janela.inicio) : 0;
-    const lance = janela?.lance;
+  /** Posição normal na formação: bloco sobe ao atacar, recua ao defender, com leve balanço. */
+  private posicaoNormal(slot: SlotRef, t: number, lance: Lance | undefined, f: number, bola: Ponto | null): Ponto {
+    const base = this.bases[slot.lado][slot.indice]!;
+    const posicao = this.escalacoes[slot.lado].jogadores[slot.indice]!.posicao;
     const avanco = lance ? trapezio(f, 0.05, 0.3, 0.8, 0.98) : 0;
+    const deslocamento = !lance ? 0 : lance.ataque === slot.lado ? 0.1 * avanco : -0.05 * avanco;
+    const balanco = Math.sin(t / 9 + slot.indice * 1.7 + (slot.lado === 'mandante' ? 0 : 3)) * 0.012;
+    let pos: Ponto = {
+      x: base.x + balanco,
+      y: base.y + sentido(slot.lado) * deslocamento + Math.cos(t / 11 + slot.indice) * 0.008,
+    };
+    if (bola && lance) {
+      if (posicao === 'GOL' && lance.ataque !== slot.lado) pos = { x: lerp(base.x, bola.x, 0.55), y: pos.y };
+      // Quem defende fecha um pouco na direção da bola.
+      else if (lance.ataque !== slot.lado && posicao !== 'GOL') pos = lerpP(pos, bola, 0.12 * avanco);
+    }
+    return pos;
+  }
 
-    const lista: EstadoQuadro['jogadores'] = [];
+  private posicaoDe(slot: SlotRef, t: number, indice: number, f: number, bola: Ponto | null): Ponto {
+    const lance = indice >= 0 ? this.janelas[indice]!.lance : undefined;
+    const normal = () => this.posicaoNormal(slot, t, lance, f, bola);
+    const trilha = indice >= 0 ? this.trilhas[indice]!.get(chave(slot)) : undefined;
+    if (!trilha) return normal();
+    if (f <= trilha[0]![0] || f >= trilha[trilha.length - 1]![0]) return normal();
+    for (let k = 1; k < trilha.length; k++) {
+      const [fb, pb] = trilha[k]!;
+      if (f <= fb) {
+        const [fa, pa] = trilha[k - 1]!;
+        const a = pa ?? normal();
+        const b = pb ?? normal();
+        return lerpP(a, b, suave((f - fa) / (fb - fa)));
+      }
+    }
+    return normal();
+  }
+
+  private posicoesEm(t: number, indice: number, bola: Ponto): Omit<JogadorNoQuadro, 'vel' | 'olhar' | 'acao'>[] {
+    const f = indice >= 0 ? this.fracao(indice, t) : 0;
+    const lista: Omit<JogadorNoQuadro, 'vel' | 'olhar' | 'acao'>[] = [];
     for (const lado of ['mandante', 'visitante'] as const) {
-      this.escalacoes[lado].jogadores.forEach((jogador, indice) => {
-        const slot = { lado, indice };
-        const base = this.bases[lado][indice]!;
-        // Bloco sobe quando ataca e recua quando defende.
-        const deslocamento = !lance ? 0 : lance.ataque === lado ? 0.1 * avanco : -0.05 * avanco;
-        // Respiração leve para o campo não parecer congelado (determinística em t).
-        const balanco = Math.sin(t / 9 + indice * 1.7 + (lado === 'mandante' ? 0 : 3)) * 0.012;
-        let pos: Ponto = {
-          x: base.x + balanco,
-          y: base.y + sentido(lado) * deslocamento + Math.cos(t / 11 + indice) * 0.008,
-        };
-
-        if (lance) {
-          const peso = pesoDeAtracao(lance, slot, f);
-          if (jogador.posicao === 'GOL' && lance.ataque !== lado) {
-            // Goleiro acompanha a bola no eixo x, sem sair da área.
-            pos = { x: lerp(base.x, bola.x, 0.55), y: pos.y };
-          }
-          if (peso > 0) {
-            const encosto = jogador.posicao === 'GOL' ? 0 : lance.ataque === lado ? 0.025 : -0.025;
-            pos = lerpP(pos, { x: bola.x + encosto * 0.6, y: bola.y - sentido(lado) * encosto }, peso);
-          }
-        }
-        lista.push({ slot, posicao: jogador.posicao, pos: { x: limitar(pos.x, 0.03, 0.97), y: limitar(pos.y, 0.02, 0.98) } });
+      this.escalacoes[lado].jogadores.forEach((jogador, i) => {
+        const slot = { lado, indice: i };
+        const p = this.posicaoDe(slot, t, indice, f, bola);
+        lista.push({ slot, posicao: jogador.posicao, pos: { x: limitar(p.x, 0.03, 0.97), y: limitar(p.y, 0.02, 0.98) } });
       });
     }
     return lista;
+  }
+
+  private bolaEm(t: number, indice: number): { pos: Ponto; altura: number } {
+    if (indice < 0) return { pos: MEIO, altura: 0 };
+    const f = this.fracao(indice, t);
+    const plano = this.planos[indice]!;
+    // O trecho em andamento; num intervalo sem trecho, vale o último que começou.
+    const trecho = plano.bola.find((b) => f >= b.de && f < b.ate) ?? [...plano.bola].reverse().find((b) => f >= b.de) ?? plano.bola[0]!;
+    const janela = this.janelas[indice]!;
+    // Posição de um ator num instante f' da mesma janela (sem depender da bola, para não haver ciclo).
+    const ator = (s: SlotRef, fx: number) => this.posicaoDe(s, janela.inicio + fx * (janela.fim - janela.inicio), indice, fx, null);
+    const resolver = (a: Alvo, fx: number): Ponto => ('ponto' in a ? a.ponto : ator(a.ator, fx));
+    const noChao = (p: Ponto) => ({ pos: { x: limitar(p.x), y: limitar(p.y) }, altura: 0 });
+
+    if (trecho.tipo === 'PARADA') return noChao(trecho.ponto);
+    if (trecho.tipo === 'POSSE') {
+      const p = ator(trecho.ator, f);
+      // A bola vai um pouco à frente, no sentido do gol atacado por quem conduz.
+      return noChao({ x: p.x, y: p.y + sentido(trecho.ator.lado) * 0.014 });
+    }
+    const s = limitar((f - trecho.de) / (trecho.ate - trecho.de));
+    const andamento = trecho.chute ? 1 - (1 - s) * (1 - s) : s;
+    const p = lerpP(resolver(trecho.origem, trecho.de), resolver(trecho.destino, trecho.ate), andamento);
+    return { pos: { x: limitar(p.x), y: limitar(p.y) }, altura: trecho.altura * 4 * s * (1 - s) };
   }
 
   private destaqueEm(t: number): Destaque | null {
@@ -213,27 +264,6 @@ export class Timeline {
     }
     return null;
   }
-}
-
-/** Quanto cada envolvido no lance é puxado para a bola, por fase. */
-function pesoDeAtracao(lance: Lance, slot: SlotRef, f: number): number {
-  const igual = (a: SlotRef | undefined) => a !== undefined && a.lado === slot.lado && a.indice === slot.indice;
-  if (igual(lance.criador)) return trapezio(f, 0.02, 0.15, 0.5, lance.tipo === 'DESARME' ? 0.62 : 0.66);
-  if (igual(lance.finalizador)) return trapezio(f, 0.5, 0.62, 0.78, 0.92);
-  if (igual(lance.defensor)) {
-    return lance.tipo === 'DESARME' ? trapezio(f, 0.3, 0.45, 0.85, 0.95) : trapezio(f, 0.7, 0.78, 0.88, 0.95);
-  }
-  return 0;
-}
-
-function interpolar(quadros: [number, Ponto][], f: number): Ponto {
-  if (f <= quadros[0]![0]) return quadros[0]![1];
-  for (let i = 1; i < quadros.length; i++) {
-    const [fb, b] = quadros[i]!;
-    const [fa, a] = quadros[i - 1]!;
-    if (f <= fb) return lerpP(a, b, suave((f - fa) / (fb - fa)));
-  }
-  return quadros[quadros.length - 1]![1];
 }
 
 function posicoesBase(escalacao: Escalacao, lado: Lado): Ponto[] {
