@@ -6,6 +6,7 @@
  *   pnpm liga comentar --de rafa "ENTRO CAPIVARA ATA"
  *   pnpm liga jogar [--rodada N] [--sem-video]       roda as Partidas da próxima Rodada (e grava os Reels)
  *   pnpm liga resumo [--rodada N] [--previa pasta]   grava o Reels do Resumo da Rodada
+ *   pnpm liga site [--agora 2026-11-07T21:00:00Z]    exporta os JSON do site (packages/site/public/dados)
  *   pnpm liga tabela | elencos | status
  *
  * O banco fica em .cache/liga-local (PGlite). Com DATABASE_URL definida, usa esse Postgres.
@@ -22,8 +23,12 @@ import {
   conectar,
   criarTemporada,
   dadosDoResumo,
+  escreverSite,
+  exportarSite,
+  craqueDaRodada,
   fecharRodada,
   processarComentario,
+  rodadaEmVotacao,
   rodarPartida,
   tabela,
   type Banco,
@@ -49,6 +54,7 @@ const { values: args, positionals } = parseArgs({
     'sem-video': { type: 'boolean', default: false },
     pasta: { type: 'string', default: join(homedir(), 'varzeao-videos') },
     previa: { type: 'string' },
+    agora: { type: 'string' },
   },
 });
 const [comando, ...resto] = positionals;
@@ -61,33 +67,6 @@ async function temporadaAtual(b: Banco): Promise<{ id: number; numero: number; i
   const t = (await b.query<{ id: number; numero: number; inicio: string | Date }>(`SELECT id, numero, inicio FROM temporada ORDER BY numero DESC LIMIT 1`)).rows[0];
   if (!t) throw new Error('Nenhuma Temporada. Rode: pnpm liga temporada');
   return { id: t.id, numero: t.numero, inicio: new Date(t.inicio).toISOString().slice(0, 10) };
-}
-
-/** Rodada com Candidatos cuja Rodada seguinte ainda não começou: é a que está em votação. */
-async function rodadaEmVotacao(b: Banco): Promise<number | null> {
-  const r = (
-    await b.query<{ id: number }>(
-      `SELECT r.id FROM rodada r
-       WHERE EXISTS (SELECT 1 FROM candidato c WHERE c.rodada_id = r.id)
-         AND NOT EXISTS (SELECT 1 FROM rodada s JOIN partida p ON p.rodada_id = s.id
-                         WHERE s.temporada_id = r.temporada_id AND s.numero = r.numero + 1 AND p.status <> 'PENDENTE')
-       ORDER BY r.numero DESC LIMIT 1`,
-    )
-  ).rows[0];
-  return r?.id ?? null;
-}
-
-/** Craque da Rodada: o Candidato mais votado (empate: maior Nota). */
-async function craqueDaRodada(b: Banco, rodadaId: number): Promise<{ id: string; username: string } | null> {
-  const r = (
-    await b.query<{ id: string; username: string }>(
-      `SELECT j.id::text AS id, j.username FROM candidato c JOIN jogador j ON j.id = c.jogador_id
-       LEFT JOIN voto v ON v.rodada_id = c.rodada_id AND v.jogador_id = c.jogador_id
-       WHERE c.rodada_id = $1 GROUP BY j.id, c.nota ORDER BY count(v.ig_user_id) DESC, c.nota DESC, j.id LIMIT 1`,
-      [rodadaId],
-    )
-  ).rows[0];
-  return r ?? null;
 }
 
 async function main(): Promise<void> {
@@ -211,6 +190,15 @@ async function main(): Promise<void> {
         break;
       }
 
+      case 'site': {
+        // --agora simula outro instante: útil localmente, onde as Partidas são jogadas antes do Apito.
+        const agora = args.agora ? new Date(args.agora) : new Date();
+        const pasta = join(raizRepo, 'packages/site/public/dados');
+        const escritos = await escreverSite(await exportarSite(banco, agora), pasta);
+        console.log(`${escritos.length} arquivos em ${pasta} (situação em ${agora.toISOString()})`);
+        break;
+      }
+
       case 'tabela':
         await mostrarTabela(banco, (await temporadaAtual(banco)).id);
         break;
@@ -221,7 +209,7 @@ async function main(): Promise<void> {
         await mostrarCalendario(banco);
         break;
       default:
-        console.log('Comandos: temporada, inscricoes-de-teste, comentar, jogar, resumo, tabela, elencos, status (veja o topo de scripts/liga.ts)');
+        console.log('Comandos: temporada, inscricoes-de-teste, comentar, jogar, resumo, site, tabela, elencos, status (veja o topo de scripts/liga.ts)');
     }
   } finally {
     await banco.fechar();

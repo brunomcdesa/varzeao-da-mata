@@ -97,3 +97,30 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
     candidatos,
   };
 }
+
+/** Rodada com Candidatos cuja Rodada seguinte ainda não começou: é a que está em votação. */
+export async function rodadaEmVotacao(b: Banco): Promise<number | null> {
+  const r = (
+    await b.query<{ id: number }>(
+      `SELECT r.id FROM rodada r
+       WHERE EXISTS (SELECT 1 FROM candidato c WHERE c.rodada_id = r.id)
+         AND NOT EXISTS (SELECT 1 FROM rodada s JOIN partida p ON p.rodada_id = s.id
+                         WHERE s.temporada_id = r.temporada_id AND s.numero = r.numero + 1 AND p.status <> 'PENDENTE')
+       ORDER BY r.numero DESC LIMIT 1`,
+    )
+  ).rows[0];
+  return r?.id ?? null;
+}
+
+/** Craque da Rodada: o Candidato mais votado (empate: maior Nota). */
+export async function craqueDaRodada(b: Banco, rodadaId: number): Promise<{ id: string; username: string } | null> {
+  const r = (
+    await b.query<{ id: string; username: string }>(
+      `SELECT j.id::text AS id, j.username FROM candidato c JOIN jogador j ON j.id = c.jogador_id
+       LEFT JOIN voto v ON v.rodada_id = c.rodada_id AND v.jogador_id = c.jogador_id
+       WHERE c.rodada_id = $1 GROUP BY j.id, c.nota ORDER BY count(v.ig_user_id) DESC, c.nota DESC, j.id LIMIT 1`,
+      [rodadaId],
+    )
+  ).rows[0];
+  return r ?? null;
+}

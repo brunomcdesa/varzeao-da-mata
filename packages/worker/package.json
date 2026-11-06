@@ -8,13 +8,14 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
-    "liga": "tsx scripts/liga.ts"
+    "liga": "tsx scripts/liga.ts",
+    "site-demo": "tsx scripts/site-demo.ts"
   },
   "dependencies": {
+    "@liga/renderer": "workspace:*",
     "@liga/shared": "workspace:*",
     "@liga/sim": "workspace:*",
-    "pg": "8.23.1",
-    "@liga/renderer": "workspace:*"
+    "pg": "8.23.1"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.10",

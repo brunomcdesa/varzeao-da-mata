@@ -85,3 +85,4 @@ export interface Escalacao {
   time: TimeId;
   jogadores: readonly JogadorEscalado[];
 }
+export * from './site.js';
