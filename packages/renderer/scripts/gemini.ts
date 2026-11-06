@@ -5,6 +5,11 @@
  *   GEMINI_API_KEY      chave do Google AI Studio (aistudio.google.com/apikey)
  *   GEMINI_TTS_VOZ      voz (padrão Lumi; procure outras com `pnpm vozes --gemini <nome>`)
  *   GEMINI_TTS_MODELO   modelo (padrão gemini-3.8-flash-tts)
+ *   GEMINI_TTS_RPM      pedidos por minuto permitidos pelo seu plano (padrão 3, o do plano grátis)
+ *
+ * Os pedidos são espaçados para respeitar o limite do plano; se a API ainda assim pedir
+ * para esperar (429), o gravador espera o tempo indicado e tenta de novo. Com o cache de
+ * falas, só frases novas passam pela API.
  *
  * A emoção vem do campo `style` (speech_metadata), separado do texto lido, com um estilo
  * por Tom da fala. A API devolve WAV 24 kHz mono; aqui ele vira 48 kHz, o formato da mixagem.
@@ -67,9 +72,30 @@ export function para48k(wav: Uint8Array): Uint8Array {
   return codificarWav(saida, saida);
 }
 
+const dormir = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
+
+/** Quando o próximo pedido pode sair (espaçamento pelo limite por minuto do plano). */
+let proximoPedido = 0;
+
+async function aguardarVez(): Promise<void> {
+  const rpm = Math.max(1, Number(process.env.GEMINI_TTS_RPM) || 3);
+  const intervalo = 60_000 / rpm + 500;
+  const espera = proximoPedido - Date.now();
+  if (espera > 1500) console.log(`  … aguardando ${Math.ceil(espera / 1000)} s (limite de ${rpm} pedidos/min do Gemini)`);
+  if (espera > 0) await dormir(espera);
+  proximoPedido = Date.now() + intervalo;
+}
+
+/** Segundos que a API pediu para esperar ("Please retry in 19s"), se houver. */
+export function esperaPedida(mensagem: string): number | null {
+  const m = /retry in ([\d.]+)\s*s/i.exec(mensagem);
+  return m ? Number(m[1]) : null;
+}
+
 export async function falarGemini(texto: string, tom: Tom, chave: string, voz: string, modelo: string): Promise<Uint8Array> {
   let ultimoErro = '';
-  for (let tentativa = 1; tentativa <= 4; tentativa++) {
+  for (let tentativa = 1; tentativa <= 8; tentativa++) {
+    await aguardarVez();
     const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
       method: 'POST',
       headers: { 'x-goog-api-key': chave, 'Content-Type': 'application/json' },
@@ -78,8 +104,10 @@ export async function falarGemini(texto: string, tom: Tom, chave: string, voz: s
     if (resp.ok) return para48k(extrairAudio((await resp.json()) as RespostaGemini));
     ultimoErro = `${resp.status} ${await resp.text()}`;
     if (resp.status !== 429 && resp.status < 500) break;
-    // Limite de requisições do plano: espera e tenta de novo.
-    await new Promise((ok) => setTimeout(ok, 4000 * tentativa));
+    // Limite do plano (ou instabilidade): espera o que a API pediu e tenta de novo.
+    const segundos = (esperaPedida(ultimoErro) ?? 5 * tentativa) + 1;
+    console.log(`  … Gemini pediu para esperar ${Math.ceil(segundos)} s (tentativa ${tentativa})`);
+    proximoPedido = Date.now() + segundos * 1000;
   }
   throw new Error(`Gemini TTS recusou a fala "${texto}": ${ultimoErro}`);
 }

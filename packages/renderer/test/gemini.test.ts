@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { codificarWav, lerWavMono } from '../src/audio.js';
-import { ESTILO, extrairAudio, para48k, pedidoGemini } from '../scripts/gemini.js';
+import { ESTILO, esperaPedida, extrairAudio, para48k, pedidoGemini } from '../scripts/gemini.js';
 
 describe('Gemini TTS', () => {
   it('monta o pedido com voz, estilo do tom e texto separados', () => {
@@ -34,5 +34,11 @@ describe('Gemini TTS', () => {
 
   it('avisa quando a resposta não tem áudio', () => {
     expect(() => extrairAudio({ steps: [{ type: 'model_output', content: [] }] })).toThrow(/não trouxe áudio/);
+  });
+
+  it('lê quanto tempo a API pediu para esperar', () => {
+    expect(esperaPedida('Rate limit exceeded ... Please retry in 19s or upgrade')).toBe(19);
+    expect(esperaPedida('Please retry in 2.5s')).toBe(2.5);
+    expect(esperaPedida('erro qualquer')).toBeNull();
   });
 });

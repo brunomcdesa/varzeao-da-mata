@@ -123,11 +123,13 @@ async function montarAudio(partida: PartidaParaVideo, dir: string): Promise<{ ar
   if (locutor.modo === 'mudo') console.warn('  Sem chave do Azure nem espeak-ng: o vídeo sai sem a voz do Locutor.');
 
   const vozes = new Map<string, Float32Array>();
-  for (const f of falasBase) {
+  for (const [i, f] of falasBase.entries()) {
+    if (process.stdout.isTTY) process.stdout.write(`\r  voz ${i + 1}/${falasBase.length}   `);
     const { amostras, taxa } = lerWavMono(await locutor.falar(f.texto, f.tom));
     if (taxa !== TAXA) throw new Error(`voz em ${taxa} Hz; esperado ${TAXA}`);
     vozes.set(f.id, amostras);
   }
+  if (process.stdout.isTTY) process.stdout.write('\r');
   const duracao = (id: string) => vozes.get(id)!.length / TAXA;
   const opcoes: OpcoesRoteiro = { ...partida.roteiro, minimos: exigenciasDaNarracao(base, falasBase, duracao) };
   const roteiro = new Roteiro(timeline, opcoes);
