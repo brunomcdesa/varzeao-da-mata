@@ -57,6 +57,28 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
+  packages/site:
+    dependencies:
+      '@liga/renderer':
+        specifier: workspace:*
+        version: link:../renderer
+      '@liga/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@liga/sim':
+        specifier: workspace:*
+        version: link:../sim
+    devDependencies:
+      '@fontsource/jersey-10':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@fontsource/pixelify-sans':
+        specifier: 5.3.0
+        version: 5.3.0
+      esbuild:
+        specifier: ^0.24.0
+        version: 0.24.2
+
   packages/worker:
     dependencies:
       '@liga/renderer':

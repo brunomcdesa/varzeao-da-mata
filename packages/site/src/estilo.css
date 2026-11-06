@@ -1,0 +1,1414 @@
+/*
+ * Varzeão da Mata — o site é o barracão do campinho no meio do mato:
+ * tábuas de madeira (placar, menu), placas pintadas de creme (avisos), quadro-negro
+ * com giz (tabela, regras) e o Card de cada Jogador como figurinha. Tudo em pixel.
+ */
+@import '@fontsource/jersey-10/400.css';
+@import '@fontsource/pixelify-sans/400.css';
+@import '@fontsource/pixelify-sans/600.css';
+
+:root {
+  --mata: #132a1c;
+  --mata-media: #1c3d27;
+  --mata-clara: #2a5934;
+  --folha: #3a7344;
+  --grama: #4d8a35;
+  --cal: #efe8d6;
+  --cal-fraca: #b9c4b2;
+  --placa: #f3e6c9;
+  --placa-sombra: #d9c7a2;
+  --tinta: #24170e;
+  --tinta-fraca: #6b5640;
+  --madeira: #7a4e2d;
+  --madeira-escura: #5c3920;
+  --madeira-luz: #956238;
+  --contorno: #20140b;
+  --amarelo: #f2b705;
+  --terrao: #a85d37;
+  --sobe: #7fd06b;
+  --desce: #ff8f6b;
+  --giz: #26352c;
+
+  --display: 'Jersey 10', 'Pixelify Sans', system-ui, sans-serif;
+  --texto: 'Pixelify Sans', system-ui, sans-serif;
+
+  /* Canto em degrau de pixel (4 px). */
+  --canto: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
+  --madeira-veio: repeating-linear-gradient(180deg, transparent 0 22px, rgb(0 0 0 / 0.22) 22px 24px), repeating-linear-gradient(90deg, transparent 0 9px, rgb(255 255 255 / 0.04) 9px 10px, transparent 10px 31px);
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--mata);
+  /* Folhagem miúda ao fundo. */
+  background-image:
+    conic-gradient(from 90deg at 3px 3px, transparent 25%, rgb(28 61 39 / 0.55) 0) 0 0 / 18px 18px,
+    conic-gradient(from 90deg at 3px 3px, transparent 25%, rgb(28 61 39 / 0.35) 0) 9px 9px / 18px 18px;
+  color: var(--cal);
+  font: 400 1rem/1.5 var(--texto);
+}
+
+img.pixel,
+canvas {
+  image-rendering: pixelated;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--amarelo);
+  outline-offset: 2px;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--display);
+  font-weight: 400;
+  line-height: 1;
+  margin: 0;
+}
+
+small {
+  font-size: 0.8125rem;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.pular {
+  position: absolute;
+  left: 16px;
+  top: -60px;
+  z-index: 10;
+  background: var(--amarelo);
+  color: var(--tinta);
+  padding: 8px 12px;
+}
+.pular:focus {
+  top: 8px;
+}
+
+/* ------------------------------------------------------------ topo e rodapé */
+
+.topo {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 20px;
+  padding: 8px 16px;
+  background: var(--madeira-veio), var(--madeira);
+  border-bottom: 4px solid var(--contorno);
+  box-shadow: inset 0 -4px 0 var(--madeira-escura);
+}
+
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  font: 400 1.75rem/1 var(--display);
+  color: var(--placa);
+  text-shadow: 2px 2px 0 var(--contorno);
+}
+
+.menu {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 -16px;
+  padding: 0 16px 4px;
+  max-width: 100vw;
+}
+@media (min-width: 720px) {
+  .menu {
+    margin: 0 0 0 auto;
+    padding: 0;
+  }
+}
+.menu a {
+  flex: none;
+  padding: 6px 10px 4px;
+  text-decoration: none;
+  color: var(--placa);
+  font-weight: 600;
+}
+.menu a:hover {
+  background: rgb(0 0 0 / 0.2);
+}
+.menu a[aria-current='page'] {
+  background: var(--placa);
+  color: var(--tinta);
+  clip-path: var(--canto);
+}
+
+main {
+  flex: 1;
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 20px 16px 48px;
+}
+main:focus {
+  outline: none;
+}
+
+.rodape {
+  padding: 16px;
+  text-align: center;
+  color: var(--cal-fraca);
+  font-size: 0.8125rem;
+  border-top: 2px solid var(--mata-media);
+}
+.rodape p {
+  margin: 0 auto;
+  max-width: 60ch;
+}
+
+.carregando {
+  color: var(--cal-fraca);
+}
+
+/* ------------------------------------------------------------ títulos */
+
+.titulo-pagina {
+  font-size: clamp(2.25rem, 7vw, 3.25rem);
+  color: var(--placa);
+  text-shadow: 3px 3px 0 var(--contorno);
+  margin: 4px 0 16px;
+}
+.titulo-pagina small {
+  font: 400 1rem var(--texto);
+  color: var(--cal-fraca);
+  text-shadow: none;
+  margin-left: 8px;
+}
+
+.secao {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 2rem;
+  color: var(--placa);
+  margin: 28px 0 10px;
+}
+.secao small {
+  font: 400 0.9375rem var(--texto);
+  color: var(--cal-fraca);
+}
+
+.legenda {
+  color: var(--cal-fraca);
+  font-size: 0.875rem;
+  margin: 8px 0 0;
+  max-width: 70ch;
+}
+
+.vazio-pequeno {
+  color: var(--cal-fraca);
+  margin: 4px 0 12px;
+}
+
+/* ------------------------------------------------------------ superfícies */
+
+.placa {
+  background: var(--placa);
+  color: var(--tinta);
+  clip-path: var(--canto);
+  box-shadow: inset 0 -5px 0 var(--placa-sombra), inset 0 0 0 3px var(--contorno);
+  padding: 18px 18px 20px;
+  margin: 24px 0;
+}
+.placa h2,
+.placa h1 {
+  color: var(--tinta);
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+.placa a {
+  color: var(--madeira-escura);
+}
+.placa.vazio p {
+  margin: 8px 0 0;
+  max-width: 60ch;
+}
+
+.quadro-negro {
+  background: var(--giz);
+  background-image: radial-gradient(rgb(239 232 214 / 0.035) 1px, transparent 1px);
+  background-size: 5px 5px;
+  border: 6px solid var(--madeira);
+  box-shadow: 0 0 0 3px var(--contorno), inset 0 0 0 2px rgb(0 0 0 / 0.35);
+  padding: 16px 18px;
+  margin: 24px 3px;
+}
+.quadro-negro h2 {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+.comando {
+  display: inline-block;
+  font: 400 1.75rem/1 var(--display);
+  color: var(--amarelo);
+  letter-spacing: 0.02em;
+  margin: 6px 0;
+}
+.comando.pequeno {
+  font-size: 1.25rem;
+  margin: 0;
+}
+.placa .comando {
+  color: var(--madeira-escura);
+}
+
+.botao {
+  display: inline-block;
+  font: 600 1rem/1 var(--texto);
+  padding: 12px 16px 10px;
+  background: var(--amarelo);
+  color: var(--tinta);
+  text-decoration: none;
+  border: 0;
+  cursor: pointer;
+  clip-path: var(--canto);
+  box-shadow: inset 0 -4px 0 #b88a00;
+}
+.botao:hover {
+  filter: brightness(1.08);
+}
+.botao:active {
+  box-shadow: inset 0 4px 0 #b88a00;
+}
+.botao.secundario {
+  background: var(--placa);
+  box-shadow: inset 0 -4px 0 var(--placa-sombra);
+}
+
+/* ------------------------------------------------------------ início */
+
+.inicio {
+  display: grid;
+  gap: 0 32px;
+}
+@media (min-width: 900px) {
+  .inicio {
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    align-items: start;
+  }
+  .coluna-lado {
+    position: sticky;
+    top: 84px;
+  }
+}
+
+/* A tábua do placar: o elemento que dá a cara do site. */
+.tabua {
+  position: relative;
+  background: var(--madeira-veio), var(--madeira);
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 4px var(--contorno), inset 0 -8px 0 4px var(--madeira-escura);
+  padding: 18px 16px 24px;
+  color: var(--placa);
+  text-align: center;
+}
+.tabua::before,
+.tabua::after {
+  /* Pregos. */
+  content: '';
+  position: absolute;
+  top: 12px;
+  width: 6px;
+  height: 6px;
+  background: #3b2a1c;
+  box-shadow: inset -2px -2px 0 #1a120b;
+}
+.tabua::before {
+  left: 12px;
+}
+.tabua::after {
+  right: 12px;
+}
+.tabua-titulo {
+  font: 600 1rem/1.2 var(--texto);
+  margin: 0 0 12px;
+  color: var(--placa);
+}
+.tabua.rolando .tabua-titulo::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  background: #ff4d3a;
+  vertical-align: 1px;
+  animation: piscar 1.2s steps(2, jump-none) infinite;
+}
+@keyframes piscar {
+  50% {
+    opacity: 0.25;
+  }
+}
+.tabua-confronto {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.tabua-time {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  text-decoration: none;
+  font: 400 clamp(1.5rem, 6vw, 2.25rem)/1 var(--display);
+  text-shadow: 2px 2px 0 var(--contorno);
+}
+.tabua-time img {
+  width: clamp(56px, 18vw, 80px);
+  height: auto;
+  filter: drop-shadow(3px 3px 0 var(--contorno));
+}
+.tabua-meio {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+.tabua-hora,
+.tabua-placar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 400 clamp(2.5rem, 11vw, 3.75rem)/1 var(--display);
+  color: var(--tinta);
+  background: var(--placa);
+  padding: 6px 14px 2px;
+  clip-path: var(--canto);
+  box-shadow: inset 0 -4px 0 var(--placa-sombra);
+}
+.tabua-placar .x {
+  font-size: 0.6em;
+  color: var(--tinta-fraca);
+}
+.tabua .rodada-n,
+.tabua .falta {
+  font-size: 0.875rem;
+}
+.tabua-acao {
+  margin: 18px 0 0;
+}
+.tabua-transmissao {
+  margin: 0 auto;
+  max-width: 340px;
+}
+.tabua-transmissao canvas,
+.transmissao canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 9 / 16;
+  background: var(--mata-media);
+  box-shadow: 0 0 0 4px var(--contorno);
+}
+.escondido-telinha {
+  display: none;
+}
+.tabua-partida {
+  margin-bottom: 20px;
+}
+
+.classico-nome {
+  display: inline-block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--tinta);
+  background: var(--amarelo);
+  padding: 3px 8px 1px;
+  clip-path: var(--canto);
+}
+
+.ao-vivo-selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #fff;
+  background: #c4321f;
+  padding: 3px 8px 1px;
+  clip-path: var(--canto);
+}
+
+/* ------------------------------------------------------------ lista de jogos */
+
+.lista-partidas {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  background: var(--placa);
+  color: var(--tinta);
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 3px var(--contorno), inset 0 -5px 0 3px var(--placa-sombra);
+}
+.lista-partidas li + li {
+  border-top: 2px dashed var(--placa-sombra);
+}
+.partida-linha {
+  display: grid;
+  grid-template-columns: 3.4rem 1fr auto 1fr;
+  grid-template-areas: 'quando mandante placar visitante' '. extra extra extra';
+  align-items: center;
+  gap: 0 10px;
+  padding: 10px 14px;
+  text-decoration: none;
+}
+.partida-linha:hover {
+  background: rgb(122 78 45 / 0.08);
+}
+.partida-linha .quando {
+  grid-area: quando;
+  font-size: 0.875rem;
+  color: var(--tinta-fraca);
+}
+.partida-linha .lado {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-weight: 600;
+}
+.partida-linha .mandante {
+  grid-area: mandante;
+  justify-content: flex-end;
+  text-align: right;
+}
+.partida-linha .visitante {
+  grid-area: visitante;
+}
+.partida-linha .nome {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.partida-linha .placar {
+  grid-area: placar;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 3.5rem;
+  font: 400 1.875rem/1 var(--display);
+}
+.partida-linha .x {
+  color: var(--tinta-fraca);
+  font-size: 1.25rem;
+}
+.partida-linha .penaltis {
+  flex-basis: 100%;
+  text-align: center;
+  font: 400 0.75rem var(--texto);
+  color: var(--tinta-fraca);
+}
+.partida-linha .extra {
+  grid-area: extra;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  color: var(--tinta-fraca);
+}
+.partida-linha .extra:empty {
+  display: none;
+}
+@media (max-width: 420px) {
+  .partida-linha {
+    grid-template-columns: 1fr auto 1fr;
+    grid-template-areas: 'quando quando quando' 'mandante placar visitante' 'extra extra extra';
+  }
+  .partida-linha .quando {
+    text-align: center;
+  }
+}
+
+.rodada-bloco {
+  scroll-margin-top: 90px;
+}
+.rodada-bloco.atual .secao::after {
+  content: 'da vez';
+  font: 600 0.8125rem var(--texto);
+  color: var(--tinta);
+  background: var(--amarelo);
+  padding: 2px 8px 0;
+  clip-path: var(--canto);
+}
+
+/* ------------------------------------------------------------ tabela */
+
+.classificacao {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.classificacao th,
+.classificacao td {
+  padding: 7px 6px 5px;
+  text-align: center;
+}
+.classificacao thead th {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--cal-fraca);
+  border-bottom: 2px solid rgb(239 232 214 / 0.35);
+}
+.classificacao .time {
+  text-align: left;
+  width: 100%;
+}
+.classificacao .time a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  font-weight: 600;
+}
+.classificacao tbody tr + tr td,
+.classificacao tbody tr + tr th {
+  border-top: 1px dashed rgb(239 232 214 / 0.18);
+}
+.classificacao .pos {
+  color: var(--cal-fraca);
+  width: 1.5rem;
+}
+.classificacao .classifica .pos {
+  color: var(--amarelo);
+}
+.classificacao tbody tr:nth-child(4) td,
+.classificacao tbody tr:nth-child(4) th {
+  border-bottom: 2px solid var(--amarelo);
+}
+.classificacao .pontos {
+  font: 400 1.5rem/1 var(--display);
+  color: var(--amarelo);
+}
+.coluna-lado .quadro-negro {
+  margin-top: 28px;
+}
+.coluna-lado > section:first-child .classificacao {
+  background: var(--giz);
+  border: 6px solid var(--madeira);
+  box-shadow: 0 0 0 3px var(--contorno);
+}
+.tabela-grande {
+  overflow-x: auto;
+}
+.tabela-grande .classificacao th,
+.tabela-grande .classificacao td {
+  padding: 10px 8px 8px;
+}
+
+/* ------------------------------------------------------------ como entrar e votação */
+
+.como-entrar p {
+  margin: 6px 0;
+  max-width: 48ch;
+}
+.como-entrar a {
+  color: var(--amarelo);
+}
+.como-entrar details {
+  margin-top: 10px;
+}
+.como-entrar summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.times-validos {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 12px;
+}
+.times-validos li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.candidatos {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+.candidatos li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+.candidatos li + li {
+  border-top: 2px dashed var(--placa-sombra);
+}
+.quem {
+  display: grid;
+  min-width: 0;
+}
+.quem small {
+  color: var(--tinta-fraca);
+}
+.arroba {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.craque {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 8px 0 0;
+  font-size: 1.25rem;
+}
+.craque > span {
+  display: grid;
+  gap: 2px;
+}
+.craque small {
+  font-size: 0.8125rem;
+  color: var(--tinta-fraca);
+}
+.base {
+  color: var(--tinta-fraca);
+  font-style: italic;
+}
+
+/* ------------------------------------------------------------ partida */
+
+.transmissao {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  margin: 0 auto 8px;
+  max-width: 420px;
+}
+.transmissao canvas {
+  max-width: 420px;
+}
+.controles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+.controles input[type='range'] {
+  flex: 1 1 160px;
+  accent-color: var(--amarelo);
+}
+.velocidades {
+  display: flex;
+}
+.velocidades button {
+  font: 600 0.875rem var(--texto);
+  background: var(--mata-media);
+  color: var(--cal);
+  border: 2px solid var(--contorno);
+  padding: 6px 10px 4px;
+  cursor: pointer;
+}
+.velocidades button + button {
+  border-left: 0;
+}
+.velocidades button[aria-pressed='true'] {
+  background: var(--placa);
+  color: var(--tinta);
+}
+
+.escalacoes {
+  display: grid;
+  gap: 0 20px;
+}
+@media (min-width: 760px) {
+  .escalacoes {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.escalacao {
+  margin: 16px 0 0;
+  padding: 14px 12px 16px;
+}
+.escalacao h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.75rem;
+  margin-bottom: 6px;
+}
+.escalacao ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.escalacao li {
+  display: grid;
+  grid-template-columns: 24px 2.5rem minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.escalacao li + li {
+  border-top: 2px dashed var(--placa-sombra);
+}
+.escalacao .pos {
+  font: 400 1.125rem var(--display);
+  color: var(--tinta-fraca);
+}
+.escalacao .feitos {
+  color: var(--madeira-escura);
+  letter-spacing: 2px;
+}
+.escalacao .feitos small {
+  letter-spacing: 0;
+  margin-left: 4px;
+}
+.ovr {
+  font: 400 1.5rem/1 var(--display);
+  font-variant-numeric: tabular-nums;
+}
+.ovr small {
+  font: 600 0.75rem var(--texto);
+  margin-left: 3px;
+}
+.placa .sobe {
+  color: #2e7d22;
+}
+.placa .desce {
+  color: #b23a1a;
+}
+.nota-chip {
+  display: inline-block;
+  min-width: 2.5rem;
+  text-align: center;
+  font: 400 1.125rem/1 var(--display);
+  background: var(--tinta);
+  color: var(--placa);
+  padding: 3px 6px 1px;
+  clip-path: var(--canto);
+}
+
+.lances {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.lance {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 2.5rem 4.5rem 1fr auto;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-bottom: 1px dashed rgb(239 232 214 / 0.18);
+  padding: 8px 4px;
+  cursor: pointer;
+}
+.lance:hover {
+  background: rgb(239 232 214 / 0.06);
+}
+.lance .min {
+  font: 400 1.25rem var(--display);
+  color: var(--cal-fraca);
+}
+.lance .chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 2px 6px 0;
+  background: var(--mata-clara);
+  clip-path: var(--canto);
+}
+.lance.tipo-gol .chip {
+  background: var(--amarelo);
+  color: var(--tinta);
+}
+.lance.tipo-gol .txt {
+  font-weight: 600;
+}
+.lance .sig {
+  font: 400 1.125rem var(--display);
+  color: var(--cal-fraca);
+}
+.lance.futuro {
+  opacity: 0.45;
+}
+
+/* ------------------------------------------------------------ times */
+
+.grade-times {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+.cartaz-time {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  height: 100%;
+  padding: 16px;
+  text-decoration: none;
+  color: var(--tinta);
+  background: var(--cor);
+  color: var(--sobre);
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 3px var(--contorno), inset 0 -8px 0 3px var(--cor2);
+}
+.cartaz-time .nome {
+  font: 400 1.75rem/1 var(--display);
+}
+.cartaz-time .bordao {
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+.cartaz-time .numeros {
+  display: flex;
+  gap: 12px;
+  margin-top: auto;
+  padding-bottom: 6px;
+  font-weight: 600;
+}
+.cartaz-time img {
+  filter: drop-shadow(3px 3px 0 var(--contorno));
+}
+.cartaz-time:hover {
+  filter: brightness(1.06);
+}
+
+.faixa-time {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px;
+  background: var(--cor);
+  color: var(--sobre);
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 4px var(--contorno), inset 0 -10px 0 4px var(--cor2);
+}
+.faixa-time h1 {
+  font-size: clamp(2rem, 7vw, 3rem);
+}
+.faixa-time p {
+  margin: 6px 0 0;
+}
+.faixa-time img {
+  flex: none;
+  width: clamp(64px, 20vw, 100px);
+  height: auto;
+  filter: drop-shadow(4px 4px 0 var(--contorno));
+}
+.campanha {
+  font-weight: 600;
+}
+.time-colunas {
+  display: grid;
+  gap: 0 32px;
+}
+@media (min-width: 900px) {
+  .time-colunas {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  }
+}
+.grupo-posicao h3 {
+  font-size: 1.5rem;
+  color: var(--cal);
+  margin: 16px 0 6px;
+}
+.grupo-posicao h3 small {
+  font: 400 0.875rem var(--texto);
+  color: var(--cal-fraca);
+}
+.elenco {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.elenco-linha {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto auto auto 2.5rem;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 4px;
+  text-decoration: none;
+  border-bottom: 1px dashed rgb(239 232 214 / 0.18);
+}
+.elenco-linha:hover {
+  background: rgb(239 232 214 / 0.06);
+}
+.elenco-linha .quem {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.elenco-linha .dado {
+  font-size: 0.875rem;
+  color: var(--cal-fraca);
+}
+.elenco-linha .ovr {
+  color: var(--amarelo);
+  text-align: right;
+}
+@media (max-width: 420px) {
+  .elenco-linha {
+    grid-template-columns: 24px minmax(0, 1fr) auto 2.5rem;
+  }
+  .elenco-linha .dado:nth-of-type(n + 2) {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------ jogadores */
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: end;
+}
+.filtros label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.8125rem;
+  color: var(--cal-fraca);
+}
+.filtros .busca {
+  flex: 1 1 200px;
+}
+input[type='search'],
+select {
+  font: 600 1rem var(--texto);
+  color: var(--tinta);
+  background: var(--placa);
+  border: 0;
+  padding: 10px 12px 8px;
+  clip-path: var(--canto);
+  box-shadow: inset 0 3px 0 var(--placa-sombra);
+  min-height: 44px;
+}
+input[type='checkbox'] {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--amarelo);
+}
+
+.ranking-caixa {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+.ranking {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.ranking th,
+.ranking td {
+  padding: 6px 8px;
+  text-align: center;
+  border-bottom: 1px dashed rgb(239 232 214 / 0.18);
+}
+.ranking thead th {
+  font-size: 0.8125rem;
+  color: var(--cal-fraca);
+  font-weight: 600;
+  border-bottom: 2px solid rgb(239 232 214 / 0.35);
+}
+.ranking tbody th {
+  text-align: left;
+  width: 100%;
+  font-weight: 400;
+}
+.ranking .num {
+  color: var(--cal-fraca);
+}
+.ranking .ordem {
+  color: var(--amarelo);
+  font-weight: 600;
+}
+.ranking td.ovr {
+  font-size: 1.5rem;
+}
+@media (max-width: 480px) {
+  .ranking th:nth-child(2),
+  .ranking td:nth-child(2),
+  .ranking th:nth-child(7),
+  .ranking td:nth-child(7) {
+    display: none;
+  }
+  .ranking th,
+  .ranking td {
+    padding: 6px 4px;
+  }
+}
+.jogador-celula {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  min-width: 0;
+}
+.jogador-celula > span {
+  display: grid;
+}
+.jogador-celula small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--cal-fraca);
+}
+.barra-comparar {
+  position: sticky;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 10px 10px 10px 16px;
+  background: var(--madeira-veio), var(--madeira);
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 3px var(--contorno);
+  font-weight: 600;
+}
+.barra-comparar[hidden],
+[hidden] {
+  display: none !important;
+}
+
+/* O Card: figurinha nas cores do Time. */
+.card {
+  width: min(100%, 300px);
+  margin: 0 auto;
+  background: var(--cor);
+  color: var(--sobre);
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 4px var(--contorno), inset 0 0 0 9px var(--cor2), inset 0 0 0 11px var(--contorno);
+  padding: 20px 20px 18px;
+  text-align: center;
+}
+.card-topo {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  text-align: left;
+}
+.card-ovr {
+  font: 400 4rem/0.8 var(--display);
+  text-shadow: 3px 3px 0 var(--cor2);
+}
+.card-pos {
+  font: 400 1.5rem/1 var(--display);
+  align-self: end;
+  margin-left: 8px;
+}
+.card-escudo {
+  filter: drop-shadow(2px 2px 0 var(--contorno));
+}
+.card-boneco {
+  margin: 10px -8px 0;
+  padding: 10px 0 0;
+  /* Grama listrada embaixo do boneco. */
+  background: linear-gradient(transparent 70%, var(--grama) 70% 85%, #467f30 85%);
+  box-shadow: inset 0 0 0 3px var(--contorno);
+}
+.card-boneco img {
+  display: block;
+  margin: 0 auto;
+  filter: drop-shadow(4px 0 0 rgb(0 0 0 / 0.25));
+}
+.card-nome {
+  margin: 12px 0 0;
+  font: 400 2rem/1 var(--display);
+  overflow-wrap: anywhere;
+}
+.card-time {
+  margin: 4px 0 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.card-numeros {
+  color: var(--tinta);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+  background: var(--placa);
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 3px var(--contorno);
+  padding: 8px 4px 6px;
+}
+.card-numeros dt {
+  font-size: 0.75rem;
+  color: var(--tinta-fraca);
+}
+.card-numeros dd {
+  margin: 0;
+  font: 400 1.75rem/1 var(--display);
+}
+.card-delta {
+  margin: 10px 0 0;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.card-titulos {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 10px 0 0;
+}
+.card-titulos .titulo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--amarelo);
+  color: var(--tinta);
+  padding: 3px 8px 1px;
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 2px var(--contorno);
+}
+.card.pequeno {
+  width: min(100%, 220px);
+  padding: 16px 14px 14px;
+}
+.card.pequeno .card-ovr {
+  font-size: 3rem;
+}
+.card.pequeno .card-nome {
+  font-size: 1.5rem;
+}
+
+.pagina-jogador {
+  display: grid;
+  gap: 24px 40px;
+}
+@media (min-width: 820px) {
+  .pagina-jogador {
+    grid-template-columns: 300px minmax(0, 1fr);
+    align-items: start;
+  }
+  .pagina-jogador .card {
+    position: sticky;
+    top: 84px;
+  }
+}
+.ranking-frase {
+  font-weight: 600;
+  color: var(--amarelo);
+  margin: 0 0 12px;
+}
+.numeros-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 2px;
+  margin: 0;
+}
+.numeros-grade div {
+  background: var(--mata-media);
+  padding: 10px 12px 8px;
+}
+.numeros-grade dt {
+  font-size: 0.8125rem;
+  color: var(--cal-fraca);
+}
+.numeros-grade dd {
+  margin: 2px 0 0;
+  font: 400 2rem/1 var(--display);
+}
+.numeros-grade dd small {
+  font: 400 0.75rem var(--texto);
+  color: var(--cal-fraca);
+  margin-left: 6px;
+}
+.historico {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.historico a {
+  display: grid;
+  grid-template-columns: 1fr auto auto 2.5rem;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 4px;
+  text-decoration: none;
+  border-bottom: 1px dashed rgb(239 232 214 / 0.18);
+}
+.historico a:hover {
+  background: rgb(239 232 214 / 0.06);
+}
+.historico .nota-chip {
+  background: var(--placa);
+  color: var(--tinta);
+}
+.historico .ovr {
+  text-align: right;
+  color: var(--amarelo);
+}
+.comparar-com {
+  margin-top: 28px;
+}
+.comparar-com label {
+  display: grid;
+  gap: 6px;
+  max-width: 360px;
+  font-weight: 600;
+}
+
+.grafico {
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  display: block;
+}
+.grafico .grade {
+  stroke: var(--mata-clara);
+  stroke-width: 1;
+}
+.grafico .eixo {
+  fill: var(--cal-fraca);
+  font: 400 11px var(--texto);
+}
+
+/* Comparar */
+.titulo-pagina .x {
+  color: var(--cal-fraca);
+  font-size: 0.7em;
+}
+.dupla {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.duelo {
+  width: 100%;
+  max-width: 640px;
+  margin: 24px auto 0;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.duelo thead th {
+  font-size: 0.875rem;
+  color: var(--cal-fraca);
+  padding-bottom: 6px;
+}
+.duelo tbody th {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--cal-fraca);
+  padding: 0 10px;
+  white-space: nowrap;
+}
+.duelo td {
+  position: relative;
+  width: 45%;
+  padding: 6px 8px;
+  border-bottom: 1px dashed rgb(239 232 214 / 0.18);
+}
+.duelo .barra {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: var(--p);
+  background: var(--mata-clara);
+}
+.duelo .lado-a .barra {
+  right: 0;
+}
+.duelo .lado-b .barra {
+  left: 0;
+}
+.duelo .ganha .barra {
+  background: var(--folha);
+}
+.duelo .valor {
+  position: relative;
+  font: 400 1.5rem/1 var(--display);
+}
+.duelo .lado-a {
+  text-align: right;
+}
+.duelo .ganha .valor {
+  color: var(--amarelo);
+}
+.legenda-grafico {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--cal-fraca);
+  font-size: 0.875rem;
+}
+.amostra {
+  display: inline-block;
+  width: 18px;
+  height: 4px;
+  margin-left: 8px;
+}
+.amostra.a {
+  background: var(--amarelo);
+}
+.amostra.b {
+  background: repeating-linear-gradient(90deg, var(--cal) 0 5px, transparent 5px 9px);
+}
+
+/* Links de Time em texto */
+.time-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

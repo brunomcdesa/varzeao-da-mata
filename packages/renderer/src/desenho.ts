@@ -5,7 +5,7 @@
  * Linguagem visual: várzea em pixel art. Placar de tábua com plaquinhas penduradas,
  * campo com terrão e cal, mata em volta e faixa de torcida no gol.
  */
-import { IDENTIDADE, type TimeId } from '@liga/shared';
+import { IDENTIDADE, type Posicao, type TimeId } from '@liga/shared';
 import type { Lado } from '@liga/sim';
 import { CAMPO, cenario } from './cenario.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
@@ -61,9 +61,14 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
 }
 
 function visualDe(j: JogadorNoQuadro, o: OpcoesDesenho): Visual {
-  const id = IDENTIDADE[o.times[j.slot.lado]];
   const nome = o.nomes[j.slot.lado][j.slot.indice] ?? `base-${j.slot.lado}-${j.slot.indice}`;
-  const goleiro = j.posicao === 'GOL';
+  return visualDoJogador(o.times[j.slot.lado], j.posicao, nome);
+}
+
+/** Uniforme do Time (goleiro com as cores invertidas) e pele/cabelo fixos pelo @ ("@rafa"). */
+export function visualDoJogador(time: TimeId, posicao: Posicao, nome: string): Visual {
+  const id = IDENTIDADE[time];
+  const goleiro = posicao === 'GOL';
   return {
     camisa: goleiro ? id.secundaria : id.primaria,
     detalhe: goleiro ? id.primaria : id.secundaria,

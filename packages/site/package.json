@@ -1,0 +1,21 @@
+{
+  "name": "@liga/site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --servir"
+  },
+  "dependencies": {
+    "@liga/renderer": "workspace:*",
+    "@liga/shared": "workspace:*",
+    "@liga/sim": "workspace:*"
+  },
+  "devDependencies": {
+    "@fontsource/jersey-10": "5.3.0",
+    "@fontsource/pixelify-sans": "5.3.0",
+    "esbuild": "^0.24.0"
+  }
+}

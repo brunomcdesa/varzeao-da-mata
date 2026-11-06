@@ -10,13 +10,15 @@
     "gravar": "pnpm --filter @liga/renderer gravar",
     "vozes": "pnpm --filter @liga/renderer vozes",
     "testar-grito": "pnpm --filter @liga/renderer testar-grito",
-    "liga": "pnpm --filter @liga/worker liga"
+    "liga": "pnpm --filter @liga/worker liga",
+    "site": "pnpm --filter @liga/site dev",
+    "site:build": "pnpm --filter @liga/site build"
   },
   "devDependencies": {
-    "typescript": "^5.6.0",
-    "vitest": "^2.1.0",
+    "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
-    "@types/node": "^22.0.0"
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
