@@ -18,7 +18,7 @@ import { FUSO_BRASILIA } from './calendario.js';
 import { processarComentario, type Comentario, type Resultado } from './coletar.js';
 import { CORTE_MINUTOS } from './escalacao.js';
 import { Instagram, ErroInstagram } from './instagram.js';
-import { CHAVE_TOKEN, chaveDaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
+import { CHAVE_TOKEN, gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
 import { rodarPartida, type DadosDoVideo } from './partida.js';
 import { craqueDaRodada, dadosDoResumo, fecharRodada, HORA_DO_RESUMO, rodadaEmVotacao, type DadosDoResumo } from './resumo.js';
 import { DURACAO_AO_VIVO_MS, exportarSite } from './site.js';
@@ -220,7 +220,7 @@ async function agendar(c: ContextoDoJob, o: { tipo: ItemDaAgenda['tipo']; ref: n
   }
   await c.ig.esperarContainer(container);
   const item: ItemDaAgenda = { tipo: o.tipo, ref: o.ref, containerId: container, publicarEm: o.publicarEm.toISOString() };
-  await c.agenda.gravar(chaveDaAgenda(item), item);
+  await gravarNaAgenda(c.agenda, item);
   return item;
 }
 

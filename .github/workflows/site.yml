@@ -1,0 +1,27 @@
+# Publica o site no Cloudflare Pages quando o código dele muda (os dados vêm da borda).
+# Só roda com as variáveis LIGA_EDGE_URL e CF_PAGES_PROJETO definidas (docs/implantacao.md).
+name: site
+on:
+  push:
+    branches: [master]
+    paths: ['packages/site/**', 'packages/renderer/src/**', 'packages/shared/**', '.github/workflows/site.yml']
+  workflow_dispatch:
+concurrency: site
+jobs:
+  publicar:
+    if: vars.LIGA_EDGE_URL != '' && vars.CF_PAGES_PROJETO != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+      - run: pnpm --filter @liga/site build
+        env:
+          LIGA_DADOS_URL: ${{ vars.LIGA_EDGE_URL }}/dados/
+          LIGA_API_URL: ${{ vars.LIGA_EDGE_URL }}
+          LIGA_INSTAGRAM: ${{ vars.LIGA_INSTAGRAM }}
+      - run: rm -rf packages/site/dist/dados
+      - run: pnpm --filter @liga/edge exec wrangler pages deploy ../site/dist --project-name=${{ vars.CF_PAGES_PROJETO }} --branch=master
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_DEPLOY_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}

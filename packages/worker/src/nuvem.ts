@@ -160,3 +160,12 @@ export interface ItemDaAgenda {
 /** Chave ordenável por horário: agenda/2026-11-07T15:06:00.000Z/partida-1 */
 export const chaveDaAgenda = (i: Pick<ItemDaAgenda, 'tipo' | 'ref' | 'publicarEm'>) => `agenda/${i.publicarEm}/${i.tipo.toLowerCase()}-${i.ref}`;
 export const CHAVE_TOKEN = 'ig/token';
+/** Horário do próximo item pendente; o worker da borda só lista a agenda quando ele vence. */
+export const CHAVE_PROXIMA = 'agenda-proxima';
+
+/** Grava o item e adianta a "próxima" se ele vier antes. */
+export async function gravarNaAgenda(agenda: Agenda, item: ItemDaAgenda): Promise<void> {
+  await agenda.gravar(chaveDaAgenda(item), item);
+  const atual = await agenda.ler<{ em: string }>(CHAVE_PROXIMA);
+  if (!atual || Date.parse(item.publicarEm) < Date.parse(atual.em)) await agenda.gravar(CHAVE_PROXIMA, { em: item.publicarEm });
+}

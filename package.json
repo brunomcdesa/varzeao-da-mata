@@ -14,7 +14,8 @@
     "site": "pnpm --filter @liga/site dev",
     "site:build": "pnpm --filter @liga/site build",
     "verificar": "pnpm --filter @liga/worker verificar",
-    "job": "pnpm --filter @liga/worker job"
+    "job": "pnpm --filter @liga/worker job",
+    "edge:deploy": "pnpm --filter @liga/edge deploy"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

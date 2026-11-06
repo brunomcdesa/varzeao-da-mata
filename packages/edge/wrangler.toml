@@ -1,0 +1,24 @@
+# Worker na borda do Varzeão da Mata. Antes do primeiro deploy, crie o KV e os buckets
+# (docs/implantacao.md) e troque os ids abaixo.
+name = "varzeao-edge"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+# Não é segredo: é o id numérico da conta do Instagram (o token fica no KV).
+IG_USER_ID = "TROQUE_PELO_IG_USER_ID"
+
+[[kv_namespaces]]
+binding = "AGENDA"
+id = "TROQUE_PELO_ID_DO_KV"
+
+[[r2_buckets]]
+binding = "PUBLICO"
+bucket_name = "varzeao-publico"
+
+[[r2_buckets]]
+binding = "PRIVADO"
+bucket_name = "varzeao-privado"
