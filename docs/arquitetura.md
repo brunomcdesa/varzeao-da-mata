@@ -44,9 +44,9 @@ No Mata-mata, as Partidas ocupam os últimos horários: semifinais às 16h e 18h
 | `shared` | Tipos de domínio, Times, Clássicos, regras puras (rodízio, tabela, Vantagem do Empate) e parser de Comandos |
 | `sim` | Motor determinístico: recebe Escalações, seed e fase; devolve lances, placar, pênaltis e Notas. Sem `Math.random` nem relógio |
 | `renderer` | Animação 2D (Canvas/Phaser) que reproduz os lances da `sim`. Roda em dois modos: **quadro a quadro**, no Actions, para o vídeo, e **tempo de relógio**, no site, para Ao Vivo e Replay |
-| `worker` (Actions) | Jobs `coletar`, `partida` e `resumo`: banco, Graph API, Playwright, ffmpeg, Azure Speech, R2 e KV |
-| `edge` (Cloudflare Worker) | Cron de 1 minuto que lê a agenda e publica Reels; endpoint `GET /partidas/:id/lances` que só responde depois do Apito Inicial |
-| `site` | Site estático: tabela, artilharia, busca do Card, Ao Vivo e Replay |
+| `worker` (Actions) | Jobs `coletar`, `partida` e `resumo`: banco, Graph API, Playwright, ffmpeg, Gemini TTS (ADR-0009), R2 e KV |
+| `edge` (Cloudflare Worker) | Cron de 1 minuto que lê a agenda e publica Reels; `GET /partidas/:id`, que só responde depois do Apito Inicial; `GET /dados/*` para o site |
+| `site` | Site estático (Cloudflare Pages): Rodada, jogos, tabela, Times e elencos, ranking e Card dos Jogadores, comparação, Escalações, Ao Vivo e Replay |
 
 ## Modelo de dados
 
@@ -74,13 +74,14 @@ erDiagram
 
 ## Job `coletar` (a cada hora, minuto :17)
 
-1. Lista os Reels da Liga ainda abertos e busca comentários novos via `/{media-id}/comments` (campos `id`, `text`, `from`, `timestamp`).
+0. Renova o token do Instagram se ele tiver mais de 7 dias e leva para o banco o que a borda já publicou.
+1. Lista os posts dos últimos 3 dias e busca os comentários via `/{media-id}/comments` (campos `id`, `text`, `timestamp`, `from{id,username}`), do mais antigo ao mais novo.
 2. Grava cada comentário em `comando`; um `ig_comment_id` repetido é ignorado.
 3. Normaliza o texto (maiúsculas, acentos, emojis) e interpreta:
    - `ENTRO <time|apelido> <posição|sinônimo>` cria o Jogador com OVR sorteado, respeitando o limite de equilíbrio entre Times.
    - `CRAQUE @fulano` registra o voto, apenas em Candidatos a Craque da Rodada anterior.
 4. Aplica o filtro de @ e texto ofensivo; banidos são ignorados.
-5. Exporta o JSON público do site (tabela, Cards, calendário com Apitos Iniciais) para o R2.
+5. Exporta o JSON público do site para o R2 (`dados/liga.json`, `dados/jogadores.json`, `dados/partidas/<id>.json`). Escalações aparecem a partir do Corte; o lance a lance, a partir do Apito; placar, tabela e Card, só quando o Ao Vivo termina.
 
 ## Job `partida` (no Corte, 30 min antes de cada Apito Inicial)
 
@@ -99,7 +100,7 @@ Cada etapa só roda se o status da Partida ainda não passou dela; reexecutar re
 2. **Simular** (→ SIMULADA): sorteia e salva o seed, roda a `sim`, grava lances, Notas e OVRs novos. Os lances vão para o **R2 privado**.
 3. **Renderizar** (→ RENDERIZADA):
    - O roteiro sai de templates por tipo de evento e por bordão de Time, com variações sorteadas pelo seed.
-   - O Azure Speech gera a narração do Locutor da Liga. A voz fala Posição e Time, e o @ aparece só na tela.
+   - O Gemini TTS (voz Lumi, ADR-0009) gera a narração do Locutor da Liga. A voz fala Posição e Time, e o @ aparece só na tela.
    - O Playwright abre o `renderer` em modo quadro a quadro e salva PNGs, com texto animado sincronizado à narração.
    - O ffmpeg mistura narração, hino royalty-free e efeitos (torcida, apito) e monta o MP4 1080×1920, que sobe para o R2 público.
 4. **Agendar** (→ AGENDADA): cria o container `REELS` com `video_url`, espera `status_code = FINISHED` e grava no KV `{partidaId, apitoInicial, publicarEm: apito + 6 min, containerId}`.
@@ -110,8 +111,9 @@ Calcula tabela e Candidatos a Craque, renderiza o Resumo da Rodada (placares, ta
 
 ## Worker `edge` (Cloudflare)
 
-- **Cron a cada minuto**: lê a agenda no KV; para cada item com `publicarEm` vencido e ainda não publicado, chama `media_publish`, marca como publicado no KV e avisa o banco via o próximo `coletar`. É idempotente: um item publicado nunca é publicado de novo.
-- **`GET /partidas/:id/lances`**: compara o horário do servidor com o Apito Inicial. Antes dele responde `425 Too Early` com o horário. Depois, entrega os lances do R2 privado, com cache longo.
+- **Cron a cada minuto**: lê só a chave `agenda-proxima` (o KV grátis tem 1.000 listagens por dia). Quando ela vence, lista a agenda e, para cada item vencido e não publicado, confere o container: `FINISHED` → `media_publish`; `PUBLISHED` → só marca (uma execução anterior caiu depois de publicar). Marca `publicadoEm` e `mediaId` no KV e reprograma a `agenda-proxima`. O `coletar` seguinte leva isso para o banco. Falhas ficam no item e são tentadas de novo a cada minuto, até 10 vezes.
+- **`GET /partidas/:id`**: a Partida completa do R2 privado. Antes do Apito Inicial responde `425 Too Early` com o horário e `Retry-After`. Depois, entrega com cache longo.
+- **`GET /dados/*`**: os JSON do site, lidos do R2 público, com CORS (o site fica no Pages, em outro domínio).
 - Horários do cron são UTC. Brasília é UTC−3, sem horário de verão.
 
 ## Site (Ao Vivo e Replay)
@@ -122,8 +124,10 @@ Calcula tabela e Candidatos a Craque, renderiza o Resumo da Rodada (placares, ta
 
 ## Segredos
 
-- **GitHub Actions**: `DATABASE_URL`, `IG_USER_ID`, `IG_APP_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_PUBLICO`, `R2_BUCKET_PRIVADO`, `CF_API_TOKEN` (para escrever no KV), `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`.
-- **Worker**: vínculos com o KV e o bucket privado. O token do Instagram é lido do KV, que o Actions atualiza ao renová-lo.
+Lista completa e passo a passo em [implantacao.md](implantacao.md).
+
+- **GitHub Actions** (secrets): `DATABASE_URL`, `IG_USER_ID`, `IG_ACCESS_TOKEN`, `GEMINI_API_KEY`, `CF_ACCOUNT_ID`, `CF_API_TOKEN` (KV), `CF_KV_NAMESPACE_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `CF_DEPLOY_TOKEN` (Pages).
+- **Worker**: vínculos com o KV e os dois buckets. O token do Instagram é lido do KV (`ig/token`), que o `coletar` atualiza ao renová-lo a cada 7 dias; o token renovado também fica no banco (`config.ig_token`).
 
 Falhas do Actions chegam pelo e-mail padrão do GitHub e podem ser reexecutadas pela aba Actions.
 
@@ -131,4 +135,4 @@ Falhas do Actions chegam pelo e-mail padrão do GitHub e podem ser reexecutadas 
 
 Cerca de 720 execuções curtas do `coletar` (~720 min), 4 jobs `partida` de 10–12 min por dia (~1.400 min) e 1 `resumo` de ~10 min por dia (~300 min) somam **~2.400 min/mês, acima dos 2.000 gratuitos** de repositório privado.
 
-Para caber, há duas saídas: pausar o `coletar` fora da Temporada e de madrugada, ou rodar o render num runner próprio.
+Para caber, há três saídas: deixar o repositório **público** (Actions sem limite de minutos nos runners padrão; o código não tem segredos, eles ficam nos Secrets), pausar o `coletar` fora da Temporada e de madrugada, ou rodar o render num runner próprio.

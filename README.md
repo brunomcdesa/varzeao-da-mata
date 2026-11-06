@@ -6,6 +6,7 @@ Jogo de futebol interativo no Instagram: seguidores se inscrevem pelos comentár
 - Arquitetura: [`docs/arquitetura.md`](./docs/arquitetura.md)
 - Times e Clássicos: [`docs/times.md`](./docs/times.md)
 - Decisões: [`docs/adr/`](./docs/adr/)
+- Colocar no ar: [`docs/implantacao.md`](./docs/implantacao.md)
 
 ## Pacotes
 
@@ -14,8 +15,9 @@ Jogo de futebol interativo no Instagram: seguidores se inscrevem pelos comentár
 | `packages/shared` | Tipos de domínio, Times, Clássicos, limites de OVR |
 | `packages/sim` | Motor determinístico com testes e calibração |
 | `packages/renderer` | Linha do tempo pura, desenho em Canvas 9:16, página de Replay (`pnpm demo`) e gravação do Reels em MP4 (`pnpm gravar`) |
-| `packages/worker` | Banco (PostgreSQL), leitor de Comandos (ENTRO / CRAQUE), Inscrições, votos, Escalações com rodízio, calendário, job `partida` (escalar → simular → gravar o Reels) e Resumo da Rodada |
-| `edge`, `site` | A fazer |
+| `packages/worker` | Banco (PostgreSQL), Comandos (ENTRO / CRAQUE), Inscrições, votos, Escalações com rodízio, calendário, clientes do Instagram/R2/KV, jobs `coletar`, `partida` e `resumo`, exportação dos dados do site |
+| `packages/edge` | Worker da Cloudflare: publica os Reels no minuto certo e entrega a Partida só depois do Apito |
+| `packages/site` | Site estático: Rodada, Ao Vivo e Replay, jogos, tabela, Times, ranking, Card do Jogador e comparação |
 
 ## Comandos
 
@@ -30,6 +32,11 @@ pnpm demo        # gera a página de Replay em packages/renderer/dist/demo/index
 pnpm --filter @liga/renderer demo --servir   # mesmo, com servidor em localhost:5173 e rebuild automático
 pnpm gravar --seed 42 --mandante CAP --visitante ONC --saida ~/reels.mp4   # grava um Reels de teste
 pnpm gravar --seed 42 --previa ~/previa   # só os quadros-chave, para revisar o visual
+pnpm liga ...    # a Liga inteira no seu computador (veja o topo de packages/worker/scripts/liga.ts)
+pnpm liga site   # exporta os dados do site a partir do banco local
+pnpm site        # site em localhost:5174
+pnpm verificar   # confere as credenciais do .env sem publicar nada
+pnpm job coletar | partida | resumo   # os jobs do Actions, na mão
 ```
 
 Para gravar, instale uma vez o ffmpeg e o Chromium do Playwright (e, opcionalmente, o espeak-ng como voz de teste):

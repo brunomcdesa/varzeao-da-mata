@@ -21,6 +21,7 @@ import { FALA_DO_TIME, IDENTIDADE, TIMES, type Posicao, type TimeId } from '@lig
 import { criarRng } from '@liga/sim';
 import {
   conectar,
+  prepararBanco,
   criarTemporada,
   dadosDoResumo,
   escreverSite,
@@ -72,6 +73,7 @@ async function temporadaAtual(b: Banco): Promise<{ id: number; numero: number; i
 async function main(): Promise<void> {
   const banco = process.env.DATABASE_URL ? conectar() : await bancoLocal(join(raizRepo, '.cache/liga-local'));
   try {
+    if (process.env.DATABASE_URL) await prepararBanco(banco); // cria as tabelas no banco de produção
     switch (comando) {
       case 'temporada': {
         const numero = ((await banco.query<{ n: number | null }>(`SELECT max(numero) AS n FROM temporada`)).rows[0]!.n ?? 0) + 1;
