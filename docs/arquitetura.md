@@ -66,8 +66,8 @@ erDiagram
 - **jogador**: `ig_user_id` (único, chave estável), `username` (atualizado a cada comentário), time_id, posicao, ovr, banido, inscrito_em.
 - **comando**: `ig_comment_id` (único, garante idempotência), ig_media_id, ig_user_id, texto, tipo (INSCRICAO, VOTO, INVALIDO), resultado.
 - **rodada**: temporada_id, numero, fase (LIGA, MATA_MATA), data, resumo_status (PENDENTE → RENDERIZADO → AGENDADO → PUBLICADO), resumo_ig_media_id.
-- **partida**: rodada_id, mandante_id, visitante_id, **apito_inicial**, vantagem_do_empate, **status** (PENDENTE → SIMULADA → RENDERIZADA → AGENDADA → PUBLICADA), **seed**, **versao_sim**, gols, penaltis, lances (jsonb), video_url, ig_container_id, ig_media_id.
-- **escalacao**: partida_id, time_id, jogador_id (nulo = Jogador da Base), posicao, nota, ovr_antes, ovr_depois.
+- **partida**: rodada_id, mandante_id, visitante_id, **apito_inicial**, vantagem_do_empate, **status** (PENDENTE → ESCALADA → SIMULADA → RENDERIZADA → AGENDADA → PUBLICADA), **seed**, **versao_sim**, gols, penaltis, lances (jsonb), video_url, ig_container_id, ig_media_id.
+- **escalacao**: partida_id, time_id, lugar (0–6, na ordem GOL, ZAG, ZAG, MEI, MEI, ATA, ATA), jogador_id (nulo = Jogador da Base), posicao, nota, ovr_antes, ovr_depois.
 - **candidato**: rodada_id, jogador_id, nota.
 - **voto**: rodada_id, ig_user_id, jogador_id; único por (rodada_id, ig_user_id), e o último voto antes do fechamento vale.
 - **config**: token do Instagram e data de expiração (espelhados no Workers KV para o Worker).
@@ -86,7 +86,16 @@ erDiagram
 
 Cada etapa só roda se o status da Partida ainda não passou dela; reexecutar retoma de onde parou. O orçamento é de 36 minutos até o Worker publicar o Reels.
 
-1. **Coletar e escalar**: coleta final; monta as duas Escalações (rodízio priorizando quem não jogou, Craque anterior garantido, Base completando vagas).
+1. **Coletar e escalar** (→ ESCALADA): coleta final; monta as duas Escalações (rodízio priorizando quem não jogou, Craque anterior garantido, Base completando vagas).
+
+### Regras do worker (valores iniciais, em `packages/worker/src/regras.ts`)
+
+- **OVR inicial**: sorteado entre 60 e 70 na Inscrição, de forma determinística pelo id do comentário.
+- **Jogador da Base**: OVR 55; não ganha nem perde OVR.
+- **Equilíbrio entre Times**: um Time não aceita Inscrição se o Elenco já tem 5 Jogadores a mais que o menor Elenco (resultado `TIME_CHEIO`).
+- **Rodízio**, por Posição: Craque da Rodada anterior; depois quem jogou menos na Temporada; empate, quem jogou há mais tempo (ou nunca); depois quem se inscreveu antes.
+- **Comandos**: `ENTRO` aceita Time e Posição em qualquer ordem, com apelidos, sinônimos e palavras de ligação ("entro na onça de goleira"). Comentário que marca alguém (`@`) depois do ENTRO não inscreve ninguém. `CRAQUE @fulano` vale só para Candidatos da Rodada em votação, e o último voto de cada @ é o que conta.
+- **@ ofensivo**: a lista de trechos bloqueados fica em `config` (chave `bloqueio`), editável sem deploy.
 2. **Simular** (→ SIMULADA): sorteia e salva o seed, roda a `sim`, grava lances, Notas e OVRs novos. Os lances vão para o **R2 privado**.
 3. **Renderizar** (→ RENDERIZADA):
    - O roteiro sai de templates por tipo de evento e por bordão de Time, com variações sorteadas pelo seed.

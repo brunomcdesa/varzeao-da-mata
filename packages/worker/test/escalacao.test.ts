@@ -1,0 +1,102 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { simularPartida } from '@liga/sim';
+import type { Banco } from '../src/banco.js';
+import { processarComentario } from '../src/coletar.js';
+import { escalarPartida } from '../src/escalacao.js';
+import { OVR_BASE } from '../src/regras.js';
+import { bancoDeTeste } from './banco-de-teste.js';
+
+let banco: Banco;
+let rodadaId: number;
+let n = 0;
+const DIA = Date.UTC(2026, 10, 6);
+const hora = (h: number, m = 0) => new Date(DIA + (h + 3) * 3600_000 + m * 60_000); // horário de Brasília
+
+async function inscrever(id: string, texto: string, quando = hora(9)) {
+  return processarComentario(
+    banco,
+    { igCommentId: `c${++n}`, igMediaId: 'm', igUserId: id, username: id, texto, comentadoEm: quando },
+    { rodadaEmVotacao: null },
+  );
+}
+async function novaPartida(mandante: string, visitante: string, apito: Date): Promise<number> {
+  return (
+    await banco.query<{ id: number }>(
+      `INSERT INTO partida (rodada_id, mandante_id, visitante_id, apito_inicial) VALUES ($1, $2, $3, $4) RETURNING id`,
+      [rodadaId, mandante, visitante, apito.toISOString()],
+    )
+  ).rows[0]!.id;
+}
+
+beforeEach(async () => {
+  banco = await bancoDeTeste();
+  const t = (await banco.query<{ id: number }>(`INSERT INTO temporada (numero, inicio) VALUES (1, '2026-11-06') RETURNING id`)).rows[0]!;
+  rodadaId = (await banco.query<{ id: number }>(`INSERT INTO rodada (temporada_id, numero, fase, data) VALUES ($1, 1, 'LIGA', '2026-11-06') RETURNING id`, [t.id])).rows[0]!.id;
+});
+afterEach(async () => {
+  await banco.fechar();
+});
+
+describe('Escalação', () => {
+  it('sem inscritos, o Time joga só com Jogadores da Base', async () => {
+    const p = await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(12)));
+    expect(p.escalacoes.mandante.jogadores.map((j) => j.posicao)).toEqual(['GOL', 'ZAG', 'ZAG', 'MEI', 'MEI', 'ATA', 'ATA']);
+    expect(p.escalacoes.mandante.jogadores.every((j) => j.jogadorId === null && j.ovr === OVR_BASE)).toBe(true);
+    expect(p.nomes.mandante.every((x) => x === null)).toBe(true);
+  });
+
+  it('põe os inscritos na Posição deles e completa com a Base', async () => {
+    await inscrever('goleira', 'ENTRO CAPIVARA GOL');
+    await inscrever('artilheiro', 'ENTRO CAPIVARA ATA');
+    const p = await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(12)));
+    expect(p.nomes.mandante).toEqual(['@goleira', null, null, null, null, '@artilheiro', null]);
+  });
+
+  it('quem se inscreveu depois do Corte fica para a próxima Partida', async () => {
+    await inscrever('cedo', 'ENTRO CAPIVARA ATA', hora(11, 29));
+    await inscrever('tarde', 'ENTRO CAPIVARA ATA', hora(11, 31)); // Corte das 12h é 11h30
+    const p = await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(12)));
+    expect(p.nomes.mandante.filter(Boolean)).toEqual(['@cedo']);
+  });
+
+  it('faz rodízio: quem não jogou entra na próxima', async () => {
+    for (const a of ['a1', 'a2', 'a3']) await inscrever(a, 'ENTRO CAPIVARA ATA');
+    const p1 = await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(12)));
+    expect(p1.nomes.mandante.slice(5)).toEqual(['@a1', '@a2']);
+    const p2 = await escalarPartida(banco, await novaPartida('TAT', 'CAP', hora(16)));
+    expect(p2.nomes.visitante.slice(5)).toEqual(['@a3', '@a1']);
+  });
+
+  it('o Craque da Rodada anterior tem lugar garantido', async () => {
+    for (const a of ['a1', 'a2', 'a3']) await inscrever(a, 'ENTRO CAPIVARA ATA');
+    await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(12)));
+    const craque = (await banco.query<{ id: string }>(`SELECT id::text AS id FROM jogador WHERE username = 'a1'`)).rows[0]!.id;
+    const p2 = await escalarPartida(banco, await novaPartida('CAP', 'TAT', hora(16)), { craque });
+    expect(p2.nomes.mandante.slice(5)).toEqual(['@a1', '@a3']);
+  });
+
+  it('banido não é escalado', async () => {
+    await inscrever('a1', 'ENTRO CAPIVARA ATA');
+    await banco.query(`UPDATE jogador SET banido = true`);
+    const p = await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(12)));
+    expect(p.nomes.mandante.filter(Boolean)).toEqual([]);
+  });
+
+  it('escalar de novo devolve a mesma Escalação (retoma de onde parou)', async () => {
+    await inscrever('a1', 'ENTRO CAPIVARA ATA');
+    const id = await novaPartida('CAP', 'ONC', hora(12));
+    const primeira = await escalarPartida(banco, id);
+    await inscrever('a2', 'ENTRO CAPIVARA ATA');
+    expect(await escalarPartida(banco, id)).toEqual(primeira);
+    const [s] = (await banco.query<{ status: string }>(`SELECT status FROM partida WHERE id = $1`, [id])).rows;
+    expect(s!.status).toBe('ESCALADA');
+  });
+
+  it('a Escalação montada roda na simulação', async () => {
+    for (const [u, t] of [['g', 'ENTRO CAPIVARA GOL'], ['z', 'ENTRO CAPIVARA ZAG'], ['m', 'ENTRO ONCA MEI'], ['a', 'ENTRO ONCA ATA']] as const) await inscrever(u, t);
+    const p = await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(12)));
+    const r = simularPartida({ ...p.escalacoes, seed: 42, fase: 'LIGA' });
+    expect(r.desempenhos).toHaveLength(14);
+    expect(r.desempenhos.filter((d) => d.jogadorId !== null)).toHaveLength(4);
+  });
+});

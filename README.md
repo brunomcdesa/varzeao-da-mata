@@ -14,7 +14,8 @@ Jogo de futebol interativo no Instagram: seguidores se inscrevem pelos comentár
 | `packages/shared` | Tipos de domínio, Times, Clássicos, limites de OVR |
 | `packages/sim` | Motor determinístico com testes e calibração |
 | `packages/renderer` | Linha do tempo pura, desenho em Canvas 9:16, página de Replay (`pnpm demo`) e gravação do Reels em MP4 (`pnpm gravar`) |
-| `worker`, `edge`, `site` | A fazer |
+| `packages/worker` | Banco (PostgreSQL), leitor de Comandos (ENTRO / CRAQUE), Inscrições, votos e Escalações com rodízio |
+| `edge`, `site` | A fazer |
 
 ## Comandos
 
