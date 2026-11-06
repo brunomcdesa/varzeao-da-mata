@@ -8,7 +8,8 @@
     "calibrar": "pnpm --filter @liga/sim calibrar",
     "demo": "pnpm --filter @liga/renderer demo",
     "gravar": "pnpm --filter @liga/renderer gravar",
-    "vozes": "pnpm --filter @liga/renderer vozes"
+    "vozes": "pnpm --filter @liga/renderer vozes",
+    "testar-grito": "pnpm --filter @liga/renderer testar-grito"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

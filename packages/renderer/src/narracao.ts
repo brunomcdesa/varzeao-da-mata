@@ -19,6 +19,9 @@ export interface Fala {
   limite: number;
   tom: Tom;
   opcional?: boolean;
+  /** Trecho do Roteiro (índice em `segmentos`) e parte dele em que a fala acontece. */
+  segmento: number;
+  parte: 'antes' | 'depois';
 }
 
 export type TipoEvento = 'APITO_INICIAL' | 'APITO_FINAL' | 'CHUTE' | 'PASSE' | 'GOL' | 'QUASE' | 'DESARME';
@@ -76,12 +79,14 @@ export function montarNarracao(roteiro: Roteiro): Fala[] {
       ? `É o ${classico}! ${curto('mandante')} contra ${curto('visitante')}!`
       : `Bola rolando no Varzeão da Mata! ${curto('mandante')} contra ${curto('visitante')}!`,
     inicio: 0.25,
-    limite: primeiroLance ? primeiroLance.inicio + 1.2 : segs[0]!.fim,
+    limite: segs[0]!.fim,
     tom: 'animado',
+    segmento: 0,
+    parte: 'antes',
   });
 
-  for (const s of segs) {
-    if (s.tipo !== 'LANCE') continue;
+  segs.forEach((s, indice) => {
+    if (s.tipo !== 'LANCE') return;
     const lance = r.lances[s.lance!]!;
     const plano = tl.planos[s.lance!]!;
     const rng = criarRng(((r.seed >>> 0) ^ (lance.numero * 2654435761)) >>> 0);
@@ -107,7 +112,8 @@ export function montarNarracao(roteiro: Roteiro): Fala[] {
       inicio: s.inicio + 0.25,
       limite: s.resolucao! - 0.05,
       tom: 'normal',
-      opcional: lance.tipo !== 'GOL',
+      segmento: indice,
+      parte: 'antes',
     });
 
     // Resolução
@@ -134,7 +140,7 @@ export function montarNarracao(roteiro: Roteiro): Fala[] {
       ],
     };
     const [texto, tom] = escolher(rng, resolucao[lance.tipo]!);
-    falas.push({ id: `lance-${s.lance}-b`, texto, inicio: s.resolucao! - 0.1, limite: s.fim - 0.1, tom });
+    falas.push({ id: `lance-${s.lance}-b`, texto, inicio: s.resolucao! - 0.1, limite: s.fim - 0.1, tom, segmento: indice, parte: 'depois' });
 
     if (lance.tipo === 'GOL') {
       const placar = tl.placarEm(tl.janelas[s.lance!]!.resolucao + 1);
@@ -143,17 +149,62 @@ export function montarNarracao(roteiro: Roteiro): Fala[] {
         `${cap(f)} não perdoa!`,
         `${curto('mandante')} ${placar.mandante}, ${curto('visitante')} ${placar.visitante}.`,
       ];
-      falas.push({ id: `lance-${s.lance}-c`, texto: escolher(rng, extras), inicio: s.resolucao! + 1.3, limite: s.fim - 0.05, tom: 'animado', opcional: true });
+      falas.push({ id: `lance-${s.lance}-c`, texto: escolher(rng, extras), inicio: s.resolucao! + 1.3, limite: s.fim - 0.05, tom: 'animado', segmento: indice, parte: 'depois' });
     }
-  }
+  });
 
   // Fim
   const fim = segs[segs.length - 1]!;
   const g = r.gols;
   const placar = `${curto('mandante')} ${g.mandante}, ${curto('visitante')} ${g.visitante}`;
   const vencedor = r.vencedor ? `Vitória ${doTime(time(r.vencedor))}!` : 'Tudo igual no Varzeão!';
-  falas.push({ id: 'fim', texto: `Fim de jogo! ${placar}. ${vencedor}`, inicio: fim.inicio + 0.35, limite: fim.fim + 1.5, tom: 'animado' });
+  falas.push({ id: 'fim', texto: `Fim de jogo! ${placar}. ${vencedor}`, inicio: fim.inicio + 0.35, limite: fim.fim, tom: 'animado', segmento: segs.length - 1, parte: 'antes' });
   return falas;
+}
+
+/** Folgas (s de vídeo) em volta das falas para não ficarem coladas nos cortes. */
+const FOLGA = { inicio: 0.25, entre: 0.15, fim: 0.3, fimDoVideo: 1.0 };
+
+/**
+ * Quanto tempo cada trecho do Roteiro precisa para todas as falas caberem inteiras,
+ * sem acelerar nem cortar. O resultado vai em `OpcoesRoteiro.minimos`; como os textos
+ * não dependem do tempo, a narração montada no Roteiro esticado é a mesma.
+ */
+export function exigenciasDaNarracao(roteiro: Roteiro, falas: Fala[], duracao: (id: string) => number): Record<number, { antes?: number; depois?: number }> {
+  const exige: Record<number, { antes?: number; depois?: number }> = {};
+  const ultimo = roteiro.segmentos.length - 1;
+  for (let indice = 0; indice <= ultimo; indice++) {
+    const s = roteiro.segmentos[indice]!;
+    const minhas = falas.filter((f) => f.segmento === indice);
+    if (!minhas.length) continue;
+    if (s.tipo !== 'LANCE') {
+      // Cartela: as falas em sequência, desde o começo do trecho.
+      let t = 0;
+      for (const f of minhas) t = Math.max(t + (t > 0 ? FOLGA.entre : 0), f.inicio - s.inicio) + duracao(f.id);
+      exige[indice] = { antes: t + (indice === ultimo ? FOLGA.fimDoVideo : FOLGA.fim) };
+      continue;
+    }
+    const antes = minhas.filter((f) => f.parte === 'antes');
+    const depois = minhas.filter((f) => f.parte === 'depois');
+    const e: { antes?: number; depois?: number } = {};
+    if (antes.length) {
+      let t = FOLGA.inicio;
+      for (const f of antes) t += duracao(f.id) + FOLGA.entre;
+      e.antes = t;
+    }
+    if (depois.length) {
+      // Relativo à resolução: a primeira fala começa um pouco antes; as seguintes, no seu
+      // atraso desejado ou logo depois da anterior.
+      let t = -Infinity;
+      for (const f of depois) {
+        const desejado = f.inicio - s.resolucao!;
+        t = Math.max(desejado, t + FOLGA.entre) + duracao(f.id);
+      }
+      e.depois = t + FOLGA.fim;
+    }
+    exige[indice] = e;
+  }
+  return exige;
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

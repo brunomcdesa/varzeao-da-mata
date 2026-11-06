@@ -214,37 +214,21 @@ function somarEvento(esq: Float32Array, dir: Float32Array, e: EventoSonoro, seed
 export interface FalaAgendada {
   id: string;
   inicio: number;
-  /** Fator de aceleração (1 = normal, até 1,3). */
-  velocidade: number;
-  /** Corta a fala neste instante (com fade), se nem acelerando couber. */
-  cortarEm?: number;
 }
 
-const VELOCIDADE_MAXIMA = 1.3;
 const RESPIRO = 0.12;
 
-/** Encaixa as falas no tempo: sem sobreposição, acelerando ou tirando as opcionais quando não cabem. */
+/**
+ * Encaixa as falas no tempo, sem sobreposição. Nenhuma é acelerada, cortada ou tirada:
+ * o Roteiro é esticado antes (exigenciasDaNarracao) para todas caberem.
+ */
 export function agendarFalas(falas: Fala[], duracao: (id: string) => number): FalaAgendada[] {
   const agenda: FalaAgendada[] = [];
-  let livre = 0;
+  let livre = -Infinity;
   for (const f of [...falas].sort((a, b) => a.inicio - b.inicio)) {
     const inicio = Math.max(f.inicio, livre + RESPIRO);
-    const espaco = f.limite - inicio;
-    const d = duracao(f.id);
-    if (espaco <= 0.3) continue;
-    if (d <= espaco) {
-      agenda.push({ id: f.id, inicio, velocidade: 1 });
-      livre = inicio + d;
-      continue;
-    }
-    const v = d / espaco;
-    if (v <= VELOCIDADE_MAXIMA) {
-      agenda.push({ id: f.id, inicio, velocidade: v });
-      livre = f.limite;
-    } else if (!f.opcional) {
-      agenda.push({ id: f.id, inicio, velocidade: VELOCIDADE_MAXIMA, cortarEm: f.limite });
-      livre = f.limite;
-    }
+    agenda.push({ id: f.id, inicio });
+    livre = inicio + duracao(f.id);
   }
   return agenda;
 }

@@ -10,7 +10,8 @@
     "test": "vitest run",
     "demo": "node scripts/build-demo.mjs",
     "gravar": "tsx scripts/gravar.ts",
-    "vozes": "tsx scripts/vozes.ts"
+    "vozes": "tsx scripts/vozes.ts",
+    "testar-grito": "tsx scripts/testar-grito.ts"
   },
   "dependencies": {
     "@liga/shared": "workspace:*",

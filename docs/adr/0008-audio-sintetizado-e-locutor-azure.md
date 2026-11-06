@@ -6,7 +6,7 @@ O áudio do Reels é montado em três camadas, todas determinísticas:
 2. **Trilha chiptune**: gerada em código (C, Am, F, G a 128 BPM, com baixo triangular, arpejo de onda quadrada e bateria de ruído). O tema completo toca nas cartelas, e durante os lances só fica a base.
 3. **Efeitos**: torcida ambiente, explosão no gol, "uuuh" na defesa e no chute para fora, apito inicial e final, e o som de cada passe e chute. São sintetizados a partir dos eventos do Roteiro.
 
-A trilha e a torcida abaixam sozinhas quando o Locutor fala. Falas que não cabem no trecho são aceleradas até 1,3× sem mudar o tom, as opcionais saem e o grito de gol nunca sai.
+A trilha e a torcida abaixam sozinhas quando o Locutor fala. Nenhuma fala é acelerada nem cortada. As falas são sintetizadas antes do vídeo, e cada trecho do Roteiro estica até a sua narração caber inteira (`exigenciasDaNarracao`). O vídeo fica alguns segundos mais longo, mas sem frase pela metade.
 
 Escolhemos o Azure pela qualidade da voz. O plano gratuito (500 mil caracteres por mês) cobre com folga uns 5 Reels por dia. Cada frase sintetizada fica em cache, e frases repetidas não gastam cota. A trilha e os efeitos sintetizados evitam qualquer questão de direitos autorais (ADR-0003).
 

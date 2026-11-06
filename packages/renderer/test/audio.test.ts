@@ -3,7 +3,7 @@ import type { Escalacao, Posicao, TimeId } from '@liga/shared';
 import { simularPartida } from '@liga/sim';
 import { Timeline } from '../src/timeline.js';
 import { Roteiro } from '../src/roteiro.js';
-import { montarEventos, montarNarracao } from '../src/narracao.js';
+import { exigenciasDaNarracao, montarEventos, montarNarracao } from '../src/narracao.js';
 import { TAXA, agendarFalas, codificarWav, lerWavMono, mixar } from '../src/audio.js';
 
 const ORDEM: Posicao[] = ['GOL', 'ZAG', 'ZAG', 'MEI', 'MEI', 'ATA', 'ATA'];
@@ -53,27 +53,42 @@ describe('Narração', () => {
   });
 });
 
-describe('Agenda das falas', () => {
-  it('não sobrepõe falas e respeita os limites', () => {
-    const falas = montarNarracao(roteiro(42));
-    const agenda = agendarFalas(falas, (id) => falas.find((f) => f.id === id)!.texto.length / 14);
-    for (let i = 1; i < agenda.length; i++) {
-      const anterior = agenda[i - 1]!;
-      const dur = falas.find((f) => f.id === anterior.id)!.texto.length / 14 / anterior.velocidade;
-      expect(agenda[i]!.inicio).toBeGreaterThanOrEqual(Math.min(anterior.inicio + dur, anterior.cortarEm ?? Infinity) - 1e-9);
+describe('Falas completas', () => {
+  const dur = (falas: ReturnType<typeof montarNarracao>) => (id: string) => falas.find((f) => f.id === id)!.texto.length / 12;
+
+  it('o Roteiro esticado comporta todas as falas inteiras, sem sobreposição', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const base = roteiro(seed);
+      const falas = montarNarracao(base);
+      const minimos = exigenciasDaNarracao(base, falas, dur(falas));
+      const e = { mandante: esc('CAP', 72), visitante: esc('ONC', 68) };
+      const esticado = new Roteiro(new Timeline(simularPartida({ ...e, seed, fase: 'LIGA' }), e), { minimos });
+      const falas2 = montarNarracao(esticado);
+      expect(falas2.map((f) => f.texto)).toEqual(falas.map((f) => f.texto));
+      const agenda = agendarFalas(falas2, dur(falas2));
+      expect(agenda).toHaveLength(falas2.length);
+      for (const a of agenda) {
+        const f = falas2.find((x) => x.id === a.id)!;
+        const s = esticado.segmentos[f.segmento]!;
+        // termina dentro do próprio trecho
+        expect(a.inicio + dur(falas2)(a.id)).toBeLessThanOrEqual(s.fim + 1e-6);
+        // e a construção da jogada termina antes da resolução
+        if (s.tipo === 'LANCE' && f.parte === 'antes') expect(a.inicio + dur(falas2)(a.id)).toBeLessThanOrEqual(s.resolucao! + 1e-6);
+      }
+      for (let i = 1; i < agenda.length; i++) {
+        expect(agenda[i]!.inicio).toBeGreaterThanOrEqual(agenda[i - 1]!.inicio + dur(falas2)(agenda[i - 1]!.id) - 1e-9);
+      }
+      expect(esticado.duracao).toBeGreaterThanOrEqual(base.duracao);
     }
-    for (const a of agenda) expect(a.velocidade).toBeLessThanOrEqual(1.3);
   });
 
-  it('tira fala opcional que não cabe, mas nunca o grito de gol', () => {
-    const falas = [
-      { id: 'a', texto: '', inicio: 0, limite: 2, tom: 'normal' as const },
-      { id: 'b', texto: '', inicio: 1, limite: 2.5, tom: 'normal' as const, opcional: true },
-      { id: 'c', texto: '', inicio: 2, limite: 3, tom: 'grito' as const },
-    ];
-    const agenda = agendarFalas(falas, () => 1.9);
-    expect(agenda.map((a) => a.id)).toEqual(['a', 'c']);
-    expect(agenda[1]!.cortarEm).toBe(3);
+  it('não estica o que já cabe', () => {
+    const base = roteiro(42);
+    const falas = montarNarracao(base);
+    const minimos = exigenciasDaNarracao(base, falas, () => 0.1);
+    const e = { mandante: esc('CAP', 72), visitante: esc('ONC', 68) };
+    const igual = new Roteiro(new Timeline(simularPartida({ ...e, seed: 42, fase: 'LIGA' }), e), { minimos });
+    expect(igual.duracao).toBeCloseTo(base.duracao, 6);
   });
 });
 

@@ -54,6 +54,7 @@ A variação média de OVR por Partida fica entre 0,00 e 0,03 em todas as faixas
 ```bash
 cp .env.example .env                  # e preencha AZURE_SPEECH_KEY (o .env não vai para o git)
 pnpm vozes                            # lista as vozes pt-BR e os estilos de cada uma
+pnpm testar-grito --saida ~/gritos    # versões do grito de gol em várias vozes, para escolher
 pnpm gravar --seed 42 --saida ~/reels.mp4
 ```
 

@@ -45,9 +45,15 @@ export interface OpcoesRoteiro {
   duracaoMaxima?: number;
   /** Duração do escurecimento em cada corte (s de vídeo, metade para cada lado). */
   corte?: number;
+  /**
+   * Durações mínimas por trecho (índice em `segmentos`), para a narração caber inteira.
+   * Num LANCE: `antes` = até a resolução, `depois` = da resolução ao fim. Nas cartelas,
+   * só `antes` (a duração toda). Calculadas por `exigenciasDaNarracao`.
+   */
+  minimos?: Record<number, { antes?: number; depois?: number }>;
 }
 
-const PADRAO: Required<Omit<OpcoesRoteiro, 'duracaoLance'>> & { duracaoLance: Record<TipoLance, number> } = {
+const PADRAO: Required<Omit<OpcoesRoteiro, 'duracaoLance' | 'minimos'>> & { duracaoLance: Record<TipoLance, number> } = {
   duracaoLance: { GOL: 8, DEFESA: 5, FORA: 4, DESARME: 0 },
   duracaoAbertura: 3,
   duracaoFim: 4,
@@ -103,29 +109,26 @@ export class Roteiro {
       }
     }
 
+    const minimo = (indice: number) => opcoes.minimos?.[indice] ?? {};
     const segmentos: Segmento[] = [];
     let cursor = 0;
-    segmentos.push({ tipo: 'ABERTURA', inicio: 0, fim: (cursor += o.duracaoAbertura) });
+    segmentos.push({ tipo: 'ABERTURA', inicio: 0, fim: (cursor += Math.max(o.duracaoAbertura, minimo(0).antes ?? 0)) });
     for (const i of escolhidos) {
       const lance = lances[i]!;
       const janela = timeline.janelas[i]!;
       const recorte = RECORTE[lance.tipo];
       const jogoInicio = janela.inicio + (janela.fim - janela.inicio) * recorte.de;
       const jogoFim = Math.min(DURACAO_JOGO, janela.resolucao + recorte.extraDepois);
+      const base = o.duracaoLance[lance.tipo];
+      const m = minimo(segmentos.length);
+      const antes = Math.max(base * PIVO[lance.tipo], m.antes ?? 0);
+      const depois = Math.max(base * (1 - PIVO[lance.tipo]), m.depois ?? 0);
       const inicio = cursor;
-      const fim = (cursor += o.duracaoLance[lance.tipo]);
-      segmentos.push({
-        tipo: 'LANCE',
-        inicio,
-        fim,
-        jogoInicio,
-        jogoFim,
-        jogoResolucao: janela.resolucao,
-        resolucao: inicio + (fim - inicio) * PIVO[lance.tipo],
-        lance: i,
-      });
+      const resolucao = inicio + antes;
+      const fim = (cursor = resolucao + depois);
+      segmentos.push({ tipo: 'LANCE', inicio, fim, jogoInicio, jogoFim, jogoResolucao: janela.resolucao, resolucao, lance: i });
     }
-    segmentos.push({ tipo: 'FIM', inicio: cursor, fim: (cursor += o.duracaoFim) });
+    segmentos.push({ tipo: 'FIM', inicio: cursor, fim: (cursor += Math.max(o.duracaoFim, minimo(segmentos.length).antes ?? 0)) });
 
     this.segmentos = segmentos;
     this.duracao = cursor;

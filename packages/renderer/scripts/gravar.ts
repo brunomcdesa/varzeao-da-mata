@@ -24,9 +24,9 @@ import { chromium } from 'playwright';
 import { IDENTIDADE, TIMES, type Escalacao, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, simularPartida } from '@liga/sim';
 import type { PartidaParaVideo } from '../src/video.js';
-import { Roteiro } from '../src/roteiro.js';
+import { Roteiro, type OpcoesRoteiro } from '../src/roteiro.js';
 import { Timeline } from '../src/timeline.js';
-import { montarEventos, montarNarracao } from '../src/narracao.js';
+import { exigenciasDaNarracao, montarEventos, montarNarracao } from '../src/narracao.js';
 import { TAXA, agendarFalas, codificarWav, lerWavMono, mixar, type VozNaMixagem } from '../src/audio.js';
 import { criarLocutor } from './locutor.js';
 
@@ -109,57 +109,40 @@ async function montarPagina(dir: string): Promise<string> {
   return pathToFileURL(join(dir, 'index.html')).href;
 }
 
-function rodar(cmd: string, argumentos: string[]): Promise<void> {
-  return new Promise((ok, erro) => {
-    const p = spawn(cmd, argumentos, { stdio: ['ignore', 'ignore', 'inherit'] });
-    p.on('error', erro);
-    p.on('close', (c) => (c === 0 ? ok() : erro(new Error(`${cmd} saiu com código ${c}`))));
-  });
-}
-
-/** Acelera uma fala sem mudar o tom (atempo do ffmpeg). */
-async function acelerar(amostras: Float32Array, fator: number, dir: string, nome: string): Promise<Float32Array> {
-  const entrada = join(dir, `${nome}-in.wav`);
-  const saidaWav = join(dir, `${nome}-out.wav`);
-  await writeFile(entrada, codificarWav(amostras, amostras));
-  await rodar('ffmpeg', ['-y', '-hide_banner', '-loglevel', 'error', '-i', entrada, '-filter:a', `atempo=${fator.toFixed(3)}`, '-ar', String(TAXA), '-ac', '1', saidaWav]);
-  return lerWavMono(new Uint8Array(await readFile(saidaWav))).amostras;
-}
-
-/** Narração + trilha + efeitos num WAV com a duração do vídeo. */
-async function montarAudio(partida: PartidaParaVideo, dir: string): Promise<string> {
-  const roteiro = new Roteiro(new Timeline(partida.resultado, partida.escalacoes), partida.roteiro);
-  const falas = montarNarracao(roteiro);
+/**
+ * Narração + trilha + efeitos. Primeiro sintetiza as falas e mede cada uma; depois estica
+ * os trechos do Roteiro para todas caberem inteiras (exigenciasDaNarracao) e mixa.
+ * Devolve o WAV e as opções do Roteiro esticado, que a página de gravação também usa.
+ */
+async function montarAudio(partida: PartidaParaVideo, dir: string): Promise<{ arquivo: string; roteiro: OpcoesRoteiro }> {
+  const timeline = new Timeline(partida.resultado, partida.escalacoes);
+  const base = new Roteiro(timeline, partida.roteiro);
+  const falasBase = montarNarracao(base);
   const locutor = criarLocutor(join(raiz, '.cache/locutor'));
   if (locutor.modo === 'espeak') console.warn('  Sem chave do Azure: usando a voz de teste do espeak-ng.');
   if (locutor.modo === 'mudo') console.warn('  Sem chave do Azure nem espeak-ng: o vídeo sai sem a voz do Locutor.');
 
   const vozes = new Map<string, Float32Array>();
-  for (const f of falas) {
+  for (const f of falasBase) {
     const { amostras, taxa } = lerWavMono(await locutor.falar(f.texto, f.tom));
     if (taxa !== TAXA) throw new Error(`voz em ${taxa} Hz; esperado ${TAXA}`);
     vozes.set(f.id, amostras);
   }
-  const agenda = agendarFalas(falas, (id) => vozes.get(id)!.length / TAXA);
+  const duracao = (id: string) => vozes.get(id)!.length / TAXA;
+  const opcoes: OpcoesRoteiro = { ...partida.roteiro, minimos: exigenciasDaNarracao(base, falasBase, duracao) };
+  const roteiro = new Roteiro(timeline, opcoes);
+  const falas = montarNarracao(roteiro);
+
   const naMixagem: VozNaMixagem[] = [];
-  for (const a of agenda) {
-    let amostras = vozes.get(a.id)!;
-    if (a.velocidade > 1.001) amostras = await acelerar(amostras, a.velocidade, dir, a.id);
-    if (a.cortarEm !== undefined) {
-      const n = Math.max(0, Math.floor((a.cortarEm - a.inicio) * TAXA));
-      amostras = amostras.slice(0, n);
-      const fade = Math.min(n, Math.floor(0.08 * TAXA));
-      for (let i = 0; i < fade; i++) amostras[n - fade + i]! *= 1 - i / fade;
-    }
-    naMixagem.push({ inicio: a.inicio, amostras });
-    const f = falas.find((x) => x.id === a.id)!;
-    const extra = a.velocidade > 1.001 ? ` (×${a.velocidade.toFixed(2)})` : '';
-    console.log(`  ${a.inicio.toFixed(1).padStart(5)} s  ${f.texto}${extra}`);
+  for (const a of agendarFalas(falas, duracao)) {
+    naMixagem.push({ inicio: a.inicio, amostras: vozes.get(a.id)! });
+    console.log(`  ${a.inicio.toFixed(1).padStart(5)} s  ${falas.find((x) => x.id === a.id)!.texto}`);
   }
+  if (roteiro.duracao > base.duracao + 0.05) console.log(`  Vídeo esticado de ${base.duracao.toFixed(1)} s para ${roteiro.duracao.toFixed(1)} s para as falas caberem.`);
   const { esq, dir: direita } = mixar({ duracao: roteiro.duracao, segmentos: roteiro.segmentos, eventos: montarEventos(roteiro), vozes: naMixagem });
   const arquivo = join(dir, 'audio.wav');
   await writeFile(arquivo, codificarWav(esq, direita));
-  return arquivo;
+  return { arquivo, roteiro: opcoes };
 }
 
 function abrirFfmpeg(audio: string): { stdin: NodeJS.WritableStream; fim: Promise<void> } {
@@ -198,6 +181,15 @@ async function main(): Promise<void> {
     const pagina = await navegador.newPage({ viewport: { width: 1080, height: 1920 } });
     pagina.on('pageerror', (e) => console.error('[página]', e.message));
     await pagina.goto(await montarPagina(dir));
+
+    // O áudio vem primeiro: a duração das falas define quanto cada trecho do vídeo dura.
+    let audio: string | null = null;
+    if (!args.previa) {
+      console.log('Locução:');
+      const montado = await montarAudio(partida, dir);
+      audio = montado.arquivo;
+      partida.roteiro = montado.roteiro;
+    }
     const { duracao, totalQuadros } = await pagina.evaluate(([d, f]) => window.varzea.preparar(d, f), [partida, fps] as const);
 
     const r = partida.resultado;
@@ -211,9 +203,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    console.log('Locução:');
-    const audio = await montarAudio(partida, dir);
-    const ff = abrirFfmpeg(audio);
+    const ff = abrirFfmpeg(audio!);
     const LOTE = 15;
     for (let n = 0; n < totalQuadros; n += LOTE) {
       const quantos = Math.min(LOTE, totalQuadros - n);
