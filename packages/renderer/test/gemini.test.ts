@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+
+// Nos testes não há limite real de pedidos por minuto.
+process.env.GEMINI_TTS_RPM = '10000';
 import { codificarWav, lerWavMono } from '../src/audio.js';
-import { ESTILO, dividirPorSilencio, falarLoteGemini, esperaPedida, extrairAudio, para48k, pedidoGemini } from '../scripts/gemini.js';
+import { CotaDiariaEsgotada, ESTILO, dividirPorSilencio, falarLoteGemini, falarVariasGemini, pedidoGeminiVarias, esperaPedida, extrairAudio, para48k, pedidoGemini } from '../scripts/gemini.js';
 
 describe('Gemini TTS', () => {
   it('monta o pedido com voz, estilo do tom e texto separados', () => {
@@ -40,6 +43,7 @@ describe('Gemini TTS', () => {
     expect(esperaPedida('Rate limit exceeded ... Please retry in 19s or upgrade')).toBe(19);
     expect(esperaPedida('Please retry in 2.5s')).toBe(2.5);
     expect(esperaPedida('erro qualquer')).toBeNull();
+    expect(esperaPedida('Please retry in 11h15m6s or upgrade')).toBe(11 * 3600 + 15 * 60 + 6);
   });
 });
 
@@ -105,6 +109,39 @@ describe('Lote com a API simulada', () => {
         expect(d).toBeGreaterThanOrEqual(trechos[i]!);
         expect(d).toBeLessThanOrEqual(trechos[i]! + 0.12);
       });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe('Um pedido por vídeo', () => {
+  it('cada fala vai com o estilo do seu tom, e as pausas ficam entre elas', () => {
+    const p = pedidoGeminiVarias(
+      [
+        { texto: 'O meia vai pela ponta...', tom: 'normal' },
+        { texto: 'Gooool da Onça!', tom: 'grito' },
+      ],
+      'Lumi',
+      'gemini-3.8-flash-tts',
+    ) as any;
+    const itens = p.input[0].content;
+    expect(itens).toHaveLength(2);
+    expect(itens[0].annotations[0].style).toBe(ESTILO.normal);
+    expect(itens[1].annotations[0].style).toBe(ESTILO.grito);
+    expect(itens[0].text).toContain('<long pause>');
+    expect(itens[1].text).toBe('Gooool da Onça!');
+  });
+
+  it('cota do dia esgotada: avisa na hora, sem ficar tentando', async () => {
+    let chamadas = 0;
+    vi.stubGlobal('fetch', async () => {
+      chamadas++;
+      return new Response(JSON.stringify({ error: { message: 'Rate limit exceeded (limit: 10 requests per day on Free Tier). Please retry in 11h15m6s' } }), { status: 429 });
+    });
+    try {
+      await expect(falarVariasGemini([{ texto: 'a', tom: 'normal' }], 'k', 'Lumi', 'm')).rejects.toBeInstanceOf(CotaDiariaEsgotada);
+      expect(chamadas).toBe(1);
     } finally {
       vi.unstubAllGlobals();
     }

@@ -24,7 +24,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Tom } from '../src/narracao.js';
-import { MODELO_PADRAO, VOZ_PADRAO, falarGemini, falarLoteGemini } from './gemini.js';
+import { CotaDiariaEsgotada, MODELO_PADRAO, VOZ_PADRAO, falarGemini, falarVariasGemini } from './gemini.js';
 
 export interface Locutor {
   /** WAV PCM 16 bits 48 kHz mono. */
@@ -62,7 +62,7 @@ export function ssml(texto: string, tom: Tom, voz: string, estilo?: string): str
   );
 }
 
-export function criarLocutor(pastaCache: string): Locutor {
+export function criarLocutor(pastaCache: string, modoForcado?: string): Locutor {
   const chave = process.env.AZURE_SPEECH_KEY;
   const regiao = process.env.AZURE_SPEECH_REGION;
   const voz = process.env.AZURE_SPEECH_VOICE ?? 'pt-BR-AntonioNeural';
@@ -70,7 +70,7 @@ export function criarLocutor(pastaCache: string): Locutor {
 
   const temEspeak = spawnSync('espeak-ng', ['--version']).status === 0;
   const chaveGemini = process.env.GEMINI_API_KEY;
-  const modo = process.env.LOCUTOR ?? (chaveGemini ? 'gemini' : chave && regiao ? 'azure' : temEspeak ? 'espeak' : 'mudo');
+  const modo = modoForcado ?? process.env.LOCUTOR ?? (chaveGemini ? 'gemini' : chave && regiao ? 'azure' : temEspeak ? 'espeak' : 'mudo');
   if (modo === 'azure' && (!chave || !regiao)) throw new Error('LOCUTOR=azure precisa de AZURE_SPEECH_KEY e AZURE_SPEECH_REGION');
   if (modo === 'gemini' && !chaveGemini) throw new Error('LOCUTOR=gemini precisa de GEMINI_API_KEY');
 
@@ -100,43 +100,45 @@ export function criarLocutor(pastaCache: string): Locutor {
     const modelo = process.env.GEMINI_TTS_MODELO || MODELO_PADRAO;
     const chaveDe = (texto: string, tom: Tom) => `gemini|${modelo}|${voz}|${tom}|${texto}`;
     const falar = (texto: string, tom: Tom) => comCache(chaveDe(texto, tom), () => falarGemini(texto, tom, chaveGemini!, voz, modelo));
-    /** Falas por pedido no lote (textos longos demais deixam a voz cansada e o corte arriscado). */
-    const LOTE = 8;
+    const diagnostico = async (wav: Uint8Array, motivo: string) => {
+      const pasta = join(pastaCache, 'falhas');
+      await mkdir(pasta, { recursive: true });
+      const arquivo = join(pasta, `${new Date().toISOString().replace(/[:.]/g, '-')}.wav`);
+      await writeFile(arquivo, wav);
+      console.log(`\n  … corte do lote falhou (${motivo}); áudio salvo em ${arquivo}`);
+    };
+    /** Um pedido para o lote inteiro; se o corte falhar, divide ao meio (sem cair para fala por fala). */
+    const sintetizarLote = async (lote: { texto: string; tom: Tom }[]): Promise<Uint8Array[]> => {
+      const r = await falarVariasGemini(lote, chaveGemini!, voz, modelo, diagnostico);
+      if (r) return r;
+      if (lote.length === 1) throw new Error(`não consegui recortar a fala "${lote[0]!.texto}"`);
+      const meio = Math.ceil(lote.length / 2);
+      return [...(await sintetizarLote(lote.slice(0, meio))), ...(await sintetizarLote(lote.slice(meio)))];
+    };
     return {
       modo: 'gemini',
       falar,
       async falarTodas(falas, progresso) {
         const out: (Uint8Array | null)[] = await Promise.all(falas.map((f) => lerCache(chaveDe(f.texto, f.tom))));
-        let feitas = out.filter(Boolean).length;
-        progresso?.(feitas);
-        // Junta as que faltam por tom (o estilo vale para o pedido inteiro).
-        const porTom = new Map<Tom, number[]>();
-        out.forEach((w, i) => {
-          if (w) return;
-          const t = falas[i]!.tom;
-          porTom.set(t, [...(porTom.get(t) ?? []), i]);
-        });
-        for (const [tom, indices] of porTom) {
-          for (let k = 0; k < indices.length; k += LOTE) {
-            const grupo = indices.slice(k, k + LOTE);
-            const lote = grupo.length > 1 ? await falarLoteGemini(grupo.map((i) => falas[i]!.texto), tom, chaveGemini!, voz, modelo) : null;
-            if (lote) {
-              for (const [j, i] of grupo.entries()) {
-                out[i] = lote[j]!;
-                await gravarCache(chaveDe(falas[i]!.texto, tom), lote[j]!);
-              }
-              feitas += grupo.length;
-              progresso?.(feitas);
-            } else {
-              if (grupo.length > 1) console.log(`\n  … lote de ${grupo.length} falas não pôde ser dividido; pedindo uma por uma`);
-              for (const i of grupo) {
-                out[i] = await falar(falas[i]!.texto, tom);
-                progresso?.(++feitas);
-              }
-            }
+        const faltam = out.flatMap((w, i) => (w ? [] : [i]));
+        progresso?.(falas.length - faltam.length);
+        if (!faltam.length) return out as Uint8Array[];
+        try {
+          // Todas as falas que faltam num pedido só (cada uma com o estilo do seu tom).
+          const wavs = await sintetizarLote(faltam.map((i) => falas[i]!));
+          for (const [k, i] of faltam.entries()) {
+            out[i] = wavs[k]!;
+            await gravarCache(chaveDe(falas[i]!.texto, falas[i]!.tom), wavs[k]!);
           }
+          progresso?.(falas.length);
+          return out as Uint8Array[];
+        } catch (e) {
+          if (!(e instanceof CotaDiariaEsgotada)) throw e;
+          // Sem cota hoje: o vídeo inteiro sai com a voz reserva (não mistura vozes no mesmo vídeo).
+          const reserva = criarLocutor(pastaCache, process.env.LOCUTOR_RESERVA ?? (chave && regiao ? 'azure' : temEspeak ? 'espeak' : 'mudo'));
+          console.warn(`\n  ⚠ ${e.message}. Este vídeo vai com a voz reserva (${reserva.modo}).`);
+          return reserva.falarTodas(falas, progresso);
         }
-        return out as Uint8Array[];
       },
     };
   }

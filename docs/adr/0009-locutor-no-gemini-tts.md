@@ -12,4 +12,7 @@ A troca ficou contida em `scripts/locutor.ts` e `scripts/gemini.ts`. O resto do 
 - A API devolve WAV 24 kHz, que é convertido para 48 kHz antes da mixagem.
 - "Lumi" não está entre as 30 vozes prontas da documentação, então deve vir da biblioteca estendida. `pnpm vozes --gemini <nome>` mostra o identificador exato para pôr em `GEMINI_TTS_VOZ`.
 - Os textos de estilo ficam em `ESTILO` (`scripts/gemini.ts`). Mudar um deles invalida o cache das falas daquele tom.
-- Seguimos no plano grátis (3 pedidos por minuto). Para caber nele, as falas do mesmo tom vão num pedido só, separadas por pausas longas (`<long pause>`), e o áudio é cortado nos silêncios (`falarLoteGemini`). Isso dá uns 3 pedidos por vídeo em vez de uns 25. Se o corte não bater com o número de falas, ou a duração de algum pedaço for incoerente com o texto, o gravador pede fala por fala.
+- Seguimos no plano grátis, que tem dois limites para este modelo: 3 pedidos por minuto e **10 pedidos por dia**. Por isso cada vídeo é **um pedido só**: a API aceita várias falas no mesmo pedido, cada uma com o estilo do seu tom, separadas por pausas longas, e o áudio é cortado nos silêncios. Um dia de Liga (4 Partidas e 1 Resumo) usa 5 pedidos.
+- Se o corte não fechar, o lote é dividido ao meio (2 pedidos), nunca fala por fala. O áudio que falhou fica em `.cache/locutor/falhas` para diagnóstico.
+- Se a cota do dia acabar, o gravador não insiste: avisa e grava aquele vídeo inteiro com a voz reserva (`LOCUTOR_RESERVA`; padrão Azure se houver chave, senão espeak-ng), para a Liga não parar e sem misturar vozes no mesmo vídeo.
+- Com faturamento ativo no projeto, os limites sobem e nada disso precisa mudar.

@@ -86,30 +86,73 @@ async function aguardarVez(): Promise<void> {
   proximoPedido = Date.now() + intervalo;
 }
 
-/** Segundos que a API pediu para esperar ("Please retry in 19s"), se houver. */
+/** Segundos que a API pediu para esperar ("retry in 19s", "retry in 11h15m6s"), se houver. */
 export function esperaPedida(mensagem: string): number | null {
-  const m = /retry in ([\d.]+)\s*s/i.exec(mensagem);
-  return m ? Number(m[1]) : null;
+  const m = /retry in ((?:[\d.]+\s*[hms]\s*)+)/i.exec(mensagem);
+  if (!m) return null;
+  let total = 0;
+  for (const [, n, u] of m[1]!.matchAll(/([\d.]+)\s*([hms])/gi)) total += Number(n) * (u!.toLowerCase() === 'h' ? 3600 : u!.toLowerCase() === 'm' ? 60 : 1);
+  return total;
 }
 
-export async function falarGemini(texto: string, tom: Tom, chave: string, voz: string, modelo: string): Promise<Uint8Array> {
+/** A cota do dia acabou: não adianta esperar alguns segundos. */
+export class CotaDiariaEsgotada extends Error {
+  constructor(readonly volta: number | null) {
+    super(`a cota diária do Gemini TTS acabou${volta ? ` (volta em ~${Math.ceil(volta / 3600)} h)` : ''}`);
+  }
+}
+
+/** Esperas acima disso não são o limite por minuto, e sim a cota do dia. */
+const ESPERA_MAXIMA = 120;
+
+/** Faz um pedido à API, respeitando o limite por minuto; devolve WAV 48 kHz. */
+async function pedir(corpo: unknown, chave: string, descricao: string): Promise<Uint8Array> {
   let ultimoErro = '';
-  for (let tentativa = 1; tentativa <= 8; tentativa++) {
+  for (let tentativa = 1; tentativa <= 6; tentativa++) {
     await aguardarVez();
     const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
       method: 'POST',
       headers: { 'x-goog-api-key': chave, 'Content-Type': 'application/json' },
-      body: JSON.stringify(pedidoGemini(texto, tom, voz, modelo)),
+      body: JSON.stringify(corpo),
     });
     if (resp.ok) return para48k(extrairAudio((await resp.json()) as RespostaGemini));
     ultimoErro = `${resp.status} ${await resp.text()}`;
     if (resp.status !== 429 && resp.status < 500) break;
-    // Limite do plano (ou instabilidade): espera o que a API pediu e tenta de novo.
-    const segundos = (esperaPedida(ultimoErro) ?? 5 * tentativa) + 1;
+    const espera = esperaPedida(ultimoErro);
+    if (resp.status === 429 && (/per day|daily/i.test(ultimoErro) || (espera ?? 0) > ESPERA_MAXIMA)) throw new CotaDiariaEsgotada(espera);
+    // Limite por minuto (ou instabilidade): espera o que a API pediu e tenta de novo.
+    const segundos = (espera ?? 5 * tentativa) + 1;
     console.log(`  … Gemini pediu para esperar ${Math.ceil(segundos)} s (tentativa ${tentativa})`);
     proximoPedido = Date.now() + segundos * 1000;
   }
-  throw new Error(`Gemini TTS recusou a fala "${texto}": ${ultimoErro}`);
+  throw new Error(`Gemini TTS recusou ${descricao}: ${ultimoErro}`);
+}
+
+export function falarGemini(texto: string, tom: Tom, chave: string, voz: string, modelo: string): Promise<Uint8Array> {
+  return pedir(pedidoGemini(texto, tom, voz, modelo), chave, `a fala "${texto}"`);
+}
+
+/**
+ * Várias falas num pedido só, cada uma com o estilo do seu tom (a API aceita um item de
+ * texto por fala, cada um com seu speech_metadata). Pausas longas no fim de cada fala
+ * permitem cortar o áudio depois.
+ */
+export function pedidoGeminiVarias(falas: { texto: string; tom: Tom }[], voz: string, modelo: string): unknown {
+  return {
+    model: modelo,
+    input: [
+      {
+        type: 'user_input',
+        content: falas.map((f, i) => ({
+          type: 'text',
+          text: i < falas.length - 1 ? f.texto + SEPARADOR : f.texto,
+          annotations: [{ type: 'speech_metadata', style: ESTILO[f.tom] }],
+        })),
+      },
+    ],
+    response_format: { type: 'audio', mime_type: 'audio/wav', sample_rate: 24000 },
+    generation_config: { speech_config: [{ voice: voz }] },
+  };
 }
 
 // ---------------------------------------------------------------- várias falas num pedido
@@ -117,7 +160,7 @@ export async function falarGemini(texto: string, tom: Tom, chave: string, voz: s
 /** Pausa colocada entre as falas de um lote; o corte procura esses silêncios. */
 export const SEPARADOR = '\n<long pause> <long pause>\n';
 /** Silêncio mínimo (s) para valer como separação entre falas. */
-const SILENCIO_MINIMO = 0.45;
+const SILENCIO_MINIMO = 0.25;
 
 /**
  * Divide um áudio com `n` falas separadas por pausas longas: acha os n−1 maiores trechos
@@ -178,18 +221,41 @@ function aparar(a: Float32Array, taxa: number): Float32Array {
 }
 
 /**
- * Sintetiza várias falas do mesmo tom num pedido só e devolve uma por fala (WAV 48 kHz).
- * Confere se a duração de cada pedaço é coerente com o tamanho do texto; se não for,
- * devolve null e o chamador sintetiza fala por fala.
+ * Sintetiza várias falas num pedido só (cada uma com o estilo do seu tom) e devolve uma
+ * por fala (WAV 48 kHz). Confere se a duração de cada pedaço é coerente com o tamanho do
+ * texto; se o corte não fechar, devolve null (e o áudio fica salvo em `diagnostico`).
  */
-export async function falarLoteGemini(textos: string[], tom: Tom, chave: string, voz: string, modelo: string): Promise<Uint8Array[] | null> {
-  const wav = await falarGemini(textos.join(SEPARADOR), tom, chave, voz, modelo);
+export async function falarVariasGemini(
+  falas: { texto: string; tom: Tom }[],
+  chave: string,
+  voz: string,
+  modelo: string,
+  diagnostico?: (wav: Uint8Array, motivo: string) => Promise<void>,
+): Promise<Uint8Array[] | null> {
+  const wav = await pedir(pedidoGeminiVarias(falas, voz, modelo), chave, `um lote de ${falas.length} falas`);
+  if (falas.length === 1) {
+    const { amostras } = lerWavMono(wav);
+    const [unica] = dividirPorSilencio(amostras, 1)!;
+    return [codificarWav(unica!, unica!)];
+  }
   const { amostras } = lerWavMono(wav);
-  const pedacos = dividirPorSilencio(amostras, textos.length);
-  if (!pedacos) return null;
+  const pedacos = dividirPorSilencio(amostras, falas.length);
+  if (!pedacos) {
+    await diagnostico?.(wav, 'pausas insuficientes');
+    return null;
+  }
+  const textos = falas.map((f) => f.texto);
   // Coerência: segundos por caractere de cada pedaço não pode fugir muito da média.
   const razoes = pedacos.map((p, i) => p.length / 48000 / Math.max(4, textos[i]!.length));
-  const media = razoes.reduce((s, r) => s + r, 0) / razoes.length;
-  if (razoes.some((r) => r < media * 0.35 || r > media * 2.8)) return null;
+  const media = razoes.reduce((acc, r) => acc + r, 0) / razoes.length;
+  if (razoes.some((r) => r < media * 0.3 || r > media * 3)) {
+    await diagnostico?.(wav, 'durações incoerentes');
+    return null;
+  }
   return pedacos.map((p) => codificarWav(p, p));
+}
+
+/** Compatibilidade: lote de um tom só. */
+export function falarLoteGemini(textos: string[], tom: Tom, chave: string, voz: string, modelo: string): Promise<Uint8Array[] | null> {
+  return falarVariasGemini(textos.map((texto) => ({ texto, tom })), chave, voz, modelo);
 }
