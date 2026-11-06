@@ -6,6 +6,18 @@ export type Posicao = (typeof POSICOES)[number];
 export const TIMES = ['CAP', 'ONC', 'TAT', 'TAM', 'PRE', 'SAG', 'TUC', 'ARA'] as const;
 export type TimeId = (typeof TIMES)[number];
 
+/** Identidade visual dos Times (docs/times.md). */
+export const IDENTIDADE: Readonly<Record<TimeId, { nome: string; sigla: string; bicho: string; primaria: string; secundaria: string }>> = {
+  CAP: { nome: 'Esporte Clube Capivara', sigla: 'CAP', bicho: 'capivara', primaria: '#C98A4B', secundaria: '#3FB8A8' },
+  ONC: { nome: 'Onça Futebol Clube', sigla: 'ONÇ', bicho: 'onca', primaria: '#F2B705', secundaria: '#1A1A1A' },
+  TAT: { nome: 'Atlético Tatu', sigla: 'TAT', bicho: 'tatu', primaria: '#4A4F57', secundaria: '#1F6F78' },
+  TAM: { nome: 'Tamanduá Sport Club', sigla: 'TAM', bicho: 'tamandua', primaria: '#A8432E', secundaria: '#F3E6C9' },
+  PRE: { nome: 'Associação Preguiça', sigla: 'PRE', bicho: 'preguica', primaria: '#5E6B3A', secundaria: '#E2D3B0' },
+  SAG: { nome: 'Sagui Futebol Clube', sigla: 'SAG', bicho: 'sagui', primaria: '#6B3FA0', secundaria: '#FFFFFF' },
+  TUC: { nome: 'Tucano Esporte Clube', sigla: 'TUC', bicho: 'tucano', primaria: '#161616', secundaria: '#F28C1C' },
+  ARA: { nome: 'Arara Azul Futebol Clube', sigla: 'ARA', bicho: 'arara', primaria: '#1F4FD1', secundaria: '#FFD23F' },
+};
+
 /** Pares de rivais fixos (docs/times.md). */
 export const CLASSICOS: ReadonlyArray<readonly [TimeId, TimeId]> = [
   ['CAP', 'ONC'],

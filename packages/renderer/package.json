@@ -1,0 +1,20 @@
+{
+  "name": "@liga/renderer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run",
+    "demo": "node scripts/build-demo.mjs"
+  },
+  "dependencies": {
+    "@liga/shared": "workspace:*",
+    "@liga/sim": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}
