@@ -12,3 +12,4 @@ A troca ficou contida em `scripts/locutor.ts` e `scripts/gemini.ts`. O resto do 
 - A API devolve WAV 24 kHz, que é convertido para 48 kHz antes da mixagem.
 - "Lumi" não está entre as 30 vozes prontas da documentação, então deve vir da biblioteca estendida. `pnpm vozes --gemini <nome>` mostra o identificador exato para pôr em `GEMINI_TTS_VOZ`.
 - Os textos de estilo ficam em `ESTILO` (`scripts/gemini.ts`). Mudar um deles invalida o cache das falas daquele tom.
+- Seguimos no plano grátis (3 pedidos por minuto). Para caber nele, as falas do mesmo tom vão num pedido só, separadas por pausas longas (`<long pause>`), e o áudio é cortado nos silêncios (`falarLoteGemini`). Isso dá uns 3 pedidos por vídeo em vez de uns 25. Se o corte não bater com o número de falas, ou a duração de algum pedaço for incoerente com o texto, o gravador pede fala por fala.

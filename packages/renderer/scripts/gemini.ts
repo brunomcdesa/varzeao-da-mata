@@ -111,3 +111,85 @@ export async function falarGemini(texto: string, tom: Tom, chave: string, voz: s
   }
   throw new Error(`Gemini TTS recusou a fala "${texto}": ${ultimoErro}`);
 }
+
+// ---------------------------------------------------------------- várias falas num pedido
+
+/** Pausa colocada entre as falas de um lote; o corte procura esses silêncios. */
+export const SEPARADOR = '\n<long pause> <long pause>\n';
+/** Silêncio mínimo (s) para valer como separação entre falas. */
+const SILENCIO_MINIMO = 0.45;
+
+/**
+ * Divide um áudio com `n` falas separadas por pausas longas: acha os n−1 maiores trechos
+ * de silêncio e corta no meio deles; tira o silêncio das pontas de cada pedaço.
+ * Devolve null se não houver silêncios suficientes (aí o chamador pede fala por fala).
+ */
+export function dividirPorSilencio(amostras: Float32Array, n: number, taxa = 48000): Float32Array[] | null {
+  if (n === 1) return [aparar(amostras, taxa)];
+  const quadro = Math.floor(taxa * 0.02);
+  const nq = Math.floor(amostras.length / quadro);
+  const energia = new Float32Array(nq);
+  let pico = 0;
+  for (let q = 0; q < nq; q++) {
+    let s = 0;
+    for (let i = q * quadro; i < (q + 1) * quadro; i++) s += amostras[i]! * amostras[i]!;
+    energia[q] = Math.sqrt(s / quadro);
+    pico = Math.max(pico, energia[q]!);
+  }
+  const limiar = pico * 0.03; // ~ -30 dB do pico
+  // Trechos silenciosos internos (sem contar as pontas do áudio).
+  const silencios: { de: number; ate: number }[] = [];
+  let inicio = -1;
+  for (let q = 0; q <= nq; q++) {
+    const quieto = q < nq && energia[q]! < limiar;
+    if (quieto && inicio < 0) inicio = q;
+    if (!quieto && inicio >= 0) {
+      if (inicio > 0 && q < nq) silencios.push({ de: inicio, ate: q });
+      inicio = -1;
+    }
+  }
+  const longos = silencios.filter((s) => ((s.ate - s.de) * quadro) / taxa >= SILENCIO_MINIMO);
+  if (longos.length < n - 1) return null;
+  const cortes = longos
+    .sort((a, b) => b.ate - b.de - (a.ate - a.de))
+    .slice(0, n - 1)
+    .map((s) => Math.floor(((s.de + s.ate) / 2) * quadro))
+    .sort((a, b) => a - b);
+  const pedacos: Float32Array[] = [];
+  let ini = 0;
+  for (const c of [...cortes, amostras.length]) {
+    pedacos.push(aparar(amostras.subarray(ini, c), taxa));
+    ini = c;
+  }
+  return pedacos.every((p) => p.length > taxa * 0.2) ? pedacos : null;
+}
+
+/** Tira o silêncio do começo e do fim, deixando 50 ms de respiro. */
+function aparar(a: Float32Array, taxa: number): Float32Array {
+  let pico = 0;
+  for (const x of a) pico = Math.max(pico, Math.abs(x));
+  const limiar = pico * 0.02;
+  let i = 0;
+  let f = a.length - 1;
+  while (i < f && Math.abs(a[i]!) < limiar) i++;
+  while (f > i && Math.abs(a[f]!) < limiar) f--;
+  const folga = Math.floor(taxa * 0.05);
+  return a.slice(Math.max(0, i - folga), Math.min(a.length, f + folga));
+}
+
+/**
+ * Sintetiza várias falas do mesmo tom num pedido só e devolve uma por fala (WAV 48 kHz).
+ * Confere se a duração de cada pedaço é coerente com o tamanho do texto; se não for,
+ * devolve null e o chamador sintetiza fala por fala.
+ */
+export async function falarLoteGemini(textos: string[], tom: Tom, chave: string, voz: string, modelo: string): Promise<Uint8Array[] | null> {
+  const wav = await falarGemini(textos.join(SEPARADOR), tom, chave, voz, modelo);
+  const { amostras } = lerWavMono(wav);
+  const pedacos = dividirPorSilencio(amostras, textos.length);
+  if (!pedacos) return null;
+  // Coerência: segundos por caractere de cada pedaço não pode fugir muito da média.
+  const razoes = pedacos.map((p, i) => p.length / 48000 / Math.max(4, textos[i]!.length));
+  const media = razoes.reduce((s, r) => s + r, 0) / razoes.length;
+  if (razoes.some((r) => r < media * 0.35 || r > media * 2.8)) return null;
+  return pedacos.map((p) => codificarWav(p, p));
+}

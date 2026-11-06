@@ -24,12 +24,24 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Tom } from '../src/narracao.js';
-import { MODELO_PADRAO, VOZ_PADRAO, falarGemini } from './gemini.js';
+import { MODELO_PADRAO, VOZ_PADRAO, falarGemini, falarLoteGemini } from './gemini.js';
 
 export interface Locutor {
   /** WAV PCM 16 bits 48 kHz mono. */
   falar(texto: string, tom: Tom): Promise<Uint8Array>;
+  /** Todas as falas de um vídeo, na ordem; pode juntar pedidos para economizar cota. */
+  falarTodas(falas: { texto: string; tom: Tom }[], progresso?: (feitas: number) => void): Promise<Uint8Array[]>;
   readonly modo: 'gemini' | 'azure' | 'espeak' | 'mudo';
+}
+
+/** Uma fala de cada vez (serve para quem não tem pedido em lote). */
+async function umaPorUma(l: Pick<Locutor, 'falar'>, falas: { texto: string; tom: Tom }[], progresso?: (n: number) => void): Promise<Uint8Array[]> {
+  const out: Uint8Array[] = [];
+  for (const f of falas) {
+    out.push(await l.falar(f.texto, f.tom));
+    progresso?.(out.length);
+  }
+  return out;
 }
 
 const PROSODIA: Record<Tom, { rate: string; pitch: string; grau: string }> = {
@@ -63,31 +75,76 @@ export function criarLocutor(pastaCache: string): Locutor {
   if (modo === 'gemini' && !chaveGemini) throw new Error('LOCUTOR=gemini precisa de GEMINI_API_KEY');
 
   /** Cache em disco: a mesma fala com a mesma voz e estilo nunca é sintetizada duas vezes. */
-  const comCache = async (chaveCache: string, gerar: () => Promise<Uint8Array>): Promise<Uint8Array> => {
-    const arquivo = join(pastaCache, `${createHash('sha256').update(chaveCache).digest('hex').slice(0, 24)}.wav`);
+  const arquivoCache = (chaveCache: string) => join(pastaCache, `${createHash('sha256').update(chaveCache).digest('hex').slice(0, 24)}.wav`);
+  const lerCache = async (chaveCache: string): Promise<Uint8Array | null> => {
     try {
-      return new Uint8Array(await readFile(arquivo));
+      return new Uint8Array(await readFile(arquivoCache(chaveCache)));
     } catch {
-      /* não está no cache */
+      return null;
     }
-    const wav = await gerar();
+  };
+  const gravarCache = async (chaveCache: string, wav: Uint8Array) => {
     await mkdir(pastaCache, { recursive: true });
-    await writeFile(arquivo, wav);
+    await writeFile(arquivoCache(chaveCache), wav);
+  };
+  const comCache = async (chaveCache: string, gerar: () => Promise<Uint8Array>): Promise<Uint8Array> => {
+    const pronto = await lerCache(chaveCache);
+    if (pronto) return pronto;
+    const wav = await gerar();
+    await gravarCache(chaveCache, wav);
     return wav;
   };
 
   if (modo === 'gemini') {
     const voz = process.env.GEMINI_TTS_VOZ || VOZ_PADRAO;
     const modelo = process.env.GEMINI_TTS_MODELO || MODELO_PADRAO;
+    const chaveDe = (texto: string, tom: Tom) => `gemini|${modelo}|${voz}|${tom}|${texto}`;
+    const falar = (texto: string, tom: Tom) => comCache(chaveDe(texto, tom), () => falarGemini(texto, tom, chaveGemini!, voz, modelo));
+    /** Falas por pedido no lote (textos longos demais deixam a voz cansada e o corte arriscado). */
+    const LOTE = 8;
     return {
       modo: 'gemini',
-      falar: (texto, tom) => comCache(`gemini|${modelo}|${voz}|${tom}|${texto}`, () => falarGemini(texto, tom, chaveGemini!, voz, modelo)),
+      falar,
+      async falarTodas(falas, progresso) {
+        const out: (Uint8Array | null)[] = await Promise.all(falas.map((f) => lerCache(chaveDe(f.texto, f.tom))));
+        let feitas = out.filter(Boolean).length;
+        progresso?.(feitas);
+        // Junta as que faltam por tom (o estilo vale para o pedido inteiro).
+        const porTom = new Map<Tom, number[]>();
+        out.forEach((w, i) => {
+          if (w) return;
+          const t = falas[i]!.tom;
+          porTom.set(t, [...(porTom.get(t) ?? []), i]);
+        });
+        for (const [tom, indices] of porTom) {
+          for (let k = 0; k < indices.length; k += LOTE) {
+            const grupo = indices.slice(k, k + LOTE);
+            const lote = grupo.length > 1 ? await falarLoteGemini(grupo.map((i) => falas[i]!.texto), tom, chaveGemini!, voz, modelo) : null;
+            if (lote) {
+              for (const [j, i] of grupo.entries()) {
+                out[i] = lote[j]!;
+                await gravarCache(chaveDe(falas[i]!.texto, tom), lote[j]!);
+              }
+              feitas += grupo.length;
+              progresso?.(feitas);
+            } else {
+              if (grupo.length > 1) console.log(`\n  … lote de ${grupo.length} falas não pôde ser dividido; pedindo uma por uma`);
+              for (const i of grupo) {
+                out[i] = await falar(falas[i]!.texto, tom);
+                progresso?.(++feitas);
+              }
+            }
+          }
+        }
+        return out as Uint8Array[];
+      },
     };
   }
 
   if (modo === 'espeak') {
-    return {
+    const espeak: Locutor = {
       modo: 'espeak',
+      falarTodas: (falas, progresso) => umaPorUma(espeak, falas, progresso),
       async falar(texto, tom) {
         const dir = await mkdtemp(join(tmpdir(), 'espeak-'));
         try {
@@ -103,20 +160,24 @@ export function criarLocutor(pastaCache: string): Locutor {
         }
       },
     };
+    return espeak;
   }
 
   if (modo === 'mudo') {
-    return {
+    const mudo: Locutor = {
       modo: 'mudo',
+      falarTodas: (falas, progresso) => umaPorUma(mudo, falas, progresso),
       async falar(texto) {
         // ~14 caracteres por segundo, como uma locução animada.
         return silencio(Math.max(0.6, texto.length / 14));
       },
     };
+    return mudo;
   }
 
-  return {
+  const azure: Locutor = {
     modo: 'azure',
+    falarTodas: (falas, progresso) => umaPorUma(azure, falas, progresso),
     async falar(texto, tom) {
       const corpo = ssml(texto, tom, voz, estilo);
       const arquivo = join(pastaCache, `${createHash('sha256').update(corpo).digest('hex').slice(0, 24)}.wav`);
@@ -150,6 +211,7 @@ export function criarLocutor(pastaCache: string): Locutor {
       throw new Error(`Azure Speech recusou a fala "${texto}": ${ultimoErro}`);
     },
   };
+  return azure;
 }
 
 function silencio(segundos: number): Uint8Array {
