@@ -13,7 +13,8 @@
     "liga": "pnpm --filter @liga/worker liga",
     "site": "pnpm --filter @liga/site dev",
     "site:build": "pnpm --filter @liga/site build",
-    "verificar": "pnpm --filter @liga/worker verificar"
+    "verificar": "pnpm --filter @liga/worker verificar",
+    "job": "pnpm --filter @liga/worker job"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

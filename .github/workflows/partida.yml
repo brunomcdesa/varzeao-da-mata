@@ -1,0 +1,34 @@
+# 35 min antes de cada jogo (12h, 14h, 16h e 18h em Brasília = 15h, 17h, 19h e 21h UTC):
+# espera o Corte, escala, simula, grava o Reels e agenda a publicação para o fim do Ao Vivo.
+name: partida
+on:
+  schedule:
+    - cron: '25 14,16,18,20 * * *'
+  workflow_dispatch:
+concurrency: partida
+jobs:
+  partida:
+    if: vars.LIGA_ATIVA == 'sim'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET_PUBLICO: ${{ vars.R2_BUCKET_PUBLICO }}
+      R2_BUCKET_PRIVADO: ${{ vars.R2_BUCKET_PRIVADO }}
+      R2_URL_PUBLICA: ${{ vars.R2_URL_PUBLICA }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_TTS_VOZ: ${{ vars.GEMINI_TTS_VOZ || 'Lumi' }}
+      GEMINI_TTS_RPM: ${{ vars.GEMINI_TTS_RPM || '10' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+        with:
+          video: 'true'
+      - run: pnpm job partida

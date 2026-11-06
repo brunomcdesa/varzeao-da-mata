@@ -10,7 +10,8 @@
     "test": "vitest run",
     "liga": "tsx scripts/liga.ts",
     "site-demo": "tsx scripts/site-demo.ts",
-    "verificar": "tsx scripts/verificar.ts"
+    "verificar": "tsx scripts/verificar.ts",
+    "job": "tsx scripts/job.ts"
   },
   "dependencies": {
     "@liga/renderer": "workspace:*",

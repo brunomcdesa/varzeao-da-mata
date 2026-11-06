@@ -224,7 +224,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       situacao: situacao(p),
       escalacoes: linhas ? { mandante: de(p.mandante_id), visitante: de(p.visitante_id) } : null,
       resultado: revelada(p) ? p.resultado : null,
-      video: revelada(p) && p.video_url?.startsWith('http') ? p.video_url : null,
+      video: encerrada(p) && p.video_url?.startsWith('http') ? p.video_url : null,
     };
     arquivos.set(`partidas/${p.id}.json`, publica);
   }
