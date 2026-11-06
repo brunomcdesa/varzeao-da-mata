@@ -49,13 +49,12 @@ pnpm --filter @liga/renderer exec playwright install chromium
 
 A variação média de OVR por Partida fica entre 0,00 e 0,03 em todas as faixas, então não há bola de neve. Qualquer mudança em `src/parametros.ts` exige subir `VERSAO_SIM` (ADR-0002).
 
-## Voz do Locutor (Azure Speech)
+## Voz do Locutor (Gemini TTS)
 
 ```bash
-cp .env.example .env                  # e preencha AZURE_SPEECH_KEY (o .env não vai para o git)
-pnpm vozes                            # lista as vozes pt-BR e os estilos de cada uma
-pnpm testar-grito --saida ~/gritos    # versões do grito de gol em várias vozes, para escolher
+cp .env.example .env                  # preencha GEMINI_API_KEY (o .env não vai para o git)
+pnpm vozes --gemini Lumi              # confere o identificador da voz no Gemini
 pnpm gravar --seed 42 --saida ~/reels.mp4
 ```
 
-Sem chave, o gravador usa o espeak-ng (se instalado) ou grava sem voz. Veja o ADR-0008.
+A chave sai em https://aistudio.google.com/apikey. Sem ela, o gravador tenta o Azure Speech (`pnpm vozes` lista as vozes e `pnpm testar-grito` compara gritos), depois o espeak-ng, e por fim grava sem voz. Veja os ADRs 0008 e 0009.

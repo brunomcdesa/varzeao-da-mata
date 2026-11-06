@@ -1,5 +1,7 @@
 # Áudio sintetizado em código e Locutor no Azure Speech
 
+> A voz do Locutor mudou para o Gemini TTS no ADR-0009. O resto deste registro continua valendo.
+
 O áudio do Reels é montado em três camadas, todas determinísticas:
 
 1. **Locutor da Liga**: Azure Speech (REST) com voz neural pt-BR, por padrão `pt-BR-AntonioNeural`. A narração sai de templates por estilo de jogada e tipo de lance (`src/narracao.ts`), com os bordões dos Times e o nome dos Clássicos. Os Jogadores são citados pela posição e pelo Time, nunca pelo @. A empolgação vem da `prosody` (velocidade e tom), que funciona em qualquer voz. Um estilo (`AZURE_SPEECH_STYLE`) só é aplicado se a voz aceitar.

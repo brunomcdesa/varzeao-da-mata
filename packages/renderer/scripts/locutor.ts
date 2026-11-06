@@ -1,7 +1,11 @@
 /**
- * Voz do Locutor da Liga via Azure Speech (REST, sem SDK).
+ * Voz do Locutor da Liga. Ordem de escolha (ou force com LOCUTOR=gemini|azure|espeak|mudo):
+ *   1. Gemini TTS, se houver GEMINI_API_KEY (padrão; voz Lumi; veja scripts/gemini.ts)
+ *   2. Azure Speech, se houver AZURE_SPEECH_KEY e AZURE_SPEECH_REGION
+ *   3. espeak-ng (voz de teste), se instalado
+ *   4. mudo
  *
- * Variáveis de ambiente:
+ * Variáveis do Azure:
  *   AZURE_SPEECH_KEY     chave do recurso Speech (sem ela, a narração sai muda; veja abaixo)
  *   AZURE_SPEECH_REGION  região do recurso, ex.: brazilsouth
  *   AZURE_SPEECH_VOICE   voz (padrão pt-BR-AntonioNeural; liste com `pnpm vozes`)
@@ -12,7 +16,7 @@
  *
  * Sem chave, usa o espeak-ng se estiver instalado (voz robótica, só para conferir o tempo
  * das falas; `sudo apt install espeak-ng`). Sem nenhum dos dois, cada fala vira silêncio
- * com a duração estimada. Para forçar um modo: LOCUTOR=azure|espeak|mudo.
+ * com a duração estimada.
  */
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -20,11 +24,12 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Tom } from '../src/narracao.js';
+import { MODELO_PADRAO, VOZ_PADRAO, falarGemini } from './gemini.js';
 
 export interface Locutor {
   /** WAV PCM 16 bits 48 kHz mono. */
   falar(texto: string, tom: Tom): Promise<Uint8Array>;
-  readonly modo: 'azure' | 'espeak' | 'mudo';
+  readonly modo: 'gemini' | 'azure' | 'espeak' | 'mudo';
 }
 
 const PROSODIA: Record<Tom, { rate: string; pitch: string; grau: string }> = {
@@ -52,8 +57,33 @@ export function criarLocutor(pastaCache: string): Locutor {
   const estilo = process.env.AZURE_SPEECH_STYLE || undefined;
 
   const temEspeak = spawnSync('espeak-ng', ['--version']).status === 0;
-  const modo = process.env.LOCUTOR ?? (chave && regiao ? 'azure' : temEspeak ? 'espeak' : 'mudo');
+  const chaveGemini = process.env.GEMINI_API_KEY;
+  const modo = process.env.LOCUTOR ?? (chaveGemini ? 'gemini' : chave && regiao ? 'azure' : temEspeak ? 'espeak' : 'mudo');
   if (modo === 'azure' && (!chave || !regiao)) throw new Error('LOCUTOR=azure precisa de AZURE_SPEECH_KEY e AZURE_SPEECH_REGION');
+  if (modo === 'gemini' && !chaveGemini) throw new Error('LOCUTOR=gemini precisa de GEMINI_API_KEY');
+
+  /** Cache em disco: a mesma fala com a mesma voz e estilo nunca é sintetizada duas vezes. */
+  const comCache = async (chaveCache: string, gerar: () => Promise<Uint8Array>): Promise<Uint8Array> => {
+    const arquivo = join(pastaCache, `${createHash('sha256').update(chaveCache).digest('hex').slice(0, 24)}.wav`);
+    try {
+      return new Uint8Array(await readFile(arquivo));
+    } catch {
+      /* não está no cache */
+    }
+    const wav = await gerar();
+    await mkdir(pastaCache, { recursive: true });
+    await writeFile(arquivo, wav);
+    return wav;
+  };
+
+  if (modo === 'gemini') {
+    const voz = process.env.GEMINI_TTS_VOZ || VOZ_PADRAO;
+    const modelo = process.env.GEMINI_TTS_MODELO || MODELO_PADRAO;
+    return {
+      modo: 'gemini',
+      falar: (texto, tom) => comCache(`gemini|${modelo}|${voz}|${tom}|${texto}`, () => falarGemini(texto, tom, chaveGemini!, voz, modelo)),
+    };
+  }
 
   if (modo === 'espeak') {
     return {
