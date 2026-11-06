@@ -35,7 +35,7 @@ Comentário feito pela própria pessoa num Reels da Liga que a transforma em Jog
 _Avoid_: cadastro, entrada, marcação
 
 **Novos Contratados**:
-Os Jogadores que fizeram Inscrição desde a Rodada anterior, apresentados no Reels do dia como confirmação de que entraram na Liga.
+Os Jogadores que fizeram Inscrição desde a Rodada anterior, apresentados no Resumo da Rodada como confirmação de que entraram na Liga.
 _Avoid_: novatos, novos inscritos, reforços
 
 **Comando**:
@@ -43,8 +43,20 @@ Comentário com prefixo reconhecido pelo sistema em qualquer Reels da Liga: "ENT
 _Avoid_: palavra-chave, hashtag
 
 **Corte**:
-O horário diário (18h) até o qual Inscrições e votos entram na Rodada daquele dia.
+O momento, 30 minutos antes do Apito Inicial de cada Partida, até o qual Inscrições contam para a Escalação dos dois Times daquela Partida. A votação para Craque da Rodada fecha no Corte da primeira Partida do dia seguinte.
 _Avoid_: deadline, prazo, fechamento
+
+**Apito Inicial**:
+O horário marcado de uma Partida (12h, 14h, 16h ou 18h). Antes dele, o resultado é secreto; a partir dele, a Partida pode ser vista Ao Vivo.
+_Avoid_: kickoff, início, horário do jogo
+
+**Ao Vivo**:
+A exibição de uma Partida no site a partir do Apito Inicial, com o relógio de jogo correndo 15 vezes mais rápido, de modo que os 90 minutos passam em cerca de 6.
+_Avoid_: live, transmissão, tempo real
+
+**Replay**:
+A reexibição, no site, de qualquer Partida já terminada, lance a lance.
+_Avoid_: reprise, VT, gravação
 
 ### Competição
 
@@ -65,11 +77,11 @@ Os 7 Jogadores de um Time que entram em campo numa Partida, escolhidos do Elenco
 _Avoid_: titulares, time titular, onze
 
 **Candidatos a Craque**:
-Os 5 Jogadores com maior Nota da Partida numa Rodada, exibidos no Reels daquela Rodada como as únicas opções de voto.
+Os 5 Jogadores com maior Nota da Partida numa Rodada, exibidos no Resumo da Rodada como as únicas opções de voto.
 _Avoid_: indicados, finalistas, top 5
 
 **Craque da Rodada**:
-O Candidato a Craque mais votado pelo público nos comentários do Reels da Rodada, revelado no Reels seguinte. Cada @ tem um voto, inclusive em si mesmo.
+O Candidato a Craque mais votado pelo público nos comentários do Resumo da Rodada, revelado no Reels da primeira Partida do dia seguinte. Cada @ tem um voto, inclusive em si mesmo.
 _Avoid_: MVP, melhor em campo, destaque
 
 **Temporada**:
@@ -77,8 +89,12 @@ Um ciclo completo da Liga, com duração de 7 a 10 dias.
 _Avoid_: edição, season
 
 **Rodada**:
-O conjunto de Partidas disputadas num mesmo dia da Temporada; há exatamente uma Rodada por dia.
+O conjunto de Partidas disputadas num mesmo dia da Temporada, em horários escalonados (12h, 14h, 16h e 18h); há exatamente uma Rodada por dia. No Mata-mata, as Partidas ocupam os últimos horários do dia.
 _Avoid_: jornada, dia de jogo
+
+**Resumo da Rodada**:
+O Reels das 19h que fecha o dia: placares, tabela, Novos Contratados e Candidatos a Craque. Nenhuma Partida da Rodada acontece depois dele.
+_Avoid_: compacto, melhores momentos, recap
 
 **Pré-temporada**:
 Os 2 a 3 dias antes da primeira Rodada de uma Temporada, dedicados a apresentar os Times e captar Inscrições, sem Partidas.
@@ -117,5 +133,5 @@ A voz única e fixa que narra todos os Reels. Fala de Jogadores pela Posição e
 _Avoid_: narrador, comentarista, voz
 
 **Partida**:
-Um confronto simulado entre dois Times, exibido como simulação 2D no Reels da Rodada.
+Um confronto simulado entre dois Times, com Apito Inicial marcado. Pode ser vista Ao Vivo ou em Replay no site e ganha um Reels próprio assim que termina.
 _Avoid_: jogo, match
