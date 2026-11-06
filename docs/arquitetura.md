@@ -1,4 +1,4 @@
-# Arquitetura — Liga dos Seguidores
+# Arquitetura — Varzeão da Mata
 
 Visão técnica do sistema. Os termos de domínio estão em [`GLOSSARY.md`](../GLOSSARY.md), e as decisões estruturais em [`docs/adr/`](./adr/).
 

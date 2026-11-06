@@ -1,4 +1,4 @@
-# Times da Liga dos Seguidores
+# Times do Varzeão da Mata
 
 Oito clubes fictícios, todos com bichos brasileiros como tema e em quatro pares de rivais. A personalidade de cada um é só visual e narrativa e não afeta a simulação. Nenhum dos bichos é mascote conhecido de clube brasileiro real.
 

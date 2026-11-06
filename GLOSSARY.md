@@ -1,4 +1,4 @@
-# Liga dos Seguidores
+# Varzeão da Mata
 
 Jogo de futebol interativo publicado no Instagram: seguidores se inscrevem pelos comentários, viram jogadores de uma liga com vários times e acompanham as partidas simuladas em Reels diários.
 
