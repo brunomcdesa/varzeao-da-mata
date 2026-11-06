@@ -13,15 +13,29 @@ Jogo de futebol interativo no Instagram: seguidores se inscrevem pelos comentár
 |---|---|
 | `packages/shared` | Tipos de domínio, Times, Clássicos, limites de OVR |
 | `packages/sim` | Motor determinístico com testes e calibração |
-| `renderer`, `worker`, `site` | A fazer |
+| `packages/renderer` | Linha do tempo pura, desenho em Canvas 9:16, página de Replay (`pnpm demo`) e gravação do Reels em MP4 (`pnpm gravar`) |
+| `worker`, `edge`, `site` | A fazer |
 
 ## Comandos
+
+Precisa de Node 18+ e pnpm. Se o pnpm não estiver instalado: `corepack enable` (vem com o Node) ou `npm i -g pnpm`.
 
 ```bash
 pnpm install
 pnpm test        # testes de todos os pacotes
 pnpm typecheck
 pnpm calibrar    # roda 20 mil Partidas e imprime as métricas de calibração
+pnpm demo        # gera a página de Replay em packages/renderer/dist/demo/index.html
+pnpm --filter @liga/renderer demo --servir   # mesmo, com servidor em localhost:5173 e rebuild automático
+pnpm gravar --seed 42 --mandante CAP --visitante ONC --saida ~/reels.mp4   # grava um Reels de teste
+pnpm gravar --seed 42 --previa ~/previa   # só os quadros-chave, para revisar o visual
+```
+
+Para gravar, instale uma vez o ffmpeg e o Chromium do Playwright (e, opcionalmente, o espeak-ng como voz de teste):
+
+```bash
+sudo apt install ffmpeg espeak-ng
+pnpm --filter @liga/renderer exec playwright install chromium
 ```
 
 ## Calibração atual da sim (VERSAO_SIM 1)
@@ -34,3 +48,13 @@ pnpm calibrar    # roda 20 mil Partidas e imprime as métricas de calibração
 | 85 × 60 | 73% | 14% | 3,8 |
 
 A variação média de OVR por Partida fica entre 0,00 e 0,03 em todas as faixas, então não há bola de neve. Qualquer mudança em `src/parametros.ts` exige subir `VERSAO_SIM` (ADR-0002).
+
+## Voz do Locutor (Azure Speech)
+
+```bash
+cp .env.example .env                  # e preencha AZURE_SPEECH_KEY (o .env não vai para o git)
+pnpm vozes                            # lista as vozes pt-BR e os estilos de cada uma
+pnpm gravar --seed 42 --saida ~/reels.mp4
+```
+
+Sem chave, o gravador usa o espeak-ng (se instalado) ou grava sem voz. Veja o ADR-0008.

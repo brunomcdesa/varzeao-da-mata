@@ -30,6 +30,36 @@ export function ehClassico(a: TimeId, b: TimeId): boolean {
   return CLASSICOS.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
 }
 
+const NOMES_CLASSICOS: Readonly<Record<string, string>> = {
+  'CAP-ONC': 'Clássico da Margem',
+  'TAM-TAT': 'Clássico do Cupinzeiro',
+  'PRE-SAG': 'Clássico do Galho',
+  'ARA-TUC': 'Clássico das Penas',
+};
+
+/** Nome do Clássico entre dois Times, ou null se não forem rivais (docs/times.md). */
+export function nomeDoClassico(a: TimeId, b: TimeId): string | null {
+  return NOMES_CLASSICOS[[a, b].sort().join('-')] ?? null;
+}
+
+/** Como o Locutor da Liga fala de cada Time: nome curto, artigo e bordão (docs/times.md). */
+export const FALA_DO_TIME: Readonly<Record<TimeId, { curto: string; artigo: 'o' | 'a'; bordao: string }>> = {
+  CAP: { curto: 'Capivara', artigo: 'a', bordao: 'Calma que dá.' },
+  ONC: { curto: 'Onça', artigo: 'a', bordao: 'Quem tem medo não entra no mato.' },
+  TAT: { curto: 'Tatu', artigo: 'o', bordao: 'Aqui não passa nada.' },
+  TAM: { curto: 'Tamanduá', artigo: 'o', bordao: 'Uma formiga de cada vez.' },
+  PRE: { curto: 'Preguiça', artigo: 'a', bordao: 'Sem pressa pra ganhar.' },
+  SAG: { curto: 'Sagui', artigo: 'o', bordao: 'Tamanho não joga.' },
+  TUC: { curto: 'Tucano', artigo: 'o', bordao: 'Falo e faço.' },
+  ARA: { curto: 'Arara', artigo: 'a', bordao: 'Ganhar é bom, ganhar bonito é melhor.' },
+};
+
+/** "da Capivara", "do Tatu". */
+export function doTime(t: TimeId): string {
+  const f = FALA_DO_TIME[t];
+  return `${f.artigo === 'a' ? 'da' : 'do'} ${f.curto}`;
+}
+
 /** Formação society: 1 GOL, 2 ZAG, 2 MEI, 2 ATA. */
 export const FORMACAO: Readonly<Record<Posicao, number>> = { GOL: 1, ZAG: 2, MEI: 2, ATA: 2 };
 export const TAMANHO_ESCALACAO = 7;
