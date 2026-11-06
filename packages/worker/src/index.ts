@@ -9,3 +9,5 @@ export * from './resumo.js';
 export * from './tabela.js';
 export * from './vocabulario.js';
 export * from './site.js';
+export * from './instagram.js';
+export * from './nuvem.js';

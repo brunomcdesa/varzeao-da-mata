@@ -12,7 +12,8 @@
     "testar-grito": "pnpm --filter @liga/renderer testar-grito",
     "liga": "pnpm --filter @liga/worker liga",
     "site": "pnpm --filter @liga/site dev",
-    "site:build": "pnpm --filter @liga/site build"
+    "site:build": "pnpm --filter @liga/site build",
+    "verificar": "pnpm --filter @liga/worker verificar"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

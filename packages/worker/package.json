@@ -9,12 +9,14 @@
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
     "liga": "tsx scripts/liga.ts",
-    "site-demo": "tsx scripts/site-demo.ts"
+    "site-demo": "tsx scripts/site-demo.ts",
+    "verificar": "tsx scripts/verificar.ts"
   },
   "dependencies": {
     "@liga/renderer": "workspace:*",
     "@liga/shared": "workspace:*",
     "@liga/sim": "workspace:*",
+    "aws4fetch": "1.0.20",
     "pg": "8.23.1"
   },
   "devDependencies": {
