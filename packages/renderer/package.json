@@ -8,13 +8,20 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
-    "demo": "node scripts/build-demo.mjs"
+    "demo": "node scripts/build-demo.mjs",
+    "gravar": "tsx scripts/gravar.ts",
+    "vozes": "tsx scripts/vozes.ts"
   },
   "dependencies": {
     "@liga/shared": "workspace:*",
     "@liga/sim": "workspace:*"
   },
   "devDependencies": {
-    "esbuild": "^0.24.0"
+    "@fontsource/archivo": "5.3.0",
+    "@fontsource/barlow-condensed": "5.3.0",
+    "@fontsource/jersey-10": "5.3.0",
+    "@fontsource/pixelify-sans": "5.3.0",
+    "esbuild": "^0.24.0",
+    "playwright": "1.63.0"
   }
 }

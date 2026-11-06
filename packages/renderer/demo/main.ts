@@ -172,8 +172,6 @@ function quadro(agora: number): void {
   desenharQuadro(ctx, estado, {
     times: timeline.resultado.times,
     nomes,
-    fonteDisplay: '"Barlow Condensed", "Arial Narrow", sans-serif',
-    fonteTexto: '"Archivo", system-ui, sans-serif',
   });
   barra.value = String(Math.round(t));
   for (const el of listaLances.querySelectorAll<HTMLButtonElement>('.lance')) {
