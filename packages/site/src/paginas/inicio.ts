@@ -6,7 +6,7 @@ import { bonecoImg, curto, escudoImg, html, jogadorLink, nota, rotuloClassico, t
 import { chamadaDeVoto, comoEntrar, linhaDePartida, perfil, tabelaDeClassificacao } from './comum.js';
 import type { Pagina } from './tipos.js';
 
-/** A Partida que merece a tábua: a que está rolando, senão a próxima. */
+/** A Partida que merece o destaque: a que está rolando, senão a próxima. */
 function partidaDaVez(l: LigaPublica): PartidaNoCalendario | null {
   return (
     l.calendario.find((p) => situacaoAgora(p.apito) === 'AO_VIVO') ??
@@ -15,43 +15,36 @@ function partidaDaVez(l: LigaPublica): PartidaNoCalendario | null {
   );
 }
 
-function tabua(p: PartidaNoCalendario): Html {
+/** Lado esquerdo do painel: o jogo da vez (confronto ou transmissão) ou o campeão. */
+function destaque(l: LigaPublica, p: PartidaNoCalendario | null): Html {
+  if (!p && l.campeao) {
+    const t = l.campeao;
+    const final = l.calendario.find((x) => x.fase === 'MATA_MATA' && x.classificado === t && !x.vantagemDoEmpate) ?? l.calendario.at(-1)!;
+    const vice = final.mandante === t ? final.visitante : final.mandante;
+    return html`<div class="destaque destaque-campeao">
+      <p class="destaque-rotulo">Campeão da Temporada ${l.temporada?.numero ?? ''}</p>
+      <a class="campeao-time" href="#/time/${t}">${escudoImg(t, 6)}<span>${IDENTIDADE[t].nome}</span></a>
+      <p class="destaque-nota">Venceu a Final contra ${curto(vice)}</p>
+      <a class="botao" href="#/time/${t}">Ver o elenco campeão</a>
+    </div>`;
+  }
+  if (!p) {
+    return html`<div class="destaque"><p class="destaque-rotulo">Temporada encerrada</p><p class="destaque-nota">A próxima começa em breve. Acompanhe no ${perfil()}.</p></div>`;
+  }
   const s = situacaoAgora(p.apito);
   const classico = rotuloClassico(p.mandante, p.visitante);
-  return html`<section class="tabua ${s === 'AO_VIVO' ? 'rolando' : ''}" aria-labelledby="titulo-tabua">
-    <h2 id="titulo-tabua" class="tabua-titulo">${s === 'AO_VIVO' ? 'Rolando agora' : `Próximo jogo ${contagem(p.apito)}`}</h2>
-    <div class="tabua-confronto">
-      <a class="tabua-time" href="#/time/${p.mandante}">${escudoImg(p.mandante, 4)}<span>${curto(p.mandante)}</span></a>
-      <div class="tabua-meio">
-        <span class="tabua-hora">${hora(p.apito)}</span>
-        ${classico ? html`<span class="classico-nome">${classico}</span>` : html`<span class="rodada-n">Rodada ${p.rodada}</span>`}
-      </div>
-      <a class="tabua-time" href="#/time/${p.visitante}">${escudoImg(p.visitante, 4)}<span>${curto(p.visitante)}</span></a>
+  return html`<div class="destaque ${s === 'AO_VIVO' ? 'rolando' : ''}">
+    <p class="destaque-rotulo">${s === 'AO_VIVO' ? 'Rolando agora' : `Próximo jogo ${contagem(p.apito)}`}</p>
+    <div class="destaque-confronto">
+      <a class="destaque-time" href="#/time/${p.mandante}">${escudoImg(p.mandante, 4)}<span>${curto(p.mandante)}</span></a>
+      <span class="destaque-hora">${hora(p.apito)}</span>
+      <a class="destaque-time" href="#/time/${p.visitante}">${escudoImg(p.visitante, 4)}<span>${curto(p.visitante)}</span></a>
     </div>
-    <div class="tabua-transmissao" hidden>
-      <canvas width="540" height="960" aria-label="Transmissão ao vivo"></canvas>
-    </div>
-    <p class="tabua-acao"><a class="botao" href="#/partida/${p.id}">${
-      s === 'AO_VIVO' ? 'Assistir em tela cheia' : p.escalada ? 'Ver as escalações' : 'Escalações saem 30 min antes'
-    }</a></p>
-  </section>`;
-}
-
-function campeao(l: LigaPublica): Html {
-  const t = l.campeao!;
-  const final = l.calendario.find((p) => p.fase === 'MATA_MATA' && p.classificado === t && !p.vantagemDoEmpate) ?? l.calendario.at(-1)!;
-  const vice = final.mandante === t ? final.visitante : final.mandante;
-  const pl = final.placar;
-  return html`<section class="tabua campeao-tabua" aria-labelledby="titulo-campeao">
-    <h2 id="titulo-campeao" class="tabua-titulo">Campeão da Temporada ${l.temporada?.numero ?? ''}</h2>
-    <a class="tabua-time campeao-time" href="#/time/${t}">${escudoImg(t, 6)}<span>${IDENTIDADE[t].nome}</span></a>
-    ${pl
-      ? html`<p class="campeao-placar"><a href="#/partida/${final.id}">Final: ${curto(final.mandante)} ${pl.mandante} × ${pl.visitante} ${curto(final.visitante)}${
-          pl.penaltis ? ` (pênaltis ${pl.penaltis.mandante}–${pl.penaltis.visitante})` : ''
-        }</a> · vice: ${curto(vice)}</p>`
-      : ''}
-    <p class="tabua-acao"><a class="botao" href="#/time/${t}">Ver o elenco campeão</a></p>
-  </section>`;
+    <div class="destaque-transmissao" hidden><canvas width="540" height="960" aria-label="Transmissão ao vivo"></canvas></div>
+    ${classico ? html`<span class="classico-nome">${classico}</span>` : ''}
+    <a class="botao" href="#/partida/${p.id}">${s === 'AO_VIVO' ? 'Assistir em tela cheia' : p.escalada ? 'Ver as escalações' : 'Ver o jogo'}</a>
+    ${s === 'AGENDADA' && !p.escalada ? html`<p class="destaque-nota">As escalações saem 30 minutos antes do apito.</p>` : ''}
+  </div>`;
 }
 
 function votacao(l: LigaPublica): Html {
@@ -76,8 +69,11 @@ function votacao(l: LigaPublica): Html {
     const cand = ultimoCraque.candidatos.find((x) => x.jogadorId === c.jogadorId);
     return html`<section class="placa votacao" aria-labelledby="titulo-votacao">
       <h2 id="titulo-votacao">Craque ${ultimoCraque.fase === 'LIGA' ? `da Rodada ${ultimoCraque.numero}` : 'das Semifinais'}</h2>
-      <p class="craque">${cand ? bonecoImg(c.time, cand.posicao, c.username, 5, 'FRENTE_COMEMORA') : ''}
-        <span>${jogadorLink(c.jogadorId, c.username)}<small>${curto(c.time)}, escolhido pelos seguidores</small></span></p>
+      <a class="craque" href="#/jogador/${c.jogadorId}">
+        <span class="craque-boneco">${cand ? bonecoImg(c.time, cand.posicao, c.username, 7, 'FRENTE_COMEMORA') : ''}</span>
+        <span class="craque-nome">@${c.username}</span>
+        <span class="craque-info">${curto(c.time)}${cand ? ` · nota ${nota(cand.nota)}` : ''}, escolhido pelos seguidores</span>
+      </a>
     </section>`;
   }
   return html``;
@@ -88,22 +84,28 @@ export const inicio: Pagina = async (main) => {
   const daVez = partidaDaVez(l);
   const n = rodadaAtual(l);
   const jogos = n ? partidasDaRodada(l, n) : [];
+  const titulo = jogos.length ? nomeDaRodada(jogos[0]!.fase, n!) : `Temporada ${l.temporada?.numero ?? ''}`;
   main.innerHTML = html`
-    <div class="inicio">
-      <div class="coluna-principal">
-        ${l.campeao && !daVez ? campeao(l) : daVez ? tabua(daVez) : html`<section class="tabua"><h2 class="tabua-titulo">Temporada encerrada</h2><p>Logo tem mais. Acompanhe no ${perfil()}.</p></section>`}
-        ${jogos.length
-          ? html`<section aria-labelledby="titulo-rodada">
-              <h2 id="titulo-rodada" class="secao">${nomeDaRodada(jogos[0]!.fase, n!)} <small>${diaLongo(jogos[0]!.apito)}</small></h2>
-              <ul class="lista-partidas">${jogos.map((p) => linhaDePartida(p))}</ul>
-            </section>`
-          : ''}
-        ${votacao(l)}
+    <section class="painel" aria-labelledby="titulo-painel">
+      <header class="painel-cabeca">
+        <h1 id="titulo-painel">${titulo}</h1>
+        ${jogos.length ? html`<p>${diaLongo(jogos[0]!.apito)}</p>` : ''}
+      </header>
+      <div class="painel-corpo">
+        ${destaque(l, daVez)}
+        <div class="painel-lado">
+          ${jogos.length ? html`<ul class="placas" aria-label="Jogos do dia">${jogos.map((p) => linhaDePartida(p, { destaque: p.id === daVez?.id }))}</ul>` : ''}
+          <section class="quadro-negro tabela-bloco" aria-labelledby="titulo-tabela">
+            <h2 id="titulo-tabela">Tabela</h2>
+            ${tabelaDeClassificacao(l.tabela, { compacta: true, semLegenda: true })}
+            <p class="tabela-link"><a href="#/tabela">Tabela completa e critérios</a></p>
+          </section>
+        </div>
       </div>
-      <aside class="coluna-lado">
-        <section aria-labelledby="titulo-tabela"><h2 id="titulo-tabela" class="secao">Tabela</h2>${tabelaDeClassificacao(l.tabela, { compacta: true })}</section>
-        ${comoEntrar(l)}
-      </aside>
+    </section>
+    <div class="inicio-grade">
+      ${votacao(l)}
+      ${comoEntrar(l)}
     </div>`.s;
 
   // Ao vivo: a tábua vira a transmissão.
@@ -111,10 +113,10 @@ export const inicio: Pagina = async (main) => {
   if (daVez && situacaoAgora(daVez.apito) === 'AO_VIVO') {
     const p = await partida(daVez.id, true);
     const timeline = p && montarTimeline(p);
-    const caixa = main.querySelector<HTMLElement>('.tabua-transmissao');
+    const caixa = main.querySelector<HTMLElement>('.destaque-transmissao');
     if (p && timeline && caixa) {
       caixa.hidden = false;
-      main.querySelector('.tabua-confronto')?.classList.add('escondido-telinha');
+      main.querySelector('.destaque-confronto')?.setAttribute('hidden', '');
       parar = transmitir(caixa, p, timeline, { aoVivo: true, aoAcabar: () => setTimeout(() => window.dispatchEvent(new HashChangeEvent('hashchange')), 4000) }).parar;
     }
   }

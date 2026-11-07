@@ -11,13 +11,13 @@ export const paginaJogos: Pagina = async (main) => {
   const atual = rodadaAtual(l);
   main.innerHTML = html`<h1 class="titulo-pagina">Jogos da Temporada ${l.temporada?.numero ?? ''}</h1>
     ${rodadas.length
-      ? rodadas.map((n) => {
+      ? html`<div class="grade-rodadas">${rodadas.map((n) => {
           const jogos = l.calendario.filter((p) => p.rodada === n);
           return html`<section class="rodada-bloco ${n === atual ? 'atual' : ''}" id="rodada-${n}" aria-labelledby="t-rodada-${n}">
             <h2 id="t-rodada-${n}" class="secao">${nomeDaRodada(jogos[0]!.fase, n)} <small>${diaLongo(jogos[0]!.apito)}</small></h2>
             <ul class="lista-partidas">${jogos.map((p) => linhaDePartida(p))}</ul>
           </section>`;
-        })
+        })}</div>`
       : html`<p class="placa vazio">A Temporada ainda não tem jogos marcados.</p>`}`.s;
   main.querySelector('.rodada-bloco.atual')?.scrollIntoView({ block: 'start' });
 };

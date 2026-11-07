@@ -95,6 +95,8 @@ const fmtDiaLongo = new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO, weekday: 
 const fmtChave = new Intl.DateTimeFormat('en-CA', { timeZone: FUSO, year: 'numeric', month: '2-digit', day: '2-digit' });
 
 export const hora = (iso: string) => fmtHora.format(new Date(iso)).replace(':00', 'h').replace(':', 'h');
+const fmtDiaCurto = new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO, day: '2-digit', month: '2-digit' });
+export const diaCurto = (iso: string) => fmtDiaCurto.format(new Date(iso));
 export const dia = (iso: string) => fmtDia.format(new Date(iso)).replace('.', '');
 export const diaLongo = (iso: string) => fmtDiaLongo.format(new Date(iso));
 export const mesmoDia = (a: string, b: string) => fmtChave.format(new Date(a)) === fmtChave.format(new Date(b));

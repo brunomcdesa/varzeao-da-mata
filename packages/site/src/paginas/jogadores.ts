@@ -1,6 +1,6 @@
 /** Jogadores: busca e ranking, o Card de cada um e a comparação lado a lado. */
-import { IDENTIDADE, TIMES, type JogadorPublico, type Posicao, type TimeId } from '@liga/shared';
-import { jogadores } from '../dados.js';
+import { IDENTIDADE, TIMES, nomeDaEtapa, type JogadorPublico, type Posicao, type TimeId } from '@liga/shared';
+import { jogadores, liga } from '../dados.js';
 import { bonecoImg, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, tintaSobre, type Html } from '../ui.js';
 import type { Pagina } from './tipos.js';
 
@@ -120,8 +120,8 @@ export function card(j: JogadorPublico, o: { pequeno?: boolean } = {}): Html {
 
 /** OVR ao longo dos jogos (um ou dois Jogadores), em SVG. */
 function graficoOvr(series: { j: JogadorPublico; cor: string; tracejado?: boolean }[]): Html {
-  const w = 320;
-  const h = 150;
+  const w = 560;
+  const h = 160;
   const m = { e: 28, d: 12, t: 12, b: 22 };
   const pontos = series.map((s) => [s.j.ovrInicial, ...s.j.historico.map((x) => x.ovr)]);
   const n = Math.max(2, ...pontos.map((p) => p.length));
@@ -144,7 +144,7 @@ function graficoOvr(series: { j: JogadorPublico; cor: string; tracejado?: boolea
 }
 
 export const paginaJogador: Pagina = async (main, [id]) => {
-  const todos = await jogadores();
+  const [todos, l] = await Promise.all([jogadores(), liga()]);
   const j = todos.find((x) => x.id === id);
   if (!j) {
     main.innerHTML = html`<p class="placa vazio">Jogador não encontrado. <a href="#/jogadores">Buscar Jogadores</a>.</p>`.s;
@@ -163,11 +163,11 @@ export const paginaJogador: Pagina = async (main, [id]) => {
         <div><dt>Gols</dt><dd>${j.gols}</dd></div>
         <div><dt>Assistências</dt><dd>${j.assistencias}</dd></div>
         <div><dt>Desarmes</dt><dd>${j.desarmes}</dd></div>
-        <div><dt>Defesas</dt><dd>${j.defesas}</dd></div>
+        ${j.posicao === 'GOL' ? html`<div><dt>Defesas</dt><dd>${j.defesas}<small>${j.golsSofridos} gols sofridos</small></dd></div>` : html`<div><dt>Defesas</dt><dd>${j.defesas}</dd></div>`}
         <div><dt>Vitórias</dt><dd>${j.vitorias}<small>${j.empates}E ${j.derrotas}D</small></dd></div>
+        <div><dt>Nota média</dt><dd>${nota(j.notaMedia)}</dd></div>
         <div><dt>Melhor nota</dt><dd>${nota(j.melhorNota)}</dd></div>
         <div><dt>Candidato a Craque</dt><dd>${j.vezesCandidato}</dd></div>
-        ${j.posicao === 'GOL' ? html`<div><dt>Gols sofridos</dt><dd>${j.golsSofridos}</dd></div>` : ''}
       </dl>
       <section aria-labelledby="titulo-ovr"><h2 id="titulo-ovr" class="secao">OVR jogo a jogo</h2>
         ${j.historico.length ? graficoOvr([{ j, cor: 'var(--amarelo)' }]) : html`<p class="vazio-pequeno">Ainda não estreou. O OVR muda depois de cada jogo, conforme a Nota.</p>`}
@@ -175,7 +175,23 @@ export const paginaJogador: Pagina = async (main, [id]) => {
       ${j.historico.length
         ? html`<section aria-labelledby="titulo-hist"><h2 id="titulo-hist" class="secao">Jogos</h2>
             <ol class="historico">${[...j.historico].reverse().map(
-              (h) => html`<li><a href="#/partida/${h.partidaId}"><span>Rodada ${h.rodada}</span><span>${h.gols ? `${'●'.repeat(h.gols)}` : ''}</span><span class="nota-chip">${nota(h.nota)}</span><span class="ovr">${h.ovr}</span></a></li>`,
+              (h) => {
+                const p = l.calendario.find((x) => x.id === h.partidaId);
+                const casa = p?.mandante === j.time;
+                const rival = p ? (casa ? p.visitante : p.mandante) : null;
+                const meus = p?.placar ? (casa ? p.placar.mandante : p.placar.visitante) : null;
+                const deles = p?.placar ? (casa ? p.placar.visitante : p.placar.mandante) : null;
+                const res = meus === null || deles === null ? '' : meus > deles ? 'v' : meus < deles ? 'd' : 'e';
+                return html`<li><a href="#/partida/${h.partidaId}">
+                  <span class="hist-etapa">${p ? nomeDaEtapa(p.fase, p.rodada) : `Rodada ${h.rodada}`}</span>
+                  <span class="hist-jogo">${rival ? html`${casa ? 'em casa, contra' : 'fora, contra'} ${escudoImg(rival, 0.75)} ${curto(rival)}` : ''}${
+                    meus !== null ? html` <span class="hist-placar res-${res}">${meus}×${deles}</span>` : ''
+                  }</span>
+                  <span class="hist-gols" title="Gols">${h.gols ? '●'.repeat(h.gols) : ''}</span>
+                  <span class="nota-chip" title="Nota">${nota(h.nota)}</span>
+                  <span class="ovr" title="OVR depois do jogo">${h.ovr}</span>
+                </a></li>`;
+              },
             )}</ol></section>`
         : ''}
       <form class="comparar-com">

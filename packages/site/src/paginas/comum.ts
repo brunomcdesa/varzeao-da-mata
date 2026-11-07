@@ -1,9 +1,9 @@
 /** Blocos usados em várias páginas: linha de Partida, tabela, chamadas para comentar. */
 import { etapaDa, nomeDaEtapa, type LigaPublica, type LinhaTabelaPublica, type PartidaNoCalendario } from '@liga/shared';
-import { INSTAGRAM, contagem, dia, hora, situacaoAgora } from '../dados.js';
+import { INSTAGRAM, contagem, diaCurto, hora, situacaoAgora } from '../dados.js';
 import { curto, escudoImg, html, rotuloClassico, type Html } from '../ui.js';
 
-export function linhaDePartida(p: PartidaNoCalendario, o: { comDia?: boolean } = {}): Html {
+export function linhaDePartida(p: PartidaNoCalendario, o: { comDia?: boolean; destaque?: boolean } = {}): Html {
   const s = situacaoAgora(p.apito);
   const classico = rotuloClassico(p.mandante, p.visitante);
   const placar =
@@ -13,9 +13,9 @@ export function linhaDePartida(p: PartidaNoCalendario, o: { comDia?: boolean } =
         ? html`<span class="ao-vivo-selo">Ao vivo</span>`
         : html`<span class="x">×</span>`;
   const penaltis = s === 'ENCERRADA' && p.placar?.penaltis ? html`<span class="penaltis">pên. ${p.placar.penaltis.mandante}–${p.placar.penaltis.visitante}</span>` : '';
-  const quando = s === 'AGENDADA' ? html`${o.comDia ? `${dia(p.apito)} · ` : ''}${hora(p.apito)}` : html`${o.comDia ? `${dia(p.apito)} · ` : ''}${hora(p.apito)}`;
+  const quando = o.comDia ? html`<span class="data">${diaCurto(p.apito)}</span>${hora(p.apito)}` : html`${hora(p.apito)}`;
   return html`<li>
-    <a class="partida-linha situacao-${s.toLowerCase()} ${p.classico ? 'classico' : ''}" href="#/partida/${p.id}">
+    <a class="partida-linha situacao-${s.toLowerCase()} ${p.classico ? 'classico' : ''} ${o.destaque ? 'em-destaque' : ''}" href="#/partida/${p.id}" ${o.destaque ? 'aria-current="true"' : ''}>
       <span class="quando">${quando}</span>
       <span class="lado mandante"><span class="nome">${curto(p.mandante)}</span>${escudoImg(p.mandante, 1.5)}</span>
       <span class="placar">${placar}${penaltis}</span>
@@ -29,7 +29,7 @@ export function linhaDePartida(p: PartidaNoCalendario, o: { comDia?: boolean } =
   </li>`;
 }
 
-export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compacta?: boolean; destaque?: string } = {}): Html {
+export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compacta?: boolean; destaque?: string; semLegenda?: boolean } = {}): Html {
   return html`<table class="classificacao ${o.compacta ? 'compacta' : ''}">
     <thead><tr>
       <th scope="col" class="pos"><span class="sr">Posição</span></th>
@@ -50,13 +50,13 @@ export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compact
       </tr>`,
     )}</tbody>
   </table>
-  <p class="legenda">Os 4 primeiros vão para o Mata-mata; 1º e 2º avançam na semifinal até empatando. Desempate: vitórias, saldo e gols pró.</p>`;
+  ${o.semLegenda ? '' : html`<p class="legenda">Os 4 primeiros vão para o Mata-mata; 1º e 2º avançam na semifinal até empatando. Desempate: vitórias, saldo e gols pró.</p>`}`;
 }
 
 const perfil = () => (INSTAGRAM ? html`<a href="https://www.instagram.com/${INSTAGRAM}/" rel="noopener">@${INSTAGRAM}</a>` : html`nosso Instagram`);
 
 export function comoEntrar(l: LigaPublica): Html {
-  return html`<section class="quadro-negro como-entrar" aria-labelledby="titulo-entrar">
+  return html`<section class="placa como-entrar" aria-labelledby="titulo-entrar">
     <h2 id="titulo-entrar">Quer jogar?</h2>
     <p>Comente num post do ${perfil()} o seu Time e a sua posição:</p>
     <p class="comando">ENTRO ONÇA ATACANTE</p>
