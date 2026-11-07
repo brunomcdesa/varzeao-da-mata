@@ -9,7 +9,7 @@ crons = ["* * * * *"]
 
 [vars]
 # Não é segredo: é o id numérico da conta do Instagram (o token fica no KV).
-IG_USER_ID = "TROQUE_PELO_IG_USER_ID"
+IG_USER_ID = "17841428347535513"
 
 [[kv_namespaces]]
 binding = "AGENDA"
