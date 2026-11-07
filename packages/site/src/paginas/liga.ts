@@ -1,5 +1,5 @@
 /** Jogos (calendário), Tabela, Times e a página de cada Time. */
-import { FALA_DO_TIME, IDENTIDADE, TIMES, type JogadorPublico, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, TIMES, nomeDaRodada, type JogadorPublico, type TimeId } from '@liga/shared';
 import { diaLongo, jogadores, liga, rodadaAtual } from '../dados.js';
 import { bonecoImg, curto, escudoImg, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, tintaSobre } from '../ui.js';
 import { linhaDePartida, tabelaDeClassificacao } from './comum.js';
@@ -14,7 +14,7 @@ export const paginaJogos: Pagina = async (main) => {
       ? rodadas.map((n) => {
           const jogos = l.calendario.filter((p) => p.rodada === n);
           return html`<section class="rodada-bloco ${n === atual ? 'atual' : ''}" id="rodada-${n}" aria-labelledby="t-rodada-${n}">
-            <h2 id="t-rodada-${n}" class="secao">${jogos[0]!.fase === 'LIGA' ? `Rodada ${n}` : 'Mata-mata'} <small>${diaLongo(jogos[0]!.apito)}</small></h2>
+            <h2 id="t-rodada-${n}" class="secao">${nomeDaRodada(jogos[0]!.fase, n)} <small>${diaLongo(jogos[0]!.apito)}</small></h2>
             <ul class="lista-partidas">${jogos.map((p) => linhaDePartida(p))}</ul>
           </section>`;
         })

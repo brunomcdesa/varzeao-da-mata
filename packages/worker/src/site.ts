@@ -7,7 +7,7 @@
  * aparecem depois do Apito (o lance a lance) ou do fim do Ao Vivo (placar, tabela, Card).
  * Escalações aparecem assim que existem (a partir do Corte).
  */
-import { IDENTIDADE, TIMES, ehClassico, type EscalacaoPublica, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId } from '@liga/shared';
+import { IDENTIDADE, TIMES, ehClassico, etapaDa, type EscalacaoPublica, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId } from '@liga/shared';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { classificar } from './tabela.js';
@@ -27,6 +27,7 @@ interface LinhaPartida {
   status: string;
   resultado: ResultadoPartida | null;
   video_url: string | null;
+  vantagem_do_empate: 'mandante' | 'visitante' | null;
 }
 
 interface LinhaEscalacao {
@@ -52,7 +53,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
   const partidas = temporada
     ? (
         await banco.query<LinhaPartida>(
-          `SELECT p.id, p.rodada_id, r.numero AS rodada, r.fase, r.data, p.apito_inicial, p.mandante_id, p.visitante_id, p.status, p.resultado, p.video_url
+          `SELECT p.id, p.rodada_id, r.numero AS rodada, r.fase, r.data, p.apito_inicial, p.mandante_id, p.visitante_id, p.status, p.resultado, p.video_url, p.vantagem_do_empate
            FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 ORDER BY p.apito_inicial`,
           [temporada.id],
         )
@@ -94,6 +95,8 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       situacao: situacao(p),
       classico: ehClassico(p.mandante_id, p.visitante_id),
       escalada: escalacoesDe.has(p.id),
+      ...(p.vantagem_do_empate ? { vantagemDoEmpate: true } : {}),
+      ...(r && p.fase === 'MATA_MATA' && r.vencedor ? { classificado: r.times[r.vencedor] } : {}),
       ...(r
         ? { placar: { mandante: r.gols.mandante, visitante: r.gols.visitante, ...(r.penaltis ? { penaltis: r.penaltis.placar } : {}) } }
         : {}),
@@ -141,6 +144,10 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
     tabela,
     calendario,
     rodadas,
+    campeao: (() => {
+      const final = partidas.find((p) => etapaDa(p.fase, p.rodada) === 'FINAL');
+      return final && encerrada(final) && final.resultado?.vencedor ? final.resultado.times[final.resultado.vencedor] : null;
+    })(),
   };
   arquivos.set('liga.json', liga);
 

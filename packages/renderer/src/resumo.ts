@@ -3,7 +3,7 @@
  * e a chamada para votar e jogar. Sequência de cartelas no mesmo estilo de várzea dos lances,
  * narrada pelo Locutor da Liga; cada cartela estica até a sua fala caber inteira.
  */
-import { FALA_DO_TIME, IDENTIDADE, doTime, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, doTime, nomeDaRodada, type Posicao, type TimeId } from '@liga/shared';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, plaquinha } from './desenho.js';
 import type { Fala } from './narracao.js';
@@ -162,7 +162,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       if (o.escudo) desenharEscudoDaLiga(pin, o.escudo, COLUNAS / 2, 150 - (1 - entre(q.tempo, 0, 0.6)) * 12, 120);
       pin.ctx.globalAlpha = entre(q.tempo, 0.3, 0.8);
       pin.texto('Resumo da', COLUNAS / 2, 245, 26, display, COR.placa, { contorno: COR.mata });
-      pin.texto(d.fase === 'LIGA' ? `Rodada ${d.rodada}` : 'Mata-mata', COLUNAS / 2, 280, 48, display, COR.amarelo, { contorno: COR.contorno, espessura: 1.5 });
+      pin.texto(nomeDaRodada(d.fase, d.rodada), COLUNAS / 2, 280, 48, display, COR.amarelo, { contorno: COR.contorno, espessura: 1.5 });
       pin.texto(`Temporada ${d.temporada}`, COLUNAS / 2, 314, 10, texto, COR.placa, { peso: 600 });
       pin.ctx.globalAlpha = 1;
       break;

@@ -1412,3 +1412,31 @@ input[type='checkbox'] {
     scroll-behavior: auto !important;
   }
 }
+
+/* ------------------------------------------------------------ mata-mata */
+
+.partida-linha .etapa,
+.partida-linha .avanca {
+  font-weight: 600;
+  color: var(--madeira-escura);
+}
+.campeao-tabua {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+.campeao-tabua .tabua-titulo {
+  font: 400 2.25rem/1 var(--display);
+  color: var(--amarelo);
+  text-shadow: 3px 3px 0 var(--contorno);
+}
+.campeao-time img {
+  width: clamp(96px, 30vw, 140px);
+}
+.campeao-time span {
+  font-size: clamp(2rem, 8vw, 3rem);
+}
+.campeao-placar {
+  margin: 0;
+  font-weight: 600;
+}

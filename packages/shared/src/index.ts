@@ -86,3 +86,4 @@ export interface Escalacao {
   jogadores: readonly JogadorEscalado[];
 }
 export * from './site.js';
+export * from './rodada.js';

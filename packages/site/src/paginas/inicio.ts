@@ -1,5 +1,5 @@
 /** Início: a Partida da vez (ao vivo ou a próxima), a Rodada, a votação do Craque e a tabela. */
-import type { LigaPublica, PartidaNoCalendario } from '@liga/shared';
+import { IDENTIDADE, nomeDaRodada, type LigaPublica, type PartidaNoCalendario } from '@liga/shared';
 import { contagem, diaLongo, hora, liga, partida, partidasDaRodada, rodadaAtual, situacaoAgora } from '../dados.js';
 import { montarTimeline, transmitir } from '../transmissao.js';
 import { bonecoImg, curto, escudoImg, html, jogadorLink, nota, rotuloClassico, type Html } from '../ui.js';
@@ -37,13 +37,30 @@ function tabua(p: PartidaNoCalendario): Html {
   </section>`;
 }
 
+function campeao(l: LigaPublica): Html {
+  const t = l.campeao!;
+  const final = l.calendario.find((p) => p.fase === 'MATA_MATA' && p.classificado === t && !p.vantagemDoEmpate) ?? l.calendario.at(-1)!;
+  const vice = final.mandante === t ? final.visitante : final.mandante;
+  const pl = final.placar;
+  return html`<section class="tabua campeao-tabua" aria-labelledby="titulo-campeao">
+    <h2 id="titulo-campeao" class="tabua-titulo">Campeão da Temporada ${l.temporada?.numero ?? ''}</h2>
+    <a class="tabua-time campeao-time" href="#/time/${t}">${escudoImg(t, 6)}<span>${IDENTIDADE[t].nome}</span></a>
+    ${pl
+      ? html`<p class="campeao-placar"><a href="#/partida/${final.id}">Final: ${curto(final.mandante)} ${pl.mandante} × ${pl.visitante} ${curto(final.visitante)}${
+          pl.penaltis ? ` (pênaltis ${pl.penaltis.mandante}–${pl.penaltis.visitante})` : ''
+        }</a> · vice: ${curto(vice)}</p>`
+      : ''}
+    <p class="tabua-acao"><a class="botao" href="#/time/${t}">Ver o elenco campeão</a></p>
+  </section>`;
+}
+
 function votacao(l: LigaPublica): Html {
   // Rodada com Candidatos e sem Craque: votação aberta. Senão, mostra o último Craque.
-  const aberta = [...l.rodadas].reverse().find((r) => r.candidatos.length && !r.craque);
+  const aberta = l.campeao ? undefined : [...l.rodadas].reverse().find((r) => r.candidatos.length && !r.craque);
   const ultimoCraque = [...l.rodadas].reverse().find((r) => r.craque);
   if (aberta) {
     return html`<section class="placa votacao" aria-labelledby="titulo-votacao">
-      <h2 id="titulo-votacao">Craque da Rodada ${aberta.numero}</h2>
+      <h2 id="titulo-votacao">Craque ${aberta.fase === 'LIGA' ? `da Rodada ${aberta.numero}` : 'das Semifinais'}</h2>
       <p>Vote comentando no post do Resumo da Rodada no ${perfil()}. Vale o último voto de cada perfil; o resultado sai no primeiro jogo do dia seguinte.</p>
       <ol class="candidatos">${aberta.candidatos.map(
         (c) => html`<li>
@@ -58,7 +75,7 @@ function votacao(l: LigaPublica): Html {
     const c = ultimoCraque.craque;
     const cand = ultimoCraque.candidatos.find((x) => x.jogadorId === c.jogadorId);
     return html`<section class="placa votacao" aria-labelledby="titulo-votacao">
-      <h2 id="titulo-votacao">Craque da Rodada ${ultimoCraque.numero}</h2>
+      <h2 id="titulo-votacao">Craque ${ultimoCraque.fase === 'LIGA' ? `da Rodada ${ultimoCraque.numero}` : 'das Semifinais'}</h2>
       <p class="craque">${cand ? bonecoImg(c.time, cand.posicao, c.username, 5, 'FRENTE_COMEMORA') : ''}
         <span>${jogadorLink(c.jogadorId, c.username)}<small>${curto(c.time)}, escolhido pelos seguidores</small></span></p>
     </section>`;
@@ -74,10 +91,10 @@ export const inicio: Pagina = async (main) => {
   main.innerHTML = html`
     <div class="inicio">
       <div class="coluna-principal">
-        ${daVez ? tabua(daVez) : html`<section class="tabua"><h2 class="tabua-titulo">Temporada encerrada</h2><p>Logo tem mais. Acompanhe no ${perfil()}.</p></section>`}
+        ${l.campeao && !daVez ? campeao(l) : daVez ? tabua(daVez) : html`<section class="tabua"><h2 class="tabua-titulo">Temporada encerrada</h2><p>Logo tem mais. Acompanhe no ${perfil()}.</p></section>`}
         ${jogos.length
           ? html`<section aria-labelledby="titulo-rodada">
-              <h2 id="titulo-rodada" class="secao">Rodada ${n} <small>${diaLongo(jogos[0]!.apito)}</small></h2>
+              <h2 id="titulo-rodada" class="secao">${nomeDaRodada(jogos[0]!.fase, n!)} <small>${diaLongo(jogos[0]!.apito)}</small></h2>
               <ul class="lista-partidas">${jogos.map((p) => linhaDePartida(p))}</ul>
             </section>`
           : ''}

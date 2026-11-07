@@ -12,13 +12,14 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, IDENTIDADE, nomeDoClassico, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, etapaDa, nomeDaRodada, nomeDoClassico, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA } from './calendario.js';
 import { processarComentario, type Comentario, type Resultado } from './coletar.js';
 import { CORTE_MINUTOS } from './escalacao.js';
 import { Instagram, ErroInstagram } from './instagram.js';
 import { CHAVE_TOKEN, gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
+import { avancarMataMata } from './mataMata.js';
 import { rodarPartida, type DadosDoVideo } from './partida.js';
 import { craqueDaRodada, dadosDoResumo, fecharRodada, HORA_DO_RESUMO, rodadaEmVotacao, type DadosDoResumo } from './resumo.js';
 import { DURACAO_AO_VIVO_MS, exportarSite } from './site.js';
@@ -303,17 +304,30 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
 // ------------------------------------------------------------------ resumo
 
 export function legendaDoResumo(d: DadosDoResumo): string {
+  const etapa = etapaDa(d.fase, d.rodada);
+  const placar = (p: DadosDoResumo['placares'][number]) =>
+    `${p.hora}h  ${FALA_DO_TIME[p.mandante].curto} ${p.golsMandante} × ${p.golsVisitante} ${FALA_DO_TIME[p.visitante].curto}${p.penaltis ? ` (pênaltis ${p.penaltis.mandante}–${p.penaltis.visitante})` : ''}`;
+  const final = etapa === 'FINAL' ? d.placares[0] : undefined;
+  const campeao = final
+    ? final.penaltis
+      ? final.penaltis.mandante > final.penaltis.visitante ? final.mandante : final.visitante
+      : final.golsMandante > final.golsVisitante ? final.mandante : final.visitante
+    : null;
   const linhas = [
-    `Resumo da Rodada ${d.rodada}`,
-    ...d.placares.map((p) => `${p.hora}h  ${FALA_DO_TIME[p.mandante].curto} ${p.golsMandante} × ${p.golsVisitante} ${FALA_DO_TIME[p.visitante].curto}`),
+    etapa === 'LIGA' ? `Resumo da Rodada ${d.rodada}` : etapa === 'SEMIFINAL' ? 'Resumo das Semifinais' : 'Resumo da Final',
+    ...d.placares.map(placar),
     '',
-    'Quem é o Craque da Rodada? Comente CRAQUE e o @ do seu escolhido:',
-    ...d.candidatos.map((c) => `CRAQUE @${c.username}`),
-    'Vale o último voto de cada perfil, até o primeiro jogo de amanhã.',
+    ...(campeao
+      ? [`${IDENTIDADE[campeao].nome} é campeão da Temporada ${d.temporada}!`, 'Obrigado a todo mundo que jogou. A próxima Temporada vem aí.']
+      : [
+          'Quem é o Craque da Rodada? Comente CRAQUE e o @ do seu escolhido:',
+          ...d.candidatos.map((c) => `CRAQUE @${c.username}`),
+          'Vale o último voto de cada perfil, até o primeiro jogo de amanhã.',
+        ]),
     '',
     d.totalNovos ? `${d.totalNovos} ${d.totalNovos === 1 ? 'novo contratado' : 'novos contratados'} hoje. Quer jogar? Comente ENTRO + Time + posição.` : 'Quer jogar? Comente ENTRO + Time + posição.',
     '',
-    `#varzeaodamata #rodada${d.rodada}`,
+    etapa === 'LIGA' ? `#varzeaodamata #rodada${d.rodada}` : `#varzeaodamata #matamata`,
   ];
   return linhas.join('\n');
 }
@@ -323,12 +337,12 @@ export async function jobResumo(c: ContextoDoJob): Promise<number | null> {
   const agora = agoraDe(c);
   // A Rodada mais recente com todas as Partidas simuladas e o Resumo ainda não agendado.
   const r = (
-    await c.banco.query<{ id: number; numero: number; data: string | Date; resumo_status: string }>(
-      `SELECT r.id, r.numero, r.data, r.resumo_status FROM rodada r
+    await c.banco.query<{ id: number; temporada_id: number; numero: number; data: string | Date; resumo_status: string }>(
+      `SELECT r.id, r.temporada_id, r.numero, r.data, r.resumo_status FROM rodada r
        WHERE r.resumo_status IN ('PENDENTE', 'RENDERIZADO')
          AND EXISTS (SELECT 1 FROM partida p WHERE p.rodada_id = r.id)
          AND NOT EXISTS (SELECT 1 FROM partida p WHERE p.rodada_id = r.id AND p.status IN ('PENDENTE', 'ESCALADA'))
-       ORDER BY r.numero DESC LIMIT 1`,
+       ORDER BY r.data DESC, r.numero DESC LIMIT 1`,
     )
   ).rows[0];
   if (!r) {
@@ -336,6 +350,9 @@ export async function jobResumo(c: ContextoDoJob): Promise<number | null> {
     return null;
   }
   await fecharRodada(c.banco, r.id);
+  // Depois da 7ª Rodada cria as Semifinais; depois delas, a Final; depois dela, encerra.
+  const passo = await avancarMataMata(c.banco, r.temporada_id);
+  if (passo !== 'NADA') log(`Mata-mata: ${passo}.`);
   const dados = await dadosDoResumo(c.banco, r.id);
   const dia = typeof r.data === 'string' ? r.data.slice(0, 10) : r.data.toISOString().slice(0, 10);
   const [a, m, d] = dia.split('-').map(Number) as [number, number, number];
@@ -362,7 +379,7 @@ export async function jobResumo(c: ContextoDoJob): Promise<number | null> {
       salvarContainer: async () => {},
     });
     if (item) await c.banco.query(`UPDATE rodada SET resumo_status = 'AGENDADO' WHERE id = $1`, [r.id]);
-    log(`Resumo da Rodada ${r.numero}${item ? ` agendado para ${item.publicarEm}` : ' gravado'}.`);
+    log(`Resumo ${nomeDaRodada(dados.fase, r.numero)}${item ? ` agendado para ${item.publicarEm}` : ' gravado'}.`);
   } finally {
     await rm(pasta, { recursive: true, force: true });
   }

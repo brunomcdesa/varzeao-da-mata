@@ -40,6 +40,10 @@ export interface PartidaNoCalendario {
   placar?: { mandante: number; visitante: number; penaltis?: { mandante: number; visitante: number } };
   /** Já existe Escalação (a partir do Corte). */
   escalada: boolean;
+  /** Semifinal: o mandante (1º ou 2º) avança mesmo empatando. */
+  vantagemDoEmpate?: boolean;
+  /** Mata-mata encerrado: quem avançou (ou foi campeão). */
+  classificado?: TimeId;
 }
 
 export interface RodadaPublica {
@@ -58,6 +62,8 @@ export interface LigaPublica {
   tabela: LinhaTabelaPublica[];
   calendario: PartidaNoCalendario[];
   rodadas: RodadaPublica[];
+  /** Só depois que o Ao Vivo da Final termina. */
+  campeao: TimeId | null;
 }
 
 export interface JogadorPublico {

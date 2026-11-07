@@ -1,5 +1,5 @@
 /** Blocos usados em várias páginas: linha de Partida, tabela, chamadas para comentar. */
-import type { LigaPublica, LinhaTabelaPublica, PartidaNoCalendario } from '@liga/shared';
+import { etapaDa, nomeDaEtapa, type LigaPublica, type LinhaTabelaPublica, type PartidaNoCalendario } from '@liga/shared';
 import { INSTAGRAM, contagem, dia, hora, situacaoAgora } from '../dados.js';
 import { curto, escudoImg, html, rotuloClassico, type Html } from '../ui.js';
 
@@ -20,7 +20,9 @@ export function linhaDePartida(p: PartidaNoCalendario, o: { comDia?: boolean } =
       <span class="lado mandante"><span class="nome">${curto(p.mandante)}</span>${escudoImg(p.mandante, 1.5)}</span>
       <span class="placar">${placar}${penaltis}</span>
       <span class="lado visitante">${escudoImg(p.visitante, 1.5)}<span class="nome">${curto(p.visitante)}</span></span>
-      <span class="extra">${classico ? html`<span class="classico-nome">${classico}</span>` : ''}${
+      <span class="extra">${p.fase === 'MATA_MATA' ? html`<span class="etapa">${nomeDaEtapa(p.fase, p.rodada)}</span>` : ''}${
+        p.vantagemDoEmpate && s !== 'ENCERRADA' ? html`<span>empate classifica ${curto(p.mandante)}</span>` : ''
+      }${s === 'ENCERRADA' && p.classificado ? html`<span class="avanca">${curto(p.classificado)} ${etapaDa(p.fase, p.rodada) === 'FINAL' ? 'campeão' : 'na final'}</span>` : ''}${classico ? html`<span class="classico-nome">${classico}</span>` : ''}${
         s === 'AGENDADA' ? html`<span class="falta">${p.escalada ? 'Escalação saiu' : contagem(p.apito)}</span>` : ''
       }</span>
     </a>

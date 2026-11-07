@@ -1,5 +1,5 @@
 /** Partida: escalações a partir do Corte, transmissão ao vivo ou replay, lances e Notas. */
-import { IDENTIDADE, type EscalacaoPublica, type PartidaPublica } from '@liga/shared';
+import { IDENTIDADE, nomeDaEtapa, type EscalacaoPublica, type PartidaPublica } from '@liga/shared';
 import type { Desempenho, Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { contagem, diaLongo, hora, partida, situacaoAgora } from '../dados.js';
 import { montarTimeline, transmitir } from '../transmissao.js';
@@ -73,7 +73,7 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
   main.innerHTML = html`
     <article class="pagina-partida">
       <header class="tabua tabua-partida ${s === 'AO_VIVO' ? 'rolando' : ''}">
-        <p class="tabua-titulo">${p.fase === 'LIGA' ? `Rodada ${p.rodada}` : 'Mata-mata'} · ${diaLongo(p.apito)}, ${hora(p.apito)}</p>
+        <p class="tabua-titulo">${nomeDaEtapa(p.fase, p.rodada)} · ${diaLongo(p.apito)}, ${hora(p.apito)}</p>
         <h1 class="sr">${IDENTIDADE[p.mandante].nome} contra ${IDENTIDADE[p.visitante].nome}</h1>
         <div class="tabua-confronto">
           <a class="tabua-time" href="#/time/${p.mandante}">${escudoImg(p.mandante, 3)}<span>${curto(p.mandante)}</span></a>

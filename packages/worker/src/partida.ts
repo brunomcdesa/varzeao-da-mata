@@ -4,7 +4,7 @@
  * uma Partida simulada nunca é simulada de novo (o resultado é o que está no banco).
  */
 import { randomInt } from 'node:crypto';
-import type { Escalacao, TimeId } from '@liga/shared';
+import { nomeDaEtapa, type Escalacao, type TimeId } from '@liga/shared';
 import { simularPartida, type Lado, type ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { HORARIOS, FUSO_BRASILIA } from './calendario.js';
@@ -102,7 +102,7 @@ export async function simular(banco: Banco, partidaId: number, escalada: Partida
 /** "Rodada 3, jogo das 14h" (ou "Semifinal…" no Mata-mata). */
 export function subtituloDaPartida(rodada: number, fase: 'LIGA' | 'MATA_MATA', apito: Date): string {
   const hora = (apito.getUTCHours() + FUSO_BRASILIA + 24) % 24;
-  const nome = fase === 'LIGA' ? `Rodada ${rodada}` : 'Mata-mata';
+  const nome = nomeDaEtapa(fase, rodada);
   return HORARIOS.includes(hora as (typeof HORARIOS)[number]) ? `${nome}, jogo das ${hora}h` : nome;
 }
 
