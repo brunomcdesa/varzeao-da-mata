@@ -1,5 +1,5 @@
 # Publica o site no Cloudflare Pages quando o código dele muda (os dados vêm da borda).
-# Só roda com as variáveis LIGA_EDGE_URL e CF_PAGES_PROJETO definidas (docs/implantacao.md).
+# Usa os segredos e variáveis do ambiente PROD (docs/implantacao.md).
 name: site
 on:
   push:
@@ -9,8 +9,9 @@ on:
 concurrency: site
 jobs:
   publicar:
-    if: vars.LIGA_EDGE_URL != '' && vars.CF_PAGES_PROJETO != ''
     runs-on: ubuntu-latest
+    # Segredos e variáveis ficam no ambiente PROD.
+    environment: PROD
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4

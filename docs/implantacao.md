@@ -120,7 +120,9 @@ pnpm job coletar
 
 ## 5. GitHub
 
-Em **Settings → Secrets and variables → Actions**.
+Em **Settings → Environments → New environment**, crie o ambiente **`PROD`** e cadastre nele os Secrets e as Variables abaixo. Os workflows rodam com `environment: PROD`.
+
+A única exceção é `LIGA_ATIVA`, o interruptor da Liga: ela fica em **Settings → Secrets and variables → Actions → Variables** (do repositório), porque o `if` de um job não enxerga as variáveis de ambiente.
 
 **Secrets** (ou `gh secret set NOME`):
 
