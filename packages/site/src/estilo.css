@@ -1214,6 +1214,62 @@ input[type='checkbox'] {
   clip-path: var(--canto);
   box-shadow: inset 0 0 0 2px var(--contorno);
 }
+.habilidades {
+  color: var(--tinta);
+  margin: 0 0 10px;
+  background: var(--placa);
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 3px var(--contorno);
+  padding: 8px 10px 6px;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+.hab {
+  display: grid;
+  grid-template-columns: 6.5em 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.hab dt {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--tinta-fraca);
+}
+.hab dd {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 2ch 3.5ch;
+  align-items: center;
+  gap: 6px;
+}
+.hab dd b {
+  font: 400 1.25rem/1 var(--display);
+  text-align: right;
+}
+.hab dd small {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  min-width: 2.5ch;
+}
+.hab dd small.sobe { color: #2f7d1f; }
+.hab dd small.desce { color: #b4401c; }
+/* Dez gomos de 10 pontos; o último gomo enche pela metade quando sobra. */
+.hab-barra {
+  height: 10px;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), var(--placa) calc(10% - 2px) 10%),
+    linear-gradient(90deg, var(--hab-cor, var(--folha)) calc(var(--v) * 1%), var(--placa-sombra) 0);
+  box-shadow: 0 0 0 2px var(--contorno);
+}
+.card .hab-barra { --hab-cor: var(--cor); }
+.hab-sigla { display: none; text-decoration: none; }
+.card.pequeno .hab { grid-template-columns: 2.6em 1fr; gap: 6px; }
+.card.pequeno .hab-nome { display: none; }
+.card.pequeno .hab-sigla { display: inline; }
+.card.pequeno .hab dd small { display: none; }
+.card.pequeno .hab dd { grid-template-columns: 1fr 2ch; }
+
 .card.pequeno {
   width: min(100%, 220px);
   padding: 16px 14px 14px;

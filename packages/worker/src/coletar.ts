@@ -3,11 +3,11 @@
  * Cada comentário é gravado em `comando` uma única vez; reprocessar o mesmo comentário
  * não muda nada (idempotência pelo ig_comment_id).
  */
-import type { TimeId } from '@liga/shared';
+import type { Posicao, TimeId } from '@liga/shared';
 import { TIMES } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { interpretar } from './comandos.js';
-import { FOLGA_DE_ELENCO, sortearOvrInicial } from './regras.js';
+import { FOLGA_DE_ELENCO, sortearHabilidadesIniciais } from './regras.js';
 import { normalizar } from './vocabulario.js';
 
 /** Um comentário como vem da Graph API (/{media-id}/comments: id, text, from, timestamp). */
@@ -86,9 +86,10 @@ async function inscrever(b: Banco, c: Comentario, time: TimeId, posicao: string)
   const menor = Math.min(...contagem.values());
   if (contagem.get(time)! >= menor + FOLGA_DE_ELENCO) return 'TIME_CHEIO';
 
+  const { ovr, habilidades } = sortearHabilidadesIniciais(c.igCommentId, posicao as Posicao);
   await b.query(
-    `INSERT INTO jogador (ig_user_id, username, time_id, posicao, ovr, inscrito_em) VALUES ($1, $2, $3, $4, $5, $6)`,
-    [c.igUserId, c.username, time, posicao, sortearOvrInicial(c.igCommentId), c.comentadoEm.toISOString()],
+    `INSERT INTO jogador (ig_user_id, username, time_id, posicao, ovr, habilidades, inscrito_em) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [c.igUserId, c.username, time, posicao, ovr, JSON.stringify(habilidades), c.comentadoEm.toISOString()],
   );
   return 'INSCRITO';
 }

@@ -66,19 +66,21 @@ export const TAMANHO_ESCALACAO = 7;
 
 export const OVR_MIN = 40;
 export const OVR_MAX = 99;
-/** OVR do Jogador da Base, que completa vagas sem inscrito. */
-export const OVR_JOGADOR_DA_BASE = 45;
+/** OVR do Jogador da Base, que completa vagas sem inscrito (ADR-0010: perfil da Posição com OVR 55). */
+export const OVR_JOGADOR_DA_BASE = 55;
 
-/** Limite de variação de OVR por Partida (Clássico: 1,5 × 3 = 4,5, arredondado para 4). */
-export const LIMITE_DELTA_OVR = 3;
-export const LIMITE_DELTA_OVR_CLASSICO = 4;
-export const MULTIPLICADOR_CLASSICO = 1.5;
+/** Quanto cada Habilidade pode mudar numa Partida (no Clássico, ações valem o dobro e o teto também). */
+export const LIMITE_DELTA_HABILIDADE = 2;
+export const LIMITE_DELTA_HABILIDADE_CLASSICO = 4;
+export const MULTIPLICADOR_CLASSICO = 2;
 
 /** Um lugar na Escalação. `jogadorId` nulo = Jogador da Base. */
 export interface JogadorEscalado {
   jogadorId: string | null;
   posicao: Posicao;
+  /** Resumo das Habilidades (ovrDasHabilidades). */
   ovr: number;
+  habilidades: Habilidades;
 }
 
 export interface Escalacao {
@@ -87,3 +89,5 @@ export interface Escalacao {
 }
 export * from './site.js';
 export * from './rodada.js';
+export * from './habilidades.js';
+import type { Habilidades } from './habilidades.js';

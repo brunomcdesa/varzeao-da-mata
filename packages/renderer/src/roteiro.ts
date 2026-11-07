@@ -58,7 +58,7 @@ export interface OpcoesRoteiro {
 }
 
 const PADRAO: Required<Omit<OpcoesRoteiro, 'duracaoLance' | 'minimos'>> & { duracaoLance: Record<TipoLance, number> } = {
-  duracaoLance: { GOL: 8, DEFESA: 5, FORA: 4, DESARME: 0 },
+  duracaoLance: { GOL: 8, DEFESA: 5, BLOQUEIO: 5, FORA: 4, DESARME: 0 },
   duracaoAbertura: 3,
   duracaoFim: 4,
   duracaoMaxima: 75,
@@ -69,10 +69,10 @@ const PADRAO: Required<Omit<OpcoesRoteiro, 'duracaoLance' | 'minimos'>> & { dura
  * Fração do trecho de vídeo usada até a resolução. O resto é para o gol, a defesa ou o
  * desarme respirarem: a comemoração e o letreiro ficam mais tempo na tela.
  */
-const PIVO: Record<TipoLance, number> = { GOL: 0.55, DEFESA: 0.62, FORA: 0.65, DESARME: 0.6 };
+const PIVO: Record<TipoLance, number> = { GOL: 0.55, DEFESA: 0.62, BLOQUEIO: 0.62, FORA: 0.65, DESARME: 0.6 };
 
 /** Ordem de corte quando o vídeo passa do teto: primeiro some o menos importante. */
-const PRIORIDADE: TipoLance[] = ['DESARME', 'FORA', 'DEFESA', 'GOL'];
+const PRIORIDADE: TipoLance[] = ['DESARME', 'FORA', 'BLOQUEIO', 'DEFESA', 'GOL'];
 
 /**
  * Trecho de jogo que cada tipo de lance mostra, em frações da janela do lance
@@ -82,6 +82,7 @@ const PRIORIDADE: TipoLance[] = ['DESARME', 'FORA', 'DEFESA', 'GOL'];
 const RECORTE: Record<TipoLance, { de: number; extraDepois: number }> = {
   GOL: { de: 0.18, extraDepois: 45 },
   DEFESA: { de: 0.22, extraDepois: 22 },
+  BLOQUEIO: { de: 0.22, extraDepois: 20 },
   FORA: { de: 0.28, extraDepois: 14 },
   DESARME: { de: 0.25, extraDepois: 15 },
 };

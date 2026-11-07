@@ -69,9 +69,11 @@ export function montarDisputa(r: ResultadoPartida, inicio: number): Disputa | nu
   };
 }
 
-/** Pênalti perdido: defesa ou para fora, alternando de forma fixa pelo seed. */
+/** Pênalti perdido: defesa ou para fora, como a sim decidiu (Partidas antigas: fixo pelo seed). */
 export function resultadoDaCobranca(d: Disputa, k: number, seed: number): ResultadoCobranca {
-  if (d.cobrancas[k]!.convertida) return 'GOL';
+  const c = d.cobrancas[k]!;
+  if (c.convertida) return 'GOL';
+  if (c.defendida !== undefined) return c.defendida ? 'DEFESA' : 'FORA';
   return ((seed >>> 0) + k * 7) % 3 === 0 ? 'FORA' : 'DEFESA';
 }
 

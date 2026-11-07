@@ -3,6 +3,7 @@
  * Regra: nada que revele o resultado de uma Partida antes do seu Apito Inicial.
  */
 import type { Posicao, TimeId } from './index.js';
+import type { Habilidades } from './habilidades.js';
 
 export interface TimePublico {
   id: TimeId;
@@ -102,6 +103,8 @@ export interface Estatisticas {
   desarmes: number;
   defesas: number;
   golsSofridos: number;
+  dribles: number;
+  bloqueios: number;
   notaMedia: number | null;
   melhorNota: number | null;
   vitorias: number;
@@ -129,6 +132,9 @@ export interface JogadorPublico {
   /** OVR visível: não muda antes do Apito da Partida que o alterou. */
   ovr: number;
   ovrInicial: number;
+  /** Habilidades visíveis (mesma regra do OVR): uma casa decimal; o site mostra inteiros. */
+  habilidades: Habilidades;
+  habilidadesIniciais: Habilidades;
   inscritoEm: string;
   /** Números da carreira (todas as Temporadas); `nestaTemporada` só a atual. */
   jogos: number;
@@ -137,6 +143,8 @@ export interface JogadorPublico {
   desarmes: number;
   defesas: number;
   golsSofridos: number;
+  dribles: number;
+  bloqueios: number;
   notaMedia: number | null;
   melhorNota: number | null;
   vitorias: number;
@@ -151,12 +159,12 @@ export interface JogadorPublico {
   nestaTemporada: Estatisticas;
   trofeus: Trofeu[];
   /** OVR depois de cada Partida já revelada, em ordem (todas as Temporadas). */
-  historico: { partidaId: number; temporada: number; rodada: number; fase: 'LIGA' | 'MATA_MATA'; nota: number; ovr: number; gols: number; rival: TimeId; emCasa: boolean; pro: number; contra: number }[];
+  historico: { partidaId: number; temporada: number; rodada: number; fase: 'LIGA' | 'MATA_MATA'; nota: number; ovr: number; habilidades: Habilidades; gols: number; rival: TimeId; emCasa: boolean; pro: number; contra: number }[];
 }
 
 export interface EscalacaoPublica {
   time: TimeId;
-  jogadores: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; ovr: number }[];
+  jogadores: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; ovr: number; habilidades: Habilidades }[];
 }
 
 export interface PartidaPublica {

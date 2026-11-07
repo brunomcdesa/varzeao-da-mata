@@ -53,7 +53,7 @@ async function lerPartida(b: Banco, id: number): Promise<LinhaPartida> {
 
 /**
  * Simula a Partida já escalada e grava tudo numa transação: seed, resultado, Notas,
- * OVR novo de cada Jogador (Jogadores da Base não mudam). Status → SIMULADA.
+ * Habilidades e OVR novos de cada Jogador (Jogadores da Base não mudam). Status → SIMULADA.
  */
 export async function simular(banco: Banco, partidaId: number, escalada: PartidaEscalada, o: { seed?: number } = {}): Promise<ResultadoPartida> {
   return banco.transacao(async (b) => {
@@ -72,14 +72,13 @@ export async function simular(banco: Banco, partidaId: number, escalada: Partida
 
     for (const d of resultado.desempenhos) {
       const time = resultado.times[d.slot.lado];
-      await b.query(`UPDATE escalacao SET nota = $4, ovr_depois = $5 WHERE partida_id = $1 AND time_id = $2 AND lugar = $3`, [
-        partidaId,
-        time,
-        d.slot.indice,
-        d.nota,
-        d.ovrDepois,
-      ]);
-      if (d.jogadorId !== null) await b.query(`UPDATE jogador SET ovr = $2 WHERE id = $1`, [d.jogadorId, d.ovrDepois]);
+      await b.query(
+        `UPDATE escalacao SET nota = $4, ovr_depois = $5, habilidades_depois = $6 WHERE partida_id = $1 AND time_id = $2 AND lugar = $3`,
+        [partidaId, time, d.slot.indice, d.nota, d.ovrDepois, JSON.stringify(d.habilidadesDepois)],
+      );
+      if (d.jogadorId !== null) {
+        await b.query(`UPDATE jogador SET ovr = $2, habilidades = $3 WHERE id = $1`, [d.jogadorId, d.ovrDepois, JSON.stringify(d.habilidadesDepois)]);
+      }
     }
     await b.query(
       `UPDATE partida SET status = 'SIMULADA', seed = $2, versao_sim = $3, gols_mandante = $4, gols_visitante = $5,

@@ -1,10 +1,10 @@
 /** Jogadores: busca e ranking, o Card de cada um e a comparação lado a lado. */
-import { IDENTIDADE, TIMES, nomeDaEtapa, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId } from '@liga/shared';
+import { IDENTIDADE, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId } from '@liga/shared';
 import { jogadores, liga } from '../dados.js';
 import { bonecoImg, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html } from '../ui.js';
 import type { Pagina } from './tipos.js';
 
-type Criterio = 'ovr' | 'gols' | 'assistencias' | 'notaMedia' | 'jogos' | 'desarmes' | 'defesas' | 'titulos' | 'craqueDaRodada' | 'craqueDaTemporada';
+type Criterio = 'ovr' | 'gols' | 'assistencias' | 'notaMedia' | 'jogos' | 'desarmes' | 'defesas' | 'dribles' | 'bloqueios' | 'titulos' | 'craqueDaRodada' | 'craqueDaTemporada';
 const CRITERIOS: Record<Criterio, string> = {
   ovr: 'OVR',
   gols: 'Gols',
@@ -13,12 +13,14 @@ const CRITERIOS: Record<Criterio, string> = {
   jogos: 'Jogos',
   desarmes: 'Desarmes',
   defesas: 'Defesas',
+  dribles: 'Dribles',
+  bloqueios: 'Bloqueios',
   titulos: 'Títulos',
   craqueDaRodada: 'Craque da Rodada',
   craqueDaTemporada: 'Craque da Temporada',
 };
 type Periodo = 'temporada' | 'carreira';
-const DA_TEMPORADA = new Set<Criterio>(['gols', 'assistencias', 'notaMedia', 'jogos', 'desarmes', 'defesas']);
+const DA_TEMPORADA = new Set<Criterio>(['gols', 'assistencias', 'notaMedia', 'jogos', 'desarmes', 'defesas', 'dribles', 'bloqueios']);
 /** Números de estatística seguem o período; OVR e conquistas são sempre da carreira. */
 function valor(j: JogadorPublico, c: Criterio, p: Periodo): number | null {
   if (DA_TEMPORADA.has(c) && p === 'temporada') return j.nestaTemporada[c as keyof Estatisticas] as number | null;
@@ -144,6 +146,23 @@ function salaDeTrofeus(j: JogadorPublico): Html {
   </section>`;
 }
 
+/** Habilidades que pesam no OVR da Posição, da mais importante para a menos. */
+export function habilidadesDaPosicao(posicao: Posicao): HabilidadeId[] {
+  return (Object.entries(PESOS_OVR[posicao]) as [HabilidadeId, number][]).sort((a, b) => b[1] - a[1]).map(([h]) => h);
+}
+
+/** Barras de Habilidade em gomos (cada gomo = 10 pontos), como num jogo de futebol antigo. */
+export function barrasDeHabilidade(posicao: Posicao, h: Habilidades, antes?: Habilidades): Html {
+  return html`<dl class="habilidades">${habilidadesDaPosicao(posicao).map((id) => {
+    const v = Math.round(h[id]);
+    const d = antes ? v - Math.round(antes[id]) : 0;
+    return html`<div class="hab" title="${NOME_DA_HABILIDADE[id]}: ${v}${d ? ` (${d > 0 ? '+' : ''}${d} desde a estreia)` : ''}">
+      <dt><span class="hab-nome">${NOME_DA_HABILIDADE[id]}</span><abbr class="hab-sigla" title="${NOME_DA_HABILIDADE[id]}">${id}</abbr></dt>
+      <dd><span class="hab-barra" style="--v:${v}" aria-hidden="true"></span><b>${v}</b>${d ? html`<small class="${d > 0 ? 'sobe' : 'desce'}">${d > 0 ? '+' : '−'}${Math.abs(d)}</small>` : ''}</dd>
+    </div>`;
+  })}</dl>`;
+}
+
 export function card(j: JogadorPublico, o: { pequeno?: boolean } = {}): Html {
   const id = IDENTIDADE[j.time];
   const delta = j.ovr - j.ovrInicial;
@@ -156,6 +175,7 @@ export function card(j: JogadorPublico, o: { pequeno?: boolean } = {}): Html {
     <div class="card-boneco">${bonecoImg(j.time, j.posicao, j.username, o.pequeno ? 6 : 9)}</div>
     <p class="card-nome">@${j.username}</p>
     <p class="card-time">${curto(j.time)} · ${NOME_DA_POSICAO[j.posicao]}</p>
+    ${barrasDeHabilidade(j.posicao, j.habilidades, o.pequeno ? undefined : j.habilidadesIniciais)}
     <dl class="card-numeros">
       <div><dt>Jogos</dt><dd>${j.jogos}</dd></div>
       <div><dt>${j.posicao === 'GOL' ? 'Defesas' : j.posicao === 'ZAG' ? 'Desarmes' : 'Gols'}</dt><dd>${j.posicao === 'GOL' ? j.defesas : j.posicao === 'ZAG' ? j.desarmes : j.gols}</dd></div>
@@ -222,7 +242,7 @@ export const paginaJogador: Pagina = async (main, [id]) => {
         <div data-numeros="carreira" hidden>${numeros(j, j)}</div>
       </section>
       <section aria-labelledby="titulo-ovr"><h2 id="titulo-ovr" class="secao">OVR jogo a jogo</h2>
-        ${j.historico.length ? graficoOvr([{ j, cor: 'var(--amarelo)' }]) : html`<p class="vazio-pequeno">Ainda não estreou. O OVR muda depois de cada jogo, conforme a Nota.</p>`}
+        ${j.historico.length ? graficoOvr([{ j, cor: 'var(--amarelo)' }]) : html`<p class="vazio-pequeno">Ainda não estreou. Cada jogada mexe numa Habilidade, e o OVR é a média delas com os pesos da Posição.</p>`}
       </section>
       ${j.historico.length
         ? html`<section aria-labelledby="titulo-hist"><h2 id="titulo-hist" class="secao">Jogos</h2>
@@ -268,7 +288,11 @@ function numeros(e: Estatisticas, j: JogadorPublico): Html {
     <div><dt>Vitórias</dt><dd>${e.vitorias}<small>${e.empates}E ${e.derrotas}D</small></dd></div>
     <div><dt>Nota média</dt><dd>${nota(e.notaMedia)}</dd></div>
     <div><dt>Melhor nota</dt><dd>${nota(e.melhorNota)}</dd></div>
-    <div><dt>${j.posicao === 'GOL' ? 'Desarmes' : 'Defesas'}</dt><dd>${j.posicao === 'GOL' ? e.desarmes : e.defesas}</dd></div>
+    ${j.posicao === 'ZAG'
+      ? html`<div><dt>Bloqueios</dt><dd>${e.bloqueios ?? 0}</dd></div>`
+      : j.posicao === 'GOL'
+        ? html`<div><dt>Sofridos por jogo</dt><dd>${e.jogos ? (e.golsSofridos / e.jogos).toFixed(1).replace('.', ',') : '–'}</dd></div>`
+        : html`<div><dt>Dribles</dt><dd>${e.dribles ?? 0}</dd></div>`}
   </dl>`;
 }
 
@@ -281,6 +305,8 @@ const LINHAS: { rotulo: string; v: (j: JogadorPublico) => number | null; fmt?: (
   { rotulo: 'Assistências', v: (j) => j.assistencias },
   { rotulo: 'Desarmes', v: (j) => j.desarmes },
   { rotulo: 'Defesas', v: (j) => j.defesas },
+  { rotulo: 'Dribles', v: (j) => j.dribles ?? 0 },
+  { rotulo: 'Bloqueios', v: (j) => j.bloqueios ?? 0 },
   { rotulo: 'Nota média', v: (j) => j.notaMedia, fmt: nota },
   { rotulo: 'Melhor nota', v: (j) => j.melhorNota, fmt: nota },
   { rotulo: 'Vitórias', v: (j) => j.vitorias },
@@ -289,6 +315,12 @@ const LINHAS: { rotulo: string; v: (j: JogadorPublico) => number | null; fmt?: (
   { rotulo: 'Craque da Rodada', v: (j) => j.craqueDaRodada },
   { rotulo: 'Rei do Clássico', v: (j) => j.reiDoClassico },
 ];
+
+/** Habilidades que pesam para pelo menos um dos dois, na ordem de importância. */
+function linhasDeHabilidade(a: JogadorPublico, b: JogadorPublico): typeof LINHAS {
+  const ids = [...new Set([...habilidadesDaPosicao(a.posicao), ...habilidadesDaPosicao(b.posicao)])];
+  return ids.map((id) => ({ rotulo: NOME_DA_HABILIDADE[id], v: (j: JogadorPublico) => Math.round(j.habilidades[id]) }));
+}
 
 export const paginaComparar: Pagina = async (main, [a, b]) => {
   const todos = await jogadores();
@@ -304,7 +336,7 @@ export const paginaComparar: Pagina = async (main, [a, b]) => {
     <table class="duelo">
       <caption class="sr">Estatísticas lado a lado</caption>
       <thead><tr><th scope="col">@${ja.username}</th><th scope="col"><span class="sr">Estatística</span></th><th scope="col">@${jb.username}</th></tr></thead>
-      <tbody>${LINHAS.map((l) => {
+      <tbody>${[...linhasDeHabilidade(ja, jb), ...LINHAS].map((l) => {
         const va = l.v(ja);
         const vb = l.v(jb);
         const max = Math.max(va ?? 0, vb ?? 0) || 1;

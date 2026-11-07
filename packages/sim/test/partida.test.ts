@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { LIMITE_DELTA_OVR, LIMITE_DELTA_OVR_CLASSICO, OVR_MAX } from '@liga/shared';
-import { simularPartida } from '../src/partida.js';
-import { deltaOvr, notaDaPartida } from '../src/nota.js';
+import {
+  HABILIDADES,
+  HABILIDADE_MAX,
+  LIMITE_DELTA_HABILIDADE,
+  LIMITE_DELTA_HABILIDADE_CLASSICO,
+  ovrDasHabilidades,
+  habilidadesDoPerfil,
+} from '@liga/shared';
+import { simularPartida, chanceDeFora, chanceDeDriblar } from '../src/partida.js';
+import { notaDaPartida } from '../src/nota.js';
+import { evoluir, fatorDeGanho, fatorDePerda, zeradas } from '../src/evolucao.js';
 import { escalacao } from './fabricas.js';
 
 const base = { fase: 'LIGA' as const };
@@ -30,17 +38,6 @@ describe('validação da Escalação', () => {
     ).toThrow(/GOL/);
   });
 
-  it('recusa Vantagem do Empate na Fase de Liga', () => {
-    expect(() =>
-      simularPartida({
-        ...base,
-        mandante: escalacao('CAP', 70),
-        visitante: escalacao('TAT', 70),
-        seed: 1,
-        vantagemDoEmpate: 'mandante',
-      }),
-    ).toThrow(/Mata-mata/);
-  });
 });
 
 describe('placar e lances', () => {
@@ -65,25 +62,7 @@ describe('placar e lances', () => {
 });
 
 describe('Mata-mata', () => {
-  it('empate com Vantagem do Empate classifica quem tem a vantagem, sem pênaltis', () => {
-    for (let seed = 1; seed <= 300; seed++) {
-      const r = simularPartida({
-        mandante: escalacao('CAP', 70),
-        visitante: escalacao('TAT', 70),
-        seed,
-        fase: 'MATA_MATA',
-        vantagemDoEmpate: 'visitante',
-      });
-      if (r.gols.mandante === r.gols.visitante) {
-        expect(r.vencedor).toBe('visitante');
-        expect(r.penaltis).toBeUndefined();
-        return;
-      }
-    }
-    throw new Error('nenhum empate em 300 seeds');
-  });
-
-  it('empate sem vantagem vai para os pênaltis e sempre tem vencedor', () => {
+  it('empate vai para os pênaltis e sempre tem vencedor', () => {
     let disputas = 0;
     for (let seed = 1; seed <= 400; seed++) {
       const r = simularPartida({ mandante: escalacao('PRE', 70), visitante: escalacao('SAG', 70), seed, fase: 'MATA_MATA' });
@@ -93,51 +72,104 @@ describe('Mata-mata', () => {
         const { placar } = r.penaltis;
         expect(placar.mandante).not.toBe(placar.visitante);
         expect(r.decisivo).not.toBeNull();
+        for (const c of r.penaltis.cobrancas) expect(c.convertida ? c.defendida : typeof c.defendida).toBe(c.convertida ? undefined : 'boolean');
       }
     }
     expect(disputas).toBeGreaterThan(0);
   });
 });
 
-describe('OVR dinâmico (ADR-0004)', () => {
-  it('nunca passa do limite por Partida: ±3 normal, ±4 em Clássico', () => {
-    for (let seed = 1; seed <= 300; seed++) {
-      const normal = simularPartida({ ...base, mandante: escalacao('CAP', 60), visitante: escalacao('TAT', 80), seed });
-      const classico = simularPartida({ ...base, mandante: escalacao('CAP', 60), visitante: escalacao('ONC', 80), seed });
-      for (const d of normal.desempenhos) expect(Math.abs(d.deltaOvr)).toBeLessThanOrEqual(LIMITE_DELTA_OVR);
-      for (const d of classico.desempenhos) expect(Math.abs(d.deltaOvr)).toBeLessThanOrEqual(LIMITE_DELTA_OVR_CLASSICO);
+describe('Habilidades (ADR-0010)', () => {
+  it('o perfil acerta o OVR pedido em todas as Posições', () => {
+    for (const p of ['GOL', 'ZAG', 'MEI', 'ATA'] as const) {
+      for (const ovr of [45, 55, 62, 70, 88]) expect(ovrDasHabilidades(p, habilidadesDoPerfil(p, ovr, { FIN: 1, DRI: -1, PAS: 0.5 }))).toBe(ovr);
     }
   });
 
-  it('Clássico move 1,5× mais', () => {
-    expect(deltaOvr(7, false)).toBe(1);
-    expect(deltaOvr(7, true)).toBe(2); // 1,5 arredonda para 2
-    expect(deltaOvr(4, true)).toBe(-3);
+  it('nenhuma Habilidade muda mais que ±2 por Partida (±4 em Clássico)', () => {
+    for (let seed = 1; seed <= 300; seed++) {
+      const normal = simularPartida({ ...base, mandante: escalacao('CAP', 60), visitante: escalacao('TAT', 80), seed });
+      const classico = simularPartida({ ...base, mandante: escalacao('CAP', 60), visitante: escalacao('ONC', 80), seed });
+      for (const d of normal.desempenhos) for (const h of HABILIDADES) expect(Math.abs(d.deltaHabilidades[h])).toBeLessThanOrEqual(LIMITE_DELTA_HABILIDADE);
+      for (const d of classico.desempenhos) for (const h of HABILIDADES) expect(Math.abs(d.deltaHabilidades[h])).toBeLessThanOrEqual(LIMITE_DELTA_HABILIDADE_CLASSICO);
+    }
   });
 
-  it('arredondamento simétrico: ±0,5 não vira viés para cima', () => {
-    expect(deltaOvr(6.5, false)).toBe(1);
-    expect(deltaOvr(5.5, false)).toBe(-1);
+  it('o OVR depois é o das Habilidades depois', () => {
+    const r = simularPartida({ ...base, mandante: escalacao('CAP', 66), visitante: escalacao('TAT', 64), seed: 9 });
+    for (const d of r.desempenhos) {
+      expect(d.ovrDepois).toBe(ovrDasHabilidades(d.posicao, d.habilidadesDepois));
+      expect(d.deltaOvr).toBe(d.ovrDepois - d.ovrAntes);
+    }
   });
 
-  it('a mesma atuação vale mais para quem tem OVR baixo (nota relativa)', () => {
+  it('Clássico conta as ações em dobro', () => {
+    const antes = habilidadesDoPerfil('ATA', 60);
+    const pontos = { ...zeradas(), FIN: 0.7 };
+    const normal = evoluir(antes, pontos, false).delta.FIN;
+    expect(evoluir(antes, pontos, true).delta.FIN).toBeCloseTo(normal * 2, 1);
+  });
+
+  it('ritmo: alto sobe devagar, baixo desce devagar', () => {
+    expect(fatorDeGanho(95)).toBeLessThan(fatorDeGanho(60));
+    expect(fatorDePerda(42)).toBeLessThan(fatorDePerda(70));
+  });
+
+  it('gol mexe na Finalização; desarme na Defesa; defesa no Goleiro', () => {
+    let fin = 0, def = 0, gol = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+      const r = simularPartida({ ...base, mandante: escalacao('CAP', 65), visitante: escalacao('TAT', 65), seed });
+      for (const d of r.desempenhos) {
+        if (d.gols >= 2 && d.posicao === 'ATA') fin += Math.sign(d.deltaHabilidades.FIN);
+        if (d.desarmes >= 3 && d.posicao === 'ZAG' && d.golsSofridos === 0) def += Math.sign(d.deltaHabilidades.DEF);
+        if (d.defesas >= 3 && d.golsSofridos === 0) gol += Math.sign(d.deltaHabilidades.GOL);
+      }
+    }
+    expect(fin).toBeGreaterThan(0);
+    expect(def).toBeGreaterThan(0);
+    expect(gol).toBeGreaterThan(0);
+  });
+
+  it('BLOQUEIO e drible aparecem nos lances, sempre com o marcador', () => {
+    const tipos = new Set<string>();
+    let dribles = 0;
+    for (let seed = 1; seed <= 50; seed++) {
+      const r = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('TAT', 70), seed });
+      for (const l of r.lances) {
+        tipos.add(l.tipo);
+        if (l.tipo === 'BLOQUEIO') expect(l.defensor).toEqual(l.marcador);
+        if (l.drible && l.tipo !== 'DESARME') dribles++;
+      }
+    }
+    expect(tipos).toContain('BLOQUEIO');
+    expect(dribles).toBeGreaterThan(0);
+  });
+
+  it('quem finaliza melhor chuta pra fora menos; quem dribla melhor tenta mais o drible', () => {
+    expect(chanceDeFora(90)).toBeCloseTo(0.22);
+    expect(chanceDeFora(50)).toBeCloseTo(0.35);
+    expect(chanceDeDriblar(80, 60)).toBeGreaterThan(0.5);
+  });
+
+  it('a mesma atuação vale mais Nota para quem tem OVR baixo (nota relativa)', () => {
     const atuacao = { posicao: 'ATA' as const, gols: 1, assistencias: 0, desarmes: 0, defesas: 0, golsSofridos: 0, resultado: 'empate' as const };
     expect(notaDaPartida(atuacao, 50)).toBeGreaterThan(notaDaPartida(atuacao, 90));
   });
 
-  it('Jogador da Base não tem OVR alterado', () => {
+  it('Jogador da Base não evolui', () => {
     const comBase = escalacao('CAP', 70);
-    const jogadores = comBase.jogadores.map((j, i) => (i === 6 ? { ...j, jogadorId: null, ovr: 45 } : j));
+    const jogadores = comBase.jogadores.map((j, i) => (i === 6 ? { ...j, jogadorId: null, ovr: 55, habilidades: habilidadesDoPerfil('ATA', 55) } : j));
     for (let seed = 1; seed <= 50; seed++) {
       const r = simularPartida({ ...base, mandante: { ...comBase, jogadores }, visitante: escalacao('TAT', 70), seed });
       const daBase = r.desempenhos.find((d) => d.jogadorId === null)!;
+      expect(daBase.habilidadesDepois).toEqual(daBase.habilidadesAntes);
       expect(daBase.deltaOvr).toBe(0);
     }
   });
 
-  it('OVR nunca passa de 99', () => {
-    const r = simularPartida({ ...base, mandante: escalacao('CAP', 99), visitante: escalacao('TAT', 40), seed: 7 });
-    for (const d of r.desempenhos) expect(d.ovrDepois).toBeLessThanOrEqual(OVR_MAX);
+  it('Habilidade nunca passa de 99', () => {
+    const r = simularPartida({ ...base, mandante: escalacao('CAP', 97), visitante: escalacao('TAT', 40), seed: 7 });
+    for (const d of r.desempenhos) for (const h of HABILIDADES) expect(d.habilidadesDepois[h]).toBeLessThanOrEqual(HABILIDADE_MAX);
   });
 });
 
@@ -157,6 +189,16 @@ describe('calibração', () => {
     }
     return vitorias / N;
   };
+
+  it('gols por jogo ficam perto de 3,5', () => {
+    let gols = 0;
+    for (let seed = 1; seed <= N; seed++) {
+      const r = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('TAT', 70), seed });
+      gols += r.gols.mandante + r.gols.visitante;
+    }
+    expect(gols / N).toBeGreaterThan(3.2);
+    expect(gols / N).toBeLessThan(3.8);
+  });
 
   it('time bem mais forte (+15 de OVR) vence por volta de 60–65% das vezes', () => {
     const taxa = taxaDoForte(80, 65);

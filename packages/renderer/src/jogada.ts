@@ -68,11 +68,15 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
   const C = lance.criador;
   const cx = bases[C.lado][C.indice]!.x;
 
-  if (lance.tipo === 'DESARME') return planoDesarme(lance, P, cx, rng.next());
+  if (lance.tipo === 'DESARME') {
+    return lance.drible && lance.finalizador ? planoDesarmeNoDrible(lance, P, cx, bases, rng.next()) : planoDesarme(lance, P, cx, rng.next());
+  }
 
   const F = lance.finalizador!;
   const fx = bases[F.lado][F.indice]!.x;
-  const G = lance.defensor; // goleiro
+  const bloqueio = lance.tipo === 'BLOQUEIO';
+  // No BLOQUEIO quem para a jogada é o marcador; o goleiro só assiste.
+  const G = bloqueio ? goleiroDe(escalacoes[def], def) : lance.defensor;
   let sorteio = rng.next();
   let estilo: EstiloJogada = 'INDIVIDUAL';
   for (const [e, p] of PESOS) {
@@ -82,6 +86,9 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
     }
     sorteio -= p;
   }
+  // Drible certo é sempre jogada individual; chute marcado nunca é (não passou pelo zagueiro).
+  if (lance.drible === true) estilo = 'INDIVIDUAL';
+  else if (lance.drible === false && estilo === 'INDIVIDUAL') estilo = 'TABELA';
 
   const atores = new Map<string, QuadroAtor[]>();
   const bola: TrechoBola[] = [];
@@ -174,14 +181,36 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
       posse(0.38, 0.71, F);
       inicioChute = 0.71;
       alturaChute = porCima ? 0.6 : 0.07;
-      // Zagueiro mais próximo tenta o bote e fica para trás.
-      const zag = zagueiroMaisProximo(escalacoes[def], bases[def], def, fx);
+      // O marcador (ou o zagueiro mais próximo) tenta o bote e fica para trás.
+      const zag = lance.marcador ?? zagueiroMaisProximo(escalacoes[def], bases[def], def, fx);
       if (zag) {
         const bote = P(lerp(fx, 0.5, 0.25) + lateral * 0.05, 0.2);
         ator(zag, [[0, null], [0.4, null], [0.58, bote], [0.66, P(bote.x - lateral * 0.03, 0.22)], [0.8, P(bote.x, 0.16)], [1, null]]);
         acao(zag, 0.55, 0.64, 'CARRINHO');
       }
     }
+  }
+
+  // Chute marcado: o marcador fecha o espaço entre o finalizador e o gol.
+  if (lance.marcador && lance.drible === false) {
+    const M = lance.marcador;
+    const frente: Ponto = { x: finalizacao.x + lateral * 0.012, y: finalizacao.y + dir * 0.045 };
+    ator(M, [[0, null], [Math.max(0.1, inicioChute - 0.25), null], [inicioChute, frente], [0.86, frente], [1, null]]);
+    if (bloqueio) {
+      // Segura um instante e bate: a bola explode no marcador, que sai jogando.
+      posse(inicioChute, F_RESOLUCAO_CHUTE - 0.045, F);
+      const chute = F_RESOLUCAO_CHUTE - 0.045;
+      bola.push({ de: chute, ate: F_RESOLUCAO_CHUTE, tipo: 'VOO', origem: { ator: F }, destino: { ator: M }, altura: 0.05, chute: true });
+      acao(F, chute - 0.015, chute + 0.03, 'CHUTE');
+      acao(M, chute - 0.01, F_RESOLUCAO_CHUTE + 0.05, 'CARRINHO');
+      const sobra: Ponto = { x: frente.x - lateral * 0.04, y: frente.y - dir * 0.05 };
+      bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.83, tipo: 'VOO', origem: { ator: M }, destino: { ponto: sobra }, altura: 0.25 });
+      bola.push({ de: 0.83, ate: 0.88, tipo: 'VOO', origem: { ponto: sobra }, destino: { ator: M }, altura: 0 });
+      bola.push({ de: 0.88, ate: 1, tipo: 'VOO', origem: { ator: M }, destino: { ponto: MEIO }, altura: 0.55 });
+      acao(M, 0.87, 0.91, 'PASSE');
+      return fechar();
+    }
+    acao(M, inicioChute - 0.03, inicioChute + 0.05, 'CARRINHO');
   }
 
   // O chute.
@@ -216,15 +245,50 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
     acao(G, 0.88, 0.92, 'PASSE');
   }
 
-  return {
-    estilo,
-    atores: [...atores].map(([k, quadros]) => {
-      const [lado, i] = k.split(':');
-      return { slot: { lado: lado as Lado, indice: Number(i) }, quadros };
-    }),
-    bola,
-    acoes,
-  };
+  return fechar();
+
+  function fechar(): Plano {
+    return {
+      estilo,
+      atores: [...atores].map(([k, quadros]) => {
+        const [lado, i] = k.split(':');
+        return { slot: { lado: lado as Lado, indice: Number(i) }, quadros };
+      }),
+      bola,
+      acoes,
+    };
+  }
+
+  /** O meia passa para o finalizador, que parte para o drible e é desarmado pelo marcador. */
+  function planoDesarmeNoDrible(l: Lance, Pt: typeof P, x: number, b: Record<Lado, Ponto[]>, sorte: number): Plano {
+    const Fd = l.finalizador!;
+    const D = l.defensor;
+    const fxd = b[Fd.lado][Fd.indice]!.x;
+    const lat = x < 0.5 ? -1 : 1;
+    const bote = Pt(lerp(fxd, 0.5, 0.3) + (sorte - 0.5) * 0.1, 0.21);
+    return {
+      estilo: 'DESARME',
+      atores: [
+        { slot: l.criador, quadros: [[0, null], [0.08, Pt(x, 0.5)], [0.3, Pt(x, 0.42)], [0.6, null]] },
+        { slot: Fd, quadros: [[0, null], [0.3, Pt(fxd, 0.33)], [0.36, Pt(fxd, 0.31)], [F_RESOLUCAO_DESARME, Pt(bote.x - lat * 0.02, 0.23)], [0.72, Pt(bote.x - lat * 0.04, 0.25)], [0.9, null]] },
+        { slot: D, quadros: [[0, null], [0.36, null], [F_RESOLUCAO_DESARME, bote], [0.75, Pt(bote.x, 0.27)], [1, null]] },
+      ],
+      bola: [
+        { de: 0, ate: 0.08, tipo: 'VOO', origem: { ponto: MEIO }, destino: { ator: l.criador }, altura: 0 },
+        { de: 0.08, ate: 0.3, tipo: 'POSSE', ator: l.criador },
+        { de: 0.3, ate: 0.36, tipo: 'VOO', origem: { ator: l.criador }, destino: { ator: Fd }, altura: 0 },
+        { de: 0.36, ate: F_RESOLUCAO_DESARME, tipo: 'POSSE', ator: Fd },
+        { de: F_RESOLUCAO_DESARME, ate: 0.75, tipo: 'POSSE', ator: D },
+        { de: 0.75, ate: 0.95, tipo: 'VOO', origem: { ator: D }, destino: { ponto: MEIO }, altura: 0.45 },
+        { de: 0.95, ate: 1, tipo: 'PARADA', ponto: MEIO },
+      ],
+      acoes: [
+        { slot: l.criador, de: 0.29, ate: 0.315, acao: 'PASSE' },
+        { slot: D, de: F_RESOLUCAO_DESARME - 0.05, ate: F_RESOLUCAO_DESARME + 0.04, acao: 'CARRINHO' },
+        { slot: D, de: 0.74, ate: 0.77, acao: 'PASSE' },
+      ],
+    };
+  }
 
   function planoDesarme(l: Lance, Pt: typeof P, x: number, sorte: number): Plano {
     const D = l.defensor;
@@ -249,6 +313,10 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
       ],
     };
   }
+}
+
+function goleiroDe(esc: Escalacao, lado: Lado): SlotRef {
+  return { lado, indice: Math.max(0, esc.jogadores.findIndex((j) => j.posicao === 'GOL')) };
 }
 
 function zagueiroMaisProximo(esc: Escalacao, bases: Ponto[], lado: Lado, x: number): SlotRef | null {

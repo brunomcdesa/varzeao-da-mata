@@ -2,7 +2,7 @@
  * Página de Replay de demonstração: sorteia Escalações, simula com a sim e reproduz
  * com o renderer, no mesmo modo "tempo de relógio" que o site usará para Ao Vivo e Replay.
  */
-import { IDENTIDADE, TIMES, type Escalacao, type Posicao, type TimeId } from '@liga/shared';
+import { IDENTIDADE, TIMES, habilidadesDoPerfil, type Escalacao, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, simularPartida, type Lado, type ResultadoPartida } from '@liga/sim';
 import { DURACAO_JOGO, Timeline, VELOCIDADE_AO_VIVO, desenharQuadro } from '../src/index.js';
 
@@ -58,7 +58,7 @@ function escalacao(time: TimeId, media: number, seed: number): { esc: Escalacao;
       usados.add(apelido);
       lista.push(`@${apelido}_${IDENTIDADE[time].bicho}`);
       const ovr = Math.max(40, Math.min(99, media + rng.int(13) - 6));
-      return { jogadorId: `${time}-${i}`, posicao, ovr };
+      return { jogadorId: `${time}-${i}`, posicao, ovr, habilidades: habilidadesDoPerfil(posicao, ovr) };
     }),
   };
   return { esc, nomes: lista };
@@ -95,12 +95,14 @@ function textoDoLance(r: ResultadoPartida, i: number): string {
       return `${n(l.defensor)} defende o chute de ${n(l.finalizador)}`;
     case 'FORA':
       return `${n(l.finalizador)} chuta para fora`;
+    case 'BLOQUEIO':
+      return `${n(l.defensor)} bloqueia o chute de ${n(l.finalizador)}`;
     case 'DESARME':
-      return `${n(l.defensor)} desarma ${n(l.criador)}`;
+      return `${n(l.defensor)} desarma ${n(l.drible ? l.finalizador : l.criador)}`;
   }
 }
 
-const ROTULO: Record<string, string> = { GOL: 'Gol', DEFESA: 'Defesa', FORA: 'Fora', DESARME: 'Desarme' };
+const ROTULO: Record<string, string> = { GOL: 'Gol', DEFESA: 'Defesa', BLOQUEIO: 'Bloqueio', FORA: 'Fora', DESARME: 'Desarme' };
 
 function preencherLances(r: ResultadoPartida): void {
   listaLances.replaceChildren(

@@ -7,10 +7,11 @@
  * aparecem depois do Apito (o lance a lance) ou do fim do Ao Vivo (placar, tabela, Card).
  * Escalações aparecem assim que existem (a partir do Corte).
  */
-import { IDENTIDADE, TIMES, duracaoAoVivoMs, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId } from '@liga/shared';
+import { IDENTIDADE, TIMES, duracaoAoVivoMs, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Habilidades } from '@liga/shared';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { classificar } from './tabela.js';
+import { habilidadesDe } from './regras.js';
 
 /** Duração do Ao Vivo de uma Partida (6 min; 8 no Mata-mata, por causa dos pênaltis). */
 export const DURACAO_AO_VIVO_MS = duracaoAoVivoMs('LIGA');
@@ -37,6 +38,7 @@ interface LinhaEscalacao {
   jogador_id: string | null;
   posicao: Posicao;
   ovr_antes: number;
+  habilidades_antes: Habilidades | string | null;
   username: string | null;
 }
 
@@ -58,7 +60,7 @@ interface LinhaTemporada {
 const diaTexto = (d: string | Date) => (typeof d === 'string' ? d.slice(0, 10) : d.toISOString().slice(0, 10));
 
 function estatisticasVazias(): Estatisticas {
-  return { jogos: 0, gols: 0, assistencias: 0, desarmes: 0, defesas: 0, golsSofridos: 0, notaMedia: null, melhorNota: null, vitorias: 0, empates: 0, derrotas: 0 };
+  return { jogos: 0, gols: 0, assistencias: 0, desarmes: 0, defesas: 0, golsSofridos: 0, dribles: 0, bloqueios: 0, notaMedia: null, melhorNota: null, vitorias: 0, empates: 0, derrotas: 0 };
 }
 
 export async function exportarSite(banco: Banco, agora = new Date()): Promise<ExportacaoDoSite> {
@@ -90,7 +92,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
 
   const escalacoes = (
     await banco.query<LinhaEscalacao>(
-      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, j.username
+      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username
        FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id ORDER BY e.partida_id, e.lugar`,
     )
   ).rows;
@@ -163,8 +165,8 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
 
   // ---- jogadores
   const jogadores = (
-    await banco.query<{ id: string; username: string; time_id: TimeId; posicao: Posicao; ovr: number; inscrito_em: string | Date }>(
-      `SELECT id::text AS id, username, time_id, posicao, ovr, inscrito_em FROM jogador WHERE NOT banido ORDER BY id`,
+    await banco.query<{ id: string; username: string; time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; inscrito_em: string | Date }>(
+      `SELECT id::text AS id, username, time_id, posicao, ovr, habilidades, inscrito_em FROM jogador WHERE NOT banido ORDER BY id`,
     )
   ).rows;
   const porJogador = new Map<string, JogadorPublico>();
@@ -183,6 +185,8 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       // OVR antes da primeira Partida ainda não encerrada; senão o atual.
       ovr: oculta ? oculta.ovr_antes : j.ovr,
       ovrInicial: minhas[0]?.ovr_antes ?? j.ovr,
+      habilidades: oculta ? habilidadesDe(j.posicao, oculta.ovr_antes, oculta.habilidades_antes) : habilidadesDe(j.posicao, j.ovr, j.habilidades),
+      habilidadesIniciais: minhas[0] ? habilidadesDe(j.posicao, minhas[0].ovr_antes, minhas[0].habilidades_antes) : habilidadesDe(j.posicao, j.ovr, j.habilidades),
       inscritoEm: new Date(j.inscrito_em).toISOString(),
       ...estatisticasVazias(),
       vezesCandidato: 0,
@@ -203,6 +207,8 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
     e.desarmes += d.desarmes;
     e.defesas += d.defesas;
     e.golsSofridos += d.golsSofridos;
+    e.dribles += d.dribles ?? 0;
+    e.bloqueios += d.bloqueios ?? 0;
     if (r.gols.mandante === r.gols.visitante) e.empates++; // decidido nos pênaltis: conta como empate
     else if (r.vencedor === d.slot.lado) e.vitorias++;
     else e.derrotas++;
@@ -226,7 +232,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       temporadasDe.set(j.id, (temporadasDe.get(j.id) ?? new Set()).add(p.temporada_id));
       const outro = d.slot.lado === 'mandante' ? 'visitante' : 'mandante';
       j.historico.push({
-        partidaId: p.id, temporada: numero, rodada: p.rodada, fase: p.fase, nota: d.nota, ovr: d.ovrDepois, gols: d.gols,
+        partidaId: p.id, temporada: numero, rodada: p.rodada, fase: p.fase, nota: d.nota, ovr: d.ovrDepois, habilidades: d.habilidadesDepois ?? habilidadesDe(d.posicao, d.ovrDepois, null), gols: d.gols,
         rival: r.times[outro], emCasa: d.slot.lado === 'mandante', pro: r.gols[d.slot.lado], contra: r.gols[outro],
       });
     }
@@ -356,7 +362,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       time,
       jogadores: (linhas ?? [])
         .filter((e) => e.time_id === time)
-        .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, ovr: e.ovr_antes })),
+        .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes) })),
     });
     if (!linhas && !revelada(p)) continue;
     const publica: PartidaPublica = {

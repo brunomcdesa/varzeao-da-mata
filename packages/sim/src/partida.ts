@@ -1,17 +1,20 @@
-import { FORMACAO, POSICOES, TAMANHO_ESCALACAO, ehClassico, type Escalacao, type Posicao } from '@liga/shared';
+import {
+  FORMACAO,
+  POSICOES,
+  TAMANHO_ESCALACAO,
+  ehClassico,
+  ovrDasHabilidades,
+  type Escalacao,
+  type HabilidadeId,
+  type Habilidades,
+  type Posicao,
+} from '@liga/shared';
 import { duelo, probabilidadeDuelo } from './duelo.js';
-import { aplicarDelta, deltaOvr, notaDaPartida } from './nota.js';
+import { ACOES, evoluir, zeradas, type Acao } from './evolucao.js';
+import { notaDaPartida } from './nota.js';
 import { PARAMETROS, VERSAO_SIM } from './parametros.js';
 import { criarRng, type Rng } from './rng.js';
-import type {
-  Cobranca,
-  Desempenho,
-  EntradaPartida,
-  Lado,
-  Lance,
-  ResultadoPartida,
-  SlotRef,
-} from './tipos.js';
+import type { Cobranca, Desempenho, EntradaPartida, Lado, Lance, ResultadoPartida, SlotRef } from './tipos.js';
 
 const LADOS: readonly Lado[] = ['mandante', 'visitante'];
 const outro = (lado: Lado): Lado => (lado === 'mandante' ? 'visitante' : 'mandante');
@@ -26,6 +29,8 @@ interface Contadores {
   desarmes: number;
   defesas: number;
   golsSofridos: number;
+  bloqueios: number;
+  dribles: number;
 }
 
 export function validarEscalacao(escalacao: Escalacao): void {
@@ -40,19 +45,27 @@ export function validarEscalacao(escalacao: Escalacao): void {
   }
 }
 
+/** Chance de a bola que venceu o goleiro sair: cai com a Finalização (ADR-0010). */
+export function chanceDeFora(finalizacao: number): number {
+  const t = Math.min(1, Math.max(0, (finalizacao - 50) / 40));
+  return PARAMETROS.foraMaximo + (PARAMETROS.foraMinimo - PARAMETROS.foraMaximo) * t;
+}
+
+/** Chance de o finalizador tentar o drible (em vez do chute marcado): o lado mais forte, com sorte. */
+export function chanceDeDriblar(drible: number, finalizacao: number): number {
+  return 1 / (1 + Math.exp(-(drible - finalizacao) / PARAMETROS.escalaEscolha));
+}
+
 /** Simula uma Partida. Mesma entrada (incluindo seed) → mesmo resultado, sempre. */
 export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
   validarEscalacao(entrada.mandante);
   validarEscalacao(entrada.visitante);
-  if (entrada.fase === 'LIGA' && entrada.vantagemDoEmpate) {
-    throw new Error('Vantagem do Empate só existe no Mata-mata');
-  }
 
   const rng = criarRng(entrada.seed);
   const escalacoes: Record<Lado, Escalacao> = { mandante: entrada.mandante, visitante: entrada.visitante };
   const classico = ehClassico(entrada.mandante.time, entrada.visitante.time);
 
-  const ovrDe = (s: SlotRef): number => escalacoes[s.lado].jogadores[s.indice]!.ovr;
+  const hab = (s: SlotRef, h: HabilidadeId): number => escalacoes[s.lado].jogadores[s.indice]!.habilidades[h];
   const slotsDa = (lado: Lado, posicao: Posicao): SlotRef[] =>
     escalacoes[lado].jogadores.flatMap((j, indice) => (j.posicao === posicao ? [{ lado, indice }] : []));
 
@@ -60,7 +73,14 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     mandante: entrada.mandante.jogadores.map(zerado),
     visitante: entrada.visitante.jogadores.map(zerado),
   };
+  const pontos: Record<Lado, Record<HabilidadeId, number>[]> = {
+    mandante: entrada.mandante.jogadores.map(zeradas),
+    visitante: entrada.visitante.jogadores.map(zeradas),
+  };
   const conta = (s: SlotRef): Contadores => contadores[s.lado][s.indice]!;
+  const acao = (s: SlotRef, a: Acao): void => {
+    pontos[s.lado][s.indice]![ACOES[a].hab] += ACOES[a].valor;
+  };
 
   const gols: Record<Lado, number> = { mandante: 0, visitante: 0 };
   const lances: Lance[] = [];
@@ -69,62 +89,114 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
   for (let numero = 1; numero <= PARAMETROS.lances; numero++) {
     const minuto = Math.min(90, Math.floor(((numero - 1) * 90) / PARAMETROS.lances) + 1 + rng.int(3));
 
-    // 1. Posse: meia contra meia.
-    const meiaMandante = rng.pick(slotsDa('mandante', 'MEI'));
-    const meiaVisitante = rng.pick(slotsDa('visitante', 'MEI'));
-    const mandanteGanha = duelo(rng, ovrDe(meiaMandante), ovrDe(meiaVisitante));
-    const ataque: Lado = mandanteGanha ? 'mandante' : 'visitante';
+    // 1. Posse: o meia com a bola (Passe) contra o meia rival (Defesa).
+    const comBola: Lado = rng.chance(0.5) ? 'mandante' : 'visitante';
+    const meiaComBola = rng.pick(slotsDa(comBola, 'MEI'));
+    const meiaRival = rng.pick(slotsDa(outro(comBola), 'MEI'));
+    let criador: SlotRef;
+    if (duelo(rng, hab(meiaComBola, 'PAS'), hab(meiaRival, 'DEF'), PARAMETROS.basePosse)) {
+      criador = meiaComBola;
+      acao(meiaComBola, 'ganhouPosse');
+      acao(meiaRival, 'superadoNaPosse');
+    } else {
+      criador = meiaRival;
+      acao(meiaRival, 'roubouPosse');
+      acao(meiaComBola, 'perdeuPosse');
+    }
+    const ataque = criador.lado;
     const defesa = outro(ataque);
-    const criador = mandanteGanha ? meiaMandante : meiaVisitante;
 
-    // 2. Criação: meia contra zagueiro.
-    const zagueiro = rng.pick(slotsDa(defesa, 'ZAG'));
-    if (!duelo(rng, ovrDe(criador), ovrDe(zagueiro))) {
-      conta(zagueiro).desarmes++;
-      lances.push({ numero, minuto, ataque, tipo: 'DESARME', criador, defensor: zagueiro });
+    // 2. Criação: meia (Passe) contra o 1º zagueiro (Defesa).
+    const [zagueiro1, zagueiro2] = embaralharDois(rng, slotsDa(defesa, 'ZAG'));
+    if (!duelo(rng, hab(criador, 'PAS'), hab(zagueiro1, 'DEF'), PARAMETROS.baseCriacao)) {
+      conta(zagueiro1).desarmes++;
+      acao(zagueiro1, 'desarme');
+      acao(criador, 'desarmadoNaCriacao');
+      lances.push({ numero, minuto, ataque, tipo: 'DESARME', criador, defensor: zagueiro1 });
       continue;
     }
+    acao(zagueiro1, 'superadoNaCriacao');
 
-    // 3. Finalização: atacante (ou o outro meia) contra o goleiro.
+    // 3. Atacante × zagueiro: drible ou chute marcado.
     const outrosMeias = slotsDa(ataque, 'MEI').filter((s) => s.indice !== criador.indice);
     const finalizador =
-      outrosMeias.length > 0 && rng.chance(PARAMETROS.chanceMeiaFinaliza)
-        ? rng.pick(outrosMeias)
-        : rng.pick(slotsDa(ataque, 'ATA'));
+      outrosMeias.length > 0 && rng.chance(PARAMETROS.chanceMeiaFinaliza) ? rng.pick(outrosMeias) : rng.pick(slotsDa(ataque, 'ATA'));
+    const marcador = zagueiro2;
     const goleiro = rng.pick(slotsDa(defesa, 'GOL'));
+    const drible = rng.chance(chanceDeDriblar(hab(finalizador, 'DRI'), hab(finalizador, 'FIN')));
 
-    if (!duelo(rng, ovrDe(finalizador), ovrDe(goleiro))) {
+    let baseChute: number;
+    if (drible) {
+      if (!duelo(rng, hab(finalizador, 'DRI'), hab(marcador, 'DEF'), PARAMETROS.baseDrible)) {
+        conta(marcador).desarmes++;
+        acao(marcador, 'desarme');
+        acao(finalizador, 'desarmadoNoDrible');
+        lances.push({ numero, minuto, ataque, tipo: 'DESARME', criador, finalizador, defensor: marcador, marcador, drible: true });
+        continue;
+      }
+      conta(finalizador).dribles++;
+      acao(finalizador, 'driblou');
+      acao(marcador, 'foiDriblado');
+      baseChute = PARAMETROS.baseChuteLivre;
+    } else {
+      if (!duelo(rng, hab(finalizador, 'FIN'), hab(marcador, 'DEF'), PARAMETROS.baseChuteMarcado)) {
+        conta(marcador).bloqueios++;
+        acao(marcador, 'bloqueio');
+        acao(finalizador, 'chuteBloqueado');
+        lances.push({ numero, minuto, ataque, tipo: 'BLOQUEIO', criador, finalizador, defensor: marcador, marcador, drible: false });
+        continue;
+      }
+      acao(finalizador, 'venceuChuteMarcado');
+      baseChute = PARAMETROS.baseChuteApertado;
+    }
+
+    // 4. Finalização (Finalização) contra o goleiro (Goleiro).
+    const base = { numero, minuto, ataque, criador, finalizador, defensor: goleiro, marcador, drible };
+    if (!duelo(rng, hab(finalizador, 'FIN'), hab(goleiro, 'GOL'), baseChute)) {
       conta(goleiro).defesas++;
-      lances.push({ numero, minuto, ataque, tipo: 'DEFESA', criador, finalizador, defensor: goleiro });
+      acao(goleiro, 'defesa');
+      acao(finalizador, 'chuteDefendido');
+      lances.push({ ...base, tipo: 'DEFESA' });
       continue;
     }
-    if (!rng.chance(PARAMETROS.conversao)) {
-      lances.push({ numero, minuto, ataque, tipo: 'FORA', criador, finalizador, defensor: goleiro });
+    if (rng.chance(chanceDeFora(hab(finalizador, 'FIN')))) {
+      acao(finalizador, 'chuteFora');
+      lances.push({ ...base, tipo: 'FORA' });
       continue;
     }
 
     gols[ataque]++;
     conta(finalizador).gols++;
     conta(criador).assistencias++;
+    acao(finalizador, 'gol');
+    acao(criador, 'assistencia');
+    acao(goleiro, 'golSofridoGoleiro');
+    for (const z of slotsDa(defesa, 'ZAG')) acao(z, 'golSofridoZagueiro');
     for (const s of [goleiro, ...slotsDa(defesa, 'ZAG')]) conta(s).golsSofridos++;
     golsEmOrdem.push({ lado: ataque, autor: finalizador });
-    lances.push({ numero, minuto, ataque, tipo: 'GOL', criador, finalizador, defensor: goleiro });
+    lances.push({ ...base, tipo: 'GOL' });
   }
 
-  // Desempate.
-  let vencedor: Lado | null =
-    gols.mandante > gols.visitante ? 'mandante' : gols.visitante > gols.mandante ? 'visitante' : null;
+  for (const lado of LADOS) {
+    for (const g of slotsDa(lado, 'GOL')) if (conta(g).golsSofridos === 0) acao(g, 'semSofrerGol');
+  }
+
+  // Desempate: no Mata-mata, empate vai para os pênaltis.
+  let vencedor: Lado | null = gols.mandante > gols.visitante ? 'mandante' : gols.visitante > gols.mandante ? 'visitante' : null;
   let penaltis: ResultadoPartida['penaltis'];
   let decisivoPenalti: SlotRef | null = null;
 
   if (vencedor === null && entrada.fase === 'MATA_MATA') {
-    if (entrada.vantagemDoEmpate) {
-      vencedor = entrada.vantagemDoEmpate;
-    } else {
-      const disputa = disputarPenaltis(rng, slotsDa, ovrDe);
-      penaltis = { placar: disputa.placar, cobrancas: disputa.cobrancas };
-      vencedor = disputa.vencedor;
-      decisivoPenalti = disputa.decisivo;
+    const disputa = disputarPenaltis(rng, slotsDa, hab);
+    penaltis = { placar: disputa.placar, cobrancas: disputa.cobrancas };
+    vencedor = disputa.vencedor;
+    decisivoPenalti = disputa.decisivo;
+    for (const c of disputa.cobrancas) {
+      if (c.convertida) acao(c.cobrador, 'penaltiConvertido');
+      else {
+        acao(c.cobrador, 'penaltiPerdido');
+        if (c.defendida) acao(c.goleiro, 'penaltiPego');
+      }
     }
   }
 
@@ -134,17 +206,23 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
   const desempenhos: Desempenho[] = LADOS.flatMap((lado) =>
     escalacoes[lado].jogadores.map((jogador, indice): Desempenho => {
       const c = contadores[lado][indice]!;
-      const nota = notaDaPartida({ posicao: jogador.posicao, ...c, resultado: resultadoDe(lado) }, jogador.ovr);
-      const delta = jogador.jogadorId === null ? 0 : deltaOvr(nota, classico);
+      const antes: Habilidades = { ...jogador.habilidades };
+      const daBase = jogador.jogadorId === null;
+      const { depois, delta } = daBase ? { depois: antes, delta: zeradas() } : evoluir(antes, pontos[lado][indice]!, classico);
+      const ovrAntes = ovrDasHabilidades(jogador.posicao, antes);
+      const ovrDepois = ovrDasHabilidades(jogador.posicao, depois);
       return {
         slot: { lado, indice },
         jogadorId: jogador.jogadorId,
         posicao: jogador.posicao,
         ...c,
-        nota,
-        ovrAntes: jogador.ovr,
-        deltaOvr: delta,
-        ovrDepois: aplicarDelta(jogador.ovr, delta),
+        nota: notaDaPartida({ posicao: jogador.posicao, ...c, resultado: resultadoDe(lado) }, ovrAntes),
+        ovrAntes,
+        deltaOvr: ovrDepois - ovrAntes,
+        ovrDepois,
+        habilidadesAntes: antes,
+        habilidadesDepois: depois,
+        deltaHabilidades: delta,
       };
     }),
   );
@@ -164,25 +242,31 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
 }
 
 function zerado(): Contadores {
-  return { gols: 0, assistencias: 0, desarmes: 0, defesas: 0, golsSofridos: 0 };
+  return { gols: 0, assistencias: 0, desarmes: 0, defesas: 0, golsSofridos: 0, bloqueios: 0, dribles: 0 };
+}
+
+function embaralharDois(rng: Rng, slots: SlotRef[]): [SlotRef, SlotRef] {
+  const [a, b] = slots as [SlotRef, SlotRef];
+  return rng.chance(0.5) ? [a, b] : [b, a];
 }
 
 /** O gol do vencedor que o deixou à frente para sempre (ex.: 3×1 → o 2º gol do vencedor). */
-function golDaVitoria(
-  golsEmOrdem: readonly { lado: Lado; autor: SlotRef }[],
-  vencedor: Lado | null,
-  gols: Record<Lado, number>,
-): SlotRef | null {
+function golDaVitoria(golsEmOrdem: readonly { lado: Lado; autor: SlotRef }[], vencedor: Lado | null, gols: Record<Lado, number>): SlotRef | null {
   if (vencedor === null || gols.mandante === gols.visitante) return null;
   const golsDoPerdedor = gols[outro(vencedor)];
   const doVencedor = golsEmOrdem.filter((g) => g.lado === vencedor);
   return doVencedor[golsDoPerdedor]?.autor ?? null;
 }
 
+/** Chance de converter um pênalti: Finalização do cobrador × Goleiro do goleiro. */
+export function chanceDePenalti(finalizacao: number, goleiro: number): number {
+  return PARAMETROS.penaltiBase + (probabilidadeDuelo(finalizacao, goleiro) - 0.5) * PARAMETROS.pesoPenalti;
+}
+
 function disputarPenaltis(
   rng: Rng,
   slotsDa: (lado: Lado, posicao: Posicao) => SlotRef[],
-  ovrDe: (s: SlotRef) => number,
+  hab: (s: SlotRef, h: HabilidadeId) => number,
 ): { placar: Record<Lado, number>; cobrancas: Cobranca[]; vencedor: Lado; decisivo: SlotRef } {
   const ordem: Record<Lado, SlotRef[]> = {
     mandante: ordemDeCobranca('mandante', slotsDa),
@@ -194,11 +278,13 @@ function disputarPenaltis(
   const cobrar = (lado: Lado, rodada: number): void => {
     const cobrador = ordem[lado][rodada % ordem[lado].length]!;
     const goleiro = slotsDa(outro(lado), 'GOL')[0]!;
-    const p =
-      PARAMETROS.penaltiBase + (probabilidadeDuelo(ovrDe(cobrador), ovrDe(goleiro)) - 0.5) * PARAMETROS.pesoOvrPenalti;
-    const convertida = rng.chance(p);
-    if (convertida) placar[lado]++;
-    cobrancas.push({ lado, cobrador, goleiro, convertida });
+    const convertida = rng.chance(chanceDePenalti(hab(cobrador, 'FIN'), hab(goleiro, 'GOL')));
+    if (convertida) {
+      placar[lado]++;
+      cobrancas.push({ lado, cobrador, goleiro, convertida });
+    } else {
+      cobrancas.push({ lado, cobrador, goleiro, convertida, defendida: rng.chance(PARAMETROS.penaltiDefendido) });
+    }
   };
 
   for (let rodada = 0; rodada < COBRANCAS_REGULARES; rodada++) {

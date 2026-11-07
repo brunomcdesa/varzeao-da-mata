@@ -31,7 +31,7 @@ export const DURACAO_JOGO = 90 * 60;
 /** Velocidade do Ao Vivo: 90 minutos de jogo em cerca de 6 minutos (ADR-0005). */
 export const VELOCIDADE_AO_VIVO = 15;
 
-export type TipoDestaque = 'GOL' | 'DEFESA' | 'DESARME' | 'FORA';
+export type TipoDestaque = 'GOL' | 'DEFESA' | 'BLOQUEIO' | 'DESARME' | 'FORA';
 
 export interface Destaque {
   tipo: TipoDestaque;
@@ -82,7 +82,7 @@ interface Janela {
 }
 
 /** Por quantos segundos de jogo um destaque fica na tela. */
-const DURACAO_DESTAQUE: Record<TipoDestaque, number> = { GOL: 75, DEFESA: 40, DESARME: 25, FORA: 30 };
+const DURACAO_DESTAQUE: Record<TipoDestaque, number> = { GOL: 75, DEFESA: 40, BLOQUEIO: 35, DESARME: 25, FORA: 30 };
 /** Intervalo (s de jogo) usado para medir a velocidade de cada Jogador. */
 const DT_VEL = 0.6;
 

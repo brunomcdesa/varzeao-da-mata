@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { Escalacao, Posicao, TimeId } from '@liga/shared';
+import { habilidadesDoPerfil, type Escalacao, type Posicao, type TimeId } from '@liga/shared';
 import { simularPartida } from '@liga/sim';
 import { DURACAO_JOGO, Timeline } from '../src/timeline.js';
 
 const ORDEM: Posicao[] = ['GOL', 'ZAG', 'ZAG', 'MEI', 'MEI', 'ATA', 'ATA'];
 const esc = (time: TimeId, ovr: number): Escalacao => ({
   time,
-  jogadores: ORDEM.map((posicao, i) => ({ jogadorId: `${time}-${i}`, posicao, ovr })),
+  jogadores: ORDEM.map((posicao, i) => ({ jogadorId: `${time}-${i}`, posicao, ovr, habilidades: habilidadesDoPerfil(posicao, ovr) })),
 });
 
 function partida(seed: number) {

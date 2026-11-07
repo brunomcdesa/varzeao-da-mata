@@ -35,21 +35,26 @@ function textoDoLance(r: ResultadoPartida, nomes: Record<Lado, (string | null)[]
   const n = (s: SlotRef | undefined) => (s ? (nomes[s.lado][s.indice] ?? 'a Base') : '');
   const de = (s: SlotRef | undefined) => (n(s) === 'a Base' ? 'da Base' : `de ${n(s)}`);
   const inicio = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+  const driblou = l.drible && l.marcador ? `, depois de driblar ${n(l.marcador) === 'a Base' ? 'o zagueiro da Base' : n(l.marcador)}` : '';
   switch (l.tipo) {
     case 'GOL':
-      return n(l.criador) !== n(l.finalizador) || n(l.criador) === 'a Base' ? `Gol ${de(l.finalizador)}, passe ${de(l.criador)}` : `Gol ${de(l.finalizador)}`;
+      return (n(l.criador) !== n(l.finalizador) || n(l.criador) === 'a Base' ? `Gol ${de(l.finalizador)}, passe ${de(l.criador)}` : `Gol ${de(l.finalizador)}`) + driblou;
     case 'DEFESA':
-      return inicio(`${n(l.defensor)} defende o chute ${de(l.finalizador)}`);
+      return inicio(`${n(l.defensor)} defende o chute ${de(l.finalizador)}`) + driblou;
     case 'FORA':
-      return inicio(`${n(l.finalizador)} manda para fora`);
+      return inicio(`${n(l.finalizador)} manda para fora`) + driblou;
+    case 'BLOQUEIO':
+      return inicio(`${n(l.defensor)} bloqueia o chute ${de(l.finalizador)}`);
     case 'DESARME':
-      return inicio(`${n(l.defensor)} desarma ${n(l.criador)}`);
+      return l.drible && l.finalizador
+        ? inicio(`${n(l.finalizador)} tenta o drible e ${n(l.defensor)} desarma`)
+        : inicio(`${n(l.defensor)} desarma ${n(l.criador)}`);
   }
 }
 
 const maiuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
-const ROTULO: Record<string, string> = { GOL: 'Gol', DEFESA: 'Defesa', FORA: 'Fora', DESARME: 'Desarme' };
+const ROTULO: Record<string, string> = { GOL: 'Gol', DEFESA: 'Defesa', BLOQUEIO: 'Bloqueio', FORA: 'Fora', DESARME: 'Desarme' };
 
 export const paginaPartida: Pagina = async (main, [idTexto]) => {
   const id = Number(idTexto);

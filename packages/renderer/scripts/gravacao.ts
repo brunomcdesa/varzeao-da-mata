@@ -13,7 +13,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
-import { IDENTIDADE, TIMES, type Escalacao, type Posicao, type TimeId } from '@liga/shared';
+import { IDENTIDADE, TIMES, habilidadesDoPerfil, type Escalacao, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, simularPartida } from '@liga/sim';
 import type { PartidaParaVideo } from '../src/video.js';
 import { Roteiro, type OpcoesRoteiro } from '../src/roteiro.js';
@@ -53,7 +53,7 @@ export function partidaDeTeste(seed: number, mandante: TimeId, visitante: TimeId
         while (usados.has(a)) a = rng.pick(APELIDOS);
         usados.add(a);
         nomes.push(`@${a}_${IDENTIDADE[time].bicho}`);
-        return { jogadorId: `${time}-${i}`, posicao, ovr: 64 + rng.int(13) };
+        { const ovr = 64 + rng.int(13); return { jogadorId: `${time}-${i}`, posicao, ovr, habilidades: habilidadesDoPerfil(posicao, ovr) }; }
       }),
     };
     return { esc, nomes };

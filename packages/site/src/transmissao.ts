@@ -4,7 +4,7 @@
  * pausar, pular e acelerar.
  */
 import { DURACAO_JOGO, Timeline, VELOCIDADE_AO_VIVO, desenharQuadro } from '@liga/renderer';
-import type { Escalacao, EscalacaoPublica, PartidaPublica } from '@liga/shared';
+import { habilidadesDoPerfil, type Escalacao, type EscalacaoPublica, type PartidaPublica } from '@liga/shared';
 import type { Lado, ResultadoPartida } from '@liga/sim';
 
 export interface Transmissao {
@@ -13,7 +13,7 @@ export interface Transmissao {
 
 const paraEscalacao = (e: EscalacaoPublica): Escalacao => ({
   time: e.time,
-  jogadores: [...e.jogadores].sort((a, b) => a.lugar - b.lugar).map((j) => ({ jogadorId: j.jogadorId, posicao: j.posicao, ovr: j.ovr })),
+  jogadores: [...e.jogadores].sort((a, b) => a.lugar - b.lugar).map((j) => ({ jogadorId: j.jogadorId, posicao: j.posicao, ovr: j.ovr, habilidades: j.habilidades ?? habilidadesDoPerfil(j.posicao, j.ovr) })),
 });
 const nomesDe = (e: EscalacaoPublica) => [...e.jogadores].sort((a, b) => a.lugar - b.lugar).map((j) => (j.username ? `@${j.username}` : null));
 

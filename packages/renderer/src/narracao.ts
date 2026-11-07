@@ -107,6 +107,10 @@ export function montarNarracao(roteiro: Roteiro): Fala[] {
       INDIVIDUAL: [`${cap(f)} parte pra cima do zagueiro...`, `${cap(f)} limpa a marcação...`, `${cap(f)} vai no drible...`],
       DESARME: [`${cap(c)} conduz ${doTime(time(atq))}...`, `Vem ${doTime(time(atq))} pelo meio...`, `${cap(c)} tenta a jogada...`],
     };
+    // O finalizador foi no drible e perdeu a bola: a construção fala dele.
+    if (lance.tipo === 'DESARME' && lance.drible && lance.finalizador) {
+      construcao.DESARME = [`${cap(c)} acha ${f}... vai pra cima!`, `${cap(f)} recebe e tenta o drible...`, `${cap(f)} parte pra cima do marcador...`];
+    }
     falas.push({
       id: `lance-${s.lance}-a`,
       texto: escolher(rng, construcao[plano.estilo]!),
@@ -134,6 +138,11 @@ export function montarNarracao(roteiro: Roteiro): Fala[] {
         [`Pra fora! Passou perto!`, 'animado'],
         [`Uuuh! Tirou tinta da trave!`, 'animado'],
         [`Isolou! Lá pro mato!`, 'animado'],
+      ],
+      BLOQUEIO: [
+        [`Bloqueou! ${cap(def)} se jogou na frente!`, 'animado'],
+        [`Travou o chute! Que corte ${def.replace(/^o /, 'do ')}!`, 'animado'],
+        [`Na zaga! ${cap(def)} bloqueia!`, 'animado'],
       ],
       DESARME: [
         [`Desarmou! ${cap(def)} chega firme.`, 'normal'],

@@ -3,9 +3,9 @@
  * rodízio do Elenco, Craque da Rodada anterior garantido e Jogadores da Base completando
  * as vagas. Só conta quem se inscreveu até o Corte (30 min antes do Apito Inicial).
  */
-import type { Escalacao, Posicao, TimeId } from '@liga/shared';
+import { habilidadesDoPerfil, type Escalacao, type Habilidades, type Posicao, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
-import { FORMACAO, OVR_BASE } from './regras.js';
+import { FORMACAO, OVR_BASE, habilidadesDe } from './regras.js';
 
 export const CORTE_MINUTOS = 30;
 
@@ -20,6 +20,7 @@ interface Disponivel {
   username: string;
   posicao: Posicao;
   ovr: number;
+  habilidades: Habilidades;
   jogos: number;
   ultimo: Date | null;
   inscritoEm: Date;
@@ -48,8 +49,8 @@ export async function montarEscalacao(
   o: { time: TimeId; temporadaId: number; corte: Date; craque?: string | null },
 ): Promise<EscalacaoMontada> {
   const disponiveis = (
-    await banco.query<{ id: string; username: string; posicao: Posicao; ovr: number; jogos: string; ultimo: string | Date | null; inscrito_em: string | Date }>(
-      `SELECT j.id::text AS id, j.username, j.posicao, j.ovr, j.inscrito_em,
+    await banco.query<{ id: string; username: string; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; jogos: string; ultimo: string | Date | null; inscrito_em: string | Date }>(
+      `SELECT j.id::text AS id, j.username, j.posicao, j.ovr, j.habilidades, j.inscrito_em,
               count(p.id) AS jogos, max(p.apito_inicial) AS ultimo
        FROM jogador j
        LEFT JOIN escalacao e ON e.jogador_id = j.id
@@ -65,6 +66,7 @@ export async function montarEscalacao(
       username: r.username,
       posicao: r.posicao,
       ovr: r.ovr,
+      habilidades: habilidadesDe(r.posicao, r.ovr, r.habilidades),
       jogos: Number(r.jogos),
       ultimo: r.ultimo ? new Date(r.ultimo) : null,
       inscritoEm: new Date(r.inscrito_em),
@@ -79,7 +81,11 @@ export async function montarEscalacao(
   const nomes: (string | null)[] = [];
   for (const posicao of FORMACAO) {
     const proximo = porPosicao.get(posicao)?.shift();
-    jogadores.push({ jogadorId: proximo?.id ?? null, posicao, ovr: proximo?.ovr ?? OVR_BASE });
+    jogadores.push(
+      proximo
+        ? { jogadorId: proximo.id, posicao, ovr: proximo.ovr, habilidades: proximo.habilidades }
+        : { jogadorId: null, posicao, ovr: OVR_BASE, habilidades: habilidadesDoPerfil(posicao, OVR_BASE) },
+    );
     nomes.push(proximo ? `@${proximo.username}` : null);
   }
   return { escalacao: { time: o.time, jogadores }, nomes };
@@ -114,8 +120,8 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
     for (const m of [mandante, visitante]) {
       for (const [lugar, j] of m.escalacao.jogadores.entries()) {
         await b.query(
-          `INSERT INTO escalacao (partida_id, time_id, lugar, jogador_id, posicao, ovr_antes) VALUES ($1, $2, $3, $4, $5, $6)`,
-          [partidaId, m.escalacao.time, lugar, j.jogadorId, j.posicao, j.ovr],
+          `INSERT INTO escalacao (partida_id, time_id, lugar, jogador_id, posicao, ovr_antes, habilidades_antes) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [partidaId, m.escalacao.time, lugar, j.jogadorId, j.posicao, j.ovr, JSON.stringify(j.habilidades)],
         );
       }
     }
@@ -130,8 +136,8 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
 
 async function lerEscalacao(b: Banco, partidaId: number, mandante: TimeId, visitante: TimeId): Promise<PartidaEscalada> {
   const linhas = (
-    await b.query<{ time_id: TimeId; jogador_id: string | null; posicao: Posicao; ovr_antes: number; username: string | null }>(
-      `SELECT e.time_id, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, j.username
+    await b.query<{ time_id: TimeId; jogador_id: string | null; posicao: Posicao; ovr_antes: number; habilidades_antes: Habilidades | string | null; username: string | null }>(
+      `SELECT e.time_id, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username
        FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id
        WHERE e.partida_id = $1 ORDER BY e.lugar`,
       [partidaId],
@@ -140,7 +146,10 @@ async function lerEscalacao(b: Banco, partidaId: number, mandante: TimeId, visit
   const de = (time: TimeId) => {
     const minhas = linhas.filter((l) => l.time_id === time);
     return {
-      escalacao: { time, jogadores: minhas.map((l) => ({ jogadorId: l.jogador_id, posicao: l.posicao, ovr: l.ovr_antes })) } as Escalacao,
+      escalacao: {
+        time,
+        jogadores: minhas.map((l) => ({ jogadorId: l.jogador_id, posicao: l.posicao, ovr: l.ovr_antes, habilidades: habilidadesDe(l.posicao, l.ovr_antes, l.habilidades_antes) })),
+      } as Escalacao,
       nomes: minhas.map((l) => (l.username ? `@${l.username}` : null)),
     };
   };

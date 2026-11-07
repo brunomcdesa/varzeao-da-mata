@@ -1,11 +1,4 @@
-import {
-  LIMITE_DELTA_OVR,
-  LIMITE_DELTA_OVR_CLASSICO,
-  MULTIPLICADOR_CLASSICO,
-  OVR_MAX,
-  OVR_MIN,
-  type Posicao,
-} from '@liga/shared';
+import type { Posicao } from '@liga/shared';
 import { PESOS_NOTA } from './parametros.js';
 
 export interface Acoes {
@@ -15,6 +8,8 @@ export interface Acoes {
   desarmes: number;
   defesas: number;
   golsSofridos: number;
+  bloqueios?: number;
+  dribles?: number;
   resultado: 'vitoria' | 'empate' | 'derrota';
 }
 
@@ -33,6 +28,8 @@ export function contribuicao(a: Acoes): number {
     a.assistencias * PESOS_NOTA.assistencia +
     a.desarmes * PESOS_NOTA.desarme +
     a.defesas * PESOS_NOTA.defesa +
+    (a.bloqueios ?? 0) * PESOS_NOTA.bloqueio +
+    (a.dribles ?? 0) * PESOS_NOTA.drible +
     sofridos +
     resultado
   );
@@ -44,10 +41,10 @@ export function contribuicao(a: Acoes): number {
  * que, em média, ninguém suba só por já ser forte (ADR-0004).
  */
 export const EXPECTATIVA: Readonly<Record<Posicao, { intercepto: number; inclinacao: number }>> = {
-  GOL: { intercepto: 0.219, inclinacao: 0.0125 },
-  ZAG: { intercepto: 0.501, inclinacao: 0.0065 },
-  MEI: { intercepto: 0.991, inclinacao: 0.0125 },
-  ATA: { intercepto: 0.731, inclinacao: 0.0041 },
+  GOL: { intercepto: -0.441, inclinacao: 0.0085 },
+  ZAG: { intercepto: 0.8, inclinacao: 0.011 },
+  MEI: { intercepto: 1.025, inclinacao: 0.0164 },
+  ATA: { intercepto: 0.865, inclinacao: 0.0105 },
 };
 
 /** OVR de referência das retas de expectativa. */
@@ -65,16 +62,3 @@ export function notaDaPartida(a: Acoes, ovr: number): number {
   return arredondar1(limitar(PESOS_NOTA.base + contribuicao(a) - expectativa(a.posicao, ovr), 0, 10));
 }
 
-/** Variação de OVR causada por uma Nota da Partida. */
-export function deltaOvr(nota: number, classico: boolean): number {
-  const multiplicador = classico ? MULTIPLICADOR_CLASSICO : 1;
-  const limite = classico ? LIMITE_DELTA_OVR_CLASSICO : LIMITE_DELTA_OVR;
-  const x = (nota - PESOS_NOTA.base) * multiplicador;
-  // Arredondamento simétrico: Math.round puxa .5 negativo para cima e criaria inflação de OVR.
-  const bruto = Math.sign(x) * Math.round(Math.abs(x));
-  return limitar(bruto, -limite, limite);
-}
-
-export function aplicarDelta(ovr: number, delta: number): number {
-  return limitar(ovr + delta, OVR_MIN, OVR_MAX);
-}

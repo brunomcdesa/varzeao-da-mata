@@ -1,4 +1,4 @@
-import type { Escalacao, Posicao, TimeId } from '@liga/shared';
+import type { Escalacao, HabilidadeId, Habilidades, Posicao, TimeId } from '@liga/shared';
 
 export type Lado = 'mandante' | 'visitante';
 export type Fase = 'LIGA' | 'MATA_MATA';
@@ -15,11 +15,11 @@ export interface EntradaPartida {
   /** Sorteado pelo worker e salvo junto da Partida. */
   seed: number;
   fase: Fase;
-  /** Só no Mata-mata: quem avança com empate (1º e 2º da Fase de Liga na semifinal). */
+  /** Legado (regra antiga). Ignorado: empate no Mata-mata vai para os pênaltis. */
   vantagemDoEmpate?: Lado;
 }
 
-export type TipoLance = 'DESARME' | 'DEFESA' | 'FORA' | 'GOL';
+export type TipoLance = 'DESARME' | 'BLOQUEIO' | 'DEFESA' | 'FORA' | 'GOL';
 
 /** Um lance de ataque, já resolvido. O renderer anima a partir daqui. */
 export interface Lance {
@@ -31,8 +31,15 @@ export interface Lance {
   criador: SlotRef;
   /** Quem finalizou (ausente quando a jogada parou num desarme). */
   finalizador?: SlotRef;
-  /** Zagueiro que desarmou ou goleiro que defendeu/sofreu. */
+  /**
+   * Quem parou a jogada: o zagueiro que desarmou (na criação ou no atacante), o zagueiro que
+   * bloqueou ou o goleiro que defendeu/sofreu.
+   */
   defensor: SlotRef;
+  /** Zagueiro que marcou o finalizador no confronto atacante × zagueiro. */
+  marcador?: SlotRef;
+  /** O finalizador tentou driblar o marcador (em vez de chutar marcado). */
+  drible?: boolean;
 }
 
 export interface Cobranca {
@@ -40,6 +47,8 @@ export interface Cobranca {
   cobrador: SlotRef;
   goleiro: SlotRef;
   convertida: boolean;
+  /** Pênalti perdido: o goleiro pegou (true) ou foi pra fora (false). */
+  defendida?: boolean;
 }
 
 export interface Desempenho {
@@ -51,11 +60,17 @@ export interface Desempenho {
   desarmes: number;
   defesas: number;
   golsSofridos: number;
-  /** Nota da Partida, 0–10, relativa à expectativa do próprio OVR. */
+  bloqueios: number;
+  dribles: number;
+  /** Nota da Partida, 0–10, relativa à expectativa do próprio OVR (só para o Craque). */
   nota: number;
   ovrAntes: number;
   deltaOvr: number;
   ovrDepois: number;
+  habilidadesAntes: Habilidades;
+  habilidadesDepois: Habilidades;
+  /** Variação de cada Habilidade na Partida (uma casa decimal). */
+  deltaHabilidades: Record<HabilidadeId, number>;
 }
 
 export interface ResultadoPartida {

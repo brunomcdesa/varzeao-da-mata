@@ -23,8 +23,20 @@ A função do Jogador em campo, informada na Inscrição: GOL, ZAG, MEI ou ATA.
 _Avoid_: função, papel
 
 **OVR**:
-A nota geral de força do Jogador. Começa sorteada na Inscrição e só muda quando o Jogador é escalado: depois de cada Partida, sobe ou desce conforme a Nota da Partida.
+O resumo da força do Jogador: a média das suas Habilidades com pesos da Posição (ATA 55% Finalização, 25% Drible, 15% Passe, 5% Defesa; MEI 45% Passe, 20% Drible, 20% Defesa, 15% Finalização; ZAG 75% Defesa, 15% Passe, 5% Drible, 5% Finalização; GOL 90% Goleiro, 10% Passe). Não muda por si: muda quando as Habilidades mudam.
 _Avoid_: overall, nível, rating, força
+
+**Habilidade**:
+Cada uma das cinco notas de 1 a 99 que descrevem o Jogador: Finalização, Passe, Drible, Defesa e Goleiro. São elas que decidem os Duelos e sobem ou descem com as ações do próprio Jogador na Partida (um gol sobe Finalização, ser driblado desce Defesa), no máximo 2 pontos por Habilidade por Partida (4 no Clássico); quem está alto sobe mais devagar e quem está baixo desce mais devagar. Quem não joga não perde nada.
+_Avoid_: atributo, status, stat
+
+**Drible**:
+A Habilidade de passar pelo zagueiro conduzindo a bola; também o lance em que o atacante (ou o meia que finaliza) vence o zagueiro e chuta livre.
+_Avoid_: finta, jogada individual
+
+**Bloqueio**:
+O lance em que o zagueiro trava o chute do atacante antes de a bola chegar ao goleiro.
+_Avoid_: corte, travada
 
 **Card**:
 A ficha visual de um Jogador, com @, Posição, Time e OVR atual.
@@ -129,11 +141,11 @@ Como se decide um jogo do Mata-mata (Semifinal ou Final) que termina empatado no
 _Avoid_: penalidades, prorrogação (não existe)
 
 **Duelo**:
-O confronto entre Jogadores envolvidos num lance (ex.: ATA contra GOL, MEI contra ZAG), decidido pelos OVRs de cada um somados a uma dose moderada de sorte.
+O confronto entre Jogadores envolvidos num lance, decidido pelas Habilidades de cada um somadas a uma dose moderada de sorte. Uma jogada tem até quatro: posse (Passe do meia contra Defesa do meia rival), criação (Passe do meia contra Defesa de um zagueiro), atacante contra o outro zagueiro (Drible ou Finalização contra Defesa: Drible, Bloqueio, desarme ou chute marcado) e finalização (Finalização contra Goleiro). O pênalti é Finalização contra Goleiro.
 _Avoid_: disputa, embate, lance
 
 **Nota da Partida**:
-A avaliação de 0 a 10 de um Jogador escalado, calculada pelas ações típicas da sua Posição e pelo resultado do Time, em relação ao que se esperava do seu OVR. É ela que move o OVR: só sobe quem supera a expectativa e só cai quem fica abaixo dela.
+A avaliação de 0 a 10 de um Jogador escalado, calculada pelas ações típicas da sua Posição e pelo resultado do Time, em relação ao que se esperava do seu OVR. Escolhe os Candidatos a Craque e o Craque da Temporada; não mexe no OVR (quem mexe são as Habilidades).
 _Avoid_: rating, avaliação, desempenho
 
 **Locutor da Liga**:

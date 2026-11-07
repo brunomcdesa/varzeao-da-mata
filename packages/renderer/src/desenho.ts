@@ -196,7 +196,8 @@ function desenharPlacar(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, display:
  */
 function desenharMarcasDePenalti(pin: Pincel, e: EstadoQuadro, display: string, texto: string): void {
   const p = e.penaltis!;
-  const y = 46;
+  // Embaixo do campo: a parte de cima é onde ficam o gol, o goleiro e o cobrador.
+  const y = 448;
   pin.tabua(20, y, 230, 22);
   const lados: Lado[] = ['mandante', 'visitante'];
   for (const lado of lados) {
@@ -252,8 +253,8 @@ function escurecer(hex: string): string {
   return `#${f((n >> 16) & 255)}${f((n >> 8) & 255)}${f(n & 255)}`;
 }
 
-const TITULO = { GOL: 'Goooool!', DEFESA: 'Defesaça!', DESARME: 'Desarme!', FORA: 'Pra fora!' } as const;
-const TITULO_PENALTI = { GOL: 'Converteu!', DEFESA: 'Pegou!', DESARME: 'Desarme!', FORA: 'Pra fora!' } as const;
+const TITULO = { GOL: 'Goooool!', DEFESA: 'Defesaça!', BLOQUEIO: 'Bloqueou!', DESARME: 'Desarme!', FORA: 'Pra fora!' } as const;
+const TITULO_PENALTI = { GOL: 'Converteu!', DEFESA: 'Pegou!', BLOQUEIO: 'Bloqueou!', DESARME: 'Desarme!', FORA: 'Pra fora!' } as const;
 
 /** Letreiros grandes da disputa: "Pênaltis!" na abertura e o vencedor no fim. */
 function desenharFaixaDosPenaltis(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, display: string, texto: string): void {
@@ -324,7 +325,8 @@ function desenharDestaque(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, displa
   const w = 176;
   const h = 46;
   const x = (COLUNAS - w) / 2 + desloc;
-  const y = embaixo ? 404 : 70;
+  // Nos pênaltis a tábua de marcas ocupa o pé da tela: o letreiro sobe um pouco.
+  const y = d.penalti ? 392 : embaixo ? 404 : 70;
   pin.tabua(x, y, w, h);
   desenharEscudo(pin, o.times[d.lado], x + 8, y + 9, 1.15);
   pin.texto((d.penalti ? TITULO_PENALTI : TITULO)[d.tipo], x + w / 2 + 14, y + 17, 22, display, COR.amarelo, { contorno: COR.contorno });
