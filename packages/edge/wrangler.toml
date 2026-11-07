@@ -13,7 +13,7 @@ IG_USER_ID = "17841428347535513"
 
 [[kv_namespaces]]
 binding = "AGENDA"
-id = "TROQUE_PELO_ID_DO_KV"
+id = "467724d87d784111bafce2b26e48633c"
 
 [[r2_buckets]]
 binding = "PUBLICO"
