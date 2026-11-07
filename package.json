@@ -8,6 +8,7 @@
     "calibrar": "pnpm --filter @liga/sim calibrar",
     "demo": "pnpm --filter @liga/renderer demo",
     "gravar": "pnpm --filter @liga/renderer gravar",
+    "apresentacao": "pnpm --filter @liga/renderer apresentacao",
     "vozes": "pnpm --filter @liga/renderer vozes",
     "testar-grito": "pnpm --filter @liga/renderer testar-grito",
     "liga": "pnpm --filter @liga/worker liga",

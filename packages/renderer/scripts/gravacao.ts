@@ -23,6 +23,7 @@ import { TAXA, agendarFalas, codificarWav, lerWavMono, mixar, type VozNaMixagem 
 import { criarLocutor } from './locutor.js';
 import type { VarzeaApi } from '../video/api.js';
 import { RoteiroResumo, narracaoDoResumo, type DadosDoResumo } from '../src/resumo.js';
+import { RoteiroApresentacao, narracaoDaApresentacao, type DadosDaApresentacao } from '../src/apresentacao.js';
 import type { Fala } from '../src/narracao.js';
 
 const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -35,6 +36,8 @@ export interface OpcoesGravacao {
   crf?: number;
   /** Em vez do MP4, salva só os quadros-chave em JPEG nesta pasta (sem áudio). */
   previa?: string;
+  /** Na prévia, também estes instantes (segundos de vídeo). */
+  instantes?: number[];
 }
 
 /** Mesma montagem da página de Replay: Escalações sorteadas a partir do seed. */
@@ -219,6 +222,53 @@ export async function gravarResumo(dados: DadosDoResumo, o: OpcoesGravacao): Pro
   }
 }
 
+/** Grava o Reels de apresentação da Liga (o primeiro post do perfil). */
+export async function gravarApresentacao(dados: DadosDaApresentacao, o: OpcoesGravacao): Promise<{ duracao: number }> {
+  const inicio = performance.now();
+  const fps = o.fps ?? 30;
+  const crf = o.crf ?? 20;
+  await mkdir(dirname(o.saida), { recursive: true });
+  const dir = await mkdtemp(join(tmpdir(), 'varzea-apresentacao-'));
+  const navegador = await chromium.launch();
+  try {
+    const pagina = await navegador.newPage({ viewport: { width: 1080, height: 1920 } });
+    pagina.on('pageerror', (e) => console.error('[página]', e.message));
+    await pagina.goto(await montarPagina(dir));
+
+    let minimos: Record<number, { antes?: number }> = {};
+    let audio: string | null = null;
+    if (!o.previa) {
+      console.log('Locução:');
+      const base = new RoteiroApresentacao(dados);
+      const falasBase = narracaoDaApresentacao(base);
+      const vozes = await sintetizar(falasBase);
+      const duracao = (id: string) => vozes.get(id)!.length / TAXA;
+      minimos = exigenciasDaNarracao(base, falasBase, duracao);
+      const roteiro = new RoteiroApresentacao(dados, minimos);
+      const falas = narracaoDaApresentacao(roteiro);
+      const naMixagem: VozNaMixagem[] = agendarFalas(falas, duracao).map((a) => {
+        console.log(`  ${a.inicio.toFixed(1).padStart(5)} s  ${falas.find((x) => x.id === a.id)!.texto}`);
+        return { inicio: a.inicio, amostras: vozes.get(a.id)! };
+      });
+      const { esq, dir: direita } = mixar({ duracao: roteiro.duracao, segmentos: roteiro.segmentos, eventos: [{ tipo: 'APITO_FINAL', t: 0.1 }, { tipo: 'APITO_FINAL', t: roteiro.duracao - 1.2 }], vozes: naMixagem });
+      audio = join(dir, 'audio.wav');
+      await writeFile(audio, codificarWav(esq, direita));
+    }
+    const { duracao, totalQuadros } = await pagina.evaluate(([d, m, f]) => window.varzea.prepararApresentacao(d, m, f), [dados, minimos, fps] as const);
+    console.log(`Apresentação da Liga · ${duracao.toFixed(1)} s · ${totalQuadros} quadros a ${fps} fps`);
+    if (o.previa) {
+      await gravarPrevia(pagina, o.previa, fps, o.instantes);
+      return { duracao };
+    }
+    await codificar(pagina, totalQuadros, audio!, o.saida, fps, crf);
+    console.log(`Pronto: ${o.saida} (${((performance.now() - inicio) / 1000).toFixed(1)} s)`);
+    return { duracao };
+  } finally {
+    await navegador.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
 /**
  * Grava o Reels da Partida. Devolve a duração do vídeo (s). Não altera `partida`.
  */
@@ -288,7 +338,7 @@ export async function exportarEscudos(dir: string): Promise<void> {
 /** A página de gravação expõe `window.varzea` (contrato em video/api.ts). */
 export type { VarzeaApi };
 
-async function gravarPrevia(pagina: import('playwright').Page, dir: string, fps: number): Promise<void> {
+async function gravarPrevia(pagina: import('playwright').Page, dir: string, fps: number, instantes: number[] = []): Promise<void> {
   await mkdir(dir, { recursive: true });
   const segs = await pagina.evaluate(() => window.varzea.segmentos());
   const momentos: [string, number][] = [];
@@ -304,6 +354,7 @@ async function gravarPrevia(pagina: import('playwright').Page, dir: string, fps:
       momentos.push([`${String(i).padStart(2, '0')}-lance-b`, Math.floor((r + (s.fim - r) * 0.45) * fps)]);
     }
   });
+  for (const t of instantes) momentos.push([`t-${t.toFixed(1).padStart(5, '0')}`, Math.floor(t * fps)]);
   for (const [nome, n] of momentos) {
     const [jpeg] = await pagina.evaluate(([q]) => window.varzea.capturar(q, 1, 0.95), [n] as const);
     await writeFile(join(dir, `${nome}.jpg`), Buffer.from(jpeg!, 'base64'));

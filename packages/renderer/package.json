@@ -10,6 +10,7 @@
     "test": "vitest run",
     "demo": "node scripts/build-demo.mjs",
     "gravar": "tsx scripts/gravar.ts",
+    "apresentacao": "tsx scripts/apresentacao.ts",
     "vozes": "tsx scripts/vozes.ts",
     "testar-grito": "tsx scripts/testar-grito.ts"
   },
