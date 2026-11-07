@@ -48,10 +48,13 @@ export interface PartidaNoCalendario {
 }
 
 export interface RodadaPublica {
+  /** Id da Rodada no banco: é o que o voto pelo site manda para a borda. */
+  id: number;
   numero: number;
   fase: 'LIGA' | 'MATA_MATA';
   data: string;
-  candidatos: { jogadorId: string; username: string; time: TimeId; posicao: Posicao; nota: number }[];
+  /** `numero`: o que se comenta (ou clica no site) para votar. */
+  candidatos: { numero: number; jogadorId: string; username: string; time: TimeId; posicao: Posicao; nota: number }[];
   /** RODADA: Craque da Rodada. TEMPORADA: na Final, os Candidatos são a Craque da Temporada (nota = média). */
   votacao: 'RODADA' | 'TEMPORADA';
   /** Definido quando a votação fecha. */

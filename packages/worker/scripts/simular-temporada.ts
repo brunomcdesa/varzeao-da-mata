@@ -213,14 +213,18 @@ async function borda(): Promise<void> {
     await agenda.gravar(chave, { ...item, publicadoEm: agora.toISOString(), mediaId });
     posts.push({ id: mediaId, publicadoEm: new Date(agora), comentarios: [] });
     log.push(`${quando(agora)}  borda: publicou ${item.tipo === 'PARTIDA' ? `o Reels da Partida ${item.ref}` : `o Resumo da Rodada ${item.ref}`}`);
-    if (item.tipo === 'RESUMO') await votar(mediaId);
+    if (item.tipo === 'RESUMO') await votar(mediaId, item.ref);
   }
 }
 
-/** Depois do Resumo, parte dos seguidores inscritos vota (alguns mudam de ideia, alguns erram). */
-async function votar(postId: string): Promise<void> {
+/**
+ * Depois do Resumo, parte dos seguidores vota: a maioria comenta só o número no post do
+ * Resumo, alguns escrevem CRAQUE N, alguns mudam de ideia, alguns erram; e há quem vote
+ * pelo site (um por aparelho), que a borda grava no KV.
+ */
+async function votar(postId: string, rodada: number): Promise<void> {
   const post = posts.find((p) => p.id === postId)!;
-  const r = (await banco.query<{ username: string; nota: string }>(`SELECT j.username, c.nota FROM candidato c JOIN jogador j ON j.id = c.jogador_id JOIN rodada r ON r.id = c.rodada_id ORDER BY r.data DESC, c.nota DESC LIMIT 5`)).rows;
+  const r = (await banco.query<{ username: string; numero: number }>(`SELECT j.username, c.numero FROM candidato c JOIN jogador j ON j.id = c.jogador_id WHERE c.rodada_id = $1 ORDER BY c.numero`, [rodada])).rows;
   if (!r.length) return;
   const inscritos = seguidores.filter((s) => s.chegada <= diaAtual());
   for (const s of inscritos) {
@@ -229,10 +233,17 @@ async function votar(postId: string): Promise<void> {
     const proprio = r.find((c) => c.username === s.username);
     const alvo = proprio ?? (chance(0.55) ? r[0]! : pick(r));
     const t = new Date(agora.getTime() + rnd() * 14 * H);
-    comentar(post, s, chance(0.08) ? `CRAQUE @${alvo.username}!!! 🐐` : `CRAQUE @${alvo.username}`, t);
-    if (chance(0.1)) comentar(post, s, `CRAQUE @${pick(r).username}`, new Date(t.getTime() + 2 * H)); // mudou de ideia
+    comentar(post, s, chance(0.25) ? `CRAQUE ${alvo.numero}` : chance(0.1) ? `${alvo.numero}!!! 🐐` : String(alvo.numero), t);
+    if (chance(0.1)) comentar(post, s, String(pick(r).numero), new Date(t.getTime() + 2 * H)); // mudou de ideia
   }
-  if (chance(0.7)) comentar(post, { igUserId: 'sim-fora', username: 'curioso.qualquer' }, 'CRAQUE @ninguem_aqui', new Date(agora.getTime() + H));
+  if (chance(0.7)) comentar(post, { igUserId: 'sim-fora', username: 'curioso.qualquer' }, 'CRAQUE 9', new Date(agora.getTime() + H));
+  // Votos pelo site: gente que não comenta, um por aparelho.
+  const peloSite = Math.floor(rnd() * 25);
+  for (let i = 0; i < peloSite; i++) {
+    const chave = `voto-site/${rodada}/sim-aparelho-${rodada}-${String(i).padStart(6, '0')}`;
+    agenda.itens.set(chave, '""');
+    agenda.metadados.set(chave, { numero: (chance(0.5) ? r[0]! : pick(r)).numero, em: new Date(agora.getTime() + rnd() * 12 * H).toISOString() });
+  }
 }
 
 const diaAtual = () => Math.floor((agora.getTime() - em(somarDias(inicio, -2), 0).getTime()) / (24 * H));
@@ -304,7 +315,7 @@ const resumo = [
   `${quando(em(somarDias(inicio, -2), 8))} a ${quando(agora)} (horário de Brasília)`,
   '',
   `- Seguidores simulados: ${totalSeguidores}; Jogadores inscritos: ${await n(`SELECT count(*) AS n FROM jogador`)}`,
-  `- Comentários lidos: ${await n(`SELECT count(*) AS n FROM comando`)}; votos válidos: ${await n(`SELECT count(*) AS n FROM voto`)}`,
+  `- Comentários lidos: ${await n(`SELECT count(*) AS n FROM comando`)}; votos válidos: ${await n(`SELECT count(*) AS n FROM voto`)} pelo Instagram e ${await n(`SELECT count(*) AS n FROM voto_site`)} pelo site`,
   `- Partidas jogadas: ${await n(`SELECT count(*) AS n FROM partida WHERE resultado IS NOT NULL`)}; Reels publicados: ${await n(`SELECT count(*) AS n FROM partida WHERE status = 'PUBLICADA'`)}; Resumos: ${await n(`SELECT count(*) AS n FROM rodada WHERE resumo_status = 'PUBLICADO'`)}`,
   `- Vagas completadas pela Base: ${await n(`SELECT count(*) AS n FROM escalacao WHERE jogador_id IS NULL`)} de ${await n(`SELECT count(*) AS n FROM escalacao`)}`,
   ...historico.map((h) => `- Temporada ${h.numero}: campeão ${h.campeao_id ? FALA_DO_TIME[h.campeao_id].curto : '(em andamento)'}; Craque da Temporada ${h.username ? `@${h.username}` : '(ainda não)'}`),

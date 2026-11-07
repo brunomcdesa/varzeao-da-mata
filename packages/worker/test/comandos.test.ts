@@ -32,13 +32,22 @@ describe('Inscrição', () => {
 });
 
 describe('Voto', () => {
-  it('lê o @ do Candidato', () => {
-    expect(interpretar('CRAQUE @Rafa_Capivara')).toEqual({ tipo: 'VOTO', username: 'rafa_capivara' });
-    expect(interpretar('craque @bia.onca!!! 🔥')).toEqual({ tipo: 'VOTO', username: 'bia.onca' });
+  it('lê o número do Candidato (ADR-0011)', () => {
+    expect(interpretar('CRAQUE 3')).toEqual({ tipo: 'VOTO', numero: 3 });
+    expect(interpretar('voto nº 2')).toEqual({ tipo: 'VOTO', numero: 2 });
+    expect(interpretar('craque #5 🔥')).toEqual({ tipo: 'VOTO', numero: 5 });
   });
 
-  it('sem @ é inválido', () => {
-    expect(interpretar('CRAQUE rafa')).toEqual({ tipo: 'INVALIDO', prefixo: 'CRAQUE', motivo: 'SEM_CANDIDATO' });
+  it('o número sozinho é voto solto (só vale no post da votação)', () => {
+    expect(interpretar('3')).toEqual({ tipo: 'VOTO', numero: 3, solto: true });
+    expect(interpretar(' 4!! 🐐')).toEqual({ tipo: 'VOTO', numero: 4, solto: true });
+    expect(interpretar('10')).toEqual({ tipo: 'IGNORADO' });
+    expect(interpretar('3x1 foi pouco')).toEqual({ tipo: 'IGNORADO' });
+  });
+
+  it('com @ e sem número é inválido: o voto agora é por número', () => {
+    expect(interpretar('CRAQUE @rafa')).toEqual({ tipo: 'INVALIDO', prefixo: 'CRAQUE', motivo: 'SEM_CANDIDATO' });
+    expect(interpretar('CRAQUE 12')).toEqual({ tipo: 'INVALIDO', prefixo: 'CRAQUE', motivo: 'SEM_CANDIDATO' });
   });
 });
 

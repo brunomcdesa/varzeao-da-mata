@@ -140,12 +140,12 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
     const votacaoFechada = !ehAFinal && (proximaRodada ? apito(proximaRodada).getTime() <= agora.getTime() : false);
     const candidatos = doDia.every(encerrada)
       ? (
-          await banco.query<{ jogador_id: string; username: string; time_id: TimeId; posicao: Posicao; nota: string; votos: string }>(
-            `SELECT c.jogador_id::text AS jogador_id, j.username, j.time_id, j.posicao, c.nota, count(v.ig_user_id) AS votos
+          await banco.query<{ jogador_id: string; username: string; time_id: TimeId; posicao: Posicao; nota: string; numero: number | null; votos: string }>(
+            `SELECT c.jogador_id::text AS jogador_id, j.username, j.time_id, j.posicao, c.nota, c.numero, count(v.eleitor) AS votos
              FROM candidato c JOIN jogador j ON j.id = c.jogador_id
-             LEFT JOIN voto v ON v.rodada_id = c.rodada_id AND v.jogador_id = c.jogador_id
-             WHERE c.rodada_id = $1 GROUP BY c.jogador_id, j.username, j.time_id, j.posicao, c.nota, j.id
-             ORDER BY c.nota DESC, j.id`,
+             LEFT JOIN voto_total v ON v.rodada_id = c.rodada_id AND v.jogador_id = c.jogador_id
+             WHERE c.rodada_id = $1 GROUP BY c.jogador_id, j.username, j.time_id, j.posicao, c.nota, c.numero, j.id
+             ORDER BY c.numero NULLS LAST, c.nota DESC, j.id`,
             [base.rodada_id],
           )
         ).rows
@@ -153,11 +153,12 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
     const vencedor = votacaoFechada && candidatos.length ? [...candidatos].sort((a, b) => Number(b.votos) - Number(a.votos) || Number(b.nota) - Number(a.nota))[0]! : null;
     const lista = rodadasPorTemporada.get(base.temporada_id) ?? [];
     lista.push({
+      id: base.rodada_id,
       numero: base.rodada,
       fase: base.fase,
       data: diaTexto(base.data),
       votacao: ehAFinal ? 'TEMPORADA' : 'RODADA',
-      candidatos: candidatos.map((c) => ({ jogadorId: c.jogador_id, username: c.username, time: c.time_id, posicao: c.posicao, nota: Number(c.nota) })),
+      candidatos: candidatos.map((c, i) => ({ numero: c.numero ?? i + 1, jogadorId: c.jogador_id, username: c.username, time: c.time_id, posicao: c.posicao, nota: Number(c.nota) })),
       craque: vencedor ? { jogadorId: vencedor.jogador_id, username: vencedor.username, time: vencedor.time_id } : null,
     });
     rodadasPorTemporada.set(base.temporada_id, lista);

@@ -6,6 +6,8 @@
  * - GET /partidas/:id — a Partida completa (com lances) do bucket privado, só depois do
  *   Apito Inicial; antes responde 425 com o horário. É o que alimenta o Ao Vivo do site.
  * - GET /dados/* — os JSON do site, do bucket público, com CORS (o site fica em outro domínio).
+ * - POST /votos — voto do Craque pelo site, um por aparelho (ADR-0011). O job coletar traz
+ *   os votos do KV para o banco e mantém `votacao-aberta` em dia.
  */
 
 export interface Env {
@@ -14,6 +16,8 @@ export interface Env {
   PRIVADO: R2Bucket;
   IG_USER_ID: string;
   IG_API_VERSAO?: string;
+  /** Segredo do Cloudflare Turnstile (anti-robô). Sem ele, o voto vale sem o desafio. */
+  TURNSTILE_SECRET?: string;
 }
 
 export interface ItemDaAgenda {
@@ -29,7 +33,8 @@ export interface ItemDaAgenda {
 
 const CORS = {
   'access-control-allow-origin': '*',
-  'access-control-allow-methods': 'GET, HEAD, OPTIONS',
+  'access-control-allow-methods': 'GET, HEAD, POST, OPTIONS',
+  'access-control-allow-headers': 'content-type',
   'access-control-max-age': '86400',
 };
 
@@ -116,10 +121,11 @@ async function publicarDaLista(env: Env, agora: Date, f: Fetch): Promise<string[
 /** Igual a duracaoAoVivoMs do @liga/shared: 6 min, 8 no Mata-mata (pênaltis). */
 const duracaoAoVivoMs = (fase?: string) => (fase === 'MATA_MATA' ? 8 : 6) * 60_000;
 
-export async function responder(req: Request, env: Env, agora = new Date()): Promise<Response> {
+export async function responder(req: Request, env: Env, agora = new Date(), f: Fetch = fetch): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
-  if (req.method !== 'GET' && req.method !== 'HEAD') return json({ erro: 'método não permitido' }, 405);
   const { pathname } = new URL(req.url);
+  if (pathname === '/votos' && req.method === 'POST') return votar(req, env, agora, f);
+  if (req.method !== 'GET' && req.method !== 'HEAD') return json({ erro: 'método não permitido' }, 405);
 
   const m = pathname.match(/^\/partidas\/(\d+)(?:\/lances)?$/);
   if (m) {
@@ -146,6 +152,58 @@ export async function responder(req: Request, env: Env, agora = new Date()): Pro
 
   if (pathname === '/') return json({ ok: true, servico: 'Varzeão da Mata' });
   return json({ erro: 'não encontrado' }, 404);
+}
+
+// ------------------------------------------------------------------ voto pelo site
+
+export const CHAVE_VOTACAO = 'votacao-aberta';
+/** Quantos aparelhos podem votar da mesma rede (uma casa, um bar) na mesma votação. */
+export const VOTOS_POR_IP = 4;
+
+async function resumo(texto: string): Promise<string> {
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto)));
+  return [...h.slice(0, 12)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function votar(req: Request, env: Env, agora: Date, f: Fetch): Promise<Response> {
+  let corpo: { rodada?: unknown; numero?: unknown; aparelho?: unknown; turnstile?: unknown };
+  try {
+    corpo = (await req.json()) as typeof corpo;
+  } catch {
+    return json({ erro: 'Corpo inválido' }, 400);
+  }
+  const rodada = Number(corpo.rodada);
+  const numero = Number(corpo.numero);
+  const aparelho = String(corpo.aparelho ?? '');
+  if (!/^[a-z0-9-]{16,64}$/.test(aparelho)) return json({ erro: 'Aparelho inválido' }, 400);
+
+  const aberta = await env.AGENDA.get<{ rodada: number; candidatos: number }>(CHAVE_VOTACAO, 'json');
+  if (!aberta || aberta.rodada !== rodada) return json({ erro: 'Essa votação já fechou' }, 409);
+  if (!Number.isInteger(numero) || numero < 1 || numero > aberta.candidatos) return json({ erro: 'Candidato inválido' }, 400);
+
+  const ip = req.headers.get('cf-connecting-ip') ?? 'sem-ip';
+  if (env.TURNSTILE_SECRET) {
+    const r = await f('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      body: new URLSearchParams({ secret: env.TURNSTILE_SECRET, response: String(corpo.turnstile ?? ''), remoteip: ip }),
+    });
+    const v = (await r.json()) as { success?: boolean };
+    if (!v.success) return json({ erro: 'Não deu para confirmar que você não é um robô. Tente de novo.' }, 403);
+  }
+
+  // Um voto por aparelho: o primeiro vale.
+  const chave = `voto-site/${rodada}/${aparelho}`;
+  const ja = await env.AGENDA.getWithMetadata<{ numero: number }>(chave);
+  if (ja.metadata) return json({ ok: true, numero: ja.metadata.numero, jaVotou: true });
+
+  const chaveIp = `voto-ip/${rodada}/${await resumo(ip)}`;
+  const daRede = Number((await env.AGENDA.get(chaveIp)) ?? 0);
+  if (daRede >= VOTOS_POR_IP) return json({ erro: 'Muitos votos saindo dessa rede. Vote pelo Instagram, comentando o número.' }, 429);
+
+  const fimTtl = 14 * 86400;
+  await env.AGENDA.put(chave, '', { metadata: { numero, em: agora.toISOString() }, expirationTtl: fimTtl });
+  await env.AGENDA.put(chaveIp, String(daRede + 1), { expirationTtl: fimTtl });
+  return json({ ok: true, numero });
 }
 
 export default {

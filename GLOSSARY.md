@@ -51,7 +51,7 @@ Os Jogadores que fizeram Inscrição desde a Rodada anterior, apresentados no Re
 _Avoid_: novatos, novos inscritos, reforços
 
 **Comando**:
-Comentário com prefixo reconhecido pelo sistema em qualquer Reels da Liga: "ENTRO" faz uma Inscrição, "CRAQUE" registra um voto para Craque da Rodada. Comentários sem prefixo são ignorados.
+Comentário reconhecido pelo sistema em qualquer Reels da Liga: "ENTRO" faz uma Inscrição; "CRAQUE 3" vota no Candidato número 3. No post do Resumo, o número sozinho ("3") também vale como voto. O voto nunca usa @, para os comentários não marcarem ninguém. Os demais comentários são ignorados.
 _Avoid_: palavra-chave, hashtag
 
 **Corte**:
@@ -93,7 +93,7 @@ Os 5 Jogadores com maior Nota da Partida numa Rodada, exibidos no Resumo da Roda
 _Avoid_: indicados, finalistas, top 5
 
 **Craque da Rodada**:
-O Candidato a Craque mais votado pelo público nos comentários do Resumo da Rodada, revelado no Reels da primeira Partida do dia seguinte. Cada @ tem um voto, inclusive em si mesmo.
+O Candidato a Craque mais votado pelo público, revelado no Reels da primeira Partida do dia seguinte. Cada Candidato tem um número (1 a 5, da maior Nota para a menor). Vota-se comentando o número no Resumo da Rodada (um voto por @, vale o último, inclusive em si mesmo) ou clicando no site (um voto por aparelho, vale o primeiro). Os dois somam.
 _Avoid_: MVP, melhor em campo, destaque
 
 **Craque da Temporada**:

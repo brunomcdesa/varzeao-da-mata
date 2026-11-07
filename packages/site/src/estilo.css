@@ -676,13 +676,61 @@ main:focus {
 }
 .candidatos li {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
   align-items: center;
   gap: 10px;
   padding: 6px 0;
 }
 .candidatos li + li {
   border-top: 2px dashed var(--placa-sombra);
+}
+/* O número do voto: plaquinha amarela, como no Reels do Resumo. */
+.numero-voto {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 34px;
+  font: 400 1.75rem/1 var(--display);
+  color: var(--tinta);
+  background: var(--amarelo);
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 2px var(--contorno), inset -3px -3px 0 rgb(0 0 0 / 0.18);
+}
+.botao-voto {
+  font: 600 0.8125rem/1 var(--texto);
+  color: var(--placa);
+  background: var(--madeira);
+  border: 0;
+  padding: 9px 10px 7px;
+  min-height: 36px;
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 2px var(--contorno), inset 0 -3px 0 var(--madeira-escura);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.botao-voto:hover:not(:disabled) {
+  background: var(--madeira-luz);
+}
+.botao-voto:focus-visible {
+  outline: 3px solid var(--amarelo);
+  outline-offset: 2px;
+}
+.botao-voto:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.meu-voto .botao-voto:disabled {
+  opacity: 1;
+  background: var(--folha);
+  color: #fff;
+}
+.voto-aviso {
+  margin: 10px 0 0;
+  font-size: 0.8125rem;
+  color: var(--tinta-fraca);
+}
+.voto-desafio {
+  margin-top: 10px;
 }
 .quem {
   display: grid;

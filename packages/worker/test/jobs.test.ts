@@ -145,7 +145,8 @@ describe('jobs', () => {
     expect(chaves).toHaveLength(5);
     const resumo = (await agenda.ler<ItemDaAgenda>(chaves.at(-1)!))!;
     expect(resumo).toMatchObject({ tipo: 'RESUMO', publicarEm: '2026-11-07T22:00:00.000Z' });
-    expect(ig.containers.at(-1)!.legenda).toMatch(/CRAQUE @/);
+    expect(ig.containers.at(-1)!.legenda).toMatch(/só o número/);
+    expect(ig.containers.at(-1)!.legenda).not.toMatch(/@/);
     expect(await jobResumo(ctx)).toBeNull();
   });
 });

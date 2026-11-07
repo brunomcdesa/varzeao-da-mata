@@ -4,6 +4,7 @@ import { contagem, diaLongo, hora, liga, partida, partidasDaRodada, rodadaAtual,
 import { montarTimeline, transmitir } from '../transmissao.js';
 import { bonecoImg, curto, escudoImg, html, jogadorLink, nota, rotuloClassico, type Html } from '../ui.js';
 import { chamadaDeVoto, comoEntrar, linhaDePartida, perfil, tabelaDeClassificacao } from './comum.js';
+import { votar, votoGuardado, votoNoSiteDisponivel } from '../voto.js';
 import type { Pagina } from './tipos.js';
 
 /** A Partida que merece o destaque: a que está rolando, senão a próxima. */
@@ -68,20 +69,29 @@ function votacao(l: LigaPublica): Html {
   const ultimoCraque = [...l.rodadas].reverse().find((r) => r.craque);
   if (aberta) {
     const temporada = aberta.votacao === 'TEMPORADA';
-    return html`<section class="placa votacao" aria-labelledby="titulo-votacao">
+    const noSite = votoNoSiteDisponivel();
+    const meu = votoGuardado(aberta.id);
+    return html`<section class="placa votacao" aria-labelledby="titulo-votacao" data-rodada="${aberta.id}">
       <h2 id="titulo-votacao">${temporada ? 'Quem é o Craque da Temporada?' : `Craque ${aberta.fase === 'LIGA' ? `da Rodada ${aberta.numero}` : 'das Semifinais'}`}</h2>
       <p>${
         temporada
-          ? html`Os 5 com a maior nota média da Temporada. Vote comentando no post do Resumo da Final no ${perfil()} até amanhã às 18h; o resultado sai às 19h.`
-          : html`Vote comentando no post do Resumo da Rodada no ${perfil()}. Vale o último voto de cada perfil; o resultado sai no primeiro jogo do dia seguinte.`
+          ? html`Os 5 com a maior nota média da Temporada. ${noSite ? 'Vote aqui ou comente' : 'Comente'} só o número do seu escolhido no post do Resumo da Final no ${perfil()}, até amanhã às 18h. O resultado sai às 19h.`
+          : html`${noSite ? 'Vote aqui ou comente' : 'Comente'} só o número do seu escolhido no post do Resumo da Rodada no ${perfil()}. O resultado sai no primeiro jogo do dia seguinte.`
       }</p>
       <ol class="candidatos">${aberta.candidatos.map(
-        (c) => html`<li>
+        (c) => html`<li class="${meu === c.numero ? 'meu-voto' : ''}">
+          <span class="numero-voto" aria-hidden="true">${c.numero}</span>
           ${bonecoImg(c.time, c.posicao, c.username, 3)}
           <span class="quem">${jogadorLink(c.jogadorId, c.username)}<small>${curto(c.time)} · ${temporada ? 'média' : 'nota'} ${nota(c.nota)}</small></span>
-          ${chamadaDeVoto(c.username)}
+          ${noSite
+            ? html`<button type="button" class="botao-voto" data-numero="${c.numero}" ${meu ? 'disabled' : ''} aria-label="Votar no número ${c.numero}, @${c.username}">${meu === c.numero ? 'Seu voto' : `Votar no ${c.numero}`}</button>`
+            : chamadaDeVoto(c.numero)}
         </li>`,
       )}</ol>
+      ${noSite
+        ? html`<div class="voto-desafio" hidden></div>
+            <p class="voto-aviso" role="status" aria-live="polite">${meu ? `Você votou no ${meu} por este aparelho. Um voto por aparelho.` : 'Um voto por aparelho no site. Pelo Instagram, um por perfil.'}</p>`
+        : ''}
     </section>`;
   }
   if (ultimoCraque?.craque) {
@@ -94,6 +104,35 @@ function votacao(l: LigaPublica): Html {
     );
   }
   return html``;
+}
+
+function ligarVotacao(main: HTMLElement): void {
+  const secao = main.querySelector<HTMLElement>('.votacao[data-rodada]');
+  if (!secao) return;
+  const rodada = Number(secao.dataset.rodada);
+  const aviso = secao.querySelector<HTMLElement>('.voto-aviso');
+  const desafio = secao.querySelector<HTMLElement>('.voto-desafio');
+  const botoes = [...secao.querySelectorAll<HTMLButtonElement>('.botao-voto')];
+  for (const b of botoes) {
+    b.addEventListener('click', async () => {
+      const numero = Number(b.dataset.numero);
+      for (const x of botoes) x.disabled = true;
+      if (aviso) aviso.textContent = 'Registrando o voto...';
+      try {
+        const r = await votar(rodada, numero, desafio!);
+        if (desafio) desafio.hidden = true;
+        for (const x of botoes) {
+          const meu = Number(x.dataset.numero) === r.numero;
+          x.textContent = meu ? 'Seu voto' : `Votar no ${x.dataset.numero}`;
+          x.closest('li')?.classList.toggle('meu-voto', meu);
+        }
+        if (aviso) aviso.textContent = r.jaVotou ? `Este aparelho já tinha votado no ${r.numero}. Vale o primeiro voto.` : `Voto registrado no ${r.numero}. Valeu!`;
+      } catch (e) {
+        for (const x of botoes) x.disabled = false;
+        if (aviso) aviso.textContent = (e as Error).message;
+      }
+    });
+  }
 }
 
 export const inicio: Pagina = async (main) => {
@@ -125,6 +164,8 @@ export const inicio: Pagina = async (main) => {
       ${votacao(l)}
       ${comoEntrar(l)}
     </div>`.s;
+
+  ligarVotacao(main);
 
   // Ao vivo: a tábua vira a transmissão.
   let parar = () => {};

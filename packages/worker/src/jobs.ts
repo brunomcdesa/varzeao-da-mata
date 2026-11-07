@@ -3,7 +3,7 @@
  * continua de onde parou e nunca publica duas vezes.
  *
  *   coletar  (de hora em hora)  renova o token, sincroniza o que a borda publicou, lê os
- *                               comentários (ENTRO / CRAQUE) e atualiza os dados do site.
+ *                               comentários (ENTRO / voto por número), traz os votos do site e atualiza os dados do site.
  *   partida  (35 min antes)     espera o Corte, escala, simula, grava o Reels, sobe para o
  *                               R2, cria o container e agenda a publicação para o fim do Ao Vivo.
  *   resumo   (18h10)            fecha a Rodada, grava o Resumo e agenda para as 19h.
@@ -21,8 +21,9 @@ import { Instagram, ErroInstagram } from './instagram.js';
 import { CHAVE_TOKEN, gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
 import { avancarMataMata } from './mataMata.js';
 import { rodarPartida, type DadosDoVideo } from './partida.js';
-import { craqueDaRodada, dadosDoResumo, fecharRodada, HORA_DO_RESUMO, rodadaEmVotacao, type DadosDoResumo } from './resumo.js';
+import { craqueDaRodada, dadosDoResumo, fecharRodada, HORA_DO_RESUMO, type DadosDoResumo } from './resumo.js';
 import { exportarSite } from './site.js';
+import { contextoDaVotacao, importarVotosDoSite, sincronizarVotacao } from './votoSite.js';
 
 export interface ContextoDoJob {
   banco: Banco;
@@ -83,6 +84,8 @@ export async function renovarTokenSePreciso(c: ContextoDoJob): Promise<void> {
 export interface RelatorioColeta {
   comentarios: number;
   resultados: Partial<Record<Resultado, number>>;
+  /** Votos do site trazidos do KV nesta coleta. */
+  votosDoSite: number;
   publicados: number;
   arquivosDoSite: number;
 }
@@ -133,13 +136,14 @@ export async function jobColetar(c: ContextoDoJob): Promise<RelatorioColeta> {
   const publicados = await sincronizarPublicados(c);
   const comentarios = await coletarComentarios(c);
   const resultados: RelatorioColeta['resultados'] = {};
-  const votacao = await rodadaEmVotacao(c.banco);
+  const votacao = await contextoDaVotacao(c.banco);
   for (const com of comentarios) {
-    const r = await processarComentario(c.banco, com, { rodadaEmVotacao: votacao });
+    const r = await processarComentario(c.banco, com, votacao);
     resultados[r] = (resultados[r] ?? 0) + 1;
   }
+  const { importados } = await sincronizarVotacao(c.banco, c.agenda);
   const arquivosDoSite = await publicarSite(c);
-  const rel = { comentarios: comentarios.length, resultados, publicados, arquivosDoSite };
+  const rel = { comentarios: comentarios.length, resultados, votosDoSite: importados, publicados, arquivosDoSite };
   logDe(c)(`coletar: ${JSON.stringify(rel)}`);
   return rel;
 }
@@ -250,8 +254,10 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
         await dormir(falta + 5_000);
       }
       const coments = await coletarComentarios(c, { dias: 1 });
-      const votacao = await rodadaEmVotacao(c.banco);
-      for (const com of coments) await processarComentario(c.banco, com, { rodadaEmVotacao: votacao });
+      const votacao = await contextoDaVotacao(c.banco);
+      for (const com of coments) await processarComentario(c.banco, com, votacao);
+      // Últimos votos do site antes de a votação fechar (ela fecha quando este jogo é escalado).
+      if (votacao.rodadaEmVotacao !== null) await importarVotosDoSite(c.banco, c.agenda, votacao.rodadaEmVotacao);
     }
 
     const anterior = (await c.banco.query<{ id: number }>(`SELECT s.id FROM rodada s JOIN rodada r ON r.temporada_id = s.temporada_id AND s.numero = r.numero - 1 WHERE r.id = $1`, [p.rodada_id])).rows[0];
@@ -324,9 +330,10 @@ export function legendaDoResumo(d: DadosDoResumo): string {
     ...(campeao
       ? [`${IDENTIDADE[campeao].nome} é campeão da Temporada ${d.temporada}!`, 'Obrigado a todo mundo que jogou. A próxima Temporada vem aí.']
       : [
-          'Quem é o Craque da Rodada? Comente CRAQUE e o @ do seu escolhido:',
-          ...d.candidatos.map((c) => `CRAQUE @${c.username}`),
-          'Vale o último voto de cada perfil, até o primeiro jogo de amanhã.',
+          `Quem é o Craque ${etapa === 'FINAL' ? 'da Temporada' : 'da Rodada'}? Comente só o número do seu escolhido, ou vote no site (link na bio):`,
+          // Sem @: a lista não marca ninguém (ADR-0011).
+          ...d.candidatos.map((c, i) => `${c.numero ?? i + 1} · ${c.username} (${FALA_DO_TIME[c.time].curto})`),
+          'Um voto por perfil (vale o último) e um por aparelho no site.',
         ]),
     '',
     d.totalNovos ? `${d.totalNovos} ${d.totalNovos === 1 ? 'novo contratado' : 'novos contratados'} hoje. Quer jogar? Comente ENTRO + Time + posição.` : 'Quer jogar? Comente ENTRO + Time + posição.',
@@ -359,6 +366,7 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
 
   let craqueId = t.craque_jogador_id;
   if (!craqueId) {
+    await importarVotosDoSite(c.banco, c.agenda, t.final_id);
     const eleito = await craqueDaRodada(c.banco, t.final_id);
     if (!eleito) {
       // Sem Candidatos (ninguém com jogos suficientes): encerra sem Craque.
@@ -373,7 +381,7 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
       `SELECT j.username, j.time_id, j.posicao, c.nota AS media,
               (SELECT count(*) FROM escalacao e JOIN partida p ON p.id = e.partida_id JOIN rodada r ON r.id = p.rodada_id
                 WHERE r.temporada_id = $3 AND e.jogador_id = j.id AND e.nota IS NOT NULL) AS jogos,
-              (SELECT count(*) FROM voto v WHERE v.rodada_id = c.rodada_id AND v.jogador_id = j.id) AS votos
+              (SELECT count(*) FROM voto_total v WHERE v.rodada_id = c.rodada_id AND v.jogador_id = j.id) AS votos
        FROM candidato c JOIN jogador j ON j.id = c.jogador_id WHERE c.rodada_id = $1 AND j.id = $2`,
       [t.final_id, craqueId, t.id],
     )

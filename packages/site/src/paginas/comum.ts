@@ -69,8 +69,9 @@ export function comoEntrar(l: LigaPublica): Html {
   </section>`;
 }
 
-export function chamadaDeVoto(username: string): Html {
-  return html`<span class="comando pequeno">CRAQUE @${username}</span>`;
+/** O que se comenta para votar: só o número (ADR-0011). */
+export function chamadaDeVoto(numero: number): Html {
+  return html`<span class="comando pequeno">${numero}</span>`;
 }
 
 export { perfil };

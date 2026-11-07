@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CHAVE_PROXIMA, publicarVencidos, responder, type Env, type ItemDaAgenda } from '../src/index.js';
+import { CHAVE_PROXIMA, CHAVE_VOTACAO, VOTOS_POR_IP, publicarVencidos, responder, type Env, type ItemDaAgenda } from '../src/index.js';
 
 function kv() {
   const m = new Map<string, string>();
@@ -13,8 +13,13 @@ function kv() {
       const v = m.get(k);
       return v === undefined ? null : tipo === 'json' ? JSON.parse(v) : v;
     },
-    async put(k: string, v: string) {
+    meta: new Map<string, unknown>(),
+    async put(k: string, v: string, o?: { metadata?: unknown }) {
       m.set(k, v);
+      if (o?.metadata) this.meta.set(k, o.metadata);
+    },
+    async getWithMetadata(k: string) {
+      return { value: m.get(k) ?? null, metadata: this.meta.get(k) ?? null };
     },
     async delete(k: string) {
       m.delete(k);
@@ -107,5 +112,32 @@ describe('leitura', () => {
     expect(r.status).toBe(200);
     expect(r.headers.get('access-control-allow-origin')).toBe('*');
     expect(await r.json()).toEqual({ ok: 1 });
+  });
+});
+
+describe('voto pelo site', () => {
+  const votar = (env: Env, corpo: unknown, ip = '1.2.3.4') =>
+    responder(new Request('https://borda/votos', { method: 'POST', body: JSON.stringify(corpo), headers: { 'cf-connecting-ip': ip } }), env, new Date('2026-11-07T20:00:00Z'));
+  const aparelho = (n: number) => `aparelho-${String(n).padStart(10, '0')}`;
+
+  it('aceita um voto por aparelho, só na votação aberta e para um Candidato que existe', async () => {
+    const { env, AGENDA } = montar();
+    expect((await votar(env, { rodada: 3, numero: 2, aparelho: aparelho(1) })).status).toBe(409);
+    await AGENDA.put(CHAVE_VOTACAO, JSON.stringify({ rodada: 3, candidatos: 5 }));
+    expect((await votar(env, { rodada: 2, numero: 2, aparelho: aparelho(1) })).status).toBe(409);
+    expect((await votar(env, { rodada: 3, numero: 6, aparelho: aparelho(1) })).status).toBe(400);
+    expect((await votar(env, { rodada: 3, numero: 2, aparelho: 'curto' })).status).toBe(400);
+    expect(await (await votar(env, { rodada: 3, numero: 2, aparelho: aparelho(1) })).json()).toEqual({ ok: true, numero: 2 });
+    // Segundo voto do mesmo aparelho não troca o primeiro.
+    expect(await (await votar(env, { rodada: 3, numero: 4, aparelho: aparelho(1) })).json()).toEqual({ ok: true, numero: 2, jaVotou: true });
+    expect(AGENDA.meta.get(`voto-site/3/${aparelho(1)}`)).toMatchObject({ numero: 2 });
+  });
+
+  it('limita os aparelhos por rede', async () => {
+    const { env, AGENDA } = montar();
+    await AGENDA.put(CHAVE_VOTACAO, JSON.stringify({ rodada: 3, candidatos: 5 }));
+    for (let i = 0; i < VOTOS_POR_IP; i++) expect((await votar(env, { rodada: 3, numero: 1, aparelho: aparelho(i) })).status).toBe(200);
+    expect((await votar(env, { rodada: 3, numero: 1, aparelho: aparelho(99) })).status).toBe(429);
+    expect((await votar(env, { rodada: 3, numero: 1, aparelho: aparelho(99) }, '5.6.7.8')).status).toBe(200);
   });
 });

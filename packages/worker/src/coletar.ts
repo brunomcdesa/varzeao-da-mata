@@ -42,6 +42,8 @@ export type Resultado =
 export interface Contexto {
   /** Rodada cujos Candidatos a Craque estão em votação agora, ou null se não há votação aberta. */
   rodadaEmVotacao: number | null;
+  /** Post do Resumo dessa votação: só nele vale o voto com o número sozinho ("3"). */
+  postDaVotacao?: string | null;
 }
 
 export async function processarComentario(banco: Banco, c: Comentario, ctx: Contexto): Promise<Resultado> {
@@ -63,13 +65,13 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
 
     const comando = interpretar(c.texto);
     let resultado: Resultado;
-    if (comando.tipo === 'IGNORADO') resultado = 'IGNORADO';
+    if (comando.tipo === 'IGNORADO' || (comando.tipo === 'VOTO' && comando.solto && (!ctx.postDaVotacao || c.igMediaId !== ctx.postDaVotacao))) resultado = 'IGNORADO';
     else if (jogador?.banido) resultado = 'BANIDO';
     else if (comando.tipo === 'INVALIDO') resultado = comando.motivo;
     else if (comando.tipo === 'INSCRICAO') resultado = jogador ? 'JA_INSCRITO' : await inscrever(b, c, comando.time, comando.posicao);
-    else resultado = await votar(b, c, comando.username, ctx);
+    else resultado = await votar(b, c, comando.numero, ctx);
 
-    const tipo = comando.tipo === 'IGNORADO' ? 'IGNORADO' : comando.tipo === 'INVALIDO' ? 'INVALIDO' : comando.tipo;
+    const tipo = resultado === 'IGNORADO' || comando.tipo === 'IGNORADO' ? 'IGNORADO' : comando.tipo === 'INVALIDO' ? 'INVALIDO' : comando.tipo;
     await b.query(`UPDATE comando SET tipo = $2, resultado = $3 WHERE ig_comment_id = $1`, [c.igCommentId, tipo, resultado]);
     return resultado;
   });
@@ -94,14 +96,10 @@ async function inscrever(b: Banco, c: Comentario, time: TimeId, posicao: string)
   return 'INSCRITO';
 }
 
-async function votar(b: Banco, c: Comentario, username: string, ctx: Contexto): Promise<Resultado> {
+async function votar(b: Banco, c: Comentario, numero: number, ctx: Contexto): Promise<Resultado> {
   if (ctx.rodadaEmVotacao === null) return 'VOTACAO_FECHADA';
   const candidato = (
-    await b.query<{ jogador_id: string }>(
-      `SELECT ca.jogador_id FROM candidato ca JOIN jogador j ON j.id = ca.jogador_id
-       WHERE ca.rodada_id = $1 AND lower(j.username) = $2`,
-      [ctx.rodadaEmVotacao, username.toLowerCase()],
-    )
+    await b.query<{ jogador_id: string }>(`SELECT jogador_id FROM candidato WHERE rodada_id = $1 AND numero = $2`, [ctx.rodadaEmVotacao, numero])
   ).rows[0];
   if (!candidato) return 'NAO_CANDIDATO';
   // Um voto por @ por Rodada; vale o último (comentários podem chegar fora de ordem).

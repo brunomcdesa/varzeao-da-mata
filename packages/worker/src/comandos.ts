@@ -2,7 +2,8 @@
  * Leitor de Comandos (GLOSSARY: Comando). Função pura: texto do comentário → intenção.
  *
  *   "ENTRO <time|apelido> <posição|sinônimo>"  → Inscrição (em qualquer ordem, com palavras de ligação)
- *   "CRAQUE @fulano"                            → voto para Craque da Rodada
+ *   "CRAQUE 3" (ou "VOTO 3")                    → voto no Candidato número 3
+ *   "3" sozinho                                 → o mesmo, mas só vale no post do Resumo
  *   qualquer outra coisa                        → ignorado
  */
 import type { Posicao, TimeId } from '@liga/shared';
@@ -18,7 +19,8 @@ export type MotivoInvalido =
 
 export type Comando =
   | { tipo: 'INSCRICAO'; time: TimeId; posicao: Posicao }
-  | { tipo: 'VOTO'; username: string }
+  /** `solto`: só o número, sem CRAQUE; vale apenas no post da votação. */
+  | { tipo: 'VOTO'; numero: number; solto?: true }
   | { tipo: 'INVALIDO'; prefixo: 'ENTRO' | 'CRAQUE'; motivo: MotivoInvalido }
   | { tipo: 'IGNORADO' };
 
@@ -37,11 +39,13 @@ export function interpretar(texto: string): Comando {
   const palavras = normalizar(texto).split(' ').filter(Boolean);
   const prefixo = palavras[0];
 
-  if (prefixo === 'CRAQUE') {
-    // O @ vem do texto original (preserva o username como a pessoa escreveu).
-    const m = /@([A-Za-z0-9._]{1,30})/.exec(texto);
+  // Voto por número (ADR-0011): não marca ninguém nos comentários.
+  const solto = /^\s*(?:N[ºO°]?\s*)?#?\s*([1-9])[^\p{L}\p{N}]*$/iu.exec(texto);
+  if (solto) return { tipo: 'VOTO', numero: Number(solto[1]), solto: true };
+  if (prefixo === 'CRAQUE' || prefixo === 'VOTO') {
+    const m = /^\s*\S+\s*(?:N[ºO°]?\s*)?#?\s*([1-9])(?!\d)/iu.exec(texto);
     if (!m) return { tipo: 'INVALIDO', prefixo: 'CRAQUE', motivo: 'SEM_CANDIDATO' };
-    return { tipo: 'VOTO', username: m[1]!.toLowerCase().replace(/\.+$/, '') };
+    return { tipo: 'VOTO', numero: Number(m[1]) };
   }
 
   if (prefixo !== 'ENTRO') return { tipo: 'IGNORADO' };

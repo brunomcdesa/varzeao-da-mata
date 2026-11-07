@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Banco } from '../src/banco.js';
 import { processarComentario, type Comentario } from '../src/coletar.js';
 import { FOLGA_DE_ELENCO, OVR_INICIAL } from '../src/regras.js';
+import { AgendaNaMemoria } from '../src/nuvem.js';
+import { craqueDaRodada } from '../src/resumo.js';
+import { importarVotosDoSite } from '../src/votoSite.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 
 let banco: Banco;
@@ -68,7 +71,7 @@ describe('Inscrição', () => {
   it('banido é ignorado; @ bloqueado não se inscreve', async () => {
     await processarComentario(banco, comentario('u1', 'ENTRO CAPIVARA ATA'), semVotacao);
     await banco.query(`UPDATE jogador SET banido = true`);
-    expect(await processarComentario(banco, comentario('u1', 'CRAQUE @alguem'), { rodadaEmVotacao: 1 })).toBe('BANIDO');
+    expect(await processarComentario(banco, comentario('u1', 'CRAQUE 1'), { rodadaEmVotacao: 1 })).toBe('BANIDO');
 
     await banco.query(`INSERT INTO config (chave, valor) VALUES ('bloqueio', '["palavrao"]')`);
     expect(await processarComentario(banco, comentario('u2', 'ENTRO ONCA ATA', { username: 'o.Palavrao_10' }), semVotacao)).toBe('NOME_BLOQUEADO');
@@ -87,29 +90,50 @@ describe('Voto para Craque da Rodada', () => {
     const r = (await banco.query<{ id: number }>(`INSERT INTO rodada (temporada_id, numero, fase, data) VALUES ($1, 1, 'LIGA', '2026-11-06') RETURNING id`, [t.id])).rows[0]!;
     await processarComentario(banco, comentario('craque1', 'ENTRO CAPIVARA ATA', { username: 'Rafa_Capivara' }), semVotacao);
     await processarComentario(banco, comentario('craque2', 'ENTRO ONCA GOL', { username: 'bia.onca' }), semVotacao);
-    await banco.query(`INSERT INTO candidato (rodada_id, jogador_id, nota) SELECT $1, id, 8 FROM jogador`, [r.id]);
+    // 1 = Rafa, 2 = Bia
+    await banco.query(`INSERT INTO candidato (rodada_id, jogador_id, nota, numero) SELECT $1, id, 8, row_number() OVER (ORDER BY id) FROM jogador`, [r.id]);
     return r.id;
   }
 
   it('vale o último voto de cada @', async () => {
     const rodada = await prepararCandidatos();
-    expect(await processarComentario(banco, comentario('fã', 'CRAQUE @rafa_capivara'), { rodadaEmVotacao: rodada })).toBe('VOTO_REGISTRADO');
-    expect(await processarComentario(banco, comentario('fã', 'craque @Bia.Onca'), { rodadaEmVotacao: rodada })).toBe('VOTO_REGISTRADO');
+    expect(await processarComentario(banco, comentario('fã', 'CRAQUE 1'), { rodadaEmVotacao: rodada })).toBe('VOTO_REGISTRADO');
+    expect(await processarComentario(banco, comentario('fã', 'craque 2'), { rodadaEmVotacao: rodada })).toBe('VOTO_REGISTRADO');
     const votos = (await banco.query<{ username: string }>(`SELECT j.username FROM voto v JOIN jogador j ON j.id = v.jogador_id`)).rows;
     expect(votos).toEqual([{ username: 'bia.onca' }]);
   });
 
   it('voto chegando fora de ordem não substitui um mais novo', async () => {
     const rodada = await prepararCandidatos();
-    const novo = comentario('fã', 'CRAQUE @bia.onca', { comentadoEm: new Date(Date.UTC(2026, 10, 6, 20)) });
-    const velho = comentario('fã', 'CRAQUE @rafa_capivara', { comentadoEm: new Date(Date.UTC(2026, 10, 6, 19)) });
+    const novo = comentario('fã', 'CRAQUE 2', { comentadoEm: new Date(Date.UTC(2026, 10, 6, 20)) });
+    const velho = comentario('fã', 'CRAQUE 1', { comentadoEm: new Date(Date.UTC(2026, 10, 6, 19)) });
     await processarComentario(banco, novo, { rodadaEmVotacao: rodada });
     expect(await processarComentario(banco, velho, { rodadaEmVotacao: rodada })).toBe('VOTO_ANTIGO');
   });
 
   it('só vale para Candidatos e com votação aberta', async () => {
     const rodada = await prepararCandidatos();
-    expect(await processarComentario(banco, comentario('fã', 'CRAQUE @ninguem'), { rodadaEmVotacao: rodada })).toBe('NAO_CANDIDATO');
-    expect(await processarComentario(banco, comentario('fã2', 'CRAQUE @bia.onca'), semVotacao)).toBe('VOTACAO_FECHADA');
+    expect(await processarComentario(banco, comentario('fã', 'CRAQUE 5'), { rodadaEmVotacao: rodada })).toBe('NAO_CANDIDATO');
+    expect(await processarComentario(banco, comentario('fã2', 'CRAQUE 2'), semVotacao)).toBe('VOTACAO_FECHADA');
+  });
+
+  it('o número sozinho só vale no post do Resumo', async () => {
+    const rodada = await prepararCandidatos();
+    const ctx = { rodadaEmVotacao: rodada, postDaVotacao: 'RESUMO' };
+    expect(await processarComentario(banco, comentario('fã', '2', { igMediaId: 'OUTRO' }), ctx)).toBe('IGNORADO');
+    expect(await processarComentario(banco, comentario('fã', '2', { igMediaId: 'RESUMO' }), ctx)).toBe('VOTO_REGISTRADO');
+  });
+
+  it('votos do site somam com os do Instagram, um por aparelho', async () => {
+    const rodada = await prepararCandidatos();
+    await processarComentario(banco, comentario('fã', 'CRAQUE 1'), { rodadaEmVotacao: rodada });
+    const agenda = new AgendaNaMemoria();
+    for (const [aparelho, numero] of [['a1', 2], ['a2', 2], ['a3', 9]] as const) {
+      agenda.itens.set(`voto-site/${rodada}/${aparelho}`, '""');
+      agenda.metadados.set(`voto-site/${rodada}/${aparelho}`, { numero, em: '2026-11-06T22:00:00Z' });
+    }
+    expect(await importarVotosDoSite(banco, agenda, rodada)).toBe(2); // o 9 não existe
+    expect(await importarVotosDoSite(banco, agenda, rodada)).toBe(0); // reimportar não duplica
+    expect((await craqueDaRodada(banco, rodada))?.username).toBe('bia.onca');
   });
 });

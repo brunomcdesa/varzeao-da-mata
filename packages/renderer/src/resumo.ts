@@ -20,7 +20,8 @@ export interface DadosDoResumo {
   tabela: { time: TimeId; jogos: number; pontos: number; vitorias: number; saldo: number }[];
   novosContratados: { username: string; time: TimeId; posicao: Posicao }[];
   totalNovos: number;
-  candidatos: { username: string; time: TimeId; posicao: Posicao; nota: number; gols: number }[];
+  /** `numero`: o que se comenta para votar (ADR-0011). */
+  candidatos: { numero?: number; username: string; time: TimeId; posicao: Posicao; nota: number; gols: number }[];
   /** Resumo da Final: o Time campeão ganha uma cartela própria. */
   campeao?: TimeId;
   /** Na Final os Candidatos são da Temporada inteira (nota = nota média). */
@@ -141,7 +142,7 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
       }
       case 'CHAMADA':
         texto = d.candidatos.length
-          ? `Vote no seu Craque${d.votacao === 'TEMPORADA' ? ' da Temporada' : ''} comentando CRAQUE e o arroba dele. ${d.votacao === 'TEMPORADA' ? 'O resultado sai amanhã às sete da noite!' : 'E se quiser jogar, comente ENTRO, o time e a posição!'}`
+          ? `Vote no seu Craque${d.votacao === 'TEMPORADA' ? ' da Temporada' : ''} comentando só o número dele, ou pelo site. ${d.votacao === 'TEMPORADA' ? 'O resultado sai amanhã às sete da noite!' : 'E se quiser jogar, comente ENTRO, o time e a posição!'}`
           : 'A próxima Temporada vem aí. Quer jogar? Comente ENTRO, o time e a posição!';
         break;
     }
@@ -298,6 +299,9 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
         const info = `${POSICAO_FALADA[c.posicao]}, ${curto(c.time)}${c.gols ? `, ${c.gols} gol${c.gols > 1 ? 's' : ''}` : ''}`;
         pin.texto(info, 72, y + 38, pin.caber(info, 128, 7.5, texto, 500), texto, COR.placaSombra, { alinhar: 'left', peso: 500 });
         plaquinha(pin, 228, y + 14, 34, 30, c.nota.toFixed(1), display);
+        // Número do voto, grande, no canto da figurinha: é o que se comenta.
+        pin.placa(8, y - 2, 24, 26, { fundo: COR.amarelo, luz: '#FFE07A', sombra: '#B88600' });
+        pin.texto(String(c.numero ?? k + 1), 20, y + 12, 22, display, COR.tinta);
         if (d.votacao === 'TEMPORADA' && k === 0) pin.texto('média', 245, y + 52, 6, texto, COR.placaSombra, { peso: 600 });
         pin.ctx.restore();
         // a cor do Time numa faixinha embaixo do card
@@ -382,9 +386,10 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       pin.tabua(22, 110, 226, 110);
       const chamada = d.votacao === 'TEMPORADA' ? 'Craque da Temporada' : 'Vote no Craque';
       pin.texto(chamada, COLUNAS / 2, 132, pin.caber(chamada, 200, 20, display), display, COR.amarelo, { contorno: COR.contorno });
-      pin.texto('comente', COLUNAS / 2, 154, 9, texto, COR.placa, { peso: 600 });
-      pin.texto('CRAQUE @fulano', COLUNAS / 2, 182, pin.caber('CRAQUE @fulano', 200, 30, display), display, '#FFFFFF', { contorno: COR.contorno });
-      pin.texto('só vale para os candidatos', COLUNAS / 2, 206, 7, texto, COR.placaSombra, { peso: 500 });
+      pin.texto('comente só o número', COLUNAS / 2, 154, 9, texto, COR.placa, { peso: 600 });
+      const exemplo = `1 a ${d.candidatos.length}`;
+      pin.texto(exemplo, COLUNAS / 2, 182, pin.caber(exemplo, 200, 30, display), display, '#FFFFFF', { contorno: COR.contorno });
+      pin.texto('ou vote no site, link na bio', COLUNAS / 2, 206, 7, texto, COR.placaSombra, { peso: 500 });
       pin.ctx.globalAlpha = entre(q.tempo, 0.6, 1.0);
       pin.tabua(22, 240, 226, 96);
       pin.texto('Quer jogar? Comente', COLUNAS / 2, 260, 10, texto, COR.placa, { peso: 600 });

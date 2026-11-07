@@ -68,6 +68,11 @@ pnpm --filter @liga/edge exec wrangler pages project create varzeao-da-mata --pr
 ```
 
 O nome vai na variável `CF_PAGES_PROJETO`. O site fica em `https://varzeao-da-mata.pages.dev`.
+
+### Anti-robô do voto no site (opcional)
+
+Em **Turnstile → Add widget**, domínio `varzeao-da-mata.pages.dev`, modo *Managed*. A **Site Key** é pública e vai na variável `LIGA_TURNSTILE_SITEKEY`. A **Secret Key** é segredo e vai só na borda:
+`pnpm --filter @liga/edge exec wrangler secret put TURNSTILE_SECRET` (cole quando ele pedir; não mande em chat). Sem os dois, o voto no site funciona sem o desafio, só com o limite por aparelho e por rede.
 Esse link vai na bio do Instagram.
 
 ## 3. Instagram
@@ -139,6 +144,7 @@ Em **Settings → Secrets and variables → Actions**.
 | `LIGA_EDGE_URL` | `https://varzeao-edge.<sua-conta>.workers.dev` |
 | `CF_PAGES_PROJETO` | `varzeao-da-mata` |
 | `LIGA_INSTAGRAM` | o @ da Liga, sem @ (aparece no site) |
+| `LIGA_TURNSTILE_SITEKEY` | Site Key do Turnstile (opcional) |
 | `GEMINI_TTS_VOZ` | `Lumi` (opcional) |
 | `GEMINI_TTS_RPM` | `10` com faturamento ativo (opcional) |
 

@@ -42,6 +42,7 @@ export async function fecharRodada(banco: Banco, rodadaId: number): Promise<void
        ON CONFLICT DO NOTHING`,
       [rodadaId, temporadaId, CANDIDATOS_POR_RODADA, MIN_JOGOS_CRAQUE_DA_TEMPORADA],
     );
+    await numerarCandidatos(banco, rodadaId);
     return;
   }
   await banco.query(
@@ -54,6 +55,17 @@ export async function fecharRodada(banco: Banco, rodadaId: number): Promise<void
      LIMIT $2
      ON CONFLICT DO NOTHING`,
     [rodadaId, CANDIDATOS_POR_RODADA],
+  );
+  await numerarCandidatos(banco, rodadaId);
+}
+
+/** Número de cada Candidato na votação (1 = maior nota), o que se comenta para votar. */
+async function numerarCandidatos(banco: Banco, rodadaId: number): Promise<void> {
+  await banco.query(
+    `UPDATE candidato c SET numero = x.n
+     FROM (SELECT jogador_id, row_number() OVER (ORDER BY nota DESC, jogador_id) AS n FROM candidato WHERE rodada_id = $1) x
+     WHERE c.rodada_id = $1 AND c.jogador_id = x.jogador_id`,
+    [rodadaId],
   );
 }
 
@@ -99,8 +111,8 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
   ).rows;
 
   const candidatos = (
-    await banco.query<{ username: string; time_id: TimeId; posicao: Posicao; nota: string; gols: string }>(
-      `SELECT j.username, j.time_id, j.posicao, c.nota,
+    await banco.query<{ username: string; time_id: TimeId; posicao: Posicao; nota: string; gols: string; numero: number | null }>(
+      `SELECT j.username, j.time_id, j.posicao, c.nota, c.numero,
               (SELECT count(*) FROM partida p
                  JOIN escalacao e ON e.partida_id = p.id
                  CROSS JOIN LATERAL jsonb_array_elements(p.lances) l
@@ -109,10 +121,10 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
                   AND (l->'finalizador'->>'indice')::int = e.lugar
                   AND ((l->'finalizador'->>'lado') = 'mandante') = (e.time_id = p.mandante_id)) AS gols
        FROM candidato c JOIN jogador j ON j.id = c.jogador_id
-       WHERE c.rodada_id = $1 ORDER BY c.nota DESC, j.id`,
+       WHERE c.rodada_id = $1 ORDER BY c.numero NULLS LAST, c.nota DESC, j.id`,
       [rodadaId, etapaDa(r.fase, r.numero) === 'FINAL', r.temporada_id],
     )
-  ).rows.map((c) => ({ username: c.username, time: c.time_id, posicao: c.posicao, nota: Number(c.nota), gols: Number(c.gols) }));
+  ).rows.map((c, i) => ({ numero: c.numero ?? i + 1, username: c.username, time: c.time_id, posicao: c.posicao, nota: Number(c.nota), gols: Number(c.gols) }));
 
   const max = o.maxNovos ?? 12;
   const final = etapaDa(r.fase, r.numero) === 'FINAL';
@@ -155,8 +167,8 @@ export async function craqueDaRodada(b: Banco, rodadaId: number): Promise<{ id: 
   const r = (
     await b.query<{ id: string; username: string }>(
       `SELECT j.id::text AS id, j.username FROM candidato c JOIN jogador j ON j.id = c.jogador_id
-       LEFT JOIN voto v ON v.rodada_id = c.rodada_id AND v.jogador_id = c.jogador_id
-       WHERE c.rodada_id = $1 GROUP BY j.id, c.nota ORDER BY count(v.ig_user_id) DESC, c.nota DESC, j.id LIMIT 1`,
+       LEFT JOIN voto_total v ON v.rodada_id = c.rodada_id AND v.jogador_id = c.jogador_id
+       WHERE c.rodada_id = $1 GROUP BY j.id, c.nota ORDER BY count(v.eleitor) DESC, c.nota DESC, j.id LIMIT 1`,
       [rodadaId],
     )
   ).rows[0];

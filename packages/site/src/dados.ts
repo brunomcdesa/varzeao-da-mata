@@ -11,6 +11,7 @@ const comBarra = (s: string) => (s && !s.endsWith('/') ? `${s}/` : s);
 export const BASE_DADOS = comBarra(meta('liga-dados') || './dados/');
 export const BASE_API = comBarra(meta('liga-api'));
 export const INSTAGRAM = meta('liga-instagram').replace(/^@/, '');
+export const TURNSTILE = meta('liga-turnstile');
 
 
 const cache = new Map<string, { quando: number; valor: Promise<unknown> }>();

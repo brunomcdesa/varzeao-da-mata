@@ -19,6 +19,8 @@ export interface Agenda {
   gravar(chave: string, valor: unknown): Promise<void>;
   ler<T>(chave: string): Promise<T | null>;
   listar(prefixo: string): Promise<string[]>;
+  /** Chaves com os metadados que a borda grava junto (o voto do site vai neles). */
+  listarComMetadados<M>(prefixo: string): Promise<{ nome: string; metadados: M | null }[]>;
   apagar(chave: string): Promise<void>;
 }
 
@@ -82,12 +84,15 @@ export class KV implements Agenda {
     return r.status === 404 ? null : ((await r.json()) as T);
   }
   async listar(prefixo: string): Promise<string[]> {
-    const chaves: string[] = [];
+    return (await this.listarComMetadados(prefixo)).map((k) => k.nome);
+  }
+  async listarComMetadados<M>(prefixo: string): Promise<{ nome: string; metadados: M | null }[]> {
+    const chaves: { nome: string; metadados: M | null }[] = [];
     let cursor = '';
     do {
       const r = await this.chamar(this.url(`keys?prefix=${encodeURIComponent(prefixo)}&limit=1000${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`));
-      const j = (await r.json()) as { result: { name: string }[]; result_info?: { cursor?: string } };
-      chaves.push(...j.result.map((k) => k.name));
+      const j = (await r.json()) as { result: { name: string; metadata?: M }[]; result_info?: { cursor?: string } };
+      chaves.push(...j.result.map((k) => ({ nome: k.name, metadados: k.metadata ?? null })));
       cursor = j.result_info?.cursor ?? '';
     } while (cursor);
     return chaves;
@@ -114,6 +119,10 @@ export class PastaLocal implements Armazenamento {
 
 export class AgendaNaMemoria implements Agenda {
   readonly itens = new Map<string, string>();
+  readonly metadados = new Map<string, unknown>();
+  async listarComMetadados<M>(prefixo: string): Promise<{ nome: string; metadados: M | null }[]> {
+    return (await this.listar(prefixo)).map((nome) => ({ nome, metadados: (this.metadados.get(nome) as M | undefined) ?? null }));
+  }
   async gravar(chave: string, valor: unknown): Promise<void> {
     this.itens.set(chave, JSON.stringify(valor));
   }
@@ -126,6 +135,7 @@ export class AgendaNaMemoria implements Agenda {
   }
   async apagar(chave: string): Promise<void> {
     this.itens.delete(chave);
+    this.metadados.delete(chave);
   }
 }
 
