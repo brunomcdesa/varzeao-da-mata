@@ -82,18 +82,18 @@ abra **Configurações → Tipo de conta e ferramentas → Mudar para conta prof
 
 1. Em [developers.facebook.com/apps](https://developers.facebook.com/apps), crie um app e
    escolha o caso de uso **Gerenciar mensagens e conteúdo no Instagram**.
-2. No caso de uso, entre em **Configuração da API com login do Instagram**.
-3. Em **Permissões**, garanta estas três:
-   - `instagram_business_basic`
-   - `instagram_business_manage_comments`
-   - `instagram_business_content_publish`
-4. Em **Gerar tokens de acesso → Adicionar conta**, entre com o perfil da Liga e autorize.
-5. Ao lado da conta aparecem o **ID** (`IG_USER_ID`) e o botão **Gerar token**. O token
-   (`IG_ACCESS_TOKEN`) é de longa duração e vale 60 dias. O job `coletar` renova sozinho a
-   cada 7 dias e guarda o novo no banco e no KV. Você só gera outro se a Liga ficar mais de
-   60 dias parada.
-
-Para uma conta sua não precisa de App Review: o acesso padrão basta.
+2. Apps criados a partir de 2026 só têm **API setup with Unified login** (login unificado);
+   a "API com login do Instagram" não aparece mais. O projeto funciona com os dois.
+3. Em **Permissões e recursos**, garanta `instagram_basic`, `instagram_manage_comments` e
+   `instagram_content_publish` (no login antigo: as versões `instagram_business_*`).
+4. Em **Funções do app → Funções**, ponha o perfil da Liga como **Testador do Instagram** e
+   aceite o convite no Instagram (Configurações → Apps e sites → Convites de testador).
+5. Em **Gerar tokens de acesso → Adicionar conta**, entre com o perfil da Liga. O número
+   embaixo do @ (começa com `1784`) vai em `IG_USER_ID`. **Gerar token** dá o
+   `IG_ACCESS_TOKEN`: `EAA…` no login unificado, `IG…` no antigo.
+6. Login unificado: `IG_APP_ID` (id do app) e `IG_APP_SECRET` (Configurações do app → Básico),
+   para o job trocar o token antes de vencer. Token que não vence dispensa.
+7. `pnpm verificar` confere tudo sem publicar nada.
 
 ## 4. Conferir tudo de casa
 
