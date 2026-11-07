@@ -130,6 +130,7 @@ A única exceção é `LIGA_ATIVA`, o interruptor da Liga: ela fica em **Setting
 |---|---|
 | `DATABASE_URL` | Neon |
 | `IG_USER_ID`, `IG_ACCESS_TOKEN` | Meta, passo 3 |
+| `IG_APP_SECRET` | login unificado: Configurações do app → Básico |
 | `GEMINI_API_KEY` | aistudio.google.com/apikey |
 | `CF_ACCOUNT_ID` | Cloudflare |
 | `CF_API_TOKEN`, `CF_DEPLOY_TOKEN` | Cloudflare, tokens |
@@ -140,6 +141,7 @@ A única exceção é `LIGA_ATIVA`, o interruptor da Liga: ela fica em **Setting
 
 | Nome | Valor |
 |---|---|
+| `IG_APP_ID` | login unificado: id do app da Meta |
 | `R2_BUCKET_PUBLICO` | `varzeao-publico` |
 | `R2_BUCKET_PRIVADO` | `varzeao-privado` |
 | `R2_URL_PUBLICA` | `https://pub-....r2.dev` |

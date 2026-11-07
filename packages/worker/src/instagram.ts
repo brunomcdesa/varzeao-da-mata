@@ -230,11 +230,11 @@ export class Instagram {
    * longa duração (fb_exchange_token), com o id e a chave secreta do app da Meta.
    */
   private async renovarTokenUnificado(): Promise<{ token: string; expiraEm: Date }> {
+    // Sem o id e a chave do app não dá nem para consultar a validade; o `verificar` avisa
+    // quando o token vence. Segue com o atual.
+    if (!this.o.appId || !this.o.appSecret) return { token: this.o.token, expiraEm: new Date(Date.now() + 10 * 365 * 86400_000) };
     const { expiraEm } = await this.validade();
     if (!expiraEm) return { token: this.o.token, expiraEm: new Date(Date.now() + 10 * 365 * 86400_000) };
-    if (!this.o.appId || !this.o.appSecret) {
-      throw new ErroInstagram(400, null, null, `o token vence em ${expiraEm.toISOString().slice(0, 10)} e, sem IG_APP_ID e IG_APP_SECRET, não dá para renová-lo`);
-    }
     const url = new URL(`https://graph.facebook.com/${VERSAO_API}/oauth/access_token`);
     url.searchParams.set('grant_type', 'fb_exchange_token');
     url.searchParams.set('client_id', this.o.appId);
