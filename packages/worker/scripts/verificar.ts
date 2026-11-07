@@ -28,19 +28,29 @@ console.log('Instagram');
 const igFalta = falta(['IG_USER_ID', 'IG_ACCESS_TOKEN']);
 if (igFalta.length) falha(`faltam no .env: ${igFalta.join(', ')}`);
 else {
-  const ig = new Instagram({ userId: process.env.IG_USER_ID!, token: process.env.IG_ACCESS_TOKEN! });
+  const ig = new Instagram({
+    userId: process.env.IG_USER_ID!,
+    token: process.env.IG_ACCESS_TOKEN!,
+    ...(process.env.IG_APP_ID ? { appId: process.env.IG_APP_ID } : {}),
+    ...(process.env.IG_APP_SECRET ? { appSecret: process.env.IG_APP_SECRET } : {}),
+  });
   try {
     ok(`token do ${ig.login === 'UNIFICADO' ? 'login unificado (EAA…, graph.facebook.com)' : 'login do Instagram (IG…, graph.instagram.com)'}`);
     const eu = await ig.eu();
     ok(`conta: @${eu.username}${eu.account_type ? ` (${eu.account_type})` : ''}`);
     if (eu.user_id !== process.env.IG_USER_ID) falha(`IG_USER_ID (${process.env.IG_USER_ID}) não bate com o do token (${eu.user_id})`);
     if (ig.login === 'UNIFICADO') {
-      const v = await ig.validade();
+      const v = await ig.validade().catch((e: Error) => {
+        falha(`não deu para ler a validade do token: ${e.message}. Confira IG_APP_ID e IG_APP_SECRET (Configurações do app → Básico).`);
+        return null;
+      });
+      if (v) {
       ok(v.expiraEm ? `token vence em ${v.expiraEm.toISOString().slice(0, 10)}` : 'token não vence');
       if (v.expiraEm && !(process.env.IG_APP_ID && process.env.IG_APP_SECRET)) falha('o token vence: ponha IG_APP_ID e IG_APP_SECRET (Configurações → Básico do app) para o job renovar');
       const faltam = ['instagram_basic', 'instagram_manage_comments', 'instagram_content_publish'].filter((p) => v.escopos.length && !v.escopos.includes(p));
       if (faltam.length) falha(`o token não tem: ${faltam.join(', ')}. Gere de novo marcando essas permissões.`);
       else if (v.escopos.length) ok('permissões: ler, comentar e publicar');
+      }
     }
     const midias = await ig.midiasDesde(new Date(Date.now() - 30 * 86400_000), 5);
     ok(`${midias.length} post(s) nos últimos 30 dias`);

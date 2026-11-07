@@ -129,10 +129,14 @@ export class Instagram {
     return { user_id: r.id, username: r.username };
   }
 
-  /** Quando o token vence (null = não vence). Só no login unificado; no do Instagram, sempre 60 dias. */
+  /**
+   * Quando o token vence (null = não vence). Só no login unificado; no do Instagram, sempre
+   * 60 dias. O debug_token exige o token do app (id|chave secreta) quando o token é de testador.
+   */
   async validade(): Promise<{ expiraEm: Date | null; escopos: string[] }> {
     const url = new URL(`${baseDaApi(this.o.token)}/${VERSAO_API}/debug_token`);
     url.searchParams.set('input_token', this.o.token);
+    if (this.o.appId && this.o.appSecret) url.searchParams.set('access_token', `${this.o.appId}|${this.o.appSecret}`);
     const r = await this.chamar<{ data: { expires_at?: number; data_access_expires_at?: number; scopes?: string[] } }>('GET', url.toString());
     const em = r.data.expires_at ?? 0;
     return { expiraEm: em > 0 ? new Date(em * 1000) : null, escopos: r.data.scopes ?? [] };
