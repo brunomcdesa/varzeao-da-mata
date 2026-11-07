@@ -15,7 +15,7 @@
     "site:build": "pnpm --filter @liga/site build",
     "verificar": "pnpm --filter @liga/worker verificar",
     "job": "pnpm --filter @liga/worker job",
-    "edge:deploy": "pnpm --filter @liga/edge deploy",
+    "edge:deploy": "pnpm --filter @liga/edge run deploy",
     "simular": "pnpm --filter @liga/worker simular"
   },
   "devDependencies": {
