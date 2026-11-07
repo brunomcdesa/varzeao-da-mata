@@ -2,6 +2,7 @@
  * A Liga rodando no seu computador, sem Instagram e sem servidor.
  *
  *   pnpm liga temporada [--inicio 2026-11-07]        cria a Temporada (7 Rodadas, 12h/14h/16h/18h)
+ *   pnpm liga mudar-inicio --inicio 2026-11-08      antecipa/adia a Temporada (antes do 1º jogo)
  *   pnpm liga inscricoes-de-teste [--quantidade 40]  "comentários" ENTRO de seguidores fictícios
  *   pnpm liga comentar --de rafa "ENTRO CAPIVARA ATA"
  *   pnpm liga jogar [--rodada N] [--sem-video]       roda as Partidas da próxima Rodada (e grava os Reels)
@@ -81,6 +82,25 @@ async function main(): Promise<void> {
         const seed = args.seed ? Number(args.seed) : Math.floor(Math.random() * 2 ** 31);
         await criarTemporada(banco, { numero, primeiraRodada: inicio, seed });
         console.log(`Temporada ${numero} criada: 7 Rodadas a partir de ${inicio}.`);
+        await mostrarCalendario(banco);
+        break;
+      }
+
+      case 'mudar-inicio': {
+        // Antecipa ou adia a Temporada atual enquanto nenhum jogo saiu do lugar.
+        const t = await temporadaAtual(banco);
+        if (!args.inicio || !/^\d{4}-\d{2}-\d{2}$/.test(args.inicio)) throw new Error('Use: pnpm liga mudar-inicio --inicio AAAA-MM-DD');
+        const andou = (await banco.query<{ n: string }>(
+          `SELECT count(*) AS n FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND p.status <> 'PENDENTE'`, [t.id],
+        )).rows[0]!.n;
+        if (Number(andou) > 0) throw new Error('A Temporada já tem jogos escalados ou jogados; não dá para mudar o início.');
+        const dias = Math.round((Date.parse(`${args.inicio}T12:00:00Z`) - Date.parse(`${t.inicio}T12:00:00Z`)) / 86400_000);
+        await banco.transacao(async (b) => {
+          await b.query(`UPDATE temporada SET inicio = $2 WHERE id = $1`, [t.id, args.inicio]);
+          await b.query(`UPDATE rodada SET data = data + $2::int WHERE temporada_id = $1`, [t.id, dias]);
+          await b.query(`UPDATE partida p SET apito_inicial = p.apito_inicial + make_interval(days => $2::int) FROM rodada r WHERE r.id = p.rodada_id AND r.temporada_id = $1`, [t.id, dias]);
+        });
+        console.log(`Temporada ${t.numero}: início de ${t.inicio} para ${args.inicio} (${dias > 0 ? '+' : ''}${dias} dias).`);
         await mostrarCalendario(banco);
         break;
       }
