@@ -20,6 +20,21 @@ function falso(rotas: Record<string, Rota>) {
 }
 
 describe('Instagram', () => {
+  it('token do login unificado (EAA) fala com graph.facebook.com; o do Instagram, com graph.instagram.com', async () => {
+    const { f, chamadas } = falso({
+      'GET /v25.0/1784': () => ({ id: '1784', username: 'varzeao_da_mata' }),
+      'GET /v25.0/debug_token': () => ({ data: { expires_at: 0, scopes: ['instagram_basic'] } }),
+      'GET /v25.0/me': () => ({ user_id: '1784', username: 'varzeao_da_mata' }),
+    });
+    const unificado = new Instagram({ userId: '1784', token: 'EAAteste', fetch: f });
+    expect(await unificado.eu()).toEqual({ user_id: '1784', username: 'varzeao_da_mata' });
+    expect(chamadas.at(-1)!.url.host).toBe('graph.facebook.com');
+    // Token que não vence não é trocado.
+    expect((await unificado.renovarToken()).token).toBe('EAAteste');
+    await new Instagram({ userId: '1784', token: 'IGAAteste', fetch: f }).eu();
+    expect(chamadas.at(-1)!.url.host).toBe('graph.instagram.com');
+  });
+
   it('lê comentários com paginação, ignora os sem autor e devolve do mais antigo ao mais novo', async () => {
     const { f, chamadas } = falso({
       'GET /v25.0/M1/comments': (url) =>

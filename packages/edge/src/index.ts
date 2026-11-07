@@ -46,7 +46,9 @@ const json = (dados: unknown, status = 200, extra: Record<string, string> = {}) 
 type Fetch = typeof fetch;
 
 async function graph<T>(f: Fetch, env: Env, token: string, metodo: 'GET' | 'POST', caminho: string, params: Record<string, string>): Promise<T> {
-  const url = new URL(`https://graph.instagram.com/${env.IG_API_VERSAO ?? 'v25.0'}/${caminho}`);
+  // Token do login unificado (EAA…) fala com graph.facebook.com; o do login do Instagram, com graph.instagram.com.
+  const base = token.startsWith('EAA') ? 'https://graph.facebook.com' : 'https://graph.instagram.com';
+  const url = new URL(`${base}/${env.IG_API_VERSAO ?? 'v25.0'}/${caminho}`);
   const corpo = new URLSearchParams({ ...params, access_token: token });
   const r =
     metodo === 'GET'

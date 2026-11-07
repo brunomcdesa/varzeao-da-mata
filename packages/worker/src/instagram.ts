@@ -1,5 +1,12 @@
 /**
- * Cliente da API do Instagram com Login do Instagram (graph.instagram.com).
+ * Cliente da API do Instagram. Funciona com os dois tipos de token que a Meta emite:
+ *
+ * - Login do Instagram (token `IG...`): graph.instagram.com. Apps antigos.
+ * - Login unificado (token `EAA...`): graph.facebook.com. Apps criados a partir de 2026
+ *   só têm este; as permissões são instagram_basic, instagram_manage_comments e
+ *   instagram_content_publish, e o id da conta é o `1784...` da tela "Gerar tokens".
+ *
+ * Os caminhos (`<conta>/media`, `media_publish`, `<mídia>/comments`) são os mesmos nos dois.
  *
  * Permissões: instagram_business_basic (ler mídias), instagram_business_manage_comments
  * (ler comentários com o @ de quem comentou) e instagram_business_content_publish (Reels).
@@ -13,7 +20,17 @@ import type { Comentario } from './coletar.js';
 
 /** Versão da Graph API (cada uma vale ~2 anos). Troque por IG_API_VERSAO sem mexer no código. */
 export const VERSAO_API = process.env.IG_API_VERSAO ?? 'v25.0';
-const BASE = 'https://graph.instagram.com';
+
+export type LoginDoToken = 'INSTAGRAM' | 'UNIFICADO';
+
+/** Tokens do login unificado (Facebook Login para Empresas) começam com EAA. */
+export function loginDoToken(token: string): LoginDoToken {
+  return token.startsWith('EAA') ? 'UNIFICADO' : 'INSTAGRAM';
+}
+
+export function baseDaApi(token: string): string {
+  return loginDoToken(token) === 'UNIFICADO' ? 'https://graph.facebook.com' : 'https://graph.instagram.com';
+}
 
 export type StatusContainer = 'EXPIRED' | 'ERROR' | 'FINISHED' | 'IN_PROGRESS' | 'PUBLISHED';
 
@@ -39,6 +56,9 @@ export class ErroInstagram extends Error {
 export interface OpcoesInstagram {
   userId: string;
   token: string;
+  /** Login unificado: id e chave secreta do app da Meta, para trocar o token antes de vencer. */
+  appId?: string;
+  appSecret?: string;
   fetch?: typeof fetch;
   /** Para testes: não espera de verdade. */
   dormir?: (ms: number) => Promise<void>;
@@ -79,7 +99,7 @@ export class Instagram {
   }
 
   private async chamar<T>(metodo: 'GET' | 'POST', caminho: string, params: Record<string, string> = {}): Promise<T> {
-    const url = caminho.startsWith('https://') ? new URL(caminho) : new URL(`${BASE}/${VERSAO_API}/${caminho}`);
+    const url = caminho.startsWith('https://') ? new URL(caminho) : new URL(`${baseDaApi(this.o.token)}/${VERSAO_API}/${caminho}`);
     const corpo = new URLSearchParams(params);
     // Links de paginação (`paging.next`) já trazem o token.
     if (!url.searchParams.has('access_token')) corpo.set('access_token', this.o.token);
@@ -98,9 +118,24 @@ export class Instagram {
     return json;
   }
 
-  /** Quem é o dono do token (para conferir a configuração). */
-  eu(): Promise<{ user_id: string; username: string; account_type?: string }> {
-    return this.chamar('GET', 'me', { fields: 'user_id,username,account_type' });
+  get login(): LoginDoToken {
+    return loginDoToken(this.o.token);
+  }
+
+  /** A conta da Liga (para conferir a configuração). */
+  async eu(): Promise<{ user_id: string; username: string; account_type?: string }> {
+    if (this.login === 'INSTAGRAM') return this.chamar('GET', 'me', { fields: 'user_id,username,account_type' });
+    const r = await this.chamar<{ id: string; username: string }>('GET', this.o.userId, { fields: 'id,username' });
+    return { user_id: r.id, username: r.username };
+  }
+
+  /** Quando o token vence (null = não vence). Só no login unificado; no do Instagram, sempre 60 dias. */
+  async validade(): Promise<{ expiraEm: Date | null; escopos: string[] }> {
+    const url = new URL(`${baseDaApi(this.o.token)}/${VERSAO_API}/debug_token`);
+    url.searchParams.set('input_token', this.o.token);
+    const r = await this.chamar<{ data: { expires_at?: number; data_access_expires_at?: number; scopes?: string[] } }>('GET', url.toString());
+    const em = r.data.expires_at ?? 0;
+    return { expiraEm: em > 0 ? new Date(em * 1000) : null, escopos: r.data.scopes ?? [] };
   }
 
   /** Mídias publicadas desde `desde` (as mais novas primeiro). */
@@ -177,11 +212,32 @@ export class Instagram {
    * e ainda válido; o novo passa a valer para este cliente.
    */
   async renovarToken(): Promise<{ token: string; expiraEm: Date }> {
-    const url = new URL(`${BASE}/refresh_access_token`);
+    if (this.login === 'UNIFICADO') return this.renovarTokenUnificado();
+    const url = new URL(`${baseDaApi(this.o.token)}/refresh_access_token`);
     url.searchParams.set('grant_type', 'ig_refresh_token');
     url.searchParams.set('access_token', this.o.token);
     const r = await this.chamar<{ access_token: string; expires_in: number }>('GET', url.toString());
     this.o = { ...this.o, token: r.access_token };
     return { token: r.access_token, expiraEm: new Date(Date.now() + r.expires_in * 1000) };
+  }
+
+  /**
+   * Login unificado: token que não vence fica como está; o que vence é trocado por um de
+   * longa duração (fb_exchange_token), com o id e a chave secreta do app da Meta.
+   */
+  private async renovarTokenUnificado(): Promise<{ token: string; expiraEm: Date }> {
+    const { expiraEm } = await this.validade();
+    if (!expiraEm) return { token: this.o.token, expiraEm: new Date(Date.now() + 10 * 365 * 86400_000) };
+    if (!this.o.appId || !this.o.appSecret) {
+      throw new ErroInstagram(400, null, null, `o token vence em ${expiraEm.toISOString().slice(0, 10)} e, sem IG_APP_ID e IG_APP_SECRET, não dá para renová-lo`);
+    }
+    const url = new URL(`https://graph.facebook.com/${VERSAO_API}/oauth/access_token`);
+    url.searchParams.set('grant_type', 'fb_exchange_token');
+    url.searchParams.set('client_id', this.o.appId);
+    url.searchParams.set('client_secret', this.o.appSecret);
+    url.searchParams.set('fb_exchange_token', this.o.token);
+    const r = await this.chamar<{ access_token: string; expires_in?: number }>('GET', url.toString());
+    this.o = { ...this.o, token: r.access_token };
+    return { token: r.access_token, expiraEm: new Date(Date.now() + (r.expires_in ?? 60 * 86400) * 1000) };
   }
 }

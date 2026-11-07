@@ -32,7 +32,7 @@ try {
   const nuvem = nuvemDoAmbiente();
   if (!nuvem) console.log('Cloudflare não configurado: gravando em .cache/nuvem-local.');
   const token = (await tokenGuardado(banco))?.token ?? process.env.IG_ACCESS_TOKEN;
-  const ig = process.env.IG_USER_ID && token ? new Instagram({ userId: process.env.IG_USER_ID, token }) : null;
+  const ig = process.env.IG_USER_ID && token ? new Instagram({ userId: process.env.IG_USER_ID, token, ...(process.env.IG_APP_ID ? { appId: process.env.IG_APP_ID } : {}), ...(process.env.IG_APP_SECRET ? { appSecret: process.env.IG_APP_SECRET } : {}) }) : null;
   if (!ig) console.log('Instagram não configurado: não lê comentários nem agenda Reels.');
 
   const precisaGravar = qual !== 'coletar';
