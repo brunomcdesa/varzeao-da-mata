@@ -80,3 +80,10 @@ export function tintaSobre(hex: string): string {
 }
 
 export const nota = (n: number | null) => (n === null ? '–' : n.toFixed(1).replace('.', ','));
+
+/** Taça em pixel art (9×10), em SVG para escalar sem borrar. */
+const TACA = ['.xxxxxxx.', 'xxxxxxxxx', 'x.xxxxx.x', 'x.xxxxx.x', '.xxxxxxx.', '..xxxxx..', '...xxx...', '....x....', '...xxx...', '..xxxxx..'];
+export function taca(tamanho = 36, classe = ''): Html {
+  const rects = TACA.flatMap((linha, y) => [...linha].map((c, x) => (c === 'x' ? `<rect x="${x}" y="${y}" width="1" height="1"/>` : ''))).join('');
+  return new Html(`<svg class="taca ${classe}" viewBox="0 0 9 10" width="${tamanho}" height="${Math.round((tamanho * 10) / 9)}" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor">${rects}</svg>`);
+}

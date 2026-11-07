@@ -7,7 +7,7 @@
  * aparecem depois do Apito (o lance a lance) ou do fim do Ao Vivo (placar, tabela, Card).
  * Escalações aparecem assim que existem (a partir do Corte).
  */
-import { IDENTIDADE, TIMES, ehClassico, etapaDa, type EscalacaoPublica, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId } from '@liga/shared';
+import { IDENTIDADE, TIMES, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId } from '@liga/shared';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { classificar } from './tabela.js';
@@ -45,20 +45,41 @@ export interface ExportacaoDoSite {
   arquivos: Map<string, unknown>;
 }
 
+interface LinhaTemporada {
+  id: number;
+  numero: number;
+  status: string;
+  inicio: string | Date;
+  campeao_id: TimeId | null;
+  craque_jogador_id: string | null;
+  craque_revelado_em: string | Date | null;
+}
+
+const diaTexto = (d: string | Date) => (typeof d === 'string' ? d.slice(0, 10) : d.toISOString().slice(0, 10));
+
+function estatisticasVazias(): Estatisticas {
+  return { jogos: 0, gols: 0, assistencias: 0, desarmes: 0, defesas: 0, golsSofridos: 0, notaMedia: null, melhorNota: null, vitorias: 0, empates: 0, derrotas: 0 };
+}
+
 export async function exportarSite(banco: Banco, agora = new Date()): Promise<ExportacaoDoSite> {
   const arquivos = new Map<string, unknown>();
-  const temporada = (await banco.query<{ id: number; numero: number; status: string }>(`SELECT id, numero, status FROM temporada ORDER BY numero DESC LIMIT 1`)).rows[0];
+  const temporadas = (
+    await banco.query<LinhaTemporada>(
+      `SELECT id, numero, status, inicio, campeao_id, craque_jogador_id::text AS craque_jogador_id, craque_revelado_em FROM temporada ORDER BY numero`,
+    )
+  ).rows;
+  const temporada = temporadas.at(-1);
+  const numeroDa = new Map(temporadas.map((t) => [t.id, t.numero]));
   const times = TIMES.map((id) => ({ id, nome: IDENTIDADE[id].nome, sigla: IDENTIDADE[id].sigla, primaria: IDENTIDADE[id].primaria, secundaria: IDENTIDADE[id].secundaria }));
 
-  const partidas = temporada
-    ? (
-        await banco.query<LinhaPartida>(
-          `SELECT p.id, p.rodada_id, r.numero AS rodada, r.fase, r.data, p.apito_inicial, p.mandante_id, p.visitante_id, p.status, p.resultado, p.video_url, p.vantagem_do_empate
-           FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 ORDER BY p.apito_inicial`,
-          [temporada.id],
-        )
-      ).rows
-    : [];
+  // Todas as Partidas de todas as Temporadas: a carreira dos Jogadores atravessa Temporadas.
+  const todas = (
+    await banco.query<LinhaPartida & { temporada_id: number }>(
+      `SELECT p.id, p.rodada_id, r.temporada_id, r.numero AS rodada, r.fase, r.data, p.apito_inicial, p.mandante_id, p.visitante_id, p.status, p.resultado, p.video_url, p.vantagem_do_empate
+       FROM partida p JOIN rodada r ON r.id = p.rodada_id ORDER BY p.apito_inicial`,
+    )
+  ).rows;
+  const partidas = temporada ? todas.filter((p) => p.temporada_id === temporada.id) : [];
   const apito = (p: LinhaPartida) => new Date(p.apito_inicial);
   const revelada = (p: LinhaPartida) => p.resultado !== null && apito(p).getTime() <= agora.getTime();
   // Encerrada: o Ao Vivo já acabou. Placar no calendário, tabela e estatísticas só contam
@@ -76,13 +97,14 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
   const escalacoesDe = new Map<number, LinhaEscalacao[]>();
   for (const e of escalacoes) escalacoesDe.set(e.partida_id, [...(escalacoesDe.get(e.partida_id) ?? []), e]);
   const apitoDaPartida = new Map<number, Date>();
-  const reveladaPorId = new Map<number, boolean>();
-  for (const p of partidas) {
+  const encerradaPorId = new Map<number, boolean>();
+  for (const p of todas) {
     apitoDaPartida.set(p.id, apito(p));
-    reveladaPorId.set(p.id, encerrada(p));
+    encerradaPorId.set(p.id, encerrada(p));
   }
+  const placarDe = (r: ResultadoPartida) => ({ mandante: r.gols.mandante, visitante: r.gols.visitante, ...(r.penaltis ? { penaltis: r.penaltis.placar } : {}) });
 
-  // ---- calendário e tabela
+  // ---- calendário da Temporada atual
   const calendario: PartidaNoCalendario[] = partidas.map((p) => {
     const r = encerrada(p) ? p.resultado! : null;
     return {
@@ -97,25 +119,24 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       escalada: escalacoesDe.has(p.id),
       ...(p.vantagem_do_empate ? { vantagemDoEmpate: true } : {}),
       ...(r && p.fase === 'MATA_MATA' && r.vencedor ? { classificado: r.times[r.vencedor] } : {}),
-      ...(r
-        ? { placar: { mandante: r.gols.mandante, visitante: r.gols.visitante, ...(r.penaltis ? { penaltis: r.penaltis.placar } : {}) } }
-        : {}),
+      ...(r ? { placar: placarDe(r) } : {}),
     };
   });
-  const tabela = classificar(
-    partidas.filter((p) => p.fase === 'LIGA' && encerrada(p)).map((p) => ({ mandante: p.mandante_id, visitante: p.visitante_id, gm: p.resultado!.gols.mandante, gv: p.resultado!.gols.visitante })),
-  );
+  const tabelaDa = (ps: LinhaPartida[]) =>
+    classificar(ps.filter((p) => p.fase === 'LIGA' && encerrada(p)).map((p) => ({ mandante: p.mandante_id, visitante: p.visitante_id, gm: p.resultado!.gols.mandante, gv: p.resultado!.gols.visitante })));
 
-  // ---- rodadas: Candidatos só quando todas as Partidas do dia já foram reveladas;
-  // Craque quando a primeira Partida do dia seguinte começa (é revelado no Reels dela).
-  const rodadasIds = [...new Map(partidas.map((p) => [p.rodada_id, p])).values()];
-  const rodadas: RodadaPublica[] = [];
-  for (const base of rodadasIds) {
-    const doDia = partidas.filter((p) => p.rodada_id === base.rodada_id);
-    const todasReveladas = doDia.every(encerrada);
-    const proximaRodada = partidas.find((p) => p.rodada === base.rodada + 1);
-    const votacaoFechada = proximaRodada ? apito(proximaRodada).getTime() <= agora.getTime() : false;
-    const candidatos = todasReveladas
+  // ---- rodadas de todas as Temporadas (para os troféus); o site mostra só as da atual.
+  // Candidatos só quando todas as Partidas do dia acabaram; Craque da Rodada quando a
+  // primeira Partida do dia seguinte começa. Na Final, a votação é a Craque da Temporada.
+  const rodadasPorTemporada = new Map<number, RodadaPublica[]>();
+  const bases = [...new Map(todas.map((p) => [p.rodada_id, p])).values()];
+  for (const base of bases) {
+    const doDia = todas.filter((p) => p.rodada_id === base.rodada_id);
+    const daTemporada = todas.filter((p) => p.temporada_id === base.temporada_id);
+    const ehAFinal = etapaDa(base.fase, base.rodada) === 'FINAL';
+    const proximaRodada = daTemporada.find((p) => p.rodada === base.rodada + 1);
+    const votacaoFechada = !ehAFinal && (proximaRodada ? apito(proximaRodada).getTime() <= agora.getTime() : false);
+    const candidatos = doDia.every(encerrada)
       ? (
           await banco.query<{ jogador_id: string; username: string; time_id: TimeId; posicao: Posicao; nota: string; votos: string }>(
             `SELECT c.jogador_id::text AS jogador_id, j.username, j.time_id, j.posicao, c.nota, count(v.ig_user_id) AS votos
@@ -128,90 +149,187 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
         ).rows
       : [];
     const vencedor = votacaoFechada && candidatos.length ? [...candidatos].sort((a, b) => Number(b.votos) - Number(a.votos) || Number(b.nota) - Number(a.nota))[0]! : null;
-    rodadas.push({
+    const lista = rodadasPorTemporada.get(base.temporada_id) ?? [];
+    lista.push({
       numero: base.rodada,
       fase: base.fase,
-      data: typeof base.data === 'string' ? base.data.slice(0, 10) : base.data.toISOString().slice(0, 10),
+      data: diaTexto(base.data),
+      votacao: ehAFinal ? 'TEMPORADA' : 'RODADA',
       candidatos: candidatos.map((c) => ({ jogadorId: c.jogador_id, username: c.username, time: c.time_id, posicao: c.posicao, nota: Number(c.nota) })),
       craque: vencedor ? { jogadorId: vencedor.jogador_id, username: vencedor.username, time: vencedor.time_id } : null,
     });
+    rodadasPorTemporada.set(base.temporada_id, lista);
   }
 
-  const liga: LigaPublica = {
-    atualizadoEm: agora.toISOString(),
-    temporada: temporada ? { numero: temporada.numero, status: temporada.status } : null,
-    times,
-    tabela,
-    calendario,
-    rodadas,
-    campeao: (() => {
-      const final = partidas.find((p) => etapaDa(p.fase, p.rodada) === 'FINAL');
-      return final && encerrada(final) && final.resultado?.vencedor ? final.resultado.times[final.resultado.vencedor] : null;
-    })(),
-  };
-  arquivos.set('liga.json', liga);
-
-  // ---- jogadores: Card e estatísticas só com Partidas reveladas
+  // ---- jogadores
   const jogadores = (
     await banco.query<{ id: string; username: string; time_id: TimeId; posicao: Posicao; ovr: number; inscrito_em: string | Date }>(
       `SELECT id::text AS id, username, time_id, posicao, ovr, inscrito_em FROM jogador WHERE NOT banido ORDER BY id`,
     )
   ).rows;
   const porJogador = new Map<string, JogadorPublico>();
+  const resumido = (id: string): JogadorResumido | null => {
+    const j = porJogador.get(id);
+    return j ? { jogadorId: j.id, username: j.username, time: j.time, posicao: j.posicao } : null;
+  };
   for (const j of jogadores) {
-    const minhas = escalacoes.filter((e) => e.jogador_id === j.id).sort((a, b) => apitoDaPartida.get(a.partida_id)!.getTime() - apitoDaPartida.get(b.partida_id)!.getTime());
-    const oculta = minhas.find((e) => !reveladaPorId.get(e.partida_id));
+    const minhas = escalacoes.filter((e) => e.jogador_id === j.id && apitoDaPartida.has(e.partida_id)).sort((a, b) => apitoDaPartida.get(a.partida_id)!.getTime() - apitoDaPartida.get(b.partida_id)!.getTime());
+    const oculta = minhas.find((e) => !encerradaPorId.get(e.partida_id));
     porJogador.set(j.id, {
       id: j.id,
       username: j.username,
       time: j.time_id,
       posicao: j.posicao,
-      // OVR antes da primeira Partida ainda não revelada; senão o atual.
+      // OVR antes da primeira Partida ainda não encerrada; senão o atual.
       ovr: oculta ? oculta.ovr_antes : j.ovr,
       ovrInicial: minhas[0]?.ovr_antes ?? j.ovr,
       inscritoEm: new Date(j.inscrito_em).toISOString(),
-      jogos: 0, gols: 0, assistencias: 0, desarmes: 0, defesas: 0, golsSofridos: 0,
-      notaMedia: null, melhorNota: null, vitorias: 0, empates: 0, derrotas: 0,
-      vezesCandidato: 0, craqueDaRodada: 0, reiDoClassico: 0,
+      ...estatisticasVazias(),
+      vezesCandidato: 0,
+      craqueDaRodada: 0,
+      craqueDaTemporada: 0,
+      titulos: 0,
+      reiDoClassico: 0,
+      temporadas: 0,
+      nestaTemporada: estatisticasVazias(),
+      trofeus: [],
       historico: [],
     });
   }
-  for (const p of partidas.filter(encerrada)) {
+  const somar = (e: Estatisticas, d: ResultadoPartida['desempenhos'][number], r: ResultadoPartida) => {
+    e.jogos++;
+    e.gols += d.gols;
+    e.assistencias += d.assistencias;
+    e.desarmes += d.desarmes;
+    e.defesas += d.defesas;
+    e.golsSofridos += d.golsSofridos;
+    if (r.gols.mandante === r.gols.visitante) e.empates++; // decidido nos pênaltis ou na Vantagem do Empate: empate
+    else if (r.vencedor === d.slot.lado) e.vitorias++;
+    else e.derrotas++;
+  };
+  const notasDaTemporada = new Map<string, number[]>();
+  const jogouPor = new Set<string>(); // `${temporadaId}:${time}:${jogadorId}`
+  const temporadasDe = new Map<string, Set<number>>();
+  for (const p of todas.filter(encerrada)) {
     const r = p.resultado!;
+    const numero = numeroDa.get(p.temporada_id)!;
     for (const d of r.desempenhos) {
       if (d.jogadorId === null) continue;
       const j = porJogador.get(d.jogadorId);
       if (!j) continue;
-      j.jogos++;
-      j.gols += d.gols;
-      j.assistencias += d.assistencias;
-      j.desarmes += d.desarmes;
-      j.defesas += d.defesas;
-      j.golsSofridos += d.golsSofridos;
-      if (r.vencedor === null) j.empates++;
-      else if (r.vencedor === d.slot.lado) j.vitorias++;
-      else j.derrotas++;
-      j.historico.push({ partidaId: p.id, rodada: p.rodada, nota: d.nota, ovr: d.ovrDepois, gols: d.gols });
+      somar(j, d, r);
+      if (p.temporada_id === temporada?.id) {
+        somar(j.nestaTemporada, d, r);
+        notasDaTemporada.set(j.id, [...(notasDaTemporada.get(j.id) ?? []), d.nota]);
+      }
+      jogouPor.add(`${p.temporada_id}:${r.times[d.slot.lado]}:${j.id}`);
+      temporadasDe.set(j.id, (temporadasDe.get(j.id) ?? new Set()).add(p.temporada_id));
+      const outro = d.slot.lado === 'mandante' ? 'visitante' : 'mandante';
+      j.historico.push({
+        partidaId: p.id, temporada: numero, rodada: p.rodada, fase: p.fase, nota: d.nota, ovr: d.ovrDepois, gols: d.gols,
+        rival: r.times[outro], emCasa: d.slot.lado === 'mandante', pro: r.gols[d.slot.lado], contra: r.gols[outro],
+      });
     }
     if (r.classico && r.decisivo) {
       const id = r.desempenhos.find((d) => d.slot.lado === r.decisivo!.lado && d.slot.indice === r.decisivo!.indice)?.jogadorId;
-      if (id) porJogador.get(id)!.reiDoClassico++;
+      const j = id ? porJogador.get(id) : undefined;
+      if (j) {
+        j.reiDoClassico++;
+        j.trofeus.push({ tipo: 'REI_DO_CLASSICO', temporada: numero, rodada: p.rodada, fase: p.fase, time: r.times[r.decisivo.lado], partidaId: p.id });
+      }
     }
   }
+  const media = (ns: number[]) => (ns.length ? Math.round((ns.reduce((s, n) => s + n, 0) / ns.length) * 100) / 100 : null);
   for (const j of porJogador.values()) {
-    if (j.historico.length) {
-      j.notaMedia = Math.round((j.historico.reduce((s, h) => s + h.nota, 0) / j.historico.length) * 100) / 100;
-      j.melhorNota = Math.max(...j.historico.map((h) => h.nota));
+    j.notaMedia = media(j.historico.map((h) => h.nota));
+    j.melhorNota = j.historico.length ? Math.max(...j.historico.map((h) => h.nota)) : null;
+    const notas = notasDaTemporada.get(j.id) ?? [];
+    j.nestaTemporada.notaMedia = media(notas);
+    j.nestaTemporada.melhorNota = notas.length ? Math.max(...notas) : null;
+    j.temporadas = temporadasDe.get(j.id)?.size ?? 0;
+  }
+  for (const [temporadaId, rodadas] of rodadasPorTemporada) {
+    const numero = numeroDa.get(temporadaId)!;
+    for (const r of rodadas) {
+      for (const c of r.candidatos) {
+        const j = porJogador.get(c.jogadorId);
+        if (j && r.votacao === 'RODADA') j.vezesCandidato++;
+      }
+      const j = r.craque ? porJogador.get(r.craque.jogadorId) : undefined;
+      if (j) {
+        j.craqueDaRodada++;
+        j.trofeus.push({ tipo: 'CRAQUE_RODADA', temporada: numero, rodada: r.numero, fase: r.fase, time: r.craque!.time });
+      }
     }
   }
-  for (const r of rodadas) {
-    for (const c of r.candidatos) porJogador.get(c.jogadorId) && porJogador.get(c.jogadorId)!.vezesCandidato++;
-    if (r.craque && porJogador.get(r.craque.jogadorId)) porJogador.get(r.craque.jogadorId)!.craqueDaRodada++;
+
+  // ---- história das Temporadas: campeão (Final encerrada), vice, Craque (depois do anúncio), artilheiro
+  const historia: TemporadaNaHistoria[] = [];
+  for (const t of temporadas) {
+    const ps = todas.filter((p) => p.temporada_id === t.id);
+    const final = ps.find((p) => etapaDa(p.fase, p.rodada) === 'FINAL');
+    const rf = final && encerrada(final) ? final.resultado : null;
+    const campeao = rf?.vencedor ? rf.times[rf.vencedor] : null;
+    const vice = rf?.vencedor ? rf.times[rf.vencedor === 'mandante' ? 'visitante' : 'mandante'] : null;
+    if (campeao) {
+      for (const j of porJogador.values()) {
+        if (jogouPor.has(`${t.id}:${campeao}:${j.id}`)) {
+          j.titulos++;
+          j.trofeus.push({ tipo: 'CAMPEAO', temporada: t.numero, time: campeao, ...(final ? { partidaId: final.id } : {}) });
+        }
+      }
+    }
+    const craqueRevelado = t.craque_jogador_id && t.craque_revelado_em && new Date(t.craque_revelado_em).getTime() <= agora.getTime() ? t.craque_jogador_id : null;
+    const craque = craqueRevelado ? resumido(craqueRevelado) : null;
+    if (craque) {
+      const j = porJogador.get(craque.jogadorId)!;
+      j.craqueDaTemporada++;
+      j.trofeus.push({ tipo: 'CRAQUE_TEMPORADA', temporada: t.numero, time: craque.time });
+    }
+    // Artilheiro: mais gols na Temporada (desempate: menos jogos, depois quem se inscreveu antes).
+    const gols = new Map<string, { gols: number; jogos: number }>();
+    for (const p of ps.filter(encerrada)) {
+      for (const d of p.resultado!.desempenhos) {
+        if (!d.jogadorId) continue;
+        const g = gols.get(d.jogadorId) ?? { gols: 0, jogos: 0 };
+        g.gols += d.gols;
+        g.jogos++;
+        gols.set(d.jogadorId, g);
+      }
+    }
+    const [topo] = [...gols.entries()].filter(([, g]) => g.gols > 0).sort((a, b) => b[1].gols - a[1].gols || a[1].jogos - b[1].jogos || Number(a[0]) - Number(b[0]));
+    const artilheiro = topo && resumido(topo[0]) ? { ...resumido(topo[0])!, gols: topo[1].gols } : null;
+    historia.push({
+      numero: t.numero,
+      status: t.status,
+      inicio: diaTexto(t.inicio),
+      campeao,
+      vice,
+      final: final && rf ? { partidaId: final.id, mandante: final.mandante_id, visitante: final.visitante_id, placar: placarDe(rf) } : null,
+      craque,
+      artilheiro,
+      tabela: tabelaDa(ps),
+    });
   }
+  for (const j of porJogador.values()) j.trofeus.sort((a, b) => b.temporada - a.temporada || (b.rodada ?? 99) - (a.rodada ?? 99));
+
+  const atual = historia.at(-1);
+  const liga: LigaPublica = {
+    atualizadoEm: agora.toISOString(),
+    temporada: temporada ? { numero: temporada.numero, status: temporada.status } : null,
+    times,
+    tabela: atual?.tabela ?? [],
+    calendario,
+    rodadas: temporada ? (rodadasPorTemporada.get(temporada.id) ?? []) : [],
+    campeao: atual?.campeao ?? null,
+    craqueDaTemporada: atual?.craque ?? null,
+    temporadas: [...historia].reverse(),
+  };
+  arquivos.set('liga.json', liga);
   arquivos.set('jogadores.json', [...porJogador.values()]);
 
-  // ---- uma página por Partida escalada
-  for (const p of partidas) {
+  // ---- uma página por Partida escalada (de todas as Temporadas: o histórico aponta para elas)
+  for (const p of todas) {
     const linhas = escalacoesDe.get(p.id);
     const de = (time: TimeId): EscalacaoPublica => ({
       time,

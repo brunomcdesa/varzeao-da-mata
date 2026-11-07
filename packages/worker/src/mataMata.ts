@@ -97,7 +97,8 @@ export async function avancarMataMata(banco: Banco, temporadaId: number): Promis
     }
 
     if (!completa(final)) return 'NADA';
-    const r = await b.query(`UPDATE temporada SET status = 'ENCERRADA' WHERE id = $1 AND status <> 'ENCERRADA' RETURNING id`, [temporadaId]);
+    const campeaoId = await campeao(b, temporadaId);
+    const r = await b.query(`UPDATE temporada SET status = 'ENCERRADA', campeao_id = $2 WHERE id = $1 AND status <> 'ENCERRADA' RETURNING id`, [temporadaId, campeaoId]);
     return r.rows.length ? 'TEMPORADA_ENCERRADA' : 'NADA';
   });
 }

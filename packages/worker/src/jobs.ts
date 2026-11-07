@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, IDENTIDADE, etapaDa, nomeDaRodada, nomeDoClassico, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, RODADA_DA_FINAL, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA } from './calendario.js';
 import { processarComentario, type Comentario, type Resultado } from './coletar.js';
@@ -96,6 +96,9 @@ export async function sincronizarPublicados(c: ContextoDoJob): Promise<number> {
     if (!item?.publicadoEm || !item.mediaId) continue;
     if (item.tipo === 'PARTIDA') {
       const r = await c.banco.query(`UPDATE partida SET status = 'PUBLICADA', ig_media_id = $2 WHERE id = $1 AND status <> 'PUBLICADA' RETURNING id`, [item.ref, item.mediaId]);
+      n += r.rows.length;
+    } else if (item.tipo === 'CRAQUE') {
+      const r = await c.banco.query(`UPDATE temporada SET craque_status = 'PUBLICADO', craque_ig_media_id = $2 WHERE id = $1 AND craque_status <> 'PUBLICADO' RETURNING id`, [item.ref, item.mediaId]);
       n += r.rows.length;
     } else {
       const r = await c.banco.query(`UPDATE rodada SET resumo_status = 'PUBLICADO', resumo_ig_media_id = $2 WHERE id = $1 AND resumo_status <> 'PUBLICADO' RETURNING id`, [item.ref, item.mediaId]);
@@ -332,9 +335,103 @@ export function legendaDoResumo(d: DadosDoResumo): string {
   return linhas.join('\n');
 }
 
+/**
+ * No dia seguinte à Final, às 18h, fecha a votação do Craque da Temporada, grava o anúncio e
+ * agenda para as 19h. Devolve o id da Temporada (ou null se não era a hora).
+ */
+export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | null> {
+  const log = logDe(c);
+  const agora = agoraDe(c);
+  const t = (
+    await c.banco.query<{ id: number; numero: number; final_id: number; data: string | Date; craque_jogador_id: string | null }>(
+      `SELECT t.id, t.numero, r.id AS final_id, r.data, t.craque_jogador_id::text AS craque_jogador_id
+       FROM temporada t JOIN rodada r ON r.temporada_id = t.id AND r.numero = ${RODADA_DA_FINAL}
+       WHERE t.status = 'ENCERRADA' AND t.craque_status = 'PENDENTE'
+       ORDER BY t.numero LIMIT 1`,
+    )
+  ).rows[0];
+  if (!t) return null;
+  const dia = typeof t.data === 'string' ? t.data.slice(0, 10) : t.data.toISOString().slice(0, 10);
+  const [a, m, d] = dia.split('-').map(Number) as [number, number, number];
+  const fechaEm = Date.UTC(a, m - 1, d + 1, 18 - FUSO_BRASILIA);
+  if (agora.getTime() < fechaEm) return null;
+
+  let craqueId = t.craque_jogador_id;
+  if (!craqueId) {
+    const eleito = await craqueDaRodada(c.banco, t.final_id);
+    if (!eleito) {
+      // Sem Candidatos (ninguém com jogos suficientes): encerra sem Craque.
+      await c.banco.query(`UPDATE temporada SET craque_status = 'PUBLICADO' WHERE id = $1`, [t.id]);
+      return t.id;
+    }
+    craqueId = eleito.id;
+    await c.banco.query(`UPDATE temporada SET craque_jogador_id = $2 WHERE id = $1`, [t.id, craqueId]);
+  }
+  const s = (
+    await c.banco.query<{ username: string; time_id: TimeId; posicao: Posicao; media: string; jogos: string; votos: string }>(
+      `SELECT j.username, j.time_id, j.posicao, c.nota AS media,
+              (SELECT count(*) FROM escalacao e JOIN partida p ON p.id = e.partida_id JOIN rodada r ON r.id = p.rodada_id
+                WHERE r.temporada_id = $3 AND e.jogador_id = j.id AND e.nota IS NOT NULL) AS jogos,
+              (SELECT count(*) FROM voto v WHERE v.rodada_id = c.rodada_id AND v.jogador_id = j.id) AS votos
+       FROM candidato c JOIN jogador j ON j.id = c.jogador_id WHERE c.rodada_id = $1 AND j.id = $2`,
+      [t.final_id, craqueId, t.id],
+    )
+  ).rows[0]!;
+  const gols = (await c.banco.query<{ desempenho: { gols: number } }>(
+    `SELECT d AS desempenho FROM partida p JOIN rodada r ON r.id = p.rodada_id CROSS JOIN LATERAL jsonb_array_elements(p.resultado->'desempenhos') d
+     WHERE r.temporada_id = $1 AND d->>'jogadorId' = $2`,
+    [t.id, craqueId],
+  )).rows.reduce((soma, x) => soma + (x.desempenho.gols ?? 0), 0);
+  const publicarEm = new Date(Math.max(Date.UTC(a, m - 1, d + 1, HORA_DO_RESUMO - FUSO_BRASILIA), agora.getTime()));
+  const dados: DadosDoResumo = {
+    temporada: t.numero,
+    rodada: RODADA_DA_FINAL,
+    fase: 'MATA_MATA',
+    placares: [],
+    tabela: [],
+    novosContratados: [],
+    totalNovos: 0,
+    candidatos: [],
+    craqueDaTemporada: { username: s.username, time: s.time_id, posicao: s.posicao, notaMedia: Number(s.media), gols, jogos: Number(s.jogos), votos: Number(s.votos) },
+  };
+  let item: ItemDaAgenda | null = null;
+  if (c.gravarResumo) {
+    const pasta = await mkdtemp(join(tmpdir(), 'varzea-craque-'));
+    try {
+      const saida = join(pasta, 'craque.mp4');
+      await c.gravarResumo(dados, saida);
+      const chave = `videos/${randomUUID()}.mp4`;
+      await c.armazenamento.enviar('publico', chave, new Uint8Array(await readFile(saida)), { tipo: 'video/mp4', cache: 'public, max-age=31536000, immutable' });
+      item = await agendar(c, {
+        tipo: 'CRAQUE',
+        ref: t.id,
+        videoUrl: c.armazenamento.urlPublica(chave),
+        legenda: [
+          `O Craque da Temporada ${t.numero} é @${s.username}!`,
+          `${FALA_DO_TIME[s.time_id].curto}, ${Number(s.jogos)} jogos, ${gols} ${gols === 1 ? 'gol' : 'gols'}, nota média ${Number(s.media).toFixed(1).replace('.', ',')} e ${Number(s.votos)} votos da torcida.`,
+          '',
+          'A próxima Temporada vem aí. Quer jogar? Comente ENTRO + Time + posição.',
+          '',
+          '#varzeaodamata #craquedatemporada',
+        ].join('\n'),
+        containerAtual: null,
+        publicarEm,
+        salvarContainer: async () => {},
+      });
+    } finally {
+      await rm(pasta, { recursive: true, force: true });
+    }
+  }
+  await c.banco.query(`UPDATE temporada SET craque_status = $2, craque_revelado_em = $3 WHERE id = $1`, [t.id, item ? 'AGENDADO' : 'PUBLICADO', publicarEm.toISOString()]);
+  log(`Craque da Temporada ${t.numero}: @${s.username}${item ? `, anúncio agendado para ${item.publicarEm}` : ''}.`);
+  await publicarSite(c);
+  return t.id;
+}
+
 export async function jobResumo(c: ContextoDoJob): Promise<number | null> {
   const log = logDe(c);
   const agora = agoraDe(c);
+  if (await jobCraqueDaTemporada(c)) return null;
   // A Rodada mais recente com todas as Partidas simuladas e o Resumo ainda não agendado.
   const r = (
     await c.banco.query<{ id: number; temporada_id: number; numero: number; data: string | Date; resumo_status: string }>(

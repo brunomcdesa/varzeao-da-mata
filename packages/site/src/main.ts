@@ -3,6 +3,7 @@ import { ErroDeDados, liga } from './dados.js';
 import { inicio } from './paginas/inicio.js';
 import { paginaComparar, paginaJogador, paginaJogadores } from './paginas/jogadores.js';
 import { paginaJogos, paginaTabela, paginaTime, paginaTimes } from './paginas/liga.js';
+import { paginaHistoria } from './paginas/historia.js';
 import { paginaPartida } from './paginas/partida.js';
 import type { Pagina } from './paginas/tipos.js';
 import { html } from './ui.js';
@@ -17,6 +18,7 @@ const ROTAS: { padrao: RegExp; pagina: Pagina; secao: string; titulo: string }[]
   { padrao: /^\/jogador\/(\d+)$/, pagina: paginaJogador, secao: 'jogadores', titulo: 'Jogador' },
   { padrao: /^\/comparar\/(\d+)\/(\d+)$/, pagina: paginaComparar, secao: 'jogadores', titulo: 'Comparar' },
   { padrao: /^\/partida\/(\d+)$/, pagina: paginaPartida, secao: 'jogos', titulo: 'Partida' },
+  { padrao: /^\/historia$/, pagina: paginaHistoria, secao: 'historia', titulo: 'História' },
 ];
 
 const main = document.getElementById('conteudo')!;

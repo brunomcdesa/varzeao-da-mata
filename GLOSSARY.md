@@ -84,6 +84,14 @@ _Avoid_: indicados, finalistas, top 5
 O Candidato a Craque mais votado pelo público nos comentários do Resumo da Rodada, revelado no Reels da primeira Partida do dia seguinte. Cada @ tem um voto, inclusive em si mesmo.
 _Avoid_: MVP, melhor em campo, destaque
 
+**Craque da Temporada**:
+O melhor Jogador da Temporada, eleito pelo público entre os 5 com a maior nota média (com pelo menos 3 jogos). A votação abre no Resumo da Final e fecha às 18h do dia seguinte; o anúncio sai às 19h, num Reels próprio.
+_Avoid_: craque do campeonato, MVP da temporada, bola de ouro
+
+**Título**:
+A conquista da Temporada. Conta para o Time campeão e para cada Jogador dele que entrou em campo pelo menos uma vez naquela Temporada.
+_Avoid_: taça, troféu (troféu é o nome genérico de qualquer conquista no Card)
+
 **Temporada**:
 Um ciclo completo da Liga, com duração de 7 a 10 dias.
 _Avoid_: edição, season

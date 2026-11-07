@@ -1,9 +1,10 @@
 /** Início: a Partida da vez (ao vivo ou a próxima), a Rodada, a votação do Craque e a tabela. */
-import { IDENTIDADE, nomeDaRodada, type LigaPublica, type PartidaNoCalendario } from '@liga/shared';
+import { IDENTIDADE, nomeDaRodada, type LigaPublica, type PartidaNoCalendario, type Posicao, type TimeId } from '@liga/shared';
 import { contagem, diaLongo, hora, liga, partida, partidasDaRodada, rodadaAtual, situacaoAgora } from '../dados.js';
 import { montarTimeline, transmitir } from '../transmissao.js';
 import { bonecoImg, curto, escudoImg, html, jogadorLink, nota, rotuloClassico, type Html } from '../ui.js';
 import { chamadaDeVoto, comoEntrar, linhaDePartida, perfil, tabelaDeClassificacao } from './comum.js';
+import { chaveamento } from './chave.js';
 import type { Pagina } from './tipos.js';
 
 /** A Partida que merece o destaque: a que está rolando, senão a próxima. */
@@ -47,18 +48,38 @@ function destaque(l: LigaPublica, p: PartidaNoCalendario | null): Html {
   </div>`;
 }
 
+function figurinha(titulo: string, c: { jogadorId: string; username: string; time: TimeId; posicao?: Posicao }, info: string): Html {
+  return html`<section class="placa votacao" aria-labelledby="titulo-votacao">
+    <h2 id="titulo-votacao">${titulo}</h2>
+    <a class="craque" href="#/jogador/${c.jogadorId}">
+      <span class="craque-boneco">${c.posicao ? bonecoImg(c.time, c.posicao, c.username, 7, 'FRENTE_COMEMORA') : ''}</span>
+      <span class="craque-nome">@${c.username}</span>
+      <span class="craque-info">${info}</span>
+    </a>
+  </section>`;
+}
+
 function votacao(l: LigaPublica): Html {
-  // Rodada com Candidatos e sem Craque: votação aberta. Senão, mostra o último Craque.
-  const aberta = l.campeao ? undefined : [...l.rodadas].reverse().find((r) => r.candidatos.length && !r.craque);
+  // Rodada com Candidatos e sem Craque: votação aberta. Na Final, a votação é a Craque da
+  // Temporada, que fica aberta até o anúncio. Senão, mostra o último Craque.
+  if (l.craqueDaTemporada) {
+    return figurinha(`Craque da Temporada ${l.temporada?.numero ?? ''}`, l.craqueDaTemporada, `${curto(l.craqueDaTemporada.time)}, eleito pelos seguidores`);
+  }
+  const aberta = [...l.rodadas].reverse().find((r) => r.candidatos.length && !r.craque);
   const ultimoCraque = [...l.rodadas].reverse().find((r) => r.craque);
   if (aberta) {
+    const temporada = aberta.votacao === 'TEMPORADA';
     return html`<section class="placa votacao" aria-labelledby="titulo-votacao">
-      <h2 id="titulo-votacao">Craque ${aberta.fase === 'LIGA' ? `da Rodada ${aberta.numero}` : 'das Semifinais'}</h2>
-      <p>Vote comentando no post do Resumo da Rodada no ${perfil()}. Vale o último voto de cada perfil; o resultado sai no primeiro jogo do dia seguinte.</p>
+      <h2 id="titulo-votacao">${temporada ? 'Quem é o Craque da Temporada?' : `Craque ${aberta.fase === 'LIGA' ? `da Rodada ${aberta.numero}` : 'das Semifinais'}`}</h2>
+      <p>${
+        temporada
+          ? html`Os 5 com a maior nota média da Temporada. Vote comentando no post do Resumo da Final no ${perfil()} até amanhã às 18h; o resultado sai às 19h.`
+          : html`Vote comentando no post do Resumo da Rodada no ${perfil()}. Vale o último voto de cada perfil; o resultado sai no primeiro jogo do dia seguinte.`
+      }</p>
       <ol class="candidatos">${aberta.candidatos.map(
         (c) => html`<li>
           ${bonecoImg(c.time, c.posicao, c.username, 3)}
-          <span class="quem">${jogadorLink(c.jogadorId, c.username)}<small>${curto(c.time)} · nota ${nota(c.nota)}</small></span>
+          <span class="quem">${jogadorLink(c.jogadorId, c.username)}<small>${curto(c.time)} · ${temporada ? 'média' : 'nota'} ${nota(c.nota)}</small></span>
           ${chamadaDeVoto(c.username)}
         </li>`,
       )}</ol>
@@ -67,14 +88,11 @@ function votacao(l: LigaPublica): Html {
   if (ultimoCraque?.craque) {
     const c = ultimoCraque.craque;
     const cand = ultimoCraque.candidatos.find((x) => x.jogadorId === c.jogadorId);
-    return html`<section class="placa votacao" aria-labelledby="titulo-votacao">
-      <h2 id="titulo-votacao">Craque ${ultimoCraque.fase === 'LIGA' ? `da Rodada ${ultimoCraque.numero}` : 'das Semifinais'}</h2>
-      <a class="craque" href="#/jogador/${c.jogadorId}">
-        <span class="craque-boneco">${cand ? bonecoImg(c.time, cand.posicao, c.username, 7, 'FRENTE_COMEMORA') : ''}</span>
-        <span class="craque-nome">@${c.username}</span>
-        <span class="craque-info">${curto(c.time)}${cand ? ` · nota ${nota(cand.nota)}` : ''}, escolhido pelos seguidores</span>
-      </a>
-    </section>`;
+    return figurinha(
+      `Craque ${ultimoCraque.fase === 'LIGA' ? `da Rodada ${ultimoCraque.numero}` : 'das Semifinais'}`,
+      { ...c, ...(cand ? { posicao: cand.posicao } : {}) },
+      `${curto(c.time)}${cand ? ` · nota ${nota(cand.nota)}` : ''}, escolhido pelos seguidores`,
+    );
   }
   return html``;
 }
@@ -94,7 +112,11 @@ export const inicio: Pagina = async (main) => {
       <div class="painel-corpo">
         ${destaque(l, daVez)}
         <div class="painel-lado">
-          ${jogos.length ? html`<ul class="placas" aria-label="Jogos do dia">${jogos.map((p) => linhaDePartida(p, { destaque: p.id === daVez?.id }))}</ul>` : ''}
+          ${jogos.length && jogos[0]!.fase === 'MATA_MATA'
+            ? html`<div class="chave-no-painel">${chaveamento(l, { titulo: false })}</div>`
+            : jogos.length
+              ? html`<ul class="placas" aria-label="Jogos do dia">${jogos.map((p) => linhaDePartida(p, { destaque: p.id === daVez?.id }))}</ul>`
+              : ''}
           <section class="quadro-negro tabela-bloco" aria-labelledby="titulo-tabela">
             <h2 id="titulo-tabela">Tabela</h2>
             ${tabelaDeClassificacao(l.tabela, { compacta: true, semLegenda: true })}

@@ -2,7 +2,7 @@
  * Job `resumo` (18h10): fecha a Rodada com os Candidatos a Craque e junta o que o Reels
  * do Resumo da Rodada mostra: placares, tabela, Novos Contratados e Candidatos.
  */
-import type { Posicao, TimeId } from '@liga/shared';
+import { RODADA_DA_FINAL, etapaDa, type Posicao, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA } from './calendario.js';
 import type { DadosDoResumo } from '@liga/renderer';
@@ -14,8 +14,36 @@ export const HORA_DO_RESUMO = 19;
 
 export type { DadosDoResumo } from '@liga/renderer';
 
-/** Candidatos a Craque: as 5 maiores Notas da Rodada entre Jogadores (a Base não concorre). */
+/** Para concorrer a Craque da Temporada é preciso ter jogado pelo menos isso. */
+export const MIN_JOGOS_CRAQUE_DA_TEMPORADA = 3;
+
+async function ehFinal(banco: Banco, rodadaId: number): Promise<{ final: boolean; temporadaId: number }> {
+  const r = (await banco.query<{ fase: 'LIGA' | 'MATA_MATA'; numero: number; temporada_id: number }>(`SELECT fase, numero, temporada_id FROM rodada WHERE id = $1`, [rodadaId])).rows[0]!;
+  return { final: etapaDa(r.fase, r.numero) === 'FINAL', temporadaId: r.temporada_id };
+}
+
+/**
+ * Candidatos a Craque: as 5 maiores Notas da Rodada entre Jogadores (a Base não concorre).
+ * Na Final, os Candidatos são a Craque da Temporada: as 5 maiores notas médias da Temporada
+ * entre quem jogou pelo menos MIN_JOGOS_CRAQUE_DA_TEMPORADA vezes.
+ */
 export async function fecharRodada(banco: Banco, rodadaId: number): Promise<void> {
+  const { final, temporadaId } = await ehFinal(banco, rodadaId);
+  if (final) {
+    await banco.query(
+      `INSERT INTO candidato (rodada_id, jogador_id, nota)
+       SELECT $1, e.jogador_id, round(avg(e.nota), 2)
+       FROM escalacao e JOIN partida p ON p.id = e.partida_id JOIN rodada r ON r.id = p.rodada_id
+       WHERE r.temporada_id = $2 AND e.jogador_id IS NOT NULL AND e.nota IS NOT NULL
+       GROUP BY e.jogador_id
+       HAVING count(*) >= $4
+       ORDER BY avg(e.nota) DESC, count(*) DESC, e.jogador_id
+       LIMIT $3
+       ON CONFLICT DO NOTHING`,
+      [rodadaId, temporadaId, CANDIDATOS_POR_RODADA, MIN_JOGOS_CRAQUE_DA_TEMPORADA],
+    );
+    return;
+  }
   await banco.query(
     `INSERT INTO candidato (rodada_id, jogador_id, nota)
      SELECT $1, e.jogador_id, max(e.nota)
@@ -76,17 +104,22 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
               (SELECT count(*) FROM partida p
                  JOIN escalacao e ON e.partida_id = p.id
                  CROSS JOIN LATERAL jsonb_array_elements(p.lances) l
-                WHERE p.rodada_id = c.rodada_id AND e.jogador_id = j.id AND l->>'tipo' = 'GOL'
+                WHERE (p.rodada_id = c.rodada_id OR ($2 AND p.rodada_id IN (SELECT id FROM rodada WHERE temporada_id = $3)))
+                  AND e.jogador_id = j.id AND l->>'tipo' = 'GOL'
                   AND (l->'finalizador'->>'indice')::int = e.lugar
                   AND ((l->'finalizador'->>'lado') = 'mandante') = (e.time_id = p.mandante_id)) AS gols
        FROM candidato c JOIN jogador j ON j.id = c.jogador_id
        WHERE c.rodada_id = $1 ORDER BY c.nota DESC, j.id`,
-      [rodadaId],
+      [rodadaId, etapaDa(r.fase, r.numero) === 'FINAL', r.temporada_id],
     )
   ).rows.map((c) => ({ username: c.username, time: c.time_id, posicao: c.posicao, nota: Number(c.nota), gols: Number(c.gols) }));
 
   const max = o.maxNovos ?? 12;
+  const final = etapaDa(r.fase, r.numero) === 'FINAL';
+  const campeao = final ? (await banco.query<{ campeao_id: TimeId | null }>(`SELECT campeao_id FROM temporada WHERE id = $1`, [r.temporada_id])).rows[0]?.campeao_id : null;
   return {
+    ...(final ? { votacao: 'TEMPORADA' as const } : {}),
+    ...(campeao ? { campeao } : {}),
     temporada: r.temporada,
     rodada: r.numero,
     fase: r.fase,
@@ -102,11 +135,16 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
 export async function rodadaEmVotacao(b: Banco): Promise<number | null> {
   const r = (
     await b.query<{ id: number }>(
-      `SELECT r.id FROM rodada r
+      `SELECT r.id FROM rodada r JOIN temporada t ON t.id = r.temporada_id
        WHERE EXISTS (SELECT 1 FROM candidato c WHERE c.rodada_id = r.id)
          AND NOT EXISTS (SELECT 1 FROM rodada s JOIN partida p ON p.rodada_id = s.id
                          WHERE s.temporada_id = r.temporada_id AND s.numero = r.numero + 1 AND p.status <> 'PENDENTE')
-       ORDER BY r.numero DESC LIMIT 1`,
+         -- a votação da Final (Craque da Temporada) fecha quando o Craque é decidido
+         AND NOT (r.numero = ${RODADA_DA_FINAL} AND t.craque_jogador_id IS NOT NULL)
+         -- e nenhuma votação passa para a Temporada seguinte
+         AND NOT EXISTS (SELECT 1 FROM temporada n JOIN rodada nr ON nr.temporada_id = n.id JOIN partida np ON np.rodada_id = nr.id
+                         WHERE n.numero > t.numero AND np.status <> 'PENDENTE')
+       ORDER BY r.data DESC, r.numero DESC LIMIT 1`,
     )
   ).rows[0];
   return r?.id ?? null;

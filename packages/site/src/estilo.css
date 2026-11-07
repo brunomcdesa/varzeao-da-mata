@@ -1806,3 +1806,445 @@ input[type='checkbox'] {
     font-size: 0.875rem;
   }
 }
+
+/* ------------------------------------------------------------ chaveamento do mata-mata */
+
+.chave {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr) 20px auto;
+  align-items: center;
+  margin-top: 8px;
+}
+.chave-coluna {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.chave-semis {
+  align-self: stretch;
+  align-content: space-around;
+}
+.jogo {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px 8px;
+  background: var(--placa);
+  color: var(--tinta);
+  text-decoration: none;
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 3px var(--contorno), inset 0 -5px 0 3px var(--placa-sombra);
+}
+a.jogo:hover {
+  background: #f8eed8;
+}
+.jogo.projetado {
+  background: transparent;
+  color: var(--cal);
+  box-shadow: none;
+  outline: 2px dashed rgb(239 232 214 / 0.45);
+  outline-offset: -2px;
+}
+.jogo-titulo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  opacity: 0.7;
+}
+.vaga {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto 1.5rem;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  font-weight: 600;
+}
+.vaga-nome {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vaga.vazia .vaga-nome {
+  font-weight: 400;
+  font-size: 0.8125rem;
+  opacity: 0.7;
+}
+.escudo-vazio {
+  width: 20px;
+  height: 24px;
+  border: 2px dashed currentColor;
+  opacity: 0.4;
+}
+.semente {
+  font-size: 0.75rem;
+  opacity: 0.65;
+}
+.vaga-gols {
+  font: 400 1.5rem/1 var(--display);
+  text-align: right;
+}
+.vaga.vence .vaga-nome::after {
+  content: ' ▸';
+  color: var(--madeira-escura);
+}
+.vaga.perde {
+  opacity: 0.45;
+}
+.jogo-rodape {
+  font-size: 0.75rem;
+  opacity: 0.75;
+  min-height: 1em;
+}
+.chave-ligacao {
+  align-self: stretch;
+  display: grid;
+  grid-template-rows: 1fr 1fr 1fr 1fr;
+  position: relative;
+}
+.chave-ligacao span:nth-child(1) {
+  grid-row: 2;
+  width: 50%;
+  border-top: 3px solid var(--placa-sombra);
+  border-right: 3px solid var(--placa-sombra);
+}
+.chave-ligacao span:nth-child(2) {
+  grid-row: 3;
+  width: 50%;
+  border-bottom: 3px solid var(--placa-sombra);
+  border-right: 3px solid var(--placa-sombra);
+}
+.chave-ligacao::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  right: 0;
+  top: calc(50% - 1.5px);
+  border-top: 3px solid var(--placa-sombra);
+}
+.chave-ligacao-final {
+  grid-template-rows: 1fr;
+}
+.chave-ligacao-final span:nth-child(1) {
+  display: none;
+}
+.chave-ligacao-final::after {
+  left: 0;
+}
+.trofeu-vaga {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 8px 4px;
+  min-width: 86px;
+  text-align: center;
+}
+.trofeu-vaga a {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  text-decoration: none;
+  font: 400 1.25rem/1 var(--display);
+}
+.trofeu-espera {
+  font-size: 0.75rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+.trofeu {
+  color: var(--amarelo);
+  filter: drop-shadow(2px 2px 0 var(--contorno));
+}
+.trofeu-vaga:not(.tem-campeao) .trofeu {
+  color: rgb(239 232 214 / 0.3);
+}
+.chave-bloco {
+  margin-top: 8px;
+}
+.chave-no-painel .chave {
+  margin-top: 0;
+}
+@media (max-width: 640px) {
+  .chave {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: 'semis semis' 'final final' 'campeao campeao';
+    gap: 14px;
+  }
+  .chave-semis {
+    grid-area: semis;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+  }
+  .chave-final {
+    grid-area: final;
+    width: min(100%, 260px);
+    justify-self: center;
+  }
+  .chave-campeao {
+    grid-area: campeao;
+    justify-self: center;
+  }
+  .chave-ligacao {
+    display: none;
+  }
+  .vaga {
+    grid-template-columns: 20px minmax(0, 1fr) 1.25rem;
+    gap: 6px;
+  }
+  .vaga .semente {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------ troféus e história */
+
+.taca {
+  display: inline-block;
+  vertical-align: middle;
+}
+.trofeu {
+  color: var(--amarelo);
+  filter: drop-shadow(2px 2px 0 var(--contorno));
+}
+/* Estrela em pixel para os prêmios individuais. */
+.estrela {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  background: var(--amarelo);
+  clip-path: polygon(50% 0, 62% 36%, 100% 36%, 69% 58%, 81% 100%, 50% 74%, 19% 100%, 31% 58%, 0 36%, 38% 36%);
+}
+.sala-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.sala-item {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-areas: 'icone nome' 'icone quando';
+  align-items: center;
+  gap: 2px 12px;
+  padding: 10px 14px;
+  background: var(--mata-media);
+  clip-path: var(--canto);
+}
+.sala-campeao,
+.sala-craque_temporada {
+  background: #3a3112;
+  box-shadow: inset 0 0 0 2px #6b5615;
+}
+.sala-icone {
+  grid-area: icone;
+  display: grid;
+  place-items: center;
+}
+.sala-nome {
+  grid-area: nome;
+  font-weight: 600;
+}
+.sala-nome b {
+  font: 400 1.5rem/1 var(--display);
+  color: var(--amarelo);
+  margin-left: 8px;
+}
+.sala-quando {
+  grid-area: quando;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 0.8125rem;
+  color: var(--cal-fraca);
+}
+.sala-quando a {
+  color: var(--cal);
+}
+.sala-craque_rodada .estrela,
+.sala-rei_do_classico .estrela {
+  background: var(--cal-fraca);
+}
+.numeros-cabeca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.alternar {
+  display: flex;
+}
+.alternar button {
+  font: 600 0.875rem var(--texto);
+  background: var(--mata-media);
+  color: var(--cal);
+  border: 2px solid var(--contorno);
+  padding: 6px 10px 4px;
+  cursor: pointer;
+}
+.alternar button + button {
+  border-left: 0;
+}
+.alternar button[aria-pressed='true'] {
+  background: var(--placa);
+  color: var(--tinta);
+}
+.hist-etapa small {
+  margin-left: 6px;
+  color: var(--cal-fraca);
+  font-weight: 400;
+}
+.titulos-time {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+.titulos-time span {
+  margin-left: 6px;
+}
+.cartaz-time .tacas {
+  display: flex;
+  gap: 2px;
+}
+
+.galeria-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.galeria-lista a {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: 'escudo nome' 'escudo tacas' 'escudo quando';
+  align-items: center;
+  gap: 2px 12px;
+  padding: 12px 14px;
+  text-decoration: none;
+  background: var(--placa);
+  color: var(--tinta);
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 3px var(--contorno), inset 0 -5px 0 3px var(--placa-sombra);
+}
+.galeria-lista img {
+  grid-area: escudo;
+}
+.galeria-nome {
+  grid-area: nome;
+  font: 400 1.5rem/1 var(--display);
+}
+.galeria-tacas {
+  grid-area: tacas;
+  display: flex;
+  gap: 3px;
+}
+.galeria-lista small {
+  grid-area: quando;
+  color: var(--tinta-fraca);
+}
+.temporadas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+}
+.temporada {
+  display: grid;
+  gap: 14px 24px;
+  padding: 18px;
+  background: var(--madeira-veio), var(--madeira);
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 4px var(--contorno), inset 0 -8px 0 4px var(--madeira-escura);
+}
+@media (min-width: 760px) {
+  .temporada {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .temporada-tabela {
+    grid-column: 1 / -1;
+  }
+}
+.temporada-campeao {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 14px 10px;
+  text-align: center;
+  background: rgb(0 0 0 / 0.24);
+  box-shadow: inset 0 0 0 3px var(--contorno);
+  clip-path: var(--canto);
+}
+.temporada-numero {
+  margin: 0;
+  font: 400 1.75rem/1 var(--display);
+  color: var(--amarelo);
+  text-shadow: 2px 2px 0 var(--contorno);
+}
+.temporada-andamento {
+  margin: 0;
+  font-weight: 600;
+}
+.temporada-data {
+  margin: 0;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+.temporada .campeao-time img {
+  width: 60px;
+}
+.temporada-fatos {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  align-content: center;
+}
+.temporada-fatos div {
+  padding: 10px 12px 8px;
+  background: var(--placa);
+  color: var(--tinta);
+  clip-path: var(--canto);
+  box-shadow: inset 0 -4px 0 var(--placa-sombra);
+}
+.temporada-fatos dt {
+  font-size: 0.75rem;
+  color: var(--tinta-fraca);
+}
+.temporada-fatos dd {
+  margin: 2px 0 0;
+  display: grid;
+  font-weight: 600;
+}
+.temporada-fatos dd small {
+  font-weight: 400;
+  color: var(--tinta-fraca);
+}
+.temporada-fatos a {
+  color: var(--tinta);
+}
+.temporada-fatos .espera {
+  font-weight: 400;
+  color: var(--tinta-fraca);
+}
+.fato-jogador {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.temporada-tabela summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.temporada-tabela .quadro-negro {
+  margin: 12px 3px 3px;
+}
+@media (max-width: 420px) {
+  .menu a {
+    padding: 6px 6px 4px;
+    font-size: 0.8125rem;
+  }
+}

@@ -1,7 +1,7 @@
 /**
  * Ensaio geral: uma Temporada inteira com os jobs de verdade e um relógio acelerado.
  *
- *   pnpm simular [--inicio 2026-10-26] [--seguidores 150] [--seed 7] [--ate 2026-10-30T20:00:00Z]
+ *   pnpm simular [--temporadas 2] [--inicio 2026-10-26] [--seguidores 150] [--seed 7] [--ate 2026-10-30T20:00:00Z]
  *
  * Seguidores fictícios comentam ENTRO (com apelidos, erros e comentários que não valem),
  * votam no Craque depois de cada Resumo e chegam aos poucos ao longo dos dias. O relógio
@@ -35,7 +35,7 @@ import { bancoLocal } from './banco-local.js';
 
 const raizRepo = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const { values: args } = parseArgs({
-  options: { inicio: { type: 'string' }, seguidores: { type: 'string' }, seed: { type: 'string' }, ate: { type: 'string' } },
+  options: { temporadas: { type: 'string' }, inicio: { type: 'string' }, seguidores: { type: 'string' }, seed: { type: 'string' }, ate: { type: 'string' } },
 });
 
 const H = 3600_000;
@@ -52,7 +52,12 @@ const em = (dia: string, hora: number) => {
 
 // Por padrão a Temporada acaba ontem, para o site mostrar tudo encerrado no relógio de hoje.
 const hoje = new Date(Date.now() + FUSO * H).toISOString().slice(0, 10);
-const inicio = args.inicio ?? somarDias(hoje, -10);
+// Cada Temporada: 7 Rodadas + Semifinais + Final + o anúncio do Craque, e 2 dias de folga.
+const DIAS_POR_TEMPORADA = 12;
+const nTemporadas = Math.max(1, Number(args.temporadas ?? 2));
+const inicio = args.inicio ?? somarDias(hoje, -(DIAS_POR_TEMPORADA * (nTemporadas - 1) + 11));
+/** Índice do dia (0 = dois dias antes da estreia) em que a Temporada k começa. */
+const estreiaDa = (k: number) => 2 + k * DIAS_POR_TEMPORADA;
 const totalSeguidores = Number(args.seguidores ?? 150);
 const ate = args.ate ? new Date(args.ate) : null;
 
@@ -114,7 +119,11 @@ const seguidores: Seguidor[] = Array.from({ length: totalSeguidores }, (_, i) =>
   while (usados.has(username) || username.length < 3);
   usados.add(username);
   // 55% antes da estreia; o resto chega aos poucos, cada vez menos.
-  const chegada = chance(0.55) ? Math.floor(rnd() * 2) : 2 + Math.floor(-Math.log(1 - rnd() * 0.97) * 2.5);
+  // 55% antes da estreia; o resto chega aos poucos; numa liga com várias Temporadas, uma
+  // nova leva chega antes de cada estreia.
+  const leva = nTemporadas > 1 && chance(0.25) ? 1 + Math.floor(rnd() * (nTemporadas - 1)) : 0;
+  const base = leva ? estreiaDa(leva) - 2 : 0;
+  const chegada = base + (chance(0.55) ? Math.floor(rnd() * 2) : 2 + Math.floor(-Math.log(1 - rnd() * 0.97) * 2.5));
   return { igUserId: `sim-${i}`, username, chegada, hora: 8 + rnd() * 15, vota: rnd() * 0.8 };
 });
 
@@ -192,7 +201,6 @@ function quando(d: Date): string {
   return `${b.toISOString().slice(8, 10)}/${b.toISOString().slice(5, 7)} ${b.toISOString().slice(11, 16)}`;
 }
 
-await criarTemporada(banco, { numero: 1, primeiraRodada: inicio, seed: Number(args.seed ?? 7) });
 // Post de lançamento, dois dias antes da estreia: onde chegam as primeiras inscrições.
 posts.push({ id: 'post-lancamento', publicadoEm: em(somarDias(inicio, -2), 8), comentarios: [] });
 
@@ -247,10 +255,17 @@ function agendarEntrosDoDia(d: number): void {
 
 // ------------------------------------------------------------------ o relógio
 
-const ULTIMO_DIA = 2 + 9; // 2 dias de pré-temporada + 7 Rodadas + Semifinais + Final
+const ULTIMO_DIA = estreiaDa(nTemporadas - 1) + 9; // a última Temporada até o anúncio do Craque
 const inicioDoRelogio = Date.now();
 for (let d = 0; d < ULTIMO_DIA + 1; d++) {
   const dia = somarDias(inicio, d - 2);
+  // Cada Temporada é criada dois dias antes da estreia (o calendário já aparece no site).
+  for (let k = 0; k < nTemporadas; k++) {
+    if (d === estreiaDa(k) - 2) {
+      await criarTemporada(banco, { numero: k + 1, primeiraRodada: somarDias(inicio, estreiaDa(k) - 2), seed: Number(args.seed ?? 7) + k });
+      if (k > 0) posts.push({ id: `post-temporada-${k + 1}`, publicadoEm: em(dia, 8), comentarios: [] });
+    }
+  }
   agendarEntrosDoDia(d);
   const eventos: [number, () => Promise<unknown>][] = [];
   for (let h = 8; h <= 23; h++) eventos.push([h + 17 / 60, () => jobColetar(ctx)]);
@@ -274,12 +289,17 @@ process.stdout.write('\n');
 
 await cp(join(pasta, 'nuvem/publico/dados'), join(raizRepo, 'packages/site/public/dados'), { recursive: true, force: true });
 
-const t1 = (await banco.query<{ id: number }>(`SELECT id FROM temporada WHERE numero = 1`)).rows[0]!.id;
+const t1 = (await banco.query<{ id: number }>(`SELECT id FROM temporada ORDER BY numero DESC LIMIT 1`)).rows[0]!.id;
+const historico = (
+  await banco.query<{ numero: number; campeao_id: TimeId | null; username: string | null }>(
+    `SELECT t.numero, t.campeao_id, j.username FROM temporada t LEFT JOIN jogador j ON j.id = t.craque_jogador_id ORDER BY t.numero`,
+  )
+).rows;
 const t = await tabela(banco, t1);
 const camp = await campeao(banco, t1);
 const n = async (sql: string) => Number((await banco.query<{ n: string }>(sql)).rows[0]!.n);
 const resumo = [
-  `# Ensaio da Temporada 1`,
+  `# Ensaio da Liga`,
   '',
   `${quando(em(somarDias(inicio, -2), 8))} a ${quando(agora)} (horário de Brasília)`,
   '',
@@ -287,9 +307,10 @@ const resumo = [
   `- Comentários lidos: ${await n(`SELECT count(*) AS n FROM comando`)}; votos válidos: ${await n(`SELECT count(*) AS n FROM voto`)}`,
   `- Partidas jogadas: ${await n(`SELECT count(*) AS n FROM partida WHERE resultado IS NOT NULL`)}; Reels publicados: ${await n(`SELECT count(*) AS n FROM partida WHERE status = 'PUBLICADA'`)}; Resumos: ${await n(`SELECT count(*) AS n FROM rodada WHERE resumo_status = 'PUBLICADO'`)}`,
   `- Vagas completadas pela Base: ${await n(`SELECT count(*) AS n FROM escalacao WHERE jogador_id IS NULL`)} de ${await n(`SELECT count(*) AS n FROM escalacao`)}`,
-  camp ? `- **Campeão: ${FALA_DO_TIME[camp].curto}**` : '- Temporada ainda em andamento',
+  ...historico.map((h) => `- Temporada ${h.numero}: campeão ${h.campeao_id ? FALA_DO_TIME[h.campeao_id].curto : '(em andamento)'}; Craque da Temporada ${h.username ? `@${h.username}` : '(ainda não)'}`),
+  camp ? '' : '- Temporada atual ainda em andamento',
   '',
-  '## Tabela da Fase de Liga',
+  '## Tabela da Fase de Liga (última Temporada)',
   '',
   '| # | Time | P | V | E | D | SG |',
   '|---|---|---|---|---|---|---|',

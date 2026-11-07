@@ -51,6 +51,8 @@ export interface RodadaPublica {
   fase: 'LIGA' | 'MATA_MATA';
   data: string;
   candidatos: { jogadorId: string; username: string; time: TimeId; posicao: Posicao; nota: number }[];
+  /** RODADA: Craque da Rodada. TEMPORADA: na Final, os Candidatos são a Craque da Temporada (nota = média). */
+  votacao: 'RODADA' | 'TEMPORADA';
   /** Definido quando a votação fecha. */
   craque: { jogadorId: string; username: string; time: TimeId } | null;
 }
@@ -64,6 +66,57 @@ export interface LigaPublica {
   rodadas: RodadaPublica[];
   /** Só depois que o Ao Vivo da Final termina. */
   campeao: TimeId | null;
+  /** Craque da Temporada atual, depois do anúncio (dia seguinte à Final, 19h). */
+  craqueDaTemporada: JogadorResumido | null;
+  /** Todas as Temporadas, da mais recente para a mais antiga. */
+  temporadas: TemporadaNaHistoria[];
+}
+
+export interface JogadorResumido {
+  jogadorId: string;
+  username: string;
+  time: TimeId;
+  posicao: Posicao;
+}
+
+export interface TemporadaNaHistoria {
+  numero: number;
+  status: string;
+  inicio: string;
+  /** Só com a Final encerrada. */
+  campeao: TimeId | null;
+  vice: TimeId | null;
+  final: { partidaId: number; mandante: TimeId; visitante: TimeId; placar: { mandante: number; visitante: number; penaltis?: { mandante: number; visitante: number } } } | null;
+  craque: JogadorResumido | null;
+  artilheiro: (JogadorResumido & { gols: number }) | null;
+  /** Tabela da Fase de Liga (parcial enquanto a Temporada corre). */
+  tabela: LinhaTabelaPublica[];
+}
+
+export interface Estatisticas {
+  jogos: number;
+  gols: number;
+  assistencias: number;
+  desarmes: number;
+  defesas: number;
+  golsSofridos: number;
+  notaMedia: number | null;
+  melhorNota: number | null;
+  vitorias: number;
+  empates: number;
+  derrotas: number;
+}
+
+export type TipoTrofeu = 'CAMPEAO' | 'CRAQUE_TEMPORADA' | 'CRAQUE_RODADA' | 'REI_DO_CLASSICO';
+
+export interface Trofeu {
+  tipo: TipoTrofeu;
+  temporada: number;
+  /** Craque da Rodada: a Rodada (8 = Semifinais). Rei do Clássico: a Rodada do jogo. */
+  rodada?: number;
+  fase?: 'LIGA' | 'MATA_MATA';
+  time: TimeId;
+  partidaId?: number;
 }
 
 export interface JogadorPublico {
@@ -75,6 +128,7 @@ export interface JogadorPublico {
   ovr: number;
   ovrInicial: number;
   inscritoEm: string;
+  /** Números da carreira (todas as Temporadas); `nestaTemporada` só a atual. */
   jogos: number;
   gols: number;
   assistencias: number;
@@ -88,9 +142,14 @@ export interface JogadorPublico {
   derrotas: number;
   vezesCandidato: number;
   craqueDaRodada: number;
+  craqueDaTemporada: number;
+  titulos: number;
   reiDoClassico: number;
-  /** OVR depois de cada Partida já revelada, em ordem. */
-  historico: { partidaId: number; rodada: number; nota: number; ovr: number; gols: number }[];
+  temporadas: number;
+  nestaTemporada: Estatisticas;
+  trofeus: Trofeu[];
+  /** OVR depois de cada Partida já revelada, em ordem (todas as Temporadas). */
+  historico: { partidaId: number; temporada: number; rodada: number; fase: 'LIGA' | 'MATA_MATA'; nota: number; ovr: number; gols: number; rival: TimeId; emCasa: boolean; pro: number; contra: number }[];
 }
 
 export interface EscalacaoPublica {

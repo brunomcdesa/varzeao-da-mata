@@ -1,10 +1,10 @@
 /** Jogadores: busca e ranking, o Card de cada um e a comparação lado a lado. */
-import { IDENTIDADE, TIMES, nomeDaEtapa, type JogadorPublico, type Posicao, type TimeId } from '@liga/shared';
+import { IDENTIDADE, TIMES, nomeDaEtapa, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId } from '@liga/shared';
 import { jogadores, liga } from '../dados.js';
-import { bonecoImg, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, tintaSobre, type Html } from '../ui.js';
+import { bonecoImg, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html } from '../ui.js';
 import type { Pagina } from './tipos.js';
 
-type Criterio = 'ovr' | 'gols' | 'assistencias' | 'notaMedia' | 'jogos' | 'desarmes' | 'defesas';
+type Criterio = 'ovr' | 'gols' | 'assistencias' | 'notaMedia' | 'jogos' | 'desarmes' | 'defesas' | 'titulos' | 'craqueDaRodada' | 'craqueDaTemporada';
 const CRITERIOS: Record<Criterio, string> = {
   ovr: 'OVR',
   gols: 'Gols',
@@ -13,10 +13,20 @@ const CRITERIOS: Record<Criterio, string> = {
   jogos: 'Jogos',
   desarmes: 'Desarmes',
   defesas: 'Defesas',
+  titulos: 'Títulos',
+  craqueDaRodada: 'Craque da Rodada',
+  craqueDaTemporada: 'Craque da Temporada',
 };
+type Periodo = 'temporada' | 'carreira';
+const DA_TEMPORADA = new Set<Criterio>(['gols', 'assistencias', 'notaMedia', 'jogos', 'desarmes', 'defesas']);
+/** Números de estatística seguem o período; OVR e conquistas são sempre da carreira. */
+function valor(j: JogadorPublico, c: Criterio, p: Periodo): number | null {
+  if (DA_TEMPORADA.has(c) && p === 'temporada') return j.nestaTemporada[c as keyof Estatisticas] as number | null;
+  return j[c] as number | null;
+}
 
 /** Filtros guardados só nesta aba, para voltar do Card sem perder a busca. */
-const filtros = { busca: '', time: '' as TimeId | '', posicao: '' as Posicao | '', criterio: 'ovr' as Criterio, marcados: [] as string[] };
+const filtros = { busca: '', time: '' as TimeId | '', posicao: '' as Posicao | '', criterio: 'ovr' as Criterio, periodo: 'temporada' as Periodo, marcados: [] as string[] };
 
 export const paginaJogadores: Pagina = async (main) => {
   const todos = await jogadores();
@@ -25,11 +35,12 @@ export const paginaJogadores: Pagina = async (main) => {
       <label class="busca"><span class="sr">Buscar pelo @</span><input type="search" name="busca" placeholder="Buscar @" autocomplete="off" value="${filtros.busca}" /></label>
       <label><span>Time</span><select name="time"><option value="">Todos</option>${TIMES.map((t) => html`<option value="${t}" ${filtros.time === t ? 'selected' : ''}>${curto(t)}</option>`)}</select></label>
       <label><span>Posição</span><select name="posicao"><option value="">Todas</option>${POSICOES_EM_ORDEM.map((p) => html`<option value="${p}" ${filtros.posicao === p ? 'selected' : ''}>${NOME_DA_POSICAO[p]}</option>`)}</select></label>
+      <label><span>Período</span><select name="periodo"><option value="temporada" ${filtros.periodo === 'temporada' ? 'selected' : ''}>Esta Temporada</option><option value="carreira" ${filtros.periodo === 'carreira' ? 'selected' : ''}>Carreira</option></select></label>
       <label><span>Ordenar por</span><select name="criterio">${(Object.keys(CRITERIOS) as Criterio[]).map((c) => html`<option value="${c}" ${filtros.criterio === c ? 'selected' : ''}>${CRITERIOS[c]}</option>`)}</select></label>
     </form>
     <p class="legenda">Marque dois Jogadores para comparar.</p>
     <div class="ranking-caixa"><table class="ranking">
-      <thead><tr><th scope="col"><span class="sr">Comparar</span></th><th scope="col" class="num">#</th><th scope="col">Jogador</th><th scope="col" title="OVR">OVR</th><th scope="col" title="Jogos">J</th><th scope="col" title="Gols">G</th><th scope="col" title="Assistências">A</th><th scope="col" title="Nota média">Nota</th></tr></thead>
+      <thead><tr><th scope="col"><span class="sr">Comparar</span></th><th scope="col" class="num">#</th><th scope="col">Jogador</th><th scope="col" title="OVR">OVR</th><th scope="col" title="Jogos">J</th><th scope="col" title="Gols">G</th><th scope="col" title="Assistências">A</th><th scope="col" title="Nota média">Nota</th><th scope="col" class="extra-col" data-extra></th></tr></thead>
       <tbody></tbody>
     </table></div>
     <p class="vazio-pequeno" hidden data-nada>Ninguém com esse filtro.</p>
@@ -45,8 +56,11 @@ export const paginaJogadores: Pagina = async (main) => {
     const c = filtros.criterio;
     const lista = todos
       .filter((j) => (!termo || j.username.toLowerCase().includes(termo)) && (!filtros.time || j.time === filtros.time) && (!filtros.posicao || j.posicao === filtros.posicao))
-      .sort((a, b) => (b[c] ?? -1) - (a[c] ?? -1) || b.ovr - a.ovr || a.username.localeCompare(b.username));
+      .sort((a, b) => (valor(b, c, filtros.periodo) ?? -1) - (valor(a, c, filtros.periodo) ?? -1) || b.ovr - a.ovr || a.username.localeCompare(b.username));
+    const e = (j: JogadorPublico) => (filtros.periodo === 'temporada' ? j.nestaTemporada : j);
     nada.hidden = lista.length > 0;
+    const extra = main.querySelector<HTMLElement>('[data-extra]')!;
+    extra.textContent = ['ovr', 'jogos', 'gols', 'assistencias', 'notaMedia'].includes(c) ? '' : CRITERIOS[c];
     corpo.innerHTML = lista
       .slice(0, 300)
       .map(
@@ -55,10 +69,11 @@ export const paginaJogadores: Pagina = async (main) => {
           <td class="num">${i + 1}</td>
           <th scope="row"><a class="jogador-celula" href="#/jogador/${j.id}">${bonecoImg(j.time, j.posicao, j.username, 2)}<span><span class="arroba">@${j.username}</span><small>${escudoImg(j.time, 0.75)} ${curto(j.time)} · ${j.posicao}</small></span></a></th>
           <td class="ovr ${c === 'ovr' ? 'ordem' : ''}">${j.ovr}</td>
-          <td class="${c === 'jogos' ? 'ordem' : ''}">${j.jogos}</td>
-          <td class="${c === 'gols' ? 'ordem' : ''}">${j.gols}</td>
-          <td class="${c === 'assistencias' ? 'ordem' : ''}">${j.assistencias}</td>
-          <td class="${c === 'notaMedia' ? 'ordem' : ''}">${nota(j.notaMedia)}</td>
+          <td class="${c === 'jogos' ? 'ordem' : ''}">${e(j).jogos}</td>
+          <td class="${c === 'gols' ? 'ordem' : ''}">${e(j).gols}</td>
+          <td class="${c === 'assistencias' ? 'ordem' : ''}">${e(j).assistencias}</td>
+          <td class="${c === 'notaMedia' ? 'ordem' : ''}">${nota(e(j).notaMedia)}</td>
+          ${!['ovr', 'jogos', 'gols', 'assistencias', 'notaMedia'].includes(c) ? html`<td class="ordem extra-col">${valor(j, c, filtros.periodo) ?? '–'}</td>` : html`<td class="extra-col"></td>`}
         </tr>`.s,
       )
       .join('');
@@ -78,6 +93,7 @@ export const paginaJogadores: Pagina = async (main) => {
     filtros.time = String(d.get('time') ?? '') as TimeId | '';
     filtros.posicao = String(d.get('posicao') ?? '') as Posicao | '';
     filtros.criterio = String(d.get('criterio') ?? 'ovr') as Criterio;
+    filtros.periodo = String(d.get('periodo') ?? 'temporada') as Periodo;
     desenhar();
   });
   corpo.addEventListener('change', (e) => {
@@ -91,6 +107,42 @@ export const paginaJogadores: Pagina = async (main) => {
 };
 
 // ---------------------------------------------------------------- Card
+
+/** Conquistas da carreira, da mais rara para a mais comum. */
+function medalhas(j: JogadorPublico): [string, number][] {
+  const lista: [string, number][] = [
+    ['Campeão', j.titulos],
+    ['Craque da Temporada', j.craqueDaTemporada],
+    ['Craque da Rodada', j.craqueDaRodada],
+    ['Rei do Clássico', j.reiDoClassico],
+  ];
+  return lista.filter(([, n]) => n > 0);
+}
+
+const NOME_DO_TROFEU: Record<TipoTrofeu, string> = {
+  CAMPEAO: 'Campeão',
+  CRAQUE_TEMPORADA: 'Craque da Temporada',
+  CRAQUE_RODADA: 'Craque da Rodada',
+  REI_DO_CLASSICO: 'Rei do Clássico',
+};
+
+function salaDeTrofeus(j: JogadorPublico): Html {
+  if (!j.trofeus.length) return html``;
+  const tipos = (['CAMPEAO', 'CRAQUE_TEMPORADA', 'CRAQUE_RODADA', 'REI_DO_CLASSICO'] as TipoTrofeu[]).filter((t) => j.trofeus.some((x) => x.tipo === t));
+  const quando = (t: Trofeu) =>
+    t.tipo === 'CAMPEAO' || t.tipo === 'CRAQUE_TEMPORADA' ? `Temporada ${t.temporada}` : `${t.rodada && t.fase ? nomeDaEtapa(t.fase, t.rodada) : ''}, T${t.temporada}`;
+  return html`<section class="sala" aria-labelledby="titulo-sala">
+    <h2 id="titulo-sala" class="secao">Sala de troféus</h2>
+    <ul class="sala-lista">${tipos.map((tipo) => {
+      const deste = j.trofeus.filter((t) => t.tipo === tipo);
+      return html`<li class="sala-item sala-${tipo.toLowerCase()}">
+        <span class="sala-icone">${tipo === 'CAMPEAO' ? taca(30, 'trofeu') : html`<span class="estrela" aria-hidden="true"></span>`}</span>
+        <span class="sala-nome">${NOME_DO_TROFEU[tipo]}<b>${deste.length}</b></span>
+        <span class="sala-quando">${deste.map((t) => (t.partidaId ? html`<a href="#/partida/${t.partidaId}">${quando(t)}</a>` : html`<span>${quando(t)}</span>`))}</span>
+      </li>`;
+    })}</ul>
+  </section>`;
+}
 
 export function card(j: JogadorPublico, o: { pequeno?: boolean } = {}): Html {
   const id = IDENTIDADE[j.time];
@@ -110,11 +162,7 @@ export function card(j: JogadorPublico, o: { pequeno?: boolean } = {}): Html {
       <div><dt>Nota</dt><dd>${nota(j.notaMedia)}</dd></div>
     </dl>
     ${delta ? html`<p class="card-delta ${delta > 0 ? 'sobe' : 'desce'}">${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)} desde a estreia</p>` : ''}
-    ${j.craqueDaRodada || j.reiDoClassico
-      ? html`<p class="card-titulos">${j.craqueDaRodada ? html`<span class="titulo">Craque da Rodada${j.craqueDaRodada > 1 ? ` ×${j.craqueDaRodada}` : ''}</span>` : ''}${
-          j.reiDoClassico ? html`<span class="titulo">Rei do Clássico${j.reiDoClassico > 1 ? ` ×${j.reiDoClassico}` : ''}</span>` : ''
-        }</p>`
-      : ''}
+    ${medalhas(j).length ? html`<p class="card-titulos">${medalhas(j).map(([rotulo, n]) => html`<span class="titulo">${rotulo}${n > 1 ? ` ×${n}` : ''}</span>`)}</p>` : ''}
   </div>`;
 }
 
@@ -159,16 +207,20 @@ export const paginaJogador: Pagina = async (main, [id]) => {
     <div class="jogador-detalhes">
       <h1 class="sr">@${j.username}</h1>
       <p class="ranking-frase">${rankOvr}º maior OVR da Liga · ${rankPos}º entre ${daPosicao.length} ${NOME_DA_POSICAO[j.posicao].toLowerCase()}s</p>
-      <dl class="numeros-grade">
-        <div><dt>Gols</dt><dd>${j.gols}</dd></div>
-        <div><dt>Assistências</dt><dd>${j.assistencias}</dd></div>
-        <div><dt>Desarmes</dt><dd>${j.desarmes}</dd></div>
-        ${j.posicao === 'GOL' ? html`<div><dt>Defesas</dt><dd>${j.defesas}<small>${j.golsSofridos} gols sofridos</small></dd></div>` : html`<div><dt>Defesas</dt><dd>${j.defesas}</dd></div>`}
-        <div><dt>Vitórias</dt><dd>${j.vitorias}<small>${j.empates}E ${j.derrotas}D</small></dd></div>
-        <div><dt>Nota média</dt><dd>${nota(j.notaMedia)}</dd></div>
-        <div><dt>Melhor nota</dt><dd>${nota(j.melhorNota)}</dd></div>
-        <div><dt>Candidato a Craque</dt><dd>${j.vezesCandidato}</dd></div>
-      </dl>
+      ${salaDeTrofeus(j)}
+      <section aria-labelledby="titulo-numeros">
+        <div class="numeros-cabeca">
+          <h2 id="titulo-numeros" class="secao">Números</h2>
+          ${j.temporadas > 1 || (l.temporada && j.nestaTemporada.jogos !== j.jogos)
+            ? html`<div class="alternar" role="group" aria-label="Período">
+                <button type="button" data-periodo="temporada" aria-pressed="true">Temporada ${l.temporada?.numero ?? ''}</button>
+                <button type="button" data-periodo="carreira" aria-pressed="false">Carreira${j.temporadas > 1 ? ` (${j.temporadas} temporadas)` : ''}</button>
+              </div>`
+            : ''}
+        </div>
+        <div data-numeros="temporada">${numeros(j.nestaTemporada, j)}</div>
+        <div data-numeros="carreira" hidden>${numeros(j, j)}</div>
+      </section>
       <section aria-labelledby="titulo-ovr"><h2 id="titulo-ovr" class="secao">OVR jogo a jogo</h2>
         ${j.historico.length ? graficoOvr([{ j, cor: 'var(--amarelo)' }]) : html`<p class="vazio-pequeno">Ainda não estreou. O OVR muda depois de cada jogo, conforme a Nota.</p>`}
       </section>
@@ -176,17 +228,11 @@ export const paginaJogador: Pagina = async (main, [id]) => {
         ? html`<section aria-labelledby="titulo-hist"><h2 id="titulo-hist" class="secao">Jogos</h2>
             <ol class="historico">${[...j.historico].reverse().map(
               (h) => {
-                const p = l.calendario.find((x) => x.id === h.partidaId);
-                const casa = p?.mandante === j.time;
-                const rival = p ? (casa ? p.visitante : p.mandante) : null;
-                const meus = p?.placar ? (casa ? p.placar.mandante : p.placar.visitante) : null;
-                const deles = p?.placar ? (casa ? p.placar.visitante : p.placar.mandante) : null;
-                const res = meus === null || deles === null ? '' : meus > deles ? 'v' : meus < deles ? 'd' : 'e';
+                const res = h.pro > h.contra ? 'v' : h.pro < h.contra ? 'd' : 'e';
                 return html`<li><a href="#/partida/${h.partidaId}">
-                  <span class="hist-etapa">${p ? nomeDaEtapa(p.fase, p.rodada) : `Rodada ${h.rodada}`}</span>
-                  <span class="hist-jogo">${rival ? html`${casa ? 'em casa, contra' : 'fora, contra'} ${escudoImg(rival, 0.75)} ${curto(rival)}` : ''}${
-                    meus !== null ? html` <span class="hist-placar res-${res}">${meus}×${deles}</span>` : ''
-                  }</span>
+                  <span class="hist-etapa">${nomeDaEtapa(h.fase, h.rodada)}${j.temporadas > 1 ? html`<small>T${h.temporada}</small>` : ''}</span>
+                  <span class="hist-jogo">${h.emCasa ? 'em casa, contra' : 'fora, contra'} ${escudoImg(h.rival, 0.75)} ${curto(h.rival)}
+                    <span class="hist-placar res-${res}">${h.pro}×${h.contra}</span></span>
                   <span class="hist-gols" title="Gols">${h.gols ? '●'.repeat(h.gols) : ''}</span>
                   <span class="nota-chip" title="Nota">${nota(h.nota)}</span>
                   <span class="ovr" title="OVR depois do jogo">${h.ovr}</span>
@@ -201,11 +247,30 @@ export const paginaJogador: Pagina = async (main, [id]) => {
       </form>
     </div>
   </article>`.s;
+  for (const b of main.querySelectorAll<HTMLButtonElement>('[data-periodo]')) {
+    b.addEventListener('click', () => {
+      for (const x of main.querySelectorAll<HTMLButtonElement>('[data-periodo]')) x.setAttribute('aria-pressed', String(x === b));
+      for (const d of main.querySelectorAll<HTMLElement>('[data-numeros]')) d.hidden = d.dataset.numeros !== b.dataset.periodo;
+    });
+  }
   main.querySelector<HTMLSelectElement>('select[name="outro"]')!.addEventListener('change', (e) => {
     const v = (e.target as HTMLSelectElement).value;
     if (v) location.hash = `#/comparar/${j.id}/${v}`;
   });
 };
+
+function numeros(e: Estatisticas, j: JogadorPublico): Html {
+  return html`<dl class="numeros-grade">
+    <div><dt>Jogos</dt><dd>${e.jogos}</dd></div>
+    <div><dt>Gols</dt><dd>${e.gols}</dd></div>
+    <div><dt>Assistências</dt><dd>${e.assistencias}</dd></div>
+    ${j.posicao === 'GOL' ? html`<div><dt>Defesas</dt><dd>${e.defesas}<small>${e.golsSofridos} sofridos</small></dd></div>` : html`<div><dt>Desarmes</dt><dd>${e.desarmes}</dd></div>`}
+    <div><dt>Vitórias</dt><dd>${e.vitorias}<small>${e.empates}E ${e.derrotas}D</small></dd></div>
+    <div><dt>Nota média</dt><dd>${nota(e.notaMedia)}</dd></div>
+    <div><dt>Melhor nota</dt><dd>${nota(e.melhorNota)}</dd></div>
+    <div><dt>${j.posicao === 'GOL' ? 'Desarmes' : 'Defesas'}</dt><dd>${j.posicao === 'GOL' ? e.desarmes : e.defesas}</dd></div>
+  </dl>`;
+}
 
 // ---------------------------------------------------------------- Comparar
 
@@ -219,6 +284,8 @@ const LINHAS: { rotulo: string; v: (j: JogadorPublico) => number | null; fmt?: (
   { rotulo: 'Nota média', v: (j) => j.notaMedia, fmt: nota },
   { rotulo: 'Melhor nota', v: (j) => j.melhorNota, fmt: nota },
   { rotulo: 'Vitórias', v: (j) => j.vitorias },
+  { rotulo: 'Títulos', v: (j) => j.titulos },
+  { rotulo: 'Craque da Temporada', v: (j) => j.craqueDaTemporada },
   { rotulo: 'Craque da Rodada', v: (j) => j.craqueDaRodada },
   { rotulo: 'Rei do Clássico', v: (j) => j.reiDoClassico },
 ];

@@ -1,15 +1,22 @@
 /** Jogos (calendário), Tabela, Times e a página de cada Time. */
-import { FALA_DO_TIME, IDENTIDADE, TIMES, nomeDaRodada, type JogadorPublico, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, TIMES, nomeDaRodada, type JogadorPublico, type LigaPublica, type TimeId } from '@liga/shared';
 import { diaLongo, jogadores, liga, rodadaAtual } from '../dados.js';
-import { bonecoImg, curto, escudoImg, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, tintaSobre } from '../ui.js';
+import { bonecoImg, curto, escudoImg, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre } from '../ui.js';
+import { chaveamento } from './chave.js';
 import { linhaDePartida, tabelaDeClassificacao } from './comum.js';
 import type { Pagina } from './tipos.js';
+
+/** Temporadas que o Time ganhou. */
+function titulosDo(l: LigaPublica, t: TimeId): number[] {
+  return l.temporadas.filter((x) => x.campeao === t).map((x) => x.numero).sort((a, b) => a - b);
+}
 
 export const paginaJogos: Pagina = async (main) => {
   const l = await liga();
   const rodadas = [...new Set(l.calendario.map((p) => p.rodada))];
   const atual = rodadaAtual(l);
   main.innerHTML = html`<h1 class="titulo-pagina">Jogos da Temporada ${l.temporada?.numero ?? ''}</h1>
+    ${rodadas.length ? chaveamento(l) : ''}
     ${rodadas.length
       ? html`<div class="grade-rodadas">${rodadas.map((n) => {
           const jogos = l.calendario.filter((p) => p.rodada === n);
@@ -25,7 +32,8 @@ export const paginaJogos: Pagina = async (main) => {
 export const paginaTabela: Pagina = async (main) => {
   const l = await liga();
   main.innerHTML = html`<h1 class="titulo-pagina">Tabela da Fase de Liga</h1>
-    <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(l.tabela)}</div>`.s;
+    <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(l.tabela)}</div>
+    ${l.calendario.length ? chaveamento(l) : ''}`.s;
 };
 
 export const paginaTimes: Pagina = async (main) => {
@@ -39,6 +47,7 @@ export const paginaTimes: Pagina = async (main) => {
         ${escudoImg(t, 3)}
         <span class="nome">${id.nome}</span>
         <span class="bordao">“${FALA_DO_TIME[t].bordao}”</span>
+        ${titulosDo(l, t).length ? html`<span class="tacas">${titulosDo(l, t).map(() => taca(16, 'trofeu'))}</span>` : ''}
         <span class="numeros"><span>${pos}º</span><span>${elenco.length} ${elenco.length === 1 ? 'jogador' : 'jogadores'}</span></span>
       </a></li>`;
     })}</ul>`.s;
@@ -73,6 +82,9 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
       <div>
         <h1>${id.nome}</h1>
         <p class="bordao">“${FALA_DO_TIME[t].bordao}”</p>
+        ${titulosDo(l, t).length
+          ? html`<p class="titulos-time">${titulosDo(l, t).map(() => taca(20, 'trofeu'))}<span>${titulosDo(l, t).length === 1 ? 'Campeão' : `${titulosDo(l, t).length} vezes campeão`}: ${titulosDo(l, t).map((n) => `Temporada ${n}`).join(', ')}</span></p>`
+          : ''}
         ${linha ? html`<p class="campanha">${pos}º lugar · ${linha.pontos} pontos · ${linha.vitorias}V ${linha.empates}E ${linha.derrotas}D · saldo ${linha.saldo > 0 ? '+' : ''}${linha.saldo}</p>` : ''}
       </div>
     </header>
