@@ -76,7 +76,7 @@ export function apitoInicial(dia: string, horaBrasilia: number): Date {
   return new Date(Date.UTC(a, m - 1, d, horaBrasilia - FUSO_BRASILIA));
 }
 
-function somarDias(dia: string, n: number): string {
+export function somarDias(dia: string, n: number): string {
   const [a, m, d] = dia.split('-').map(Number) as [number, number, number];
   return new Date(Date.UTC(a, m - 1, d + n)).toISOString().slice(0, 10);
 }

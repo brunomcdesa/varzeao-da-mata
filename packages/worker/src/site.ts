@@ -70,7 +70,12 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       `SELECT id, numero, status, inicio, campeao_id, craque_jogador_id::text AS craque_jogador_id, craque_revelado_em FROM temporada ORDER BY numero`,
     )
   ).rows;
-  const temporada = temporadas.at(-1);
+  // A Temporada "atual" é a última que já começou: entre o fim de uma e o início da próxima, o
+  // site segue mostrando a que acabou (campeão, Craque) e anuncia a próxima à parte.
+  const hojeBrasilia = new Date(agora.getTime() - 3 * 3600_000).toISOString().slice(0, 10);
+  const inicioDe = (t: LinhaTemporada) => (t.inicio instanceof Date ? t.inicio.toISOString() : String(t.inicio)).slice(0, 10);
+  const temporada = [...temporadas].reverse().find((t) => inicioDe(t) <= hojeBrasilia) ?? temporadas.at(-1);
+  const seguinte = temporadas.at(-1) !== temporada ? temporadas.at(-1) : undefined;
   const numeroDa = new Map(temporadas.map((t) => [t.id, t.numero]));
   const times = TIMES.map((id) => ({ id, nome: IDENTIDADE[id].nome, sigla: IDENTIDADE[id].sigla, primaria: IDENTIDADE[id].primaria, secundaria: IDENTIDADE[id].secundaria }));
 
@@ -341,7 +346,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
   }
   for (const j of porJogador.values()) j.trofeus.sort((a, b) => b.temporada - a.temporada || (b.rodada ?? 99) - (a.rodada ?? 99));
 
-  const atual = historia.at(-1);
+  const atual = historia.find((h) => h.numero === temporada?.numero);
   const liga: LigaPublica = {
     atualizadoEm: agora.toISOString(),
     temporada: temporada ? { numero: temporada.numero, status: temporada.status } : null,
@@ -352,6 +357,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
     campeao: atual?.campeao ?? null,
     craqueDaTemporada: atual?.craque ?? null,
     temporadas: [...historia].reverse(),
+    proximaTemporada: seguinte ? { numero: seguinte.numero, inicio: inicioDe(seguinte) } : null,
   };
   arquivos.set('liga.json', liga);
   arquivos.set('jogadores.json', [...porJogador.values()]);

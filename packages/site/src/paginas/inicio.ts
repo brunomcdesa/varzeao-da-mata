@@ -141,7 +141,11 @@ export const inicio: Pagina = async (main) => {
   const n = rodadaAtual(l);
   const jogos = n ? partidasDaRodada(l, n) : [];
   const titulo = jogos.length ? nomeDaRodada(jogos[0]!.fase, n!) : `Temporada ${l.temporada?.numero ?? ''}`;
+  const novaTemporada = l.proximaTemporada;
   main.innerHTML = html`
+    ${novaTemporada
+      ? html`<p class="placa aviso-temporada"><strong>Temporada ${novaTemporada.numero} começa ${new Date(`${novaTemporada.inicio}T12:00:00Z`).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Sao_Paulo' })}.</strong> Inscrições abertas: comente ENTRO + time + posição em qualquer post do ${perfil()}.</p>`
+      : ''}
     <section class="painel" aria-labelledby="titulo-painel">
       <header class="painel-cabeca">
         <h1 id="titulo-painel">${titulo}</h1>

@@ -74,6 +74,8 @@ export interface LigaPublica {
   craqueDaTemporada: JogadorResumido | null;
   /** Todas as Temporadas, da mais recente para a mais antiga. */
   temporadas: TemporadaNaHistoria[];
+  /** Temporada já criada que ainda não começou (o site a anuncia). */
+  proximaTemporada?: { numero: number; inicio: string } | null;
 }
 
 export interface JogadorResumido {

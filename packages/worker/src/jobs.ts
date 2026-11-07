@@ -12,9 +12,9 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, IDENTIDADE, RODADA_DA_FINAL, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, RODADA_DA_FINAL, type LigaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
-import { FUSO_BRASILIA } from './calendario.js';
+import { FUSO_BRASILIA, criarTemporada, somarDias } from './calendario.js';
 import { processarComentario, type Comentario, type Resultado } from './coletar.js';
 import { CORTE_MINUTOS } from './escalacao.js';
 import { Instagram, ErroInstagram } from './instagram.js';
@@ -399,6 +399,8 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
   const fechaEm = Date.UTC(a, m - 1, d + 1, 18 - FUSO_BRASILIA);
   if (agora.getTime() < fechaEm) return null;
 
+  // A próxima Temporada já nasce aqui: Rodada 1 dois dias depois deste anúncio.
+  const proxima = await garantirProximaTemporada(c.banco, t.numero, somarDias(dia, 3));
   let craqueId = t.craque_jogador_id;
   if (!craqueId) {
     await importarVotosDoSite(c.banco, c.agenda, t.final_id);
@@ -406,6 +408,7 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
     if (!eleito) {
       // Sem Candidatos (ninguém com jogos suficientes): encerra sem Craque.
       await c.banco.query(`UPDATE temporada SET craque_status = 'PUBLICADO' WHERE id = $1`, [t.id]);
+      await publicarSite(c);
       return t.id;
     }
     craqueId = eleito.id;
@@ -427,6 +430,8 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
     [t.id, craqueId],
   )).rows.reduce((soma, x) => soma + (x.desempenho.gols ?? 0), 0);
   const publicarEm = new Date(Math.max(Date.UTC(a, m - 1, d + 1, HORA_DO_RESUMO - FUSO_BRASILIA), agora.getTime()));
+  // Campeão, vice, artilheiro e melhor goleiro: os mesmos números da página de História.
+  const historia = ((await exportarSite(c.banco, agora)).arquivos.get('liga.json') as LigaPublica).temporadas.find((x) => x.numero === t.numero);
   const dados: DadosDoResumo = {
     temporada: t.numero,
     rodada: RODADA_DA_FINAL,
@@ -436,6 +441,12 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
     novosContratados: [],
     totalNovos: 0,
     candidatos: [],
+    ...(historia?.campeao ? { campeao: historia.campeao } : {}),
+    fimDaTemporada: {
+      ...(historia?.artilheiro ? { artilheiro: { username: historia.artilheiro.username, time: historia.artilheiro.time, posicao: historia.artilheiro.posicao, gols: historia.artilheiro.gols } } : {}),
+      ...(historia?.goleiro ? { goleiro: { username: historia.goleiro.username, time: historia.goleiro.time, notaMedia: historia.goleiro.notaMedia } } : {}),
+      proxima,
+    },
     craqueDaTemporada: { username: s.username, time: s.time_id, posicao: s.posicao, notaMedia: Number(s.media), gols, jogos: Number(s.jogos), votos: Number(s.votos) },
   };
   let item: ItemDaAgenda | null = null;
@@ -450,14 +461,7 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
         tipo: 'CRAQUE',
         ref: t.id,
         videoUrl: c.armazenamento.urlPublica(chave),
-        legenda: [
-          `O Craque da Temporada ${t.numero} é @${s.username}!`,
-          `${FALA_DO_TIME[s.time_id].curto}, ${Number(s.jogos)} jogos, ${gols} ${gols === 1 ? 'gol' : 'gols'}, nota média ${Number(s.media).toFixed(1).replace('.', ',')} e ${Number(s.votos)} votos da torcida.`,
-          '',
-          'A próxima Temporada vem aí. Quer jogar? Comente ENTRO + Time + posição.',
-          '',
-          '#varzeaodamata #craquedatemporada',
-        ].join('\n'),
+        legenda: legendaDoFimDaTemporada(t.numero, historia, { username: s.username, time: s.time_id, jogos: Number(s.jogos), gols, media: Number(s.media), votos: Number(s.votos) }, proxima),
         containerAtual: null,
         publicarEm,
         salvarContainer: async () => {},
@@ -470,6 +474,39 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
   log(`Craque da Temporada ${t.numero}: @${s.username}${item ? `, anúncio agendado para ${item.publicarEm}` : ''}.`);
   await publicarSite(c);
   return t.id;
+}
+
+/** Cria a Temporada seguinte (se ainda não existe) e devolve número e dia da Rodada 1. */
+export async function garantirProximaTemporada(banco: Banco, atual: number, inicio: string): Promise<{ numero: number; inicio: string }> {
+  const existente = (await banco.query<{ inicio: string | Date }>(`SELECT inicio FROM temporada WHERE numero = $1`, [atual + 1])).rows[0];
+  if (existente) return { numero: atual + 1, inicio: (existente.inicio instanceof Date ? existente.inicio.toISOString() : String(existente.inicio)).slice(0, 10) };
+  await criarTemporada(banco, { numero: atual + 1, primeiraRodada: inicio, seed: Math.floor(Math.random() * 2 ** 31) });
+  return { numero: atual + 1, inicio };
+}
+
+/** Legenda do Resumo da Temporada (o post do dia seguinte à Final). Marca só o Craque eleito. */
+export function legendaDoFimDaTemporada(
+  numero: number,
+  h: LigaPublica['temporadas'][number] | undefined,
+  craque: { username: string; time: TimeId; jogos: number; gols: number; media: number; votos: number },
+  proxima: { numero: number; inicio: string },
+): string {
+  const nome = (t: TimeId) => FALA_DO_TIME[t].curto;
+  const [, mes, dia] = proxima.inicio.split('-');
+  const linhas = [
+    `🏆 Resumo da Temporada ${numero} do Varzeão da Mata`,
+    '',
+    h?.campeao ? `Campeão: ${IDENTIDADE[h.campeao].nome}${h.vice ? ` (vice: ${nome(h.vice)})` : ''}` : '',
+    `Craque da Temporada: @${craque.username} (${nome(craque.time)}), ${craque.jogos} jogos, ${craque.gols} ${craque.gols === 1 ? 'gol' : 'gols'}, nota média ${craque.media.toFixed(1).replace('.', ',')} e ${craque.votos} votos da torcida`,
+    h?.artilheiro ? `Artilheiro: ${h.artilheiro.username} (${nome(h.artilheiro.time)}), ${h.artilheiro.gols} ${h.artilheiro.gols === 1 ? 'gol' : 'gols'}` : '',
+    h?.goleiro ? `Melhor goleiro: ${h.goleiro.username} (${nome(h.goleiro.time)}), nota média ${h.goleiro.notaMedia.toFixed(1).replace('.', ',')}` : '',
+    '',
+    `🏁 A Temporada ${proxima.numero} começa em ${dia}/${mes}. Quer jogar? Comente ENTRO + Time + posição.`,
+    O_QUE_E,
+    '',
+    '#varzeaodamata #craquedatemporada',
+  ];
+  return linhas.filter((l, i, a) => l !== '' || (a[i - 1] !== '' && i > 0)).join('\n');
 }
 
 export async function jobResumo(c: ContextoDoJob): Promise<number | null> {

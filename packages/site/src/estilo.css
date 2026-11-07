@@ -641,6 +641,18 @@ main:focus {
 
 /* ------------------------------------------------------------ como entrar e votação */
 
+.aviso-temporada {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  font-size: 0.9375rem;
+}
+.aviso-temporada strong {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 1.25rem;
+  display: block;
+}
+
 .como-entrar p {
   margin: 6px 0;
   max-width: 48ch;
