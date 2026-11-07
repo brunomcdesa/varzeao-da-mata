@@ -1,0 +1,52 @@
+# Posta o Reels de apresentação da Liga (com narração e legenda), à mão:
+# Actions → apresentacao → Run workflow. Com "estreia" preenchida, muda antes o início da
+# Temporada atual (só se nenhum jogo saiu do lugar). No fim, atualiza o site.
+name: apresentacao
+on:
+  workflow_dispatch:
+    inputs:
+      quando:
+        description: 'agora, um horário de hoje (19:00) ou data e hora (2026-11-08T12:00), em Brasília'
+        default: agora
+      estreia:
+        description: 'Opcional: novo dia da Rodada 1 (AAAA-MM-DD)'
+        default: ''
+concurrency: apresentacao
+jobs:
+  apresentacao:
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      IG_APP_ID: ${{ vars.IG_APP_ID }}
+      IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET_PUBLICO: ${{ vars.R2_BUCKET_PUBLICO }}
+      R2_BUCKET_PRIVADO: ${{ vars.R2_BUCKET_PRIVADO }}
+      R2_URL_PUBLICA: ${{ vars.R2_URL_PUBLICA }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_TTS_VOZ: ${{ vars.GEMINI_TTS_VOZ || 'Lumi' }}
+      GEMINI_TTS_RPM: ${{ vars.GEMINI_TTS_RPM || '10' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+        with:
+          video: 'true'
+      - if: inputs.estreia != ''
+        run: pnpm liga mudar-inicio --inicio "$ESTREIA"
+        env:
+          ESTREIA: ${{ inputs.estreia }}
+      - if: inputs.quando == 'agora'
+        run: pnpm postar-apresentacao --agora
+      - if: inputs.quando != 'agora'
+        run: pnpm postar-apresentacao --em "$QUANDO"
+        env:
+          QUANDO: ${{ inputs.quando }}
+      - run: pnpm job coletar

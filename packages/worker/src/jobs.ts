@@ -182,6 +182,9 @@ export async function jobColetar(c: ContextoDoJob): Promise<RelatorioColeta> {
 
 const horaBrasilia = (d: Date) => (d.getUTCHours() + FUSO_BRASILIA + 24) % 24;
 
+/** Uma linha que explica a Liga para quem cai num post sem conhecer. */
+export const O_QUE_E = 'Varzeão da Mata é a liga de futebol dos seguidores: cada partida é simulada lance a lance, narrada e vira Reels aqui no perfil.';
+
 export function legendaDaPartida(d: DadosDoVideo, rodada: number): string {
   const { mandante, visitante } = d.resultado.times;
   const g = d.resultado.gols;
@@ -192,10 +195,11 @@ export function legendaDaPartida(d: DadosDoVideo, rodada: number): string {
     .map((l) => d.nomes[l.finalizador!.lado][l.finalizador!.indice])
     .filter((n): n is string => !!n);
   const linhas = [
-    `${nome(mandante)} ${g.mandante} × ${g.visitante} ${nome(visitante)}${d.resultado.penaltis ? ` (pênaltis ${d.resultado.penaltis.placar.mandante}–${d.resultado.penaltis.placar.visitante})` : ''}`,
+    `⚽ ${nome(mandante)} ${g.mandante} × ${g.visitante} ${nome(visitante)}${d.resultado.penaltis ? ` (pênaltis ${d.resultado.penaltis.placar.mandante}–${d.resultado.penaltis.placar.visitante})` : ''}`,
     `${classico ? `${classico} · ` : ''}${d.subtitulo}`,
     autores.length ? `Gols: ${[...new Set(autores)].join(', ')}` : '',
     '',
+    O_QUE_E,
     'Quer jogar? Comente ENTRO + seu Time + sua posição. Exemplo: ENTRO ONÇA ATACANTE',
     'Replay e escalações no site (link na bio).',
     '',
@@ -354,7 +358,7 @@ export function legendaDoResumo(d: DadosDoResumo): string {
       : final.golsMandante > final.golsVisitante ? final.mandante : final.visitante
     : null;
   const linhas = [
-    etapa === 'LIGA' ? `Resumo da Rodada ${d.rodada}` : etapa === 'SEMIFINAL' ? 'Resumo das Semifinais' : 'Resumo da Final',
+    `📋 ${etapa === 'LIGA' ? `Resumo da Rodada ${d.rodada}` : etapa === 'SEMIFINAL' ? 'Resumo das Semifinais' : 'Resumo da Final'} da Temporada ${d.temporada}`,
     ...d.placares.map(placar),
     '',
     ...(campeao
@@ -366,6 +370,7 @@ export function legendaDoResumo(d: DadosDoResumo): string {
           'Um voto por perfil (vale o último) e um por aparelho no site.',
         ]),
     '',
+    O_QUE_E,
     d.totalNovos ? `${d.totalNovos} ${d.totalNovos === 1 ? 'novo contratado' : 'novos contratados'} hoje. Quer jogar? Comente ENTRO + Time + posição.` : 'Quer jogar? Comente ENTRO + Time + posição.',
     '',
     etapa === 'LIGA' ? `#varzeaodamata #rodada${d.rodada}` : `#varzeaodamata #matamata`,
