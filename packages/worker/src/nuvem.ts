@@ -158,8 +158,8 @@ export function nuvemDoAmbiente(env = process.env): { armazenamento: R2; agenda:
 
 /** Formato de um item da agenda (lido pelo worker na borda). */
 export interface ItemDaAgenda {
-  tipo: 'PARTIDA' | 'RESUMO' | 'CRAQUE';
-  /** partidaId ou rodadaId. */
+  tipo: 'PARTIDA' | 'RESUMO' | 'CRAQUE' | 'APRESENTACAO';
+  /** partidaId, rodadaId ou temporadaId (CRAQUE e APRESENTACAO). */
   ref: number;
   containerId: string;
   publicarEm: string;

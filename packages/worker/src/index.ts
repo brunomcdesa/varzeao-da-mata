@@ -13,3 +13,4 @@ export * from './instagram.js';
 export * from './nuvem.js';
 export * from './jobs.js';
 export * from './mataMata.js';
+export * from './apresentacao.js';

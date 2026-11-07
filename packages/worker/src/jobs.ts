@@ -100,6 +100,8 @@ export async function sincronizarPublicados(c: ContextoDoJob): Promise<number> {
     if (item.tipo === 'PARTIDA') {
       const r = await c.banco.query(`UPDATE partida SET status = 'PUBLICADA', ig_media_id = $2 WHERE id = $1 AND status <> 'PUBLICADA' RETURNING id`, [item.ref, item.mediaId]);
       n += r.rows.length;
+    } else if (item.tipo === 'APRESENTACAO') {
+      n += (await guardarPostDeInscricao(c.banco, item.mediaId)) ? 1 : 0;
     } else if (item.tipo === 'CRAQUE') {
       const r = await c.banco.query(`UPDATE temporada SET craque_status = 'PUBLICADO', craque_ig_media_id = $2 WHERE id = $1 AND craque_status <> 'PUBLICADO' RETURNING id`, [item.ref, item.mediaId]);
       n += r.rows.length;
@@ -112,13 +114,41 @@ export async function sincronizarPublicados(c: ContextoDoJob): Promise<number> {
   return n;
 }
 
-/** Lê os comentários dos posts dos últimos dias e processa (idempotente pelo id do comentário). */
+/**
+ * Posts de inscrição (o Reels de apresentação): o coletar lê os comentários deles sempre,
+ * não só nos primeiros dias, porque é neles que a maioria vai comentar ENTRO.
+ */
+export async function postsDeInscricao(banco: Banco): Promise<string[]> {
+  const r = (await banco.query<{ valor: string[] }>(`SELECT valor FROM config WHERE chave = 'posts_de_inscricao'`)).rows[0];
+  return r?.valor ?? [];
+}
+
+/** Guarda o post na lista de inscrição. Devolve false se já estava. */
+export async function guardarPostDeInscricao(banco: Banco, mediaId: string): Promise<boolean> {
+  const atuais = await postsDeInscricao(banco);
+  if (atuais.includes(mediaId)) return false;
+  await banco.query(
+    `INSERT INTO config (chave, valor) VALUES ('posts_de_inscricao', $1) ON CONFLICT (chave) DO UPDATE SET valor = $1, atualizado_em = now()`,
+    [JSON.stringify([...atuais, mediaId])],
+  );
+  return true;
+}
+
+/** Lê os comentários dos posts dos últimos dias e dos posts de inscrição (idempotente pelo id do comentário). */
 export async function coletarComentarios(c: ContextoDoJob, o: { dias?: number } = {}): Promise<Comentario[]> {
   if (!c.ig) return [];
   const desde = new Date(agoraDe(c).getTime() - (o.dias ?? 3) * 86400_000);
-  const midias = await c.ig.midiasDesde(desde);
+  const midias = (await c.ig.midiasDesde(desde)).map((m) => m.id);
+  for (const id of await postsDeInscricao(c.banco)) if (!midias.includes(id)) midias.push(id);
   const todos: Comentario[] = [];
-  for (const m of midias) todos.push(...(await c.ig.comentarios(m.id)));
+  for (const id of midias) {
+    try {
+      todos.push(...(await c.ig.comentarios(id)));
+    } catch (e) {
+      // Post apagado ou sem acesso: segue com os outros.
+      logDe(c)(`Não leu os comentários de ${id}: ${(e as Error).message}`);
+    }
+  }
   todos.sort((a, b) => a.comentadoEm.getTime() - b.comentadoEm.getTime() || a.igCommentId.localeCompare(b.igCommentId));
   return todos;
 }

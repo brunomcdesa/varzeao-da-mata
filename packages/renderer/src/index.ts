@@ -3,6 +3,7 @@ export { desenharQuadro, type OpcoesDesenho } from './desenho.js';
 export { Roteiro, type OpcoesRoteiro, type QuadroRoteiro, type Segmento, type TipoSegmento } from './roteiro.js';
 export { desenharQuadroVideo, type OpcoesVideo, type PartidaParaVideo } from './video.js';
 export { RoteiroResumo, desenharQuadroResumo, narracaoDoResumo, type DadosDoResumo, type Cartela } from './resumo.js';
+export { DADOS_PADRAO as DADOS_DA_APRESENTACAO, RoteiroApresentacao, desenharQuadroApresentacao, narracaoDaApresentacao, type DadosDaApresentacao } from './apresentacao.js';
 export { visualDoJogador, FONTE_DISPLAY, FONTE_TEXTO } from './desenho.js';
 export { escudo, LARGURA_ESCUDO, ALTURA_ESCUDO } from './escudos.js';
 export { sprite, LARGURA_SPRITE, ALTURA_SPRITE, type Pose, type Visual } from './sprites.js';

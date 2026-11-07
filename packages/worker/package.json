@@ -11,6 +11,7 @@
     "liga": "tsx scripts/liga.ts",
     "site-demo": "tsx scripts/site-demo.ts",
     "verificar": "tsx scripts/verificar.ts",
+    "postar-apresentacao": "tsx scripts/postar-apresentacao.ts",
     "job": "tsx scripts/job.ts",
     "simular": "tsx scripts/simular-temporada.ts"
   },

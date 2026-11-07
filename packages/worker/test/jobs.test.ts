@@ -17,8 +17,10 @@ class InstagramFalso {
   containers: { id: string; videoUrl: string; legenda: string }[] = [];
   token = 'T0';
   renovacoes = 0;
+  /** Posts antigos: existem, mas já não aparecem em midiasDesde. */
+  antigos = new Set<string>();
   async midiasDesde() {
-    return [...this.comentariosPorMidia.keys()].map((id) => ({ id, timestamp: new Date().toISOString() }));
+    return [...this.comentariosPorMidia.keys()].filter((id) => !this.antigos.has(id)).map((id) => ({ id, timestamp: new Date().toISOString() }));
   }
   async comentarios(id: string) {
     return this.comentariosPorMidia.get(id) ?? [];
@@ -100,6 +102,21 @@ describe('jobs', () => {
     const de_novo = await jobColetar(ctx);
     expect(de_novo.resultados.REPETIDO).toBe(16);
     expect(ig.renovacoes).toBe(1);
+  });
+
+  it('coletar: lê sempre o post de apresentação, mesmo depois dos primeiros dias', async () => {
+    ig.comentariosPorMidia.set('apresentacao', [
+      { igCommentId: 'a1', igMediaId: 'apresentacao', igUserId: 'fa', username: 'fã.antigo', texto: 'ENTRO TATU MEIA', comentadoEm: new Date('2026-11-07T11:30:00Z') },
+    ]);
+    ig.antigos.add('apresentacao');
+    expect((await jobColetar(ctx)).resultados.INSCRITO).toBe(16); // o post antigo ficou de fora
+    // A borda publicou o Reels de apresentação: o coletar registra o post e passa a lê-lo.
+    await agenda.gravar('agenda/2026-11-07T22:00:00.000Z/apresentacao-1', {
+      tipo: 'APRESENTACAO', ref: 1, containerId: 'C9', publicarEm: '2026-11-07T22:00:00.000Z', publicadoEm: '2026-11-07T22:00:05.000Z', mediaId: 'apresentacao',
+    } satisfies ItemDaAgenda);
+    const rel = await jobColetar(ctx);
+    expect(rel.publicados).toBe(1);
+    expect(rel.resultados.INSCRITO).toBe(1);
   });
 
   it('partida: espera o Corte, grava, sobe, agenda para o fim do Ao Vivo e não repete', async () => {
