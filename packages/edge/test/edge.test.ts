@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CHAVE_PROXIMA, CHAVE_VOTACAO, VOTOS_POR_IP, publicarVencidos, responder, type Env, type ItemDaAgenda } from '../src/index.js';
+import { CHAVE_PROXIMA, CHAVE_VOTACAO, dispararJobs, jobsDoMinuto, VOTOS_POR_IP, publicarVencidos, responder, type Env, type ItemDaAgenda } from '../src/index.js';
 
 function kv() {
   const m = new Map<string, string>();
@@ -139,5 +139,28 @@ describe('voto pelo site', () => {
     for (let i = 0; i < VOTOS_POR_IP; i++) expect((await votar(env, { rodada: 3, numero: 1, aparelho: aparelho(i) })).status).toBe(200);
     expect((await votar(env, { rodada: 3, numero: 1, aparelho: aparelho(99) })).status).toBe(429);
     expect((await votar(env, { rodada: 3, numero: 1, aparelho: aparelho(99) }, '5.6.7.8')).status).toBe(200);
+  });
+});
+
+describe('relógio dos jobs', () => {
+  it('dispara coletar às :17, partida às 11h25/13h25/15h25/17h25 e resumo às 18h10 (Brasília)', () => {
+    expect(jobsDoMinuto(new Date('2026-11-08T14:25:30Z'))).toEqual(['partida']); // 11h25
+    expect(jobsDoMinuto(new Date('2026-11-08T14:17:00Z'))).toEqual(['coletar']);
+    expect(jobsDoMinuto(new Date('2026-11-08T21:10:00Z'))).toEqual(['resumo']); // 18h10
+    expect(jobsDoMinuto(new Date('2026-11-08T22:25:00Z'))).toEqual([]); // 19h25: não tem jogo
+  });
+
+  it('chama o workflow_dispatch com origem=borda; sem token não faz nada', async () => {
+    const { env } = montar();
+    const chamadas: { url: string; corpo: string }[] = [];
+    const f = (async (url: string, init?: RequestInit) => {
+      chamadas.push({ url, corpo: String(init?.body) });
+      return new Response(null, { status: 204 });
+    }) as typeof fetch;
+    expect(await dispararJobs(env, new Date('2026-11-08T14:25:00Z'), f)).toEqual([]);
+    const comToken = { ...env, GH_DISPARO_TOKEN: 'x', GH_REPOSITORIO: 'dono/repo' } as Env;
+    expect(await dispararJobs(comToken, new Date('2026-11-08T14:25:00Z'), f)).toEqual(['partida']);
+    expect(chamadas[0]!.url).toBe('https://api.github.com/repos/dono/repo/actions/workflows/partida.yml/dispatches');
+    expect(JSON.parse(chamadas[0]!.corpo)).toEqual({ ref: 'master', inputs: { origem: 'borda' } });
   });
 });

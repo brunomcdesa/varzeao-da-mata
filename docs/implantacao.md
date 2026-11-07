@@ -154,6 +154,21 @@ A única exceção é `LIGA_ATIVA`, o interruptor da Liga: ela fica em **Setting
 
 Depois, em **Actions → site → Run workflow**, publique o site.
 
+### Relógio dos jobs (recomendado)
+
+O agendamento do GitHub atrasa e às vezes pula horários. A borda, que roda a cada minuto,
+dispara os workflows na hora certa (coletar às :17, partida às 11h25/13h25/15h25/17h25,
+resumo às 18h10); o cron do GitHub fica de reserva. Para ligar, no ambiente **PROD**:
+
+- secret `GH_DISPARO_TOKEN`: em github.com → Settings → Developer settings → Fine-grained
+  tokens → Generate new token; *Repository access: Only select repositories* → este
+  repositório; *Permissions → Actions: Read and write*. Nada mais.
+- secret `CF_WORKERS_TOKEN`: na Cloudflare, **Gerenciar conta → Tokens de API da conta →
+  Criar token**, modelo **Edit Cloudflare Workers**.
+
+Depois rode o workflow **borda** (Actions → borda → Run workflow): ele publica o worker e
+guarda o token do GitHub nele.
+
 ## 6. Ligar
 
 Crie a variável `LIGA_ATIVA` com o valor `sim`. A partir daí:

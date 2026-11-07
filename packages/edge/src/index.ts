@@ -18,6 +18,10 @@ export interface Env {
   IG_API_VERSAO?: string;
   /** Segredo do Cloudflare Turnstile (anti-robô). Sem ele, o voto vale sem o desafio. */
   TURNSTILE_SECRET?: string;
+  /** Token do GitHub (só Actions: escrita neste repositório) para disparar os jobs na hora certa. */
+  GH_DISPARO_TOKEN?: string;
+  /** dono/repositório dos workflows. */
+  GH_REPOSITORIO?: string;
 }
 
 export interface ItemDaAgenda {
@@ -208,12 +212,59 @@ async function votar(req: Request, env: Env, agora: Date, f: Fetch): Promise<Res
   return json({ ok: true, numero });
 }
 
+// ------------------------------------------------------------------ relógio dos jobs
+
+/**
+ * O agendamento do GitHub atrasa e às vezes pula (e o da Liga precisa de hora certa). A borda,
+ * que já roda a cada minuto, dispara os workflows por workflow_dispatch nos horários abaixo
+ * (Brasília, UTC−3, sem horário de verão). O cron do GitHub fica de reserva; os jobs são
+ * idempotentes e cada workflow tem seu grupo de concorrência.
+ */
+export function jobsDoMinuto(agora: Date): string[] {
+  const local = new Date(agora.getTime() - 3 * 3600_000);
+  const h = local.getUTCHours();
+  const m = local.getUTCMinutes();
+  const jobs: string[] = [];
+  if (m === 17) jobs.push('coletar');
+  if (m === 25 && [11, 13, 15, 17].includes(h)) jobs.push('partida');
+  if (m === 10 && h === 18) jobs.push('resumo');
+  return jobs;
+}
+
+export async function dispararJobs(env: Env, agora: Date, f: Fetch = fetch): Promise<string[]> {
+  if (!env.GH_DISPARO_TOKEN || !env.GH_REPOSITORIO) return [];
+  const disparados: string[] = [];
+  for (const job of jobsDoMinuto(agora)) {
+    const r = await f(`https://api.github.com/repos/${env.GH_REPOSITORIO}/actions/workflows/${job}.yml/dispatches`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${env.GH_DISPARO_TOKEN}`,
+        accept: 'application/vnd.github+json',
+        'x-github-api-version': '2022-11-28',
+        'user-agent': 'varzeao-edge',
+        'content-type': 'application/json',
+      },
+      // origem=borda: o workflow só roda se LIGA_ATIVA=sim (o "play" manual roda sempre).
+      body: JSON.stringify({ ref: 'master', inputs: { origem: 'borda' } }),
+    });
+    if (r.ok) disparados.push(job);
+    else console.error(`não disparou ${job}: ${r.status} ${await r.text()}`);
+  }
+  return disparados;
+}
+
 export default {
   fetch: (req: Request, env: Env) => responder(req, env),
   async scheduled(_c: ScheduledController, env: Env, ctx: ExecutionContext) {
+    const agora = new Date();
     ctx.waitUntil(
-      publicarVencidos(env, new Date()).then((feitas) => {
+      publicarVencidos(env, agora).then((feitas) => {
         if (feitas.length) console.log(`publicados: ${feitas.join(', ')}`);
+      }),
+    );
+    ctx.waitUntil(
+      dispararJobs(env, agora).then((jobs) => {
+        if (jobs.length) console.log(`disparados: ${jobs.join(', ')}`);
       }),
     );
   },

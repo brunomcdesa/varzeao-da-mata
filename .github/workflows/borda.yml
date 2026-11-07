@@ -1,0 +1,40 @@
+# Publica o worker da borda (Cloudflare) e o token que ele usa para disparar os jobs.
+# Roda quando o código da borda muda, ou à mão. Precisa, no ambiente PROD:
+#   CF_WORKERS_TOKEN  token da Cloudflare do modelo "Edit Cloudflare Workers"
+#   GH_DISPARO_TOKEN  token do GitHub com Actions: leitura e escrita só neste repositório
+name: borda
+on:
+  push:
+    branches: [master]
+    paths: ['packages/edge/**', '.github/workflows/borda.yml']
+  workflow_dispatch:
+concurrency: borda
+jobs:
+  borda:
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CF_WORKERS_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+    steps:
+      - id: config
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "Falta CF_WORKERS_TOKEN no ambiente PROD: nada a fazer."; fi
+      - if: steps.config.outputs.ok == 'true'
+        uses: actions/checkout@v4
+      - if: steps.config.outputs.ok == 'true'
+        uses: ./.github/actions/preparar
+      - name: Deploy
+        if: steps.config.outputs.ok == 'true'
+        run: pnpm --filter @liga/edge exec wrangler deploy
+      - name: Token para disparar os jobs
+        if: steps.config.outputs.ok == 'true'
+        env:
+          GH_DISPARO_TOKEN: ${{ secrets.GH_DISPARO_TOKEN }}
+        run: |
+          if [ -n "$GH_DISPARO_TOKEN" ]; then
+            printf '%s' "$GH_DISPARO_TOKEN" | pnpm --filter @liga/edge exec wrangler secret put GH_DISPARO_TOKEN
+          else
+            echo "Sem GH_DISPARO_TOKEN no ambiente PROD: a borda não dispara os jobs (fica só o cron do GitHub)."
+          fi

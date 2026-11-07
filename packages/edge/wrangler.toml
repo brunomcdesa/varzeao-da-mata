@@ -10,6 +10,8 @@ crons = ["* * * * *"]
 [vars]
 # Não é segredo: é o id numérico da conta do Instagram (o token fica no KV).
 IG_USER_ID = "17841428347535513"
+# Repositório cujos workflows a borda dispara (o token vai como segredo GH_DISPARO_TOKEN).
+GH_REPOSITORIO = "brunomcdesa/varzeao-da-mata"
 
 [[kv_namespaces]]
 binding = "AGENDA"

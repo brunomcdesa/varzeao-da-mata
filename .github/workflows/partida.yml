@@ -4,13 +4,19 @@ name: partida
 on:
   schedule:
     - cron: '25 14,16,18,20 * * *'
+  # A borda (Cloudflare) dispara este workflow na hora certa com origem=borda; o cron acima
+  # é a reserva, porque o do GitHub atrasa e às vezes pula.
   workflow_dispatch:
+    inputs:
+      origem:
+        description: 'Quem disparou (manual roda sempre; borda só com LIGA_ATIVA=sim)'
+        default: manual
 concurrency: partida
 jobs:
   partida:
     # LIGA_ATIVA é variável do repositório (o if do job não enxerga as do ambiente).
     # Rodar à mão (workflow_dispatch) vale mesmo com a Liga desligada: é o ensaio.
-    if: vars.LIGA_ATIVA == 'sim' || github.event_name == 'workflow_dispatch'
+    if: vars.LIGA_ATIVA == 'sim' || (github.event_name == 'workflow_dispatch' && inputs.origem != 'borda')
     runs-on: ubuntu-latest
     # Segredos e variáveis ficam no ambiente PROD.
     environment: PROD
