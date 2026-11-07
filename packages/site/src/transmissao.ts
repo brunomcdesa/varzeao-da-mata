@@ -23,7 +23,7 @@ export function montarTimeline(p: PartidaPublica): Timeline | null {
 }
 
 /** Segundos de jogo agora, para uma Partida ao vivo. */
-export const tempoAoVivo = (apito: string, agora = Date.now()) => Math.min(DURACAO_JOGO, ((agora - Date.parse(apito)) / 1000) * VELOCIDADE_AO_VIVO);
+export const tempoAoVivo = (apito: string, fim = DURACAO_JOGO, agora = Date.now()) => Math.min(fim, ((agora - Date.parse(apito)) / 1000) * VELOCIDADE_AO_VIVO);
 
 export function transmitir(
   raiz: HTMLElement,
@@ -39,7 +39,8 @@ export function transmitir(
   const nomes: Record<Lado, (string | null)[]> = { mandante: nomesDe(p.escalacoes!.mandante), visitante: nomesDe(p.escalacoes!.visitante) };
   const reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  let t = o.aoVivo ? tempoAoVivo(p.apito) : 0;
+  const FIM = timeline.duracao;
+  let t = o.aoVivo ? tempoAoVivo(p.apito, FIM) : 0;
   let tocando = o.aoVivo || !reduzido;
   let velocidade = VELOCIDADE_AO_VIVO;
   let ultimo = performance.now();
@@ -48,22 +49,22 @@ export function transmitir(
 
   const marcar = () => {
     botao?.setAttribute('aria-pressed', String(tocando));
-    if (botao) botao.textContent = tocando ? 'Pausar' : t >= DURACAO_JOGO ? 'Ver de novo' : 'Tocar';
+    if (botao) botao.textContent = tocando ? 'Pausar' : t >= FIM ? 'Ver de novo' : 'Tocar';
   };
 
   function quadro(agora: number): void {
     const dt = (agora - ultimo) / 1000;
     ultimo = agora;
-    if (o.aoVivo) t = tempoAoVivo(p.apito);
-    else if (tocando) t = Math.min(DURACAO_JOGO, t + dt * velocidade);
-    if (t >= DURACAO_JOGO && tocando && !o.aoVivo) {
+    if (o.aoVivo) t = tempoAoVivo(p.apito, FIM);
+    else if (tocando) t = Math.min(FIM, t + dt * velocidade);
+    if (t >= FIM && tocando && !o.aoVivo) {
       tocando = false;
       marcar();
     }
     desenharQuadro(ctx, timeline.estado(t), { times: timeline.resultado.times, nomes });
     if (barra) barra.value = String(Math.round(t));
     o.aoMudar?.(t);
-    if (t >= DURACAO_JOGO && !acabou) {
+    if (t >= FIM && !acabou) {
       acabou = true;
       o.aoAcabar?.();
     }
@@ -71,7 +72,7 @@ export function transmitir(
   }
 
   botao?.addEventListener('click', () => {
-    if (!tocando && t >= DURACAO_JOGO) {
+    if (!tocando && t >= FIM) {
       t = 0;
       acabou = false;
     }
@@ -81,7 +82,7 @@ export function transmitir(
   });
   barra?.addEventListener('input', () => {
     t = Number(barra.value);
-    acabou = t >= DURACAO_JOGO;
+    acabou = t >= FIM;
   });
   for (const b of velocidades) {
     b.addEventListener('click', () => {
@@ -89,7 +90,7 @@ export function transmitir(
       for (const outro of velocidades) outro.setAttribute('aria-pressed', String(outro === b));
     });
   }
-  if (barra) barra.max = String(DURACAO_JOGO);
+  if (barra) barra.max = String(FIM);
   marcar();
   void document.fonts.ready.then(() => (quadroId = requestAnimationFrame(quadro)));
 

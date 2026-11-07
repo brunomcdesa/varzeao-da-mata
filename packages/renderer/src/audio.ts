@@ -244,7 +244,7 @@ export function mixar(o: { duracao: number; segmentos: Segmento[]; eventos: Even
   const n = Math.ceil(o.duracao * TAXA);
   const intensidade = (t: number) => {
     const s = o.segmentos.find((x) => t < x.fim) ?? o.segmentos[o.segmentos.length - 1]!;
-    return s.tipo === 'LANCE' ? 0.3 : 1;
+    return s.tipo === 'LANCE' || s.tipo === 'PENALTIS' ? 0.3 : 1;
   };
   const musica = trilha(o.duracao, intensidade);
   const ambE = torcidaAmbiente(o.duracao, 7);

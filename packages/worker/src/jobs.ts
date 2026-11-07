@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, IDENTIDADE, RODADA_DA_FINAL, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, RODADA_DA_FINAL, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA } from './calendario.js';
 import { processarComentario, type Comentario, type Resultado } from './coletar.js';
@@ -22,7 +22,7 @@ import { CHAVE_TOKEN, gravarNaAgenda, type Agenda, type Armazenamento, type Item
 import { avancarMataMata } from './mataMata.js';
 import { rodarPartida, type DadosDoVideo } from './partida.js';
 import { craqueDaRodada, dadosDoResumo, fecharRodada, HORA_DO_RESUMO, rodadaEmVotacao, type DadosDoResumo } from './resumo.js';
-import { DURACAO_AO_VIVO_MS, exportarSite } from './site.js';
+import { exportarSite } from './site.js';
 
 export interface ContextoDoJob {
   banco: Banco;
@@ -178,13 +178,14 @@ interface LinhaJob {
   status: string;
   video_url: string | null;
   ig_container_id: string | null;
+  fase: 'LIGA' | 'MATA_MATA';
 }
 
 /** Partidas que o job `partida` deve tocar agora: apito nas próximas `janelaMin`, ainda não agendadas. */
 export async function partidasPendentes(banco: Banco, agora: Date, janelaMin = 60): Promise<LinhaJob[]> {
   return (
     await banco.query<LinhaJob>(
-      `SELECT p.id, p.rodada_id, r.numero AS rodada, p.apito_inicial, p.status, p.video_url, p.ig_container_id
+      `SELECT p.id, p.rodada_id, r.numero AS rodada, r.fase, p.apito_inicial, p.status, p.video_url, p.ig_container_id
        FROM partida p JOIN rodada r ON r.id = p.rodada_id
        WHERE p.status NOT IN ('AGENDADA', 'PUBLICADA') AND p.apito_inicial <= $1
        ORDER BY p.apito_inicial`,
@@ -202,7 +203,7 @@ async function existe(caminho: string): Promise<boolean> {
 
 /** Sobe a Partida completa (com lances) para o bucket privado: a borda só entrega depois do Apito. */
 async function guardarPartidaPrivada(c: ContextoDoJob, partidaId: number, apito: Date): Promise<void> {
-  const { arquivos } = await exportarSite(c.banco, new Date(apito.getTime() + DURACAO_AO_VIVO_MS + 60_000));
+  const { arquivos } = await exportarSite(c.banco, new Date(apito.getTime() + duracaoAoVivoMs('MATA_MATA') + 60_000));
   const completa = arquivos.get(`partidas/${partidaId}.json`);
   if (completa) await c.armazenamento.enviar('privado', `partidas/${partidaId}.json`, JSON.stringify(completa), { tipo: 'application/json' });
 }
@@ -282,7 +283,7 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
         continue;
       }
       // Publica quando o Ao Vivo acaba, para o Reels não estragar o jogo no site.
-      const publicarEm = new Date(Math.max(apito.getTime() + DURACAO_AO_VIVO_MS, agoraDe(c).getTime()));
+      const publicarEm = new Date(Math.max(apito.getTime() + duracaoAoVivoMs(p.fase), agoraDe(c).getTime()));
       const item = await agendar(c, {
         tipo: 'PARTIDA',
         ref: p.id,

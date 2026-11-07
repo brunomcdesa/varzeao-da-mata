@@ -7,9 +7,13 @@
  * em qualquer máquina, e pode ser renderizado fora de ordem.
  */
 import type { TipoLance } from '@liga/sim';
+import { INTRO_PENALTIS } from './penaltis.js';
 import { DURACAO_JOGO, type Timeline } from './timeline.js';
 
-export type TipoSegmento = 'ABERTURA' | 'LANCE' | 'FIM';
+/** Segundos de vídeo da disputa de pênaltis: abertura, cada cobrança e o fim. */
+export const VIDEO_PENALTIS = { intro: 2.4, cobranca: 3, fim: 3 };
+
+export type TipoSegmento = 'ABERTURA' | 'LANCE' | 'PENALTIS' | 'FIM';
 
 export interface Segmento {
   tipo: TipoSegmento;
@@ -128,10 +132,52 @@ export class Roteiro {
       const fim = (cursor = resolucao + depois);
       segmentos.push({ tipo: 'LANCE', inicio, fim, jogoInicio, jogoFim, jogoResolucao: janela.resolucao, resolucao, lance: i });
     }
+    const d = timeline.disputa;
+    if (d) {
+      const base = VIDEO_PENALTIS.intro + d.cobrancas.length * VIDEO_PENALTIS.cobranca + VIDEO_PENALTIS.fim;
+      const inicio = cursor;
+      cursor += Math.max(base, minimo(segmentos.length).antes ?? 0);
+      segmentos.push({ tipo: 'PENALTIS', inicio, fim: cursor, jogoInicio: d.inicio, jogoFim: d.fim });
+    }
     segmentos.push({ tipo: 'FIM', inicio: cursor, fim: (cursor += Math.max(o.duracaoFim, minimo(segmentos.length).antes ?? 0)) });
 
     this.segmentos = segmentos;
     this.duracao = cursor;
+  }
+
+  /**
+   * Pontos (vídeo, jogo) da disputa: a abertura, o fim de cada cobrança e o fim, cada um na
+   * sua velocidade; se o trecho foi esticado para a narração caber, tudo estica junto.
+   */
+  nosDosPenaltis(s: Segmento): [number, number][] {
+    const d = this.timeline.disputa!;
+    const base = VIDEO_PENALTIS.intro + d.cobrancas.length * VIDEO_PENALTIS.cobranca + VIDEO_PENALTIS.fim;
+    const escala = (s.fim - s.inicio) / base;
+    const nos: [number, number][] = [[s.inicio, d.inicio], [s.inicio + VIDEO_PENALTIS.intro * escala, d.inicio + INTRO_PENALTIS]];
+    d.cobrancas.forEach((_, k) => nos.push([s.inicio + (VIDEO_PENALTIS.intro + (k + 1) * VIDEO_PENALTIS.cobranca) * escala, d.inicio + INTRO_PENALTIS + (k + 1) * d.passo]));
+    nos.push([s.fim, d.fim]);
+    return nos;
+  }
+
+  jogoDosPenaltis(s: Segmento, tVideo: number): number {
+    const nos = this.nosDosPenaltis(s);
+    for (let k = 1; k < nos.length; k++) {
+      const [va, ja] = nos[k - 1]!;
+      const [vb, jb] = nos[k]!;
+      if (tVideo <= vb) return ja + ((jb - ja) * (tVideo - va)) / (vb - va || 1);
+    }
+    return nos[nos.length - 1]![1];
+  }
+
+  /** Inverso: instante de vídeo de um instante de jogo da disputa. */
+  videoDosPenaltis(s: Segmento, tJogo: number): number {
+    const nos = this.nosDosPenaltis(s);
+    for (let k = 1; k < nos.length; k++) {
+      const [va, ja] = nos[k - 1]!;
+      const [vb, jb] = nos[k]!;
+      if (tJogo <= jb) return va + ((vb - va) * (tJogo - ja)) / (jb - ja || 1);
+    }
+    return s.fim;
   }
 
   /** Quantos quadros o vídeo tem a `fps` quadros por segundo. */
@@ -153,7 +199,8 @@ export class Roteiro {
           ? segmento.jogoInicio! + (segmento.jogoResolucao! - segmento.jogoInicio!) * (progresso / pivo)
           : segmento.jogoResolucao! + (segmento.jogoFim! - segmento.jogoResolucao!) * ((progresso - pivo) / (1 - pivo));
     }
-    else if (segmento.tipo === 'FIM') tJogo = DURACAO_JOGO;
+    else if (segmento.tipo === 'PENALTIS') tJogo = this.jogoDosPenaltis(segmento, tVideo);
+    else if (segmento.tipo === 'FIM') tJogo = this.timeline.duracao;
 
     // Escurece nas bordas de cada corte (não no começo nem no fim do vídeo).
     const meio = this.corte / 2;

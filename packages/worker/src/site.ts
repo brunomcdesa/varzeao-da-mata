@@ -7,13 +7,13 @@
  * aparecem depois do Apito (o lance a lance) ou do fim do Ao Vivo (placar, tabela, Card).
  * Escalações aparecem assim que existem (a partir do Corte).
  */
-import { IDENTIDADE, TIMES, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId } from '@liga/shared';
+import { IDENTIDADE, TIMES, duracaoAoVivoMs, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId } from '@liga/shared';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { classificar } from './tabela.js';
 
-/** Duração do Ao Vivo: 90 minutos de jogo a 15× (ADR-0005). */
-export const DURACAO_AO_VIVO_MS = 6 * 60_000;
+/** Duração do Ao Vivo de uma Partida (6 min; 8 no Mata-mata, por causa dos pênaltis). */
+export const DURACAO_AO_VIVO_MS = duracaoAoVivoMs('LIGA');
 
 interface LinhaPartida {
   id: number;
@@ -84,9 +84,9 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
   const revelada = (p: LinhaPartida) => p.resultado !== null && apito(p).getTime() <= agora.getTime();
   // Encerrada: o Ao Vivo já acabou. Placar no calendário, tabela e estatísticas só contam
   // Partidas encerradas, para não estragar o Ao Vivo de quem está assistindo.
-  const encerrada = (p: LinhaPartida) => revelada(p) && apito(p).getTime() + DURACAO_AO_VIVO_MS <= agora.getTime();
+  const encerrada = (p: LinhaPartida) => revelada(p) && apito(p).getTime() + duracaoAoVivoMs(p.fase) <= agora.getTime();
   const situacao = (p: LinhaPartida): SituacaoPartida =>
-    !revelada(p) ? 'AGENDADA' : agora.getTime() < apito(p).getTime() + DURACAO_AO_VIVO_MS ? 'AO_VIVO' : 'ENCERRADA';
+    !revelada(p) ? 'AGENDADA' : agora.getTime() < apito(p).getTime() + duracaoAoVivoMs(p.fase) ? 'AO_VIVO' : 'ENCERRADA';
 
   const escalacoes = (
     await banco.query<LinhaEscalacao>(
@@ -203,7 +203,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
     e.desarmes += d.desarmes;
     e.defesas += d.defesas;
     e.golsSofridos += d.golsSofridos;
-    if (r.gols.mandante === r.gols.visitante) e.empates++; // decidido nos pênaltis ou na Vantagem do Empate: empate
+    if (r.gols.mandante === r.gols.visitante) e.empates++; // decidido nos pênaltis: conta como empate
     else if (r.vencedor === d.slot.lado) e.vitorias++;
     else e.derrotas++;
   };
@@ -299,6 +299,26 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
     }
     const [topo] = [...gols.entries()].filter(([, g]) => g.gols > 0).sort((a, b) => b[1].gols - a[1].gols || a[1].jogos - b[1].jogos || Number(a[0]) - Number(b[0]));
     const artilheiro = topo && resumido(topo[0]) ? { ...resumido(topo[0])!, gols: topo[1].gols } : null;
+    // Melhor goleiro: maior nota média com pelo menos 3 jogos no gol.
+    const goleiros = new Map<string, { notas: number[]; defesas: number; sofridos: number }>();
+    for (const p of ps.filter(encerrada)) {
+      for (const d of p.resultado!.desempenhos) {
+        if (!d.jogadorId || d.posicao !== 'GOL') continue;
+        const g = goleiros.get(d.jogadorId) ?? { notas: [], defesas: 0, sofridos: 0 };
+        g.notas.push(d.nota);
+        g.defesas += d.defesas;
+        g.sofridos += d.golsSofridos;
+        goleiros.set(d.jogadorId, g);
+      }
+    }
+    const mediaDe = (ns: number[]) => ns.reduce((s, n) => s + n, 0) / ns.length;
+    const [melhorGoleiro] = [...goleiros.entries()]
+      .filter(([, g]) => g.notas.length >= 3)
+      .sort((a, b) => mediaDe(b[1].notas) - mediaDe(a[1].notas) || a[1].sofridos / a[1].notas.length - b[1].sofridos / b[1].notas.length || Number(a[0]) - Number(b[0]));
+    const goleiro =
+      melhorGoleiro && resumido(melhorGoleiro[0])
+        ? { ...resumido(melhorGoleiro[0])!, notaMedia: Math.round(mediaDe(melhorGoleiro[1].notas) * 100) / 100, jogos: melhorGoleiro[1].notas.length, defesas: melhorGoleiro[1].defesas, golsSofridos: melhorGoleiro[1].sofridos }
+        : null;
     historia.push({
       numero: t.numero,
       status: t.status,
@@ -308,6 +328,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       final: final && rf ? { partidaId: final.id, mandante: final.mandante_id, visitante: final.visitante_id, placar: placarDe(rf) } : null,
       craque,
       artilheiro,
+      goleiro,
       tabela: tabelaDa(ps),
     });
   }

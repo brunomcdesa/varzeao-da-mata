@@ -1,7 +1,7 @@
 /**
  * Mata-mata: depois da 7ª Rodada, os 4 melhores da Fase de Liga jogam as Semifinais no dia
- * seguinte (1º × 4º às 14h, 2º × 3º às 16h, com Vantagem do Empate para o 1º e o 2º) e a
- * Final no outro dia, às 18h (empate vai para os pênaltis). O melhor colocado é o mandante.
+ * seguinte (1º × 4º às 14h, 2º × 3º às 16h) e a Final no
+ * outro dia, às 18h. Empate em qualquer jogo do Mata-mata vai para os pênaltis. O melhor colocado é o mandante.
  *
  * `avancarMataMata` é idempotente: o job `resumo` chama todo dia e ela só faz o próximo passo
  * quando ele está pronto.
@@ -70,7 +70,7 @@ export async function avancarMataMata(banco: Banco, temporadaId: number): Promis
         await b.query<{ id: number }>(`INSERT INTO rodada (temporada_id, numero, fase, data) VALUES ($1, $2, 'MATA_MATA', $3) RETURNING id`, [temporadaId, RODADA_DAS_SEMIFINAIS, dia])
       ).rows[0]!.id;
       for (const [k, [m, v]] of ([[p1, p4], [p2, p3]] as const).entries()) {
-        await b.query(`INSERT INTO partida (rodada_id, mandante_id, visitante_id, apito_inicial, vantagem_do_empate) VALUES ($1, $2, $3, $4, 'mandante')`, [
+        await b.query(`INSERT INTO partida (rodada_id, mandante_id, visitante_id, apito_inicial) VALUES ($1, $2, $3, $4)`, [
           id,
           m,
           v,

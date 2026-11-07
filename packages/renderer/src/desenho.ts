@@ -5,7 +5,7 @@
  * Linguagem visual: várzea em pixel art. Placar de tábua com plaquinhas penduradas,
  * campo com terrão e cal, mata em volta e faixa de torcida no gol.
  */
-import { IDENTIDADE, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, type Posicao, type TimeId } from '@liga/shared';
 import type { Lado } from '@liga/sim';
 import { CAMPO, cenario } from './cenario.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
@@ -53,10 +53,12 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
   const bolaAlta = estado.bolaAltura > 0.08;
   if (!bolaAlta) desenharBola(pin, bolaChao, 0);
   for (const j of ordem) desenharJogador(pin, j, o, fase);
-  for (const j of ordem) desenharNome(pin, j, o, texto);
+  // Na disputa de pênaltis, só o nome de quem está na área (cobrador e goleiro): a roda fica limpa.
+  for (const j of ordem) if (!estado.penaltis || j.pos.y < 0.3) desenharNome(pin, j, o, texto);
   if (bolaAlta) desenharBola(pin, bolaChao, estado.bolaAltura);
 
   desenharPlacar(pin, estado, o, display, texto);
+  if (estado.penaltis) desenharFaixaDosPenaltis(pin, estado, o, display, texto);
   if (estado.destaque) desenharDestaque(pin, estado, o, display, texto);
 }
 
@@ -180,8 +182,40 @@ export function desenharTabuaDoPlacar(
 
 function desenharPlacar(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, display: string, texto: string): void {
   desenharTabuaDoPlacar(pin, COLUNAS / 2, 8, 1, o.times, e.placar, display);
+  if (e.penaltis) {
+    desenharMarcasDePenalti(pin, e, display, texto);
+    return;
+  }
   const rotulo = e.encerrada ? 'Fim de jogo' : `${e.minuto}'`;
   pin.texto(rotulo, COLUNAS / 2, 52, 9, texto, COR.amarelo, { contorno: COR.mata, peso: 700 });
+}
+
+/**
+ * Placar dos pênaltis embaixo da tábua: uma bolinha por cobrança de cada Time (verde = gol,
+ * vermelho = perdeu, vazia = falta bater), com o placar da disputa no meio.
+ */
+function desenharMarcasDePenalti(pin: Pincel, e: EstadoQuadro, display: string, texto: string): void {
+  const p = e.penaltis!;
+  const y = 46;
+  pin.tabua(20, y, 230, 22);
+  const lados: Lado[] = ['mandante', 'visitante'];
+  for (const lado of lados) {
+    const minhas = p.marcas.filter((m) => m.lado === lado);
+    const vagas = Math.max(5, minhas.length + (p.vencedor ? 0 : 1));
+    const visiveis = Math.min(vagas, 7);
+    const marcas = minhas.slice(-visiveis);
+    for (let k = 0; k < visiveis; k++) {
+      const x = lado === 'mandante' ? 28 + k * 10 : COLUNAS - 28 - 7 - (visiveis - 1 - k) * 10;
+      const m = marcas[k];
+      const cor = !m ? null : m.resultado === 'GOL' ? '#5FD35A' : '#E5482F';
+      pin.r(x, y + 7, 7, 7, COR.contorno);
+      pin.r(x + 1, y + 8, 5, 5, cor ?? COR.madeiraEscura);
+      if (cor) pin.r(x + 2, y + 9, 2, 2, 'rgba(255,255,255,0.45)');
+    }
+  }
+  const rotulo = e.encerrada ? 'Fim' : 'Pênaltis';
+  pin.texto(`${p.placar.mandante} x ${p.placar.visitante}`, COLUNAS / 2, y + 9, 13, display, COR.amarelo, { contorno: COR.contorno });
+  pin.texto(rotulo, COLUNAS / 2, y + 19, 5.5, texto, COR.placa, { peso: 700 });
 }
 
 /**
@@ -219,6 +253,30 @@ function escurecer(hex: string): string {
 }
 
 const TITULO = { GOL: 'Goooool!', DEFESA: 'Defesaça!', DESARME: 'Desarme!', FORA: 'Pra fora!' } as const;
+const TITULO_PENALTI = { GOL: 'Converteu!', DEFESA: 'Pegou!', DESARME: 'Desarme!', FORA: 'Pra fora!' } as const;
+
+/** Letreiros grandes da disputa: "Pênaltis!" na abertura e o vencedor no fim. */
+function desenharFaixaDosPenaltis(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, display: string, texto: string): void {
+  const p = e.penaltis!;
+  if (p.fase === 'COBRANCA') return;
+  const vencedor = p.fase === 'FIM' ? p.vencedor : null;
+  const cores = vencedor ? IDENTIDADE[o.times[vencedor]] : { primaria: COR.madeira, secundaria: COR.amarelo };
+  const abre = Math.min(1, p.progresso / 0.18);
+  const some = p.fase === 'INTRO' && p.progresso > 0.85 ? (p.progresso - 0.85) / 0.15 : 0;
+  const y = 196 - Math.round(some * some * 260);
+  const onda = faixaDeTorcida(pin, y, 66, cores, e.t / 9, abre);
+  if (abre < 0.6) return;
+  const titulo = vencedor ? FALA_CURTA(o.times[vencedor]) : 'Pênaltis!';
+  const tam = pin.caber(titulo, 236, vencedor ? 40 : 56, display);
+  const cor = vencedor ? contraste(cores.primaria) : COR.amarelo;
+  pin.texto(titulo, COLUNAS / 2, y + 30 + onda(COLUNAS / 2), tam, display, cor, { contorno: COR.contorno });
+  if (vencedor) {
+    const sub = `vence nos pênaltis, ${p.placar[vencedor]} a ${p.placar[vencedor === 'mandante' ? 'visitante' : 'mandante']}`;
+    pin.tabua(COLUNAS / 2 - 100, y + 74 + onda(COLUNAS / 2), 200, 24);
+    pin.texto(sub, COLUNAS / 2, y + 86 + onda(COLUNAS / 2), pin.caber(sub, 186, 10, texto, 700), texto, COR.placa, { peso: 700 });
+  }
+}
+const FALA_CURTA = (t: TimeId) => FALA_DO_TIME[t].curto;
 
 function desenharDestaque(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, display: string, texto: string): void {
   const d = e.destaque!;
@@ -226,7 +284,7 @@ function desenharDestaque(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, displa
   const nome = o.nomes[d.protagonista.lado][d.protagonista.indice] ?? 'Jogador da Base';
   const p = d.progresso;
 
-  if (d.tipo === 'GOL') {
+  if (d.tipo === 'GOL' && !d.penalti) {
     const abre = Math.min(1, p / 0.12);
     const some = p > 0.86 ? (p - 0.86) / 0.14 : 0;
     const y = 196 - Math.round(some * some * 260);
@@ -262,14 +320,14 @@ function desenharDestaque(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, displa
   const entra = Math.min(1, p / 0.1);
   const sai = p > 0.85 ? (p - 0.85) / 0.15 : 0;
   const desloc = (1 - suave(entra)) * -COLUNAS + suave(sai) * COLUNAS;
-  const embaixo = e.bola.y < 0.5;
+  const embaixo = e.bola.y < 0.5 || !!d.penalti;
   const w = 176;
   const h = 46;
   const x = (COLUNAS - w) / 2 + desloc;
   const y = embaixo ? 404 : 70;
   pin.tabua(x, y, w, h);
   desenharEscudo(pin, o.times[d.lado], x + 8, y + 9, 1.15);
-  pin.texto(TITULO[d.tipo], x + w / 2 + 14, y + 17, 22, display, COR.amarelo, { contorno: COR.contorno });
+  pin.texto((d.penalti ? TITULO_PENALTI : TITULO)[d.tipo], x + w / 2 + 14, y + 17, 22, display, COR.amarelo, { contorno: COR.contorno });
   pin.texto(nome, x + w / 2 + 14, y + 34, pin.caber(nome, w - 50, 8, texto, 600), texto, COR.placa, { peso: 600 });
 }
 

@@ -4,7 +4,7 @@ import { INSTAGRAM, contagem, diaCurto, hora, situacaoAgora } from '../dados.js'
 import { curto, escudoImg, html, rotuloClassico, type Html } from '../ui.js';
 
 export function linhaDePartida(p: PartidaNoCalendario, o: { comDia?: boolean; destaque?: boolean } = {}): Html {
-  const s = situacaoAgora(p.apito);
+  const s = situacaoAgora(p);
   const classico = rotuloClassico(p.mandante, p.visitante);
   const placar =
     s === 'ENCERRADA' && p.placar
@@ -12,7 +12,7 @@ export function linhaDePartida(p: PartidaNoCalendario, o: { comDia?: boolean; de
       : s === 'AO_VIVO'
         ? html`<span class="ao-vivo-selo">Ao vivo</span>`
         : html`<span class="x">×</span>`;
-  const penaltis = s === 'ENCERRADA' && p.placar?.penaltis ? html`<span class="penaltis">pên. ${p.placar.penaltis.mandante}–${p.placar.penaltis.visitante}</span>` : '';
+  const penaltis = s === 'ENCERRADA' && p.placar?.penaltis ? html`<span class="penaltis">pênaltis ${p.placar.penaltis.mandante}–${p.placar.penaltis.visitante}</span>` : '';
   const quando = o.comDia ? html`<span class="data">${diaCurto(p.apito)}</span>${hora(p.apito)}` : html`${hora(p.apito)}`;
   return html`<li>
     <a class="partida-linha situacao-${s.toLowerCase()} ${p.classico ? 'classico' : ''} ${o.destaque ? 'em-destaque' : ''}" href="#/partida/${p.id}" ${o.destaque ? 'aria-current="true"' : ''}>
@@ -21,8 +21,8 @@ export function linhaDePartida(p: PartidaNoCalendario, o: { comDia?: boolean; de
       <span class="placar">${placar}${penaltis}</span>
       <span class="lado visitante">${escudoImg(p.visitante, 1.5)}<span class="nome">${curto(p.visitante)}</span></span>
       <span class="extra">${p.fase === 'MATA_MATA' ? html`<span class="etapa">${nomeDaEtapa(p.fase, p.rodada)}</span>` : ''}${
-        p.vantagemDoEmpate && s !== 'ENCERRADA' ? html`<span>empate classifica ${curto(p.mandante)}</span>` : ''
-      }${s === 'ENCERRADA' && p.classificado ? html`<span class="avanca">${curto(p.classificado)} ${etapaDa(p.fase, p.rodada) === 'FINAL' ? 'campeão' : 'na final'}</span>` : ''}${classico ? html`<span class="classico-nome">${classico}</span>` : ''}${
+        p.fase === 'MATA_MATA' && s !== 'ENCERRADA' ? html`<span>empate vai para os pênaltis</span>` : ''
+      }${s === 'ENCERRADA' && p.classificado ? html`<span class="avanca">${curto(p.classificado)} ${p.placar?.penaltis ? 'venceu nos pênaltis' : ''}${p.placar?.penaltis ? ', ' : ''}${etapaDa(p.fase, p.rodada) === 'FINAL' ? 'campeão' : 'na final'}</span>` : ''}${classico ? html`<span class="classico-nome">${classico}</span>` : ''}${
         s === 'AGENDADA' ? html`<span class="falta">${p.escalada ? 'Escalação saiu' : contagem(p.apito)}</span>` : ''
       }</span>
     </a>
@@ -50,7 +50,7 @@ export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compact
       </tr>`,
     )}</tbody>
   </table>
-  ${o.semLegenda ? '' : html`<p class="legenda">Os 4 primeiros vão para o Mata-mata; 1º e 2º avançam na semifinal até empatando. Desempate: vitórias, saldo e gols pró.</p>`}`;
+  ${o.semLegenda ? '' : html`<p class="legenda">Os 4 primeiros vão para o Mata-mata (1º × 4º e 2º × 3º); empate no Mata-mata vai para os pênaltis. Desempate na tabela: vitórias, saldo e gols pró.</p>`}`;
 }
 
 const perfil = () => (INSTAGRAM ? html`<a href="https://www.instagram.com/${INSTAGRAM}/" rel="noopener">@${INSTAGRAM}</a>` : html`nosso Instagram`);

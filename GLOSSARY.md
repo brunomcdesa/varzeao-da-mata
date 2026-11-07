@@ -121,12 +121,12 @@ A primeira parte da Temporada, em turno único: os 8 Times se enfrentam uma vez 
 _Avoid_: fase de grupos, classificatória, pontos corridos
 
 **Mata-mata**:
-A parte final da Temporada, com semifinais e final entre os 4 melhores da Fase de Liga.
+A parte final da Temporada, com semifinais (1º × 4º e 2º × 3º) e final entre os 4 melhores da Fase de Liga. Empate vai para a Disputa de pênaltis.
 _Avoid_: playoffs, eliminatórias
 
-**Vantagem do Empate**:
-O direito do 1º e do 2º colocados da Fase de Liga de avançar na semifinal mesmo empatando.
-_Avoid_: vantagem, benefício
+**Disputa de pênaltis**:
+Como se decide um jogo do Mata-mata (Semifinal ou Final) que termina empatado nos 90 minutos. Aparece cobrança por cobrança no Ao Vivo, no Replay e no Reels; o Ao Vivo do Mata-mata dura até 8 minutos para caber a disputa.
+_Avoid_: penalidades, prorrogação (não existe)
 
 **Duelo**:
 O confronto entre Jogadores envolvidos num lance (ex.: ATA contra GOL, MEI contra ZAG), decidido pelos OVRs de cada um somados a uma dose moderada de sorte.

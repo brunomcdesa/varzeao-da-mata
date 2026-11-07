@@ -7,3 +7,4 @@ export { visualDoJogador, FONTE_DISPLAY, FONTE_TEXTO } from './desenho.js';
 export { escudo, LARGURA_ESCUDO, ALTURA_ESCUDO } from './escudos.js';
 export { sprite, LARGURA_SPRITE, ALTURA_SPRITE, type Pose, type Visual } from './sprites.js';
 export { COR } from './pixel.js';
+export * from './penaltis.js';

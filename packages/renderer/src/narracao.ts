@@ -6,6 +6,7 @@
  */
 import { FALA_DO_TIME, doTime, nomeDoClassico, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, type Lado, type Lance } from '@liga/sim';
+import { F_CHUTE_PENALTI, instanteDaCobranca, resultadoDaCobranca } from './penaltis.js';
 import type { Roteiro, Segmento } from './roteiro.js';
 
 export type Tom = 'normal' | 'animado' | 'grito';
@@ -153,11 +154,52 @@ export function montarNarracao(roteiro: Roteiro): Fala[] {
     }
   });
 
+  // Pênaltis: abertura, cada cobrança e o vencedor.
+  const iPen = segs.findIndex((s) => s.tipo === 'PENALTIS');
+  if (iPen >= 0 && tl.disputa) {
+    const s = segs[iPen]!;
+    const d = tl.disputa;
+    const rng = criarRng(((r.seed >>> 0) ^ 0x9e3779b9) >>> 0);
+    falas.push({
+      id: 'penaltis-abertura',
+      texto: escolher(rng, [`Empate no tempo normal! Vai para os pênaltis!`, `Tudo igual! A decisão vai para os pênaltis!`]),
+      inicio: s.inicio + 0.2,
+      limite: s.fim,
+      tom: 'animado',
+      segmento: iPen,
+      parte: 'antes',
+    });
+    d.cobrancas.forEach((c, k) => {
+      const res = resultadoDaCobranca(d, k, r.seed);
+      const opcoes: [string, Tom][] =
+        res === 'GOL'
+          ? [[`Converteu ${doTime(time(c.lado))}!`, 'animado'], [`Gol! Bateu bem!`, 'animado'], [`No canto! Gol ${doTime(time(c.lado))}!`, 'animado']]
+          : res === 'DEFESA'
+            ? [[`Pegou! O goleiro ${doTime(time(c.goleiro.lado))} defende!`, 'grito'], [`Defendeu!`, 'grito']]
+            : [[`Pra fora! Desperdiçou!`, 'animado'], [`Mandou longe!`, 'animado']];
+      const [texto, tom] = escolher(rng, opcoes);
+      falas.push({ id: `penalti-${k}`, texto, inicio: roteiro.videoDosPenaltis(s, instanteDaCobranca(d, k)) - 0.05, limite: s.fim, tom, segmento: iPen, parte: 'antes' });
+    });
+    const v = d.vencedor;
+    const perdedor = v === 'mandante' ? 'visitante' : 'mandante';
+    falas.push({
+      id: 'penaltis-fim',
+      texto: `${cap(artigoDe(time(v)))} ${curto(v)} vence nos pênaltis, ${d.placar[v]} a ${d.placar[perdedor]}!`,
+      inicio: roteiro.videoDosPenaltis(s, instanteDaCobranca(d, d.cobrancas.length - 1)) + 0.9,
+      limite: s.fim,
+      tom: 'grito',
+      segmento: iPen,
+      parte: 'antes',
+    });
+  }
+
   // Fim
   const fim = segs[segs.length - 1]!;
   const g = r.gols;
   const placar = `${curto('mandante')} ${g.mandante}, ${curto('visitante')} ${g.visitante}`;
-  const vencedor = r.vencedor ? `Vitória ${doTime(time(r.vencedor))}!` : 'Tudo igual no Varzeão!';
+  const vencedor = r.penaltis && r.vencedor
+    ? `${cap(artigoDe(time(r.vencedor)))} ${curto(r.vencedor)} venceu nos pênaltis!`
+    : r.vencedor ? `Vitória ${doTime(time(r.vencedor))}!` : 'Tudo igual no Varzeão!';
   falas.push({ id: 'fim', texto: `Fim de jogo! ${placar}. ${vencedor}`, inicio: fim.inicio + 0.35, limite: fim.fim, tom: 'animado', segmento: segs.length - 1, parte: 'antes' });
   return falas;
 }
@@ -208,6 +250,7 @@ export function exigenciasDaNarracao(roteiro: Pick<Roteiro, 'segmentos'>, falas:
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const artigoDe = (t: TimeId) => FALA_DO_TIME[t].artigo;
 
 export function montarEventos(roteiro: Roteiro): EventoSonoro[] {
   const tl = roteiro.timeline;
@@ -228,6 +271,15 @@ export function montarEventos(roteiro: Roteiro): EventoSonoro[] {
     }
     const tipo = j.lance.tipo;
     eventos.push({ tipo: tipo === 'GOL' ? 'GOL' : tipo === 'DESARME' ? 'DESARME' : 'QUASE', t: s.resolucao! });
+  }
+  const iPen = segs.findIndex((s) => s.tipo === 'PENALTIS');
+  if (iPen >= 0 && tl.disputa) {
+    const s = segs[iPen]!;
+    const d = tl.disputa;
+    d.cobrancas.forEach((_, k) => {
+      eventos.push({ tipo: 'CHUTE', t: roteiro.videoDosPenaltis(s, instanteDaCobranca(d, k, F_CHUTE_PENALTI)) });
+      eventos.push({ tipo: resultadoDaCobranca(d, k, tl.resultado.seed) === 'GOL' ? 'GOL' : 'QUASE', t: roteiro.videoDosPenaltis(s, instanteDaCobranca(d, k)) });
+    });
   }
   const fim = segs[segs.length - 1]!;
   eventos.push({ tipo: 'APITO_FINAL', t: fim.inicio + 0.05 });

@@ -2,6 +2,7 @@
 import { IDENTIDADE, nomeDaEtapa, type EscalacaoPublica, type PartidaPublica } from '@liga/shared';
 import type { Desempenho, Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { contagem, diaLongo, hora, partida, situacaoAgora } from '../dados.js';
+import { DURACAO_JOGO, resultadoDaCobranca } from '@liga/renderer';
 import { montarTimeline, transmitir } from '../transmissao.js';
 import { bonecoImg, curto, escudoImg, html, jogadorLink, nota, NOME_DA_POSICAO, rotuloClassico, type Html } from '../ui.js';
 import type { Pagina } from './tipos.js';
@@ -46,6 +47,8 @@ function textoDoLance(r: ResultadoPartida, nomes: Record<Lado, (string | null)[]
   }
 }
 
+const maiuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
 const ROTULO: Record<string, string> = { GOL: 'Gol', DEFESA: 'Defesa', FORA: 'Fora', DESARME: 'Desarme' };
 
 export const paginaPartida: Pagina = async (main, [idTexto]) => {
@@ -55,7 +58,7 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
     main.innerHTML = html`<section class="placa vazio"><h1>Partida não encontrada</h1><p>Ela ainda não foi escalada ou não existe. <a href="#/jogos">Ver todos os jogos</a>.</p></section>`.s;
     return;
   }
-  const s = situacaoAgora(p.apito);
+  const s = situacaoAgora(p);
   const r = (p.resultado as ResultadoPartida | null) ?? null;
   const timeline = montarTimeline(p);
   const classico = rotuloClassico(p.mandante, p.visitante);
@@ -79,7 +82,10 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
           <a class="tabua-time" href="#/time/${p.mandante}">${escudoImg(p.mandante, 3)}<span>${curto(p.mandante)}</span></a>
           <div class="tabua-meio">
             <span class="tabua-placar">${placar}</span>
-            ${mostrarFinal && r.penaltis ? html`<span class="penaltis">pênaltis ${r.penaltis.placar.mandante}–${r.penaltis.placar.visitante}</span>` : ''}
+            ${mostrarFinal && r.penaltis && r.vencedor
+              ? html`<span class="penaltis-placa">${curto(r.times[r.vencedor])} venceu nos pênaltis, ${r.penaltis.placar[r.vencedor]} a ${r.penaltis.placar[r.vencedor === 'mandante' ? 'visitante' : 'mandante']}</span>`
+              : ''}
+            ${s === 'AO_VIVO' && timeline?.disputa ? html`<span class="penaltis-placa" data-penaltis hidden></span>` : ''}
             ${s === 'AO_VIVO' ? html`<span class="ao-vivo-selo">Ao vivo <span data-minuto>0'</span></span>` : ''}
             ${s === 'AGENDADA' ? html`<span class="falta">Apito ${contagem(p.apito)}</span>` : ''}
             ${classico ? html`<span class="classico-nome">${classico}</span>` : ''}
@@ -118,7 +124,20 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
                 <span class="min">${l.minuto}'</span><span class="chip">${ROTULO[l.tipo]}</span>
                 <span class="txt">${textoDoLance(r, nomes, i)}</span><span class="sig">${IDENTIDADE[r.times[l.ataque]].sigla}</span>
               </button></li>`,
-            )}</ol></section>`
+            )}</ol></section>
+            ${r.penaltis && timeline?.disputa
+              ? html`<section aria-labelledby="titulo-pen"><h2 id="titulo-pen" class="secao">Disputa de pênaltis <small>${curto(r.times.mandante)} ${r.penaltis.placar.mandante} × ${r.penaltis.placar.visitante} ${curto(r.times.visitante)}</small></h2>
+                  <ol class="lances cobrancas">${r.penaltis.cobrancas.map((c, k) => {
+                    const res = resultadoDaCobranca(timeline.disputa!, k, r.seed);
+                    const quem = nomes[c.cobrador.lado][c.cobrador.indice] ?? 'a Base';
+                    const goleiro = nomes[c.goleiro.lado][c.goleiro.indice] ?? 'a Base';
+                    return html`<li><button type="button" class="lance cobranca tipo-${res === 'GOL' ? 'gol' : 'perdeu'}" data-cobranca="${k}">
+                      <span class="min">${k + 1}ª</span><span class="chip">${res === 'GOL' ? 'Gol' : res === 'DEFESA' ? 'Defesa' : 'Fora'}</span>
+                      <span class="txt">${maiuscula(res === 'GOL' ? `${quem} converte` : res === 'DEFESA' ? `${goleiro} pega a cobrança de ${quem}` : `${quem} manda para fora`)}</span>
+                      <span class="sig">${IDENTIDADE[r.times[c.lado]].sigla}</span>
+                    </button></li>`;
+                  })}</ol></section>`
+              : ''}`
         : ''}
     </article>`.s;
 
@@ -135,6 +154,7 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
   const caixa = main.querySelector<HTMLElement>('.transmissao')!;
   const elPlacar = { mandante: main.querySelector('[data-placar="mandante"]'), visitante: main.querySelector('[data-placar="visitante"]') };
   const elMinuto = main.querySelector('[data-minuto]');
+  const elPen = main.querySelector<HTMLElement>('[data-penaltis]');
   const botoes = [...main.querySelectorAll<HTMLButtonElement>('.lance')];
   const tx = transmitir(caixa, p, timeline, {
     aoVivo: s === 'AO_VIVO',
@@ -144,7 +164,12 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
         elPlacar.mandante.textContent = String(pl.mandante);
         elPlacar.visitante!.textContent = String(pl.visitante);
       }
-      if (elMinuto) elMinuto.textContent = `${Math.min(90, Math.floor(t / 60))}'`;
+      if (elMinuto) elMinuto.textContent = t > DURACAO_JOGO ? 'pênaltis' : `${Math.min(90, Math.floor(t / 60))}'`;
+      if (elPen && timeline.disputa) {
+        const e = timeline.estado(t).penaltis;
+        elPen.hidden = !e;
+        if (e) elPen.textContent = `pênaltis ${e.placar.mandante}–${e.placar.visitante}`;
+      }
       for (const b of botoes) b.classList.toggle('futuro', t < timeline.instanteDoLance(Number(b.dataset.indice)));
     },
     aoAcabar: s === 'AO_VIVO' ? () => setTimeout(() => window.dispatchEvent(new HashChangeEvent('hashchange')), 3000) : undefined,
@@ -152,6 +177,12 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
   for (const b of botoes) {
     b.addEventListener('click', () => {
       tx.irPara(Math.max(0, timeline.instanteDoLance(Number(b.dataset.indice)) - 20));
+      caixa.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    });
+  }
+  for (const b of main.querySelectorAll<HTMLButtonElement>('[data-cobranca]')) {
+    b.addEventListener('click', () => {
+      tx.irPara(Math.max(0, timeline.instanteDaCobranca(Number(b.dataset.cobranca)) - 60));
       caixa.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
     });
   }

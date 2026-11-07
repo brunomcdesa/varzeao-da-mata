@@ -113,7 +113,8 @@ async function publicarDaLista(env: Env, agora: Date, f: Fetch): Promise<string[
 
 // ------------------------------------------------------------------ leitura
 
-const DURACAO_AO_VIVO_MS = 6 * 60_000;
+/** Igual a duracaoAoVivoMs do @liga/shared: 6 min, 8 no Mata-mata (pênaltis). */
+const duracaoAoVivoMs = (fase?: string) => (fase === 'MATA_MATA' ? 8 : 6) * 60_000;
 
 export async function responder(req: Request, env: Env, agora = new Date()): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
@@ -124,13 +125,13 @@ export async function responder(req: Request, env: Env, agora = new Date()): Pro
   if (m) {
     const obj = await env.PRIVADO.get(`partidas/${m[1]}.json`);
     if (!obj) return json({ erro: 'Partida não encontrada' }, 404, { 'cache-control': 'public, max-age=30' });
-    const p = (await obj.json()) as { apito: string; situacao?: string };
+    const p = (await obj.json()) as { apito: string; fase?: string; situacao?: string };
     const apito = Date.parse(p.apito);
     if (agora.getTime() < apito) {
       const segundos = Math.ceil((apito - agora.getTime()) / 1000);
       return json({ erro: 'Ainda não começou', apito: p.apito }, 425, { 'retry-after': String(segundos), 'cache-control': 'no-store' });
     }
-    const encerrada = agora.getTime() >= apito + DURACAO_AO_VIVO_MS;
+    const encerrada = agora.getTime() >= apito + duracaoAoVivoMs(p.fase);
     p.situacao = encerrada ? 'ENCERRADA' : 'AO_VIVO';
     return json(p, 200, { 'cache-control': encerrada ? 'public, max-age=86400' : 'public, max-age=30' });
   }

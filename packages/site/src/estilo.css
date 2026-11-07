@@ -2248,3 +2248,38 @@ a.jogo:hover {
     font-size: 0.8125rem;
   }
 }
+
+/* ------------------------------------------------------------ pênaltis */
+
+.penaltis-placa {
+  display: inline-block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--tinta);
+  background: var(--amarelo);
+  padding: 4px 10px 2px;
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 2px var(--contorno);
+}
+.lance.tipo-perdeu .chip {
+  background: #8a2b1b;
+}
+.vaga-gols small {
+  font: 600 0.75rem var(--texto);
+  margin-left: 3px;
+  opacity: 0.8;
+}
+
+.sala-do-time {
+  margin-top: 8px;
+}
+.sala-do-time .sala-lista {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.sala-vice .estrela {
+  background: #c9c9c9;
+}
+.sala-lider .estrela,
+.sala-craque_temporada .estrela {
+  background: var(--amarelo);
+}

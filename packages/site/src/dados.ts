@@ -3,7 +3,7 @@
  * lance a lance de uma Partida que acabou de começar vem do worker na borda (liga-api),
  * porque os arquivos estáticos só são regerados de hora em hora.
  */
-import type { JogadorPublico, LigaPublica, PartidaNoCalendario, PartidaPublica, SituacaoPartida } from '@liga/shared';
+import { duracaoAoVivoMs, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type SituacaoPartida } from '@liga/shared';
 
 const meta = (nome: string) => document.querySelector<HTMLMetaElement>(`meta[name="${nome}"]`)?.content.trim() ?? '';
 const comBarra = (s: string) => (s && !s.endsWith('/') ? `${s}/` : s);
@@ -12,8 +12,6 @@ export const BASE_DADOS = comBarra(meta('liga-dados') || './dados/');
 export const BASE_API = comBarra(meta('liga-api'));
 export const INSTAGRAM = meta('liga-instagram').replace(/^@/, '');
 
-/** Mesmo valor do worker: 90 minutos de jogo a 15×. */
-export const DURACAO_AO_VIVO_MS = 6 * 60_000;
 
 const cache = new Map<string, { quando: number; valor: Promise<unknown> }>();
 const VALIDADE_MS = 60_000;
@@ -64,17 +62,17 @@ export async function partida(id: number, fresco = false): Promise<PartidaPublic
 }
 
 /** Situação calculada pelo relógio de quem está vendo (o JSON pode ter até 1 h). */
-export function situacaoAgora(apito: string, agora = Date.now()): SituacaoPartida {
-  const t = Date.parse(apito);
+export function situacaoAgora(p: { apito: string; fase: 'LIGA' | 'MATA_MATA' }, agora = Date.now()): SituacaoPartida {
+  const t = Date.parse(p.apito);
   if (agora < t) return 'AGENDADA';
-  return agora < t + DURACAO_AO_VIVO_MS ? 'AO_VIVO' : 'ENCERRADA';
+  return agora < t + duracaoAoVivoMs(p.fase) ? 'AO_VIVO' : 'ENCERRADA';
 }
 
 /** Rodada "da vez": a que tem Partida ao vivo ou a próxima a jogar; senão a última. */
 export function rodadaAtual(l: LigaPublica, agora = Date.now()): number | null {
-  const viva = l.calendario.find((p) => situacaoAgora(p.apito, agora) === 'AO_VIVO');
+  const viva = l.calendario.find((p) => situacaoAgora(p, agora) === 'AO_VIVO');
   if (viva) return viva.rodada;
-  const proxima = l.calendario.find((p) => situacaoAgora(p.apito, agora) === 'AGENDADA');
+  const proxima = l.calendario.find((p) => situacaoAgora(p, agora) === 'AGENDADA');
   if (proxima) {
     // Se a Rodada anterior terminou hoje, ela ainda é a "da vez" até a meia-noite.
     const anterior = l.calendario.filter((p) => p.rodada === proxima.rodada - 1).at(-1);

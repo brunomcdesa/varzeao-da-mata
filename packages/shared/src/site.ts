@@ -40,7 +40,7 @@ export interface PartidaNoCalendario {
   placar?: { mandante: number; visitante: number; penaltis?: { mandante: number; visitante: number } };
   /** Já existe Escalação (a partir do Corte). */
   escalada: boolean;
-  /** Semifinal: o mandante (1º ou 2º) avança mesmo empatando. */
+  /** Legado (regra antiga da Vantagem do Empate); hoje o Mata-mata vai para os pênaltis. */
   vantagemDoEmpate?: boolean;
   /** Mata-mata encerrado: quem avançou (ou foi campeão). */
   classificado?: TimeId;
@@ -89,6 +89,8 @@ export interface TemporadaNaHistoria {
   final: { partidaId: number; mandante: TimeId; visitante: TimeId; placar: { mandante: number; visitante: number; penaltis?: { mandante: number; visitante: number } } } | null;
   craque: JogadorResumido | null;
   artilheiro: (JogadorResumido & { gols: number }) | null;
+  /** Maior nota média entre os goleiros com pelo menos 3 jogos (desempate: menos gols sofridos por jogo). */
+  goleiro: (JogadorResumido & { notaMedia: number; jogos: number; defesas: number; golsSofridos: number }) | null;
   /** Tabela da Fase de Liga (parcial enquanto a Temporada corre). */
   tabela: LinhaTabelaPublica[];
 }

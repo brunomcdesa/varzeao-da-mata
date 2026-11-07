@@ -4,14 +4,13 @@ import { contagem, diaLongo, hora, liga, partida, partidasDaRodada, rodadaAtual,
 import { montarTimeline, transmitir } from '../transmissao.js';
 import { bonecoImg, curto, escudoImg, html, jogadorLink, nota, rotuloClassico, type Html } from '../ui.js';
 import { chamadaDeVoto, comoEntrar, linhaDePartida, perfil, tabelaDeClassificacao } from './comum.js';
-import { chaveamento } from './chave.js';
 import type { Pagina } from './tipos.js';
 
 /** A Partida que merece o destaque: a que está rolando, senão a próxima. */
 function partidaDaVez(l: LigaPublica): PartidaNoCalendario | null {
   return (
-    l.calendario.find((p) => situacaoAgora(p.apito) === 'AO_VIVO') ??
-    l.calendario.find((p) => situacaoAgora(p.apito) === 'AGENDADA') ??
+    l.calendario.find((p) => situacaoAgora(p) === 'AO_VIVO') ??
+    l.calendario.find((p) => situacaoAgora(p) === 'AGENDADA') ??
     null
   );
 }
@@ -32,7 +31,7 @@ function destaque(l: LigaPublica, p: PartidaNoCalendario | null): Html {
   if (!p) {
     return html`<div class="destaque"><p class="destaque-rotulo">Temporada encerrada</p><p class="destaque-nota">A próxima começa em breve. Acompanhe no ${perfil()}.</p></div>`;
   }
-  const s = situacaoAgora(p.apito);
+  const s = situacaoAgora(p);
   const classico = rotuloClassico(p.mandante, p.visitante);
   return html`<div class="destaque ${s === 'AO_VIVO' ? 'rolando' : ''}">
     <p class="destaque-rotulo">${s === 'AO_VIVO' ? 'Rolando agora' : `Próximo jogo ${contagem(p.apito)}`}</p>
@@ -112,11 +111,8 @@ export const inicio: Pagina = async (main) => {
       <div class="painel-corpo">
         ${destaque(l, daVez)}
         <div class="painel-lado">
-          ${jogos.length && jogos[0]!.fase === 'MATA_MATA'
-            ? html`<div class="chave-no-painel">${chaveamento(l, { titulo: false })}</div>`
-            : jogos.length
-              ? html`<ul class="placas" aria-label="Jogos do dia">${jogos.map((p) => linhaDePartida(p, { destaque: p.id === daVez?.id }))}</ul>`
-              : ''}
+          ${jogos.length ? html`<ul class="placas" aria-label="Jogos do dia">${jogos.map((p) => linhaDePartida(p, { destaque: p.id === daVez?.id }))}</ul>` : ''}
+          ${jogos.length && jogos[0]!.fase === 'MATA_MATA' ? html`<p class="tabela-link"><a href="#/jogos">Ver o chaveamento do Mata-mata</a></p>` : ''}
           <section class="quadro-negro tabela-bloco" aria-labelledby="titulo-tabela">
             <h2 id="titulo-tabela">Tabela</h2>
             ${tabelaDeClassificacao(l.tabela, { compacta: true, semLegenda: true })}
@@ -132,7 +128,7 @@ export const inicio: Pagina = async (main) => {
 
   // Ao vivo: a tábua vira a transmissão.
   let parar = () => {};
-  if (daVez && situacaoAgora(daVez.apito) === 'AO_VIVO') {
+  if (daVez && situacaoAgora(daVez) === 'AO_VIVO') {
     const p = await partida(daVez.id, true);
     const timeline = p && montarTimeline(p);
     const caixa = main.querySelector<HTMLElement>('.destaque-transmissao');
@@ -143,7 +139,7 @@ export const inicio: Pagina = async (main) => {
     }
   }
   // Recarrega quando a próxima Partida começa.
-  const proxima = daVez && situacaoAgora(daVez.apito) === 'AGENDADA' ? Date.parse(daVez.apito) - Date.now() : null;
+  const proxima = daVez && situacaoAgora(daVez) === 'AGENDADA' ? Date.parse(daVez.apito) - Date.now() : null;
   const relogio = proxima !== null && proxima < 2 ** 31 - 1 ? setTimeout(() => window.dispatchEvent(new HashChangeEvent('hashchange')), proxima + 500) : 0;
   return () => {
     parar();

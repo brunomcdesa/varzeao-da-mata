@@ -21,3 +21,12 @@ export function nomeDaEtapa(fase: 'LIGA' | 'MATA_MATA', numero: number): string 
   const e = etapaDa(fase, numero);
   return e === 'LIGA' ? `Rodada ${numero}` : e === 'SEMIFINAL' ? 'Semifinal' : 'Final';
 }
+
+/**
+ * Quanto dura o Ao Vivo no site (90 minutos de jogo a 15×). No Mata-mata a janela inclui
+ * a disputa de pênaltis (até 2 min a mais) mesmo quando não há: assim a duração do Ao Vivo
+ * não entrega que o jogo foi empatado.
+ */
+export function duracaoAoVivoMs(fase: 'LIGA' | 'MATA_MATA'): number {
+  return (fase === 'MATA_MATA' ? 8 : 6) * 60_000;
+}

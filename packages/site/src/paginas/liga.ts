@@ -11,9 +11,38 @@ function titulosDo(l: LigaPublica, t: TimeId): number[] {
   return l.temporadas.filter((x) => x.campeao === t).map((x) => x.numero).sort((a, b) => a - b);
 }
 
+/** Conquistas do Time em todas as Temporadas, no mesmo formato da sala do Jogador. */
+function salaDoTime(l: LigaPublica, t: TimeId): ReturnType<typeof html> {
+  const itens: { tipo: string; nome: string; icone: 'taca' | 'estrela'; quando: ReturnType<typeof html>[] }[] = [];
+  const titulos = l.temporadas.filter((x) => x.campeao === t).sort((a, b) => b.numero - a.numero);
+  const vices = l.temporadas.filter((x) => x.vice === t).sort((a, b) => b.numero - a.numero);
+  const lideres = l.temporadas.filter((x) => x.campeao && x.tabela[0]?.time === t).sort((a, b) => b.numero - a.numero);
+  const craques = l.temporadas.filter((x) => x.craque?.time === t).sort((a, b) => b.numero - a.numero);
+  const final = (x: (typeof l.temporadas)[number]) => (x.final ? html`<a href="#/partida/${x.final.partidaId}">Temporada ${x.numero}</a>` : html`<span>Temporada ${x.numero}</span>`);
+  if (titulos.length) itens.push({ tipo: 'campeao', nome: 'Campeão', icone: 'taca', quando: titulos.map(final) });
+  if (vices.length) itens.push({ tipo: 'vice', nome: 'Vice-campeão', icone: 'estrela', quando: vices.map(final) });
+  if (lideres.length) itens.push({ tipo: 'lider', nome: 'Melhor da Fase de Liga', icone: 'estrela', quando: lideres.map((x) => html`<span>Temporada ${x.numero}</span>`) });
+  if (craques.length) {
+    itens.push({ tipo: 'craque_temporada', nome: 'Craque da Temporada no elenco', icone: 'estrela', quando: craques.map((x) => html`<a href="#/jogador/${x.craque!.jogadorId}">@${x.craque!.username}, T${x.numero}</a>`) });
+  }
+  if (!itens.length) return html``;
+  const contagem = (i: (typeof itens)[number]) => i.quando.length;
+  return html`<section class="sala sala-do-time" aria-labelledby="titulo-sala-time">
+    <h2 id="titulo-sala-time" class="secao">Sala de troféus</h2>
+    <ul class="sala-lista">${itens.map(
+      (i) => html`<li class="sala-item sala-${i.tipo}">
+        <span class="sala-icone">${i.icone === 'taca' ? taca(30, 'trofeu') : html`<span class="estrela" aria-hidden="true"></span>`}</span>
+        <span class="sala-nome">${i.nome}<b>${contagem(i)}</b></span>
+        <span class="sala-quando">${i.quando}</span>
+      </li>`,
+    )}</ul>
+  </section>`;
+}
+
 export const paginaJogos: Pagina = async (main) => {
   const l = await liga();
-  const rodadas = [...new Set(l.calendario.map((p) => p.rodada))];
+  // O Mata-mata aparece só no chaveamento; a lista é da Fase de Liga.
+  const rodadas = [...new Set(l.calendario.filter((p) => p.fase === 'LIGA').map((p) => p.rodada))];
   const atual = rodadaAtual(l);
   main.innerHTML = html`<h1 class="titulo-pagina">Jogos da Temporada ${l.temporada?.numero ?? ''}</h1>
     ${rodadas.length ? chaveamento(l) : ''}
@@ -33,7 +62,7 @@ export const paginaTabela: Pagina = async (main) => {
   const l = await liga();
   main.innerHTML = html`<h1 class="titulo-pagina">Tabela da Fase de Liga</h1>
     <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(l.tabela)}</div>
-    ${l.calendario.length ? chaveamento(l) : ''}`.s;
+    <p class="legenda"><a href="#/jogos">Ver o chaveamento do Mata-mata em Jogos</a></p>`.s;
 };
 
 export const paginaTimes: Pagina = async (main) => {
@@ -88,6 +117,7 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
         ${linha ? html`<p class="campanha">${pos}º lugar · ${linha.pontos} pontos · ${linha.vitorias}V ${linha.empates}E ${linha.derrotas}D · saldo ${linha.saldo > 0 ? '+' : ''}${linha.saldo}</p>` : ''}
       </div>
     </header>
+    ${salaDoTime(l, t)}
     <div class="time-colunas">
       <section aria-labelledby="titulo-elenco">
         <h2 id="titulo-elenco" class="secao">Elenco <small>${elenco.length} inscritos · ordenado por OVR</small></h2>

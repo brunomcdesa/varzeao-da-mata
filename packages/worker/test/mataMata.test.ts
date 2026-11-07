@@ -23,7 +23,7 @@ const jogar = async (numero: number) => {
 };
 
 describe('Mata-mata', () => {
-  it('Semifinais 1º×4º e 2º×3º com Vantagem do Empate, Final no dia seguinte, campeão no fim', async () => {
+  it('Semifinais 1º×4º e 2º×3º, Final no dia seguinte, campeão no fim; empate vai para os pênaltis', async () => {
     for (let n = 1; n <= 6; n++) await jogar(n);
     expect(await avancarMataMata(banco, temporada)).toBe('NADA');
     await jogar(7);
@@ -37,7 +37,7 @@ describe('Mata-mata', () => {
       )
     ).rows;
     expect(semis.map((s) => [s.mandante_id, s.visitante_id])).toEqual([[t[0], t[3]], [t[1], t[2]]]);
-    expect(semis.every((s) => s.vantagem_do_empate === 'mandante')).toBe(true);
+    expect(semis.every((s) => s.vantagem_do_empate === null)).toBe(true);
     expect(new Date(semis[0]!.apito_inicial).toISOString()).toBe('2026-11-14T17:00:00.000Z'); // 14h do 8º dia
 
     await jogar(8);

@@ -34,6 +34,8 @@ const { values: args } = parseArgs({
     crf: { type: 'string', default: '20' },
     previa: { type: 'string' },
     escudos: { type: 'string' },
+    /** Procura a partir de --seed a primeira Partida de Mata-mata decidida nos pênaltis. */
+    penaltis: { type: 'boolean' },
   },
 });
 
@@ -41,7 +43,12 @@ async function main(): Promise<void> {
   if (args.escudos) return exportarEscudos(resolve(process.cwd(), args.escudos));
   let partida: PartidaParaVideo;
   if (args.entrada) partida = JSON.parse(await readFile(resolve(process.cwd(), args.entrada), 'utf8')) as PartidaParaVideo;
-  else if (args.seed) partida = partidaDeTeste(Number(args.seed), args.mandante as TimeId, args.visitante as TimeId, args.subtitulo);
+  else if (args.penaltis) {
+    let s = Number(args.seed ?? 1);
+    do partida = partidaDeTeste(s++, args.mandante as TimeId, args.visitante as TimeId, args.subtitulo ?? 'Final', 'MATA_MATA');
+    while (!partida.resultado.penaltis);
+    console.log(`seed ${s - 1}: ${partida.resultado.gols.mandante}x${partida.resultado.gols.visitante}, pênaltis ${partida.resultado.penaltis.placar.mandante}x${partida.resultado.penaltis.placar.visitante}`);
+  } else if (args.seed) partida = partidaDeTeste(Number(args.seed), args.mandante as TimeId, args.visitante as TimeId, args.subtitulo);
   else throw new Error('informe --entrada partida.json, --seed N ou --escudos pasta');
   await gravarReels(partida, {
     saida: resolve(process.cwd(), args.saida!),

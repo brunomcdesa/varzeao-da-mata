@@ -32,7 +32,7 @@ export function desenharQuadroVideo(ctx: CanvasRenderingContext2D, roteiro: Rote
   const pin = new Pincel(ctx);
   const tipo = q.segmento.tipo;
   // Nas cartelas o fundo é o cenário vazio; no jogo, o quadro completo.
-  if (tipo === 'LANCE') desenharQuadro(ctx, roteiro.timeline.estado(q.tJogo), o);
+  if (tipo === 'LANCE' || tipo === 'PENALTIS') desenharQuadro(ctx, roteiro.timeline.estado(q.tJogo), o);
   else {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(cenario(), 0, 0, COLUNAS * pin.px, LINHAS * pin.px);

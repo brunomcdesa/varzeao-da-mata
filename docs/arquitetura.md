@@ -41,7 +41,7 @@ No Mata-mata, as Partidas ocupam os últimos horários: semifinais às 16h e 18h
 
 | Pacote | Responsabilidade |
 |---|---|
-| `shared` | Tipos de domínio, Times, Clássicos, regras puras (rodízio, tabela, Vantagem do Empate) e parser de Comandos |
+| `shared` | Tipos de domínio, Times, Clássicos, regras puras (rodízio, tabela, Mata-mata e duração do Ao Vivo) e parser de Comandos |
 | `sim` | Motor determinístico: recebe Escalações, seed e fase; devolve lances, placar, pênaltis e Notas. Sem `Math.random` nem relógio |
 | `renderer` | Animação 2D (Canvas/Phaser) que reproduz os lances da `sim`. Roda em dois modos: **quadro a quadro**, no Actions, para o vídeo, e **tempo de relógio**, no site, para Ao Vivo e Replay |
 | `worker` (Actions) | Jobs `coletar`, `partida` e `resumo`: banco, Graph API, Playwright, ffmpeg, Gemini TTS (ADR-0009), R2 e KV |

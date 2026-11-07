@@ -38,7 +38,7 @@ export interface OpcoesGravacao {
 }
 
 /** Mesma montagem da página de Replay: Escalações sorteadas a partir do seed. */
-export function partidaDeTeste(seed: number, mandante: TimeId, visitante: TimeId, subtitulo?: string): PartidaParaVideo {
+export function partidaDeTeste(seed: number, mandante: TimeId, visitante: TimeId, subtitulo?: string, fase: 'LIGA' | 'MATA_MATA' = 'LIGA'): PartidaParaVideo {
   for (const t of [mandante, visitante]) if (!TIMES.includes(t)) throw new Error(`Time desconhecido: ${t} (use ${TIMES.join(', ')})`);
   const ORDEM: Posicao[] = ['GOL', 'ZAG', 'ZAG', 'MEI', 'MEI', 'ATA', 'ATA'];
   const APELIDOS = ['rafa', 'bia', 'duda', 'leo', 'malu', 'gui', 'nanda', 'pedrinho', 'lari', 'thiago', 'carol', 'vini', 'ju', 'digo'];
@@ -60,7 +60,7 @@ export function partidaDeTeste(seed: number, mandante: TimeId, visitante: TimeId
   };
   const a = montar(mandante, seed * 7 + 1);
   const b = montar(visitante, seed * 7 + 2);
-  const resultado = simularPartida({ mandante: a.esc, visitante: b.esc, seed, fase: 'LIGA' });
+  const resultado = simularPartida({ mandante: a.esc, visitante: b.esc, seed, fase });
   return {
     resultado,
     escalacoes: { mandante: a.esc, visitante: b.esc },
@@ -295,6 +295,7 @@ async function gravarPrevia(pagina: import('playwright').Page, dir: string, fps:
   segs.forEach((s, i) => {
     const em = (f: number) => Math.floor((s.inicio + (s.fim - s.inicio) * f) * fps);
     if (s.tipo === 'ABERTURA') momentos.push(['00-abertura', em(0.6)]);
+    else if (s.tipo === 'PENALTIS') for (const f of [0.05, 0.17, 0.24, 0.3, 0.52, 0.97]) momentos.push([`${String(i).padStart(2, '0')}-penaltis-${Math.round(f * 100)}`, em(f)]);
     else if (s.tipo !== 'LANCE' && s.tipo !== 'FIM') momentos.push([`${String(i).padStart(2, '0')}-${s.tipo.toLowerCase()}`, em(0.85)]);
     else if (s.tipo === 'FIM') momentos.push([`${String(i).padStart(2, '0')}-fim`, em(0.75)]);
     else {

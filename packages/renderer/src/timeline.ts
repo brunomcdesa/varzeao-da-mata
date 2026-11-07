@@ -24,6 +24,8 @@ import {
 } from './jogada.js';
 
 export type { Ponto, AcaoJogador, EstiloJogada } from './jogada.js';
+import { F_RESOLUCAO_PENALTI, estadoDaDisputa, instanteDaCobranca, montarDisputa, quadroDaDisputa, resultadoDaCobranca, type Disputa, type EstadoPenaltis } from './penaltis.js';
+export type { Disputa, EstadoPenaltis, MarcaDePenalti } from './penaltis.js';
 
 export const DURACAO_JOGO = 90 * 60;
 /** Velocidade do Ao Vivo: 90 minutos de jogo em cerca de 6 minutos (ADR-0005). */
@@ -38,6 +40,8 @@ export interface Destaque {
   protagonista: SlotRef;
   /** 0 → 1 enquanto o destaque está na tela. */
   progresso: number;
+  /** Letreiro de cobrança de pênalti (menor que o de gol de jogo). */
+  penalti?: boolean;
 }
 
 export interface JogadorNoQuadro {
@@ -65,6 +69,8 @@ export interface EstadoQuadro {
   /** Estilo da jogada em andamento, se houver. */
   estilo: EstiloJogada | null;
   encerrada: boolean;
+  /** Durante e depois da disputa de pênaltis (só quando ela existe e já começou). */
+  penaltis: EstadoPenaltis | null;
 }
 
 interface Janela {
@@ -101,6 +107,8 @@ const chave = (s: SlotRef) => `${s.lado}:${s.indice}`;
 export class Timeline {
   readonly janelas: Janela[];
   readonly planos: Plano[];
+  /** Disputa de pênaltis depois dos 90 minutos, se houve. */
+  readonly disputa: Disputa | null;
   private readonly bases: Record<Lado, Ponto[]>;
   private readonly trilhas: Map<string, QuadroAtor[]>[];
 
@@ -115,10 +123,17 @@ export class Timeline {
     this.janelas = montarJanelas(resultado.lances);
     this.planos = resultado.lances.map((l) => montarPlano(l, this.bases, escalacoes, resultado.seed));
     this.trilhas = this.planos.map((p) => new Map(p.atores.map((a) => [chave(a.slot), a.quadros])));
+    this.disputa = montarDisputa(resultado, DURACAO_JOGO);
   }
 
+  /** Fim da Partida: 90 minutos, ou o fim da disputa de pênaltis. */
   get duracao(): number {
-    return DURACAO_JOGO;
+    return this.disputa?.fim ?? DURACAO_JOGO;
+  }
+
+  /** Instante (s de jogo) em que a cobrança k se resolve. */
+  instanteDaCobranca(k: number): number {
+    return this.disputa ? instanteDaCobranca(this.disputa, k) : DURACAO_JOGO;
   }
 
   /** Instante (segundos de jogo) em que cada lance se resolve; útil para pular direto ao lance. */
@@ -135,6 +150,7 @@ export class Timeline {
   }
 
   estado(tBruto: number): EstadoQuadro {
+    if (this.disputa && tBruto > DURACAO_JOGO) return this.estadoDaDisputa(Math.min(tBruto, this.disputa.fim));
     const t = limitar(tBruto, 0, DURACAO_JOGO);
     const indice = this.indiceEm(t);
     const { pos: bola, altura } = this.bolaEm(t, indice);
@@ -163,7 +179,49 @@ export class Timeline {
       destaque: this.destaqueEm(t),
       lanceAtual: indice,
       estilo: plano?.estilo ?? null,
-      encerrada: t >= DURACAO_JOGO,
+      encerrada: t >= DURACAO_JOGO && !this.disputa,
+      penaltis: null,
+    };
+  }
+
+  private estadoDaDisputa(t: number): EstadoQuadro {
+    const d = this.disputa!;
+    const seed = this.resultado.seed;
+    const agora = quadroDaDisputa(d, t, seed, this.escalacoes);
+    const antes = quadroDaDisputa(d, Math.max(DURACAO_JOGO, t - DT_VEL), seed, this.escalacoes);
+    const pen = estadoDaDisputa(d, t, seed);
+    const jogadores: JogadorNoQuadro[] = agora.posicoes.map((j, k) => {
+      const a = antes.posicoes[k]!.pos;
+      const vel = { x: (j.pos.x - a.x) / DT_VEL, y: (j.pos.y - a.y) / DT_VEL };
+      const posicao = this.escalacoes[j.slot.lado].jogadores[j.slot.indice]!.posicao;
+      const correndo = Math.hypot(vel.x, vel.y) > 0.0016;
+      return { slot: j.slot, posicao, pos: j.pos, vel, olhar: j.olhar, acao: j.acao === 'PARADO' && correndo ? 'CORRENDO' : j.acao };
+    });
+    // Letreiro de cada cobrança, logo depois da batida.
+    let destaque: Destaque | null = null;
+    if (pen.fase === 'COBRANCA' && pen.progresso >= F_RESOLUCAO_PENALTI) {
+      const c = d.cobrancas[pen.atual]!;
+      const res = resultadoDaCobranca(d, pen.atual, seed);
+      destaque = {
+        tipo: res,
+        lado: res === 'DEFESA' ? c.goleiro.lado : c.lado,
+        protagonista: res === 'DEFESA' ? c.goleiro : c.cobrador,
+        progresso: (pen.progresso - F_RESOLUCAO_PENALTI) / (1 - F_RESOLUCAO_PENALTI),
+        penalti: true,
+      };
+    }
+    return {
+      t,
+      minuto: 90,
+      placar: this.placarEm(DURACAO_JOGO),
+      bola: agora.bola,
+      bolaAltura: agora.bolaAltura,
+      jogadores,
+      destaque,
+      lanceAtual: -1,
+      estilo: null,
+      encerrada: t >= d.fim,
+      penaltis: pen,
     };
   }
 
