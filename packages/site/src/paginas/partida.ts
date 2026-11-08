@@ -1,5 +1,5 @@
 /** Partida: escalações a partir do Corte, transmissão ao vivo ou replay, lances e Notas. */
-import { IDENTIDADE, nomeDaEtapa, type EscalacaoPublica, type PartidaPublica } from '@liga/shared';
+import { IDENTIDADE, duracaoAoVivoMs, nomeDaEtapa, type EscalacaoPublica, type PartidaPublica } from '@liga/shared';
 import type { Desempenho, Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { contagem, diaLongo, hora, partida, situacaoAgora } from '../dados.js';
 import { DURACAO_JOGO, resultadoDaCobranca } from '@liga/renderer';
@@ -180,8 +180,9 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
       }
       for (const b of botoes) b.classList.toggle('futuro', t < timeline.instanteDoLance(Number(b.dataset.indice)));
     },
-    aoAcabar: s === 'AO_VIVO' ? () => setTimeout(() => window.dispatchEvent(new HashChangeEvent('hashchange')), 3000) : undefined,
   });
+  // No fim do Ao Vivo a página vira a da Partida encerrada (placar, Notas, lance a lance).
+  const fimDoAoVivo = s === 'AO_VIVO' ? setTimeout(() => window.dispatchEvent(new HashChangeEvent('hashchange')), Date.parse(p.apito) + duracaoAoVivoMs(p.fase) - Date.now() + 500) : 0;
   for (const b of botoes) {
     b.addEventListener('click', () => {
       tx.irPara(Math.max(0, timeline.instanteDoLance(Number(b.dataset.indice)) - 20));
@@ -194,5 +195,8 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
       caixa.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
     });
   }
-  return () => tx.parar();
+  return () => {
+    tx.parar();
+    clearTimeout(fimDoAoVivo);
+  };
 };

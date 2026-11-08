@@ -1,5 +1,5 @@
 /** Início: a Partida da vez (ao vivo ou a próxima), a Rodada, a votação do Craque e a tabela. */
-import { IDENTIDADE, nomeDaRodada, type LigaPublica, type PartidaNoCalendario, type Posicao, type TimeId } from '@liga/shared';
+import { IDENTIDADE, duracaoAoVivoMs, nomeDaRodada, type LigaPublica, type PartidaNoCalendario, type Posicao, type TimeId } from '@liga/shared';
 import { contagem, diaLongo, hora, liga, partida, partidasDaRodada, rodadaAtual, situacaoAgora } from '../dados.js';
 import { montarTimeline, transmitir } from '../transmissao.js';
 import { bonecoImg, curto, escudoImg, html, jogadorLink, nota, rotuloClassico, type Html } from '../ui.js';
@@ -180,11 +180,13 @@ export const inicio: Pagina = async (main) => {
     if (p && timeline && caixa) {
       caixa.hidden = false;
       main.querySelector('.destaque-confronto')?.setAttribute('hidden', '');
-      parar = transmitir(caixa, p, timeline, { aoVivo: true, aoAcabar: () => setTimeout(() => window.dispatchEvent(new HashChangeEvent('hashchange')), 4000) }).parar;
+      parar = transmitir(caixa, p, timeline, { aoVivo: true }).parar;
     }
   }
-  // Recarrega quando a próxima Partida começa.
-  const proxima = daVez && situacaoAgora(daVez) === 'AGENDADA' ? Date.parse(daVez.apito) - Date.now() : null;
+  // Recarrega quando a próxima Partida começa, ou quando o Ao Vivo acaba (placar, Card e
+  // tabela atualizam na hora: veja completarLiga).
+  const sd = daVez && situacaoAgora(daVez);
+  const proxima = !daVez ? null : sd === 'AGENDADA' ? Date.parse(daVez.apito) - Date.now() : sd === 'AO_VIVO' ? Date.parse(daVez.apito) + duracaoAoVivoMs(daVez.fase) - Date.now() : null;
   const relogio = proxima !== null && proxima < 2 ** 31 - 1 ? setTimeout(() => window.dispatchEvent(new HashChangeEvent('hashchange')), proxima + 500) : 0;
   return () => {
     parar();

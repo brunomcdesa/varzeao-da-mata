@@ -3,7 +3,7 @@
  * lance a lance de uma Partida que acabou de começar vem do worker na borda (liga-api),
  * porque os arquivos estáticos só são regerados de hora em hora.
  */
-import { duracaoAoVivoMs, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type SituacaoPartida } from '@liga/shared';
+import { duracaoAoVivoMs, type JogadorPublico, type LigaPublica, type LinhaTabelaPublica, type PartidaNoCalendario, type PartidaPublica, type SituacaoPartida } from '@liga/shared';
 
 const meta = (nome: string) => document.querySelector<HTMLMetaElement>(`meta[name="${nome}"]`)?.content.trim() ?? '';
 const comBarra = (s: string) => (s && !s.endsWith('/') ? `${s}/` : s);
@@ -38,7 +38,56 @@ export class ErroDeDados extends Error {
   }
 }
 
-export const liga = (fresco = false) => buscar<LigaPublica>(`${BASE_DADOS}liga.json`, fresco);
+export const liga = async (fresco = false): Promise<LigaPublica> => completarLiga(await buscar<LigaPublica>(`${BASE_DADOS}liga.json`, fresco));
+
+/**
+ * O liga.json é gerado pelo worker; entre o fim do Ao Vivo e a próxima publicação ele ainda
+ * mostra o jogo sem placar. Pelo relógio de quem está vendo, se o Ao Vivo já acabou, o
+ * site pega o resultado (o mesmo da transmissão) e atualiza placar, Card da Rodada e
+ * tabela na hora, sem esperar a publicação.
+ */
+async function completarLiga(l: LigaPublica): Promise<LigaPublica> {
+  const atrasadas = l.calendario.filter((p) => p.situacao !== 'ENCERRADA' && situacaoAgora(p) === 'ENCERRADA' && !p.placar);
+  if (!atrasadas.length) return l;
+  const resultados = await Promise.all(atrasadas.map((p) => partida(p.id).catch(() => null)));
+  const calendario = [...l.calendario];
+  const tabela = new Map(l.tabela.map((t) => [t.time, { ...t }]));
+  let mudouTabela = false;
+  atrasadas.forEach((p, k) => {
+    const r = resultados[k]?.resultado as ResultadoMinimo | null | undefined;
+    if (!r?.gols) return;
+    const pen = r.penaltis?.placar;
+    const placar = { mandante: r.gols.mandante, visitante: r.gols.visitante, ...(pen ? { penaltis: { mandante: pen.mandante, visitante: pen.visitante } } : {}) };
+    const novo: PartidaNoCalendario = { ...p, situacao: 'ENCERRADA', placar };
+    if (p.fase === 'MATA_MATA' && r.vencedor) novo.classificado = r.vencedor === 'mandante' ? p.mandante : p.visitante;
+    calendario[calendario.indexOf(p)] = novo;
+    if (p.fase !== 'LIGA') return;
+    for (const [time, pro, contra] of [
+      [p.mandante, placar.mandante, placar.visitante],
+      [p.visitante, placar.visitante, placar.mandante],
+    ] as const) {
+      const t = tabela.get(time);
+      if (!t) continue;
+      t.jogos++;
+      t.golsPro += pro;
+      t.golsContra += contra;
+      t.saldo = t.golsPro - t.golsContra;
+      if (pro > contra) (t.vitorias++, (t.pontos += 3));
+      else if (pro === contra) (t.empates++, (t.pontos += 1));
+      else t.derrotas++;
+      mudouTabela = true;
+    }
+  });
+  // Mesmo critério do worker: pontos, vitórias, saldo, gols pró, sigla.
+  const ordem = (a: LinhaTabelaPublica, b: LinhaTabelaPublica) => b.pontos - a.pontos || b.vitorias - a.vitorias || b.saldo - a.saldo || b.golsPro - a.golsPro || a.time.localeCompare(b.time);
+  return { ...l, calendario, tabela: mudouTabela ? [...tabela.values()].sort(ordem) : l.tabela };
+}
+
+interface ResultadoMinimo {
+  gols: { mandante: number; visitante: number };
+  penaltis?: { placar: { mandante: number; visitante: number } };
+  vencedor: 'mandante' | 'visitante' | null;
+}
 export const jogadores = (fresco = false) => buscar<JogadorPublico[]>(`${BASE_DADOS}jogadores.json`, fresco);
 
 /**
