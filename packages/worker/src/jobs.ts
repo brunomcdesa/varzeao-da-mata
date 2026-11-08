@@ -32,6 +32,8 @@ export interface ContextoDoJob {
   /** null: sem Instagram configurado (só grava e sobe; não agenda). */
   ig: Instagram | null;
   gravarReels?: (dados: DadosDoVideo, saida: string) => Promise<void>;
+  /** Narração do Ao Vivo do site (o jogo inteiro), em .m4a. */
+  gravarAoVivo?: (dados: DadosDoVideo, saida: string) => Promise<void>;
   gravarResumo?: (dados: DadosDoResumo, saida: string) => Promise<void>;
   agora?: () => Date;
   dormir?: (ms: number) => Promise<void>;
@@ -328,6 +330,21 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
         await c.armazenamento.enviar('publico', chave, new Uint8Array(await readFile(local)), { tipo: 'video/mp4', cache: 'public, max-age=31536000, immutable' });
         videoUrl = c.armazenamento.urlPublica(chave);
         await c.banco.query(`UPDATE partida SET video_url = $2 WHERE id = $1`, [p.id, videoUrl]);
+      }
+      // Narração do Ao Vivo: falha aqui não atrapalha o Reels (o Ao Vivo segue mudo).
+      if (c.gravarAoVivo) {
+        const ja = (await c.banco.query<{ narracao_url: string | null }>(`SELECT narracao_url FROM partida WHERE id = $1`, [p.id])).rows[0]?.narracao_url;
+        if (!ja) {
+          try {
+            const arquivo = join(pasta, 'aovivo.m4a');
+            await c.gravarAoVivo(r.dados, arquivo);
+            const chave = `narracao/${randomUUID()}.m4a`;
+            await c.armazenamento.enviar('publico', chave, new Uint8Array(await readFile(arquivo)), { tipo: 'audio/mp4', cache: 'public, max-age=31536000, immutable' });
+            await c.banco.query(`UPDATE partida SET narracao_url = $2 WHERE id = $1`, [p.id, c.armazenamento.urlPublica(chave)]);
+          } catch (e) {
+            log(`Partida ${p.id}: sem narração do Ao Vivo (${(e as Error).message}).`);
+          }
+        }
       }
       if (!videoUrl) {
         log(`Partida ${p.id}: simulada, sem vídeo (gravador não configurado).`);

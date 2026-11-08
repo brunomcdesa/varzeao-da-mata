@@ -28,8 +28,8 @@ import { F_RESOLUCAO_PENALTI, estadoDaDisputa, instanteDaCobranca, montarDisputa
 export type { Disputa, EstadoPenaltis, MarcaDePenalti } from './penaltis.js';
 
 export const DURACAO_JOGO = 90 * 60;
-/** Velocidade do Ao Vivo: 90 minutos de jogo em cerca de 6 minutos (ADR-0005). */
-export const VELOCIDADE_AO_VIVO = 15;
+/** Velocidade do Ao Vivo: 90 minutos de jogo em 4 min 30 s (ADR-0005; era 15×, 6 min). */
+export const VELOCIDADE_AO_VIVO = 20;
 
 export type TipoDestaque = 'GOL' | 'DEFESA' | 'BLOQUEIO' | 'DESARME' | 'FORA';
 

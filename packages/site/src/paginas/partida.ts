@@ -107,12 +107,15 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
                   <button type="button" class="botao" data-acao="tocar" aria-pressed="true">Pausar</button>
                   <input type="range" min="0" step="1" value="0" aria-label="Minuto do jogo" />
                   <div class="velocidades" role="group" aria-label="Velocidade">
-                    <button type="button" data-velocidade="15" aria-pressed="true">15×</button>
+                    <button type="button" data-velocidade="20" aria-pressed="true">20×</button>
                     <button type="button" data-velocidade="45" aria-pressed="false">45×</button>
                     <button type="button" data-velocidade="120" aria-pressed="false">120×</button>
                   </div>
                 </div>`
-              : html`<p class="legenda">Ao vivo no tempo da Liga: 90 minutos em 6. Não dá para adiantar.</p>`}
+              : html`<p class="legenda">Ao vivo no tempo da Liga: 90 minutos em 4 e meio. Não dá para adiantar.</p>`}
+            ${p.narracao
+              ? html`<p><button type="button" class="botao" data-acao="narracao" aria-pressed="false">🔊 Ligar narração</button></p>`
+              : ''}
             ${p.video ? html`<p><a class="botao secundario" href="${p.video}" rel="noopener">Melhores momentos (Reels)</a></p>` : ''}
           </section>`
         : ''}

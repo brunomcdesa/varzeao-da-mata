@@ -2,7 +2,7 @@
  * Roteiro do Reels de uma Partida: decide quais trechos da Timeline entram no vídeo e
  * converte tempo de vídeo (segundos de MP4) em tempo de jogo.
  *
- * O Ao Vivo mostra os 90 minutos em ~6 min; o Reels mostra só os melhores momentos.
+ * O Ao Vivo mostra os 90 minutos em 4 min 30 s; o Reels mostra só os melhores momentos.
  * Assim como a Timeline, tudo é função pura do tempo: o quadro N do vídeo é sempre igual,
  * em qualquer máquina, e pode ser renderizado fora de ordem.
  */

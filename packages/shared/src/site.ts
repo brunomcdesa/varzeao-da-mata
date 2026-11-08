@@ -25,7 +25,7 @@ export interface LinhaTabelaPublica {
   saldo: number;
 }
 
-/** AGENDADA: antes do Apito. AO_VIVO: até ~6 min depois. ENCERRADA: daí em diante. */
+/** AGENDADA: antes do Apito. AO_VIVO: até ~5 min depois. ENCERRADA: daí em diante. */
 export type SituacaoPartida = 'AGENDADA' | 'AO_VIVO' | 'ENCERRADA';
 
 export interface PartidaNoCalendario {
@@ -185,4 +185,6 @@ export interface PartidaPublica {
   /** ResultadoPartida completo (lances, desempenhos), só depois do Apito Inicial. */
   resultado: unknown | null;
   video: string | null;
+  /** Áudio da narração do Ao Vivo (o jogo inteiro, no tempo do Ao Vivo), depois do Apito. */
+  narracao: string | null;
 }

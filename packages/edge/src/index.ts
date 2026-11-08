@@ -124,8 +124,8 @@ async function publicarDaLista(env: Env, agora: Date, f: Fetch): Promise<string[
 
 // ------------------------------------------------------------------ leitura
 
-/** Igual a duracaoAoVivoMs do @liga/shared: 6 min, 8 no Mata-mata (pênaltis). */
-const duracaoAoVivoMs = (fase?: string) => (fase === 'MATA_MATA' ? 8 : 6) * 60_000;
+/** Igual a duracaoAoVivoMs do @liga/shared: 5 min, 7 no Mata-mata (pênaltis). */
+const duracaoAoVivoMs = (fase?: string) => (fase === 'MATA_MATA' ? 7 : 5) * 60_000;
 
 export async function responder(req: Request, env: Env, agora = new Date(), f: Fetch = fetch): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
@@ -227,6 +227,8 @@ export function jobsDoMinuto(agora: Date): string[] {
   const jobs: string[] = [];
   // Coleta a cada 10 minutos (:07, :17, :27…): quem comenta aparece logo.
   if (m % 10 === 7) jobs.push('coletar');
+  // Logo depois do fim do Ao Vivo (5 min depois do apito): placar, tabela e Card no site.
+  else if (m === 5 && [12, 14, 16, 18].includes(h)) jobs.push('coletar');
   if (m === 25 && [11, 13, 15, 17].includes(h)) jobs.push('partida');
   if (m === 10 && h === 18) jobs.push('resumo');
   return jobs;

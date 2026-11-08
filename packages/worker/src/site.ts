@@ -13,7 +13,7 @@ import type { Banco } from './banco.js';
 import { classificar } from './tabela.js';
 import { habilidadesDe } from './regras.js';
 
-/** Duração do Ao Vivo de uma Partida (6 min; 8 no Mata-mata, por causa dos pênaltis). */
+/** Duração do Ao Vivo de uma Partida (5 min; 7 no Mata-mata, por causa dos pênaltis). */
 export const DURACAO_AO_VIVO_MS = duracaoAoVivoMs('LIGA');
 
 interface LinhaPartida {
@@ -28,6 +28,7 @@ interface LinhaPartida {
   status: string;
   resultado: ResultadoPartida | null;
   video_url: string | null;
+  narracao_url: string | null;
   vantagem_do_empate: 'mandante' | 'visitante' | null;
 }
 
@@ -82,7 +83,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
   // Todas as Partidas de todas as Temporadas: a carreira dos Jogadores atravessa Temporadas.
   const todas = (
     await banco.query<LinhaPartida & { temporada_id: number }>(
-      `SELECT p.id, p.rodada_id, r.temporada_id, r.numero AS rodada, r.fase, r.data, p.apito_inicial, p.mandante_id, p.visitante_id, p.status, p.resultado, p.video_url, p.vantagem_do_empate
+      `SELECT p.id, p.rodada_id, r.temporada_id, r.numero AS rodada, r.fase, r.data, p.apito_inicial, p.mandante_id, p.visitante_id, p.status, p.resultado, p.video_url, p.narracao_url, p.vantagem_do_empate
        FROM partida p JOIN rodada r ON r.id = p.rodada_id ORDER BY p.apito_inicial`,
     )
   ).rows;
@@ -384,6 +385,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       escalacoes: linhas ? { mandante: de(p.mandante_id), visitante: de(p.visitante_id) } : null,
       resultado: revelada(p) ? p.resultado : null,
       video: encerrada(p) && p.video_url?.startsWith('http') ? p.video_url : null,
+      narracao: revelada(p) && p.narracao_url?.startsWith('http') ? p.narracao_url : null,
     };
     arquivos.set(`partidas/${p.id}.json`, publica);
   }

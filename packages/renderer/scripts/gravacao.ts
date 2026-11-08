@@ -19,7 +19,8 @@ import type { PartidaParaVideo } from '../src/video.js';
 import { Roteiro, type OpcoesRoteiro } from '../src/roteiro.js';
 import { Timeline } from '../src/timeline.js';
 import { exigenciasDaNarracao, montarEventos, montarNarracao } from '../src/narracao.js';
-import { TAXA, agendarFalas, codificarWav, lerWavMono, mixar, type VozNaMixagem } from '../src/audio.js';
+import { TAXA, agendarFalas, codificarWav, lerWavMono, mixar, mixarAoVivo, type VozNaMixagem } from '../src/audio.js';
+import { agendarAoVivo, duracaoAoVivo, eventosAoVivo, roteiroAoVivo } from '../src/aoVivo.js';
 import { criarLocutor } from './locutor.js';
 import type { VarzeaApi } from '../video/api.js';
 import { RoteiroResumo, narracaoDoResumo, type DadosDoResumo } from '../src/resumo.js';
@@ -313,6 +314,44 @@ export async function gravarReels(partidaOriginal: PartidaParaVideo, o: OpcoesGr
     await navegador.close();
     await rm(dir, { recursive: true, force: true });
   }
+}
+
+/**
+ * Narração do Ao Vivo do site: o jogo inteiro narrado, no tempo do Ao Vivo, com a torcida
+ * por baixo. Mesma voz do Reels (e o mesmo cache de falas). Grava um .m4a em `saida`.
+ */
+export async function gravarNarracaoAoVivo(partida: PartidaParaVideo, saida: string): Promise<{ duracao: number; falas: number }> {
+  const inicio = performance.now();
+  const timeline = new Timeline(partida.resultado, partida.escalacoes);
+  const falas = roteiroAoVivo(timeline);
+  // Em lotes: um pedido só com o jogo inteiro ficaria longo demais para recortar.
+  const vozes = new Map<string, Float32Array>();
+  for (let i = 0; i < falas.length; i += 20) {
+    const lote = falas.slice(i, i + 20).map((f) => ({ id: f.id, texto: f.texto, tom: f.tom }) as Fala);
+    for (const [id, a] of await sintetizar(lote)) vozes.set(id, a);
+  }
+  const duracaoFala = (id: string) => vozes.get(id)!.length / TAXA;
+  const agenda = agendarAoVivo(falas, duracaoFala);
+  const ultima = agenda.reduce((m, a) => Math.max(m, a.inicio + duracaoFala(a.id)), 0);
+  const duracao = Math.max(duracaoAoVivo(timeline), ultima) + 1.5;
+  const falando = agenda.reduce((s, a) => s + duracaoFala(a.id), 0);
+  console.log(`  Ao Vivo: ${agenda.length} de ${falas.length} falas, ${Math.round((100 * falando) / duracaoAoVivo(timeline))}% do tempo com voz.`);
+  const { esq, dir } = mixarAoVivo({ duracao, eventos: eventosAoVivo(timeline), vozes: agenda.map((a) => ({ inicio: a.inicio, amostras: vozes.get(a.id)! })) });
+  const pasta = await mkdtemp(join(tmpdir(), 'varzea-aovivo-'));
+  try {
+    const wav = join(pasta, 'aovivo.wav');
+    await writeFile(wav, codificarWav(esq, dir));
+    await mkdir(dirname(saida), { recursive: true });
+    await new Promise<void>((ok, erro) => {
+      const ff = spawn('ffmpeg', ['-y', '-hide_banner', '-loglevel', 'error', '-i', wav, '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart', saida], { stdio: 'inherit' });
+      ff.on('error', erro);
+      ff.on('close', (c) => (c === 0 ? ok() : erro(new Error(`ffmpeg saiu com código ${c}`))));
+    });
+  } finally {
+    await rm(pasta, { recursive: true, force: true });
+  }
+  console.log(`Narração do Ao Vivo: ${saida} (${duracao.toFixed(0)} s de áudio, ${((performance.now() - inicio) / 1000).toFixed(1)} s)`);
+  return { duracao, falas: agenda.length };
 }
 
 export async function exportarEscudos(dir: string): Promise<void> {

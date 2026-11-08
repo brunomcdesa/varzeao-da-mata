@@ -1,6 +1,6 @@
 /**
  * Ao Vivo e Replay no navegador: o mesmo renderer do vídeo, no "tempo de relógio".
- * Ao Vivo segue o relógio (90 min de jogo em 6 min, ninguém adianta); o Replay deixa
+ * Ao Vivo segue o relógio (90 min de jogo em 4 min 30 s, ninguém adianta); o Replay deixa
  * pausar, pular e acelerar.
  */
 import { DURACAO_JOGO, Timeline, VELOCIDADE_AO_VIVO, desenharQuadro } from '@liga/renderer';
@@ -92,10 +92,44 @@ export function transmitir(
   }
   if (barra) barra.max = String(FIM);
   marcar();
+
+  // Narração: um áudio do jogo inteiro, no tempo do Ao Vivo (s de jogo ÷ VELOCIDADE_AO_VIVO).
+  // Só toca na velocidade do Ao Vivo; o navegador exige um clique para ligar o som.
+  const botaoNarracao = raiz.querySelector<HTMLButtonElement>('[data-acao="narracao"]');
+  let audio: HTMLAudioElement | null = null;
+  let narrando = false;
+  const sincronizar = () => {
+    if (!audio || !narrando) return;
+    const deveTocar = (o.aoVivo || (tocando && velocidade === VELOCIDADE_AO_VIVO)) && t < FIM + 8 * VELOCIDADE_AO_VIVO;
+    if (!deveTocar) {
+      if (!audio.paused) audio.pause();
+      return;
+    }
+    const alvo = t / VELOCIDADE_AO_VIVO;
+    // No fim o relógio para em FIM, mas a última fala continua: não puxa o áudio de volta.
+    if (t < FIM && Math.abs(audio.currentTime - alvo) > 0.35) audio.currentTime = alvo;
+    if (audio.paused && audio.currentTime < (audio.duration || Infinity)) void audio.play().catch(() => {});
+  };
+  botaoNarracao?.addEventListener('click', () => {
+    narrando = !narrando;
+    if (narrando && !audio && p.narracao) {
+      audio = new Audio(p.narracao);
+      audio.preload = 'auto';
+    }
+    if (!narrando) audio?.pause();
+    botaoNarracao.setAttribute('aria-pressed', String(narrando));
+    botaoNarracao.textContent = narrando ? '🔇 Desligar narração' : '🔊 Ligar narração';
+    sincronizar();
+  });
+  const idSinc = setInterval(sincronizar, 250);
   void document.fonts.ready.then(() => (quadroId = requestAnimationFrame(quadro)));
 
   return {
-    parar: () => cancelAnimationFrame(quadroId),
+    parar: () => {
+      cancelAnimationFrame(quadroId);
+      clearInterval(idSinc);
+      audio?.pause();
+    },
     irPara(novo: number) {
       if (o.aoVivo) return;
       t = novo;

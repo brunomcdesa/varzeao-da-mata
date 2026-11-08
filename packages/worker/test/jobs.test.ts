@@ -128,7 +128,7 @@ describe('jobs', () => {
     expect(await status(id!)).toBe('AGENDADA');
     const [chave] = await agenda.listar('agenda/');
     const item = (await agenda.ler<ItemDaAgenda>(chave!))!;
-    expect(item).toMatchObject({ tipo: 'PARTIDA', ref: id, containerId: 'C1', publicarEm: '2026-11-07T15:06:00.000Z' });
+    expect(item).toMatchObject({ tipo: 'PARTIDA', ref: id, containerId: 'C1', publicarEm: '2026-11-07T15:05:00.000Z' });
     expect(ig.containers[0]!.legenda).toMatch(/Rodada 1, jogo das 12h/);
     const url = ig.containers[0]!.videoUrl;
     expect(url).toMatch(/^file:\/\/.*\/publico\/videos\/[0-9a-f-]{36}\.mp4$/);

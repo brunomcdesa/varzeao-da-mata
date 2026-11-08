@@ -341,3 +341,39 @@ export function lerWavMono(bytes: Uint8Array): { amostras: Float32Array; taxa: n
   }
   throw new Error('WAV sem bloco de dados');
 }
+
+/**
+ * Mixagem da narração do Ao Vivo: torcida o tempo todo, apitos/chutes/gols e a voz por
+ * cima (a torcida abaixa debaixo da fala). Sem a trilha chiptune: são minutos de jogo.
+ */
+export function mixarAoVivo(o: { duracao: number; eventos: EventoSonoro[]; vozes: VozNaMixagem[] }): { esq: Float32Array; dir: Float32Array } {
+  const n = Math.ceil(o.duracao * TAXA);
+  const ambE = torcidaAmbiente(o.duracao, 17);
+  const ambD = torcidaAmbiente(o.duracao, 18);
+  const efE = new Float32Array(n);
+  const efD = new Float32Array(n);
+  o.eventos.forEach((e, i) => somarEvento(efE, efD, e, 300 + i));
+  const voz = new Float32Array(n);
+  for (const v of o.vozes) {
+    const i0 = Math.floor(v.inicio * TAXA);
+    for (let i = 0; i < v.amostras.length && i0 + i < n; i++) voz[i0 + i]! += v.amostras[i]!;
+  }
+  const esq = new Float32Array(n);
+  const dir = new Float32Array(n);
+  let nivel = 0;
+  let duck = 0;
+  const seguir = 1 - Math.exp(-1 / (0.05 * TAXA));
+  const ataque = 1 - Math.exp(-1 / (0.03 * TAXA));
+  const soltura = 1 - Math.exp(-1 / (0.4 * TAXA));
+  for (let i = 0; i < n; i++) {
+    nivel += (Math.abs(voz[i]!) - nivel) * seguir;
+    const alvo = nivel > 0.01 ? 1 : 0;
+    duck += (alvo - duck) * (alvo > duck ? ataque : soltura);
+    const gAmb = 0.3 * (1 - 0.45 * duck);
+    const l = ambE[i]! * gAmb + efE[i]! * 0.7 + voz[i]!;
+    const r = ambD[i]! * gAmb + efD[i]! * 0.7 + voz[i]!;
+    esq[i] = Math.tanh(l * 1.1) * 0.92;
+    dir[i] = Math.tanh(r * 1.1) * 0.92;
+  }
+  return { esq, dir };
+}

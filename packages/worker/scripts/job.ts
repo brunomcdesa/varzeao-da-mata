@@ -46,6 +46,7 @@ try {
     ...(gravacao
       ? {
           gravarReels: (d, saida) => gravacao.gravarReels(d, { saida }).then(() => {}),
+          gravarAoVivo: (d, saida) => gravacao.gravarNarracaoAoVivo(d, saida).then(() => {}),
           gravarResumo: (d, saida) => gravacao.gravarResumo(d, { saida }).then(() => {}),
         }
       : {}),
