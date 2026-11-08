@@ -2,6 +2,7 @@
  * A Liga rodando no seu computador, sem Instagram e sem servidor.
  *
  *   pnpm liga temporada [--inicio 2026-11-07]        cria a Temporada (7 Rodadas, 12h/14h/16h/18h)
+ *   USUARIO=fulano pnpm liga remover               remove um Jogador que ainda não jogou
  *   pnpm liga comentarios                          os comentários lidos e o resultado de cada um
  *   pnpm liga mudar-inicio --inicio 2026-11-08      antecipa/adia a Temporada (antes do 1º jogo)
  *   pnpm liga inscricoes-de-teste [--quantidade 40]  "comentários" ENTRO de seguidores fictícios
@@ -219,6 +220,27 @@ async function main(): Promise<void> {
         const pasta = join(raizRepo, 'packages/site/public/dados');
         const escritos = await escreverSite(await exportarSite(banco, agora), pasta);
         console.log(`${escritos.length} arquivos em ${pasta} (situação em ${agora.toISOString()})`);
+        break;
+      }
+
+      case 'remover': {
+        // Remove um Jogador que ainda não jogou (cadastro feito por engano).
+        const usuario = (process.env.USUARIO ?? '').replace(/^@/, '').toLowerCase();
+        if (!usuario) throw new Error('Use: USUARIO=fulano pnpm liga remover');
+        const j = (await banco.query<{ id: string; username: string; time_id: string; posicao: string }>(
+          `SELECT id::text AS id, username, time_id, posicao FROM jogador WHERE lower(username) = $1`, [usuario],
+        )).rows[0];
+        if (!j) throw new Error(`Nenhum Jogador @${usuario}.`);
+        const usos = (await banco.query<{ n: string }>(
+          `SELECT (SELECT count(*) FROM escalacao WHERE jogador_id = $1) + (SELECT count(*) FROM candidato WHERE jogador_id = $1) AS n`, [j.id],
+        )).rows[0]!.n;
+        if (Number(usos) > 0) throw new Error(`@${j.username} já foi escalado; não dá para remover sem apagar histórico.`);
+        await banco.transacao(async (b) => {
+          await b.query(`DELETE FROM voto WHERE jogador_id = $1`, [j.id]);
+          await b.query(`DELETE FROM voto_site WHERE jogador_id = $1`, [j.id]);
+          await b.query(`DELETE FROM jogador WHERE id = $1`, [j.id]);
+        });
+        console.log(`Removido: @${j.username} (${j.posicao} do ${j.time_id}).`);
         break;
       }
 
