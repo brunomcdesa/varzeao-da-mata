@@ -1,0 +1,25 @@
+# Responde "você entrou no Varzeão da Mata!" a quem se inscreveu antes das respostas automáticas.
+# Pula quem já tem resposta da Liga. Só à mão: Actions → boas-vindas → Run workflow.
+name: boas-vindas
+on:
+  workflow_dispatch:
+    inputs:
+      enviar:
+        description: 'Enviar de verdade (desmarcado = só mostra no log)'
+        type: boolean
+        default: false
+jobs:
+  boas-vindas:
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      IG_APP_ID: ${{ vars.IG_APP_ID }}
+      IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+      - run: pnpm job boas-vindas ${{ inputs.enviar && '--enviar' || '' }}

@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, IDENTIDADE, RODADA_DA_FINAL, type LigaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, doTime, RODADA_DA_FINAL, type LigaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA, criarTemporada, somarDias } from './calendario.js';
 import { processarComentario, type Comentario, type Resultado } from './coletar.js';
@@ -578,3 +578,51 @@ export async function jobResumo(c: ContextoDoJob): Promise<number | null> {
 }
 
 export { ErroInstagram };
+
+// ------------------------------------------------------------------ boas-vindas
+
+/**
+ * Resposta de boas-vindas para quem se inscreveu antes de a Liga responder as Inscrições.
+ * Roda uma vez à mão; pula quem já tem resposta da Liga (pela API e pela lista guardada).
+ */
+export async function jobBoasVindas(c: ContextoDoJob, o: { enviar: boolean }): Promise<{ respondidos: number; pulados: number }> {
+  if (!c.ig) throw new Error('Instagram não configurado.');
+  const conta = (await c.ig.eu()).username.toLowerCase();
+  const guardado = (await c.banco.query<{ valor: string[] }>(`SELECT valor FROM config WHERE chave = 'boas_vindas'`)).rows[0]?.valor ?? [];
+  const feitos = new Set(guardado);
+  const alvos = (
+    await c.banco.query<{ ig_comment_id: string; username: string; time_id: TimeId; posicao: Posicao; ovr: number }>(
+      `SELECT DISTINCT ON (j.id) c.ig_comment_id, j.username, j.time_id, j.posicao, j.ovr
+         FROM jogador j JOIN comando c ON c.ig_user_id = j.ig_user_id AND c.resultado IN ('INSCRITO', 'REALOCADO')
+        WHERE NOT j.banido ORDER BY j.id, c.comentado_em DESC`,
+    )
+  ).rows;
+  const nome: Record<Posicao, string> = { GOL: 'goleiro', ZAG: 'zagueiro', MEI: 'meia', ATA: 'atacante' };
+  let respondidos = 0;
+  let pulados = 0;
+  for (const a of alvos) {
+    if (feitos.has(a.ig_comment_id) || (await c.ig.quemRespondeu(a.ig_comment_id)).includes(conta)) {
+      pulados++;
+      continue;
+    }
+    const texto = `@${a.username} você entrou no Varzeão da Mata! Agora é ${nome[a.posicao]} ${doTime(a.time_id)}, OVR ${a.ovr}. Seu boneco já está no site (link na bio). ⚽`;
+    if (!o.enviar) {
+      logDe(c)(`(teste) ${texto}`);
+      continue;
+    }
+    try {
+      await c.ig.responder(a.ig_comment_id, texto);
+      feitos.add(a.ig_comment_id);
+      respondidos++;
+      await c.banco.query(
+        `INSERT INTO config (chave, valor) VALUES ('boas_vindas', $1) ON CONFLICT (chave) DO UPDATE SET valor = $1, atualizado_em = now()`,
+        [JSON.stringify([...feitos])],
+      );
+      await new Promise((r) => setTimeout(r, 3000)); // devagar, para o Instagram não achar que é spam
+    } catch (e) {
+      logDe(c)(`Não respondeu @${a.username}: ${(e as Error).message}`);
+    }
+  }
+  logDe(c)(`boas-vindas: ${respondidos} respondido(s), ${pulados} já tinham resposta, ${alvos.length} inscrito(s).`);
+  return { respondidos, pulados };
+}

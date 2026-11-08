@@ -4,13 +4,14 @@
  *   pnpm job coletar
  *   pnpm job partida [--sem-esperar]
  *   pnpm job resumo
+ *   pnpm job boas-vindas [--enviar]   responde quem entrou antes das respostas automáticas
  *
  * Precisa de DATABASE_URL, do Instagram (IG_USER_ID, IG_ACCESS_TOKEN) e do Cloudflare
  * (veja .env.example). Sem Cloudflare, grava em .cache/nuvem-local; sem Instagram, não agenda.
  */
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AgendaNaMemoria, Instagram, PastaLocal, conectar, jobColetar, jobPartida, jobResumo, nuvemDoAmbiente, prepararBanco, tokenGuardado, type ContextoDoJob } from '../src/index.js';
+import { AgendaNaMemoria, Instagram, PastaLocal, conectar, jobBoasVindas, jobColetar, jobPartida, jobResumo, nuvemDoAmbiente, prepararBanco, tokenGuardado, type ContextoDoJob } from '../src/index.js';
 import { bancoLocal } from './banco-local.js';
 
 const raizRepo = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -21,8 +22,8 @@ try {
 }
 
 const [qual, ...flags] = process.argv.slice(2);
-if (!['coletar', 'partida', 'resumo'].includes(qual ?? '')) {
-  console.log('Uso: pnpm job coletar | partida [--sem-esperar] | resumo');
+if (!['coletar', 'partida', 'resumo', 'boas-vindas'].includes(qual ?? '')) {
+  console.log('Uso: pnpm job coletar | partida [--sem-esperar] | resumo | boas-vindas [--enviar]');
   process.exit(1);
 }
 
@@ -35,7 +36,7 @@ try {
   const ig = process.env.IG_USER_ID && token ? new Instagram({ userId: process.env.IG_USER_ID, token, ...(process.env.IG_APP_ID ? { appId: process.env.IG_APP_ID } : {}), ...(process.env.IG_APP_SECRET ? { appSecret: process.env.IG_APP_SECRET } : {}) }) : null;
   if (!ig) console.log('Instagram não configurado: não lê comentários nem agenda Reels.');
 
-  const precisaGravar = qual !== 'coletar';
+  const precisaGravar = qual === 'partida' || qual === 'resumo';
   const gravacao = precisaGravar ? await import('@liga/renderer/gravacao') : null;
   const ctx: ContextoDoJob = {
     banco,
@@ -49,7 +50,8 @@ try {
         }
       : {}),
   };
-  if (qual === 'coletar') await jobColetar(ctx);
+  if (qual === 'boas-vindas') await jobBoasVindas(ctx, { enviar: flags.includes('--enviar') });
+  else if (qual === 'coletar') await jobColetar(ctx);
   else if (qual === 'partida') await jobPartida(ctx, { esperarCorte: !flags.includes('--sem-esperar') });
   else await jobResumo(ctx);
 } finally {
