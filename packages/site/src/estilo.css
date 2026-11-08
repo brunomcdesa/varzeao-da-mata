@@ -2529,16 +2529,6 @@ a.jogo:hover {
   background: #fffaf0;
   color: var(--tinta);
 }
-.card-camisa {
-  display: inline-block;
-  min-width: 1.6em;
-  margin-right: 6px;
-  padding: 0 4px;
-  background: var(--sobre, #fff);
-  color: var(--cor, #000);
-  font-family: var(--display);
-  text-align: center;
-}
 @media (max-width: 420px) {
   .visual-grade {
     grid-template-columns: 1fr;
@@ -2589,15 +2579,34 @@ a.jogo:hover {
   }
 }
 
-/* Número da camisa (ADR-0013) */
+/* Número da camisa (ADR-0013): quadradinho logo depois do @, na mesma linha */
+.com-camisa {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  max-width: 100%;
+  min-width: 0;
+}
+/* O @ comprido é cortado com reticências; o número fica sempre à vista. */
+.com-camisa-nome {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.escalacao .quem {
+  min-width: 0;
+  overflow: hidden;
+}
 .camisa-num {
-  display: inline-block;
-  min-width: 1.5em;
-  margin-right: 5px;
-  padding: 0 3px;
-  font: 400 0.95em/1.3 var(--display);
-  text-align: center;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  min-width: 1.35em;
+  height: 1.35em;
+  padding: 0 2px;
+  font: 400 0.8em/1 var(--display);
   color: var(--tinta);
   background: var(--placa);
-  box-shadow: inset 0 -2px 0 var(--placa-sombra);
+  border: 1px solid var(--contorno);
 }

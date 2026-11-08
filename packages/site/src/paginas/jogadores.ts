@@ -1,7 +1,7 @@
 /** Jogadores: busca e ranking, o Card de cada um e a comparação lado a lado. */
 import { IDENTIDADE, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId } from '@liga/shared';
 import { jogadores, liga } from '../dados.js';
-import { bonecoImg, camisaNum, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html } from '../ui.js';
+import { bonecoImg, comCamisa, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html } from '../ui.js';
 import type { Pagina } from './tipos.js';
 import { blocoDoDono, ligarMeuPersonagem } from '../meuPersonagem.js';
 
@@ -70,7 +70,7 @@ export const paginaJogadores: Pagina = async (main) => {
         (j, i) => html`<tr>
           <td><input type="checkbox" data-id="${j.id}" aria-label="Comparar @${j.username}" ${filtros.marcados.includes(j.id) ? 'checked' : ''} /></td>
           <td class="num">${i + 1}</td>
-          <th scope="row"><a class="jogador-celula" href="#/jogador/${j.id}">${bonecoImg(j.time, j.posicao, j.username, 2)}<span><span class="arroba">${camisaNum(j.numero)}@${j.username}</span><small>${escudoImg(j.time, 0.75)} ${curto(j.time)} · ${j.posicao}</small></span></a></th>
+          <th scope="row"><a class="jogador-celula" href="#/jogador/${j.id}">${bonecoImg(j.time, j.posicao, j.username, 2)}<span><span class="arroba">${comCamisa(`@${j.username}`, j.numero)}</span><small>${escudoImg(j.time, 0.75)} ${curto(j.time)} · ${j.posicao}</small></span></a></th>
           <td class="ovr ${c === 'ovr' ? 'ordem' : ''}">${j.ovr}</td>
           <td class="${c === 'jogos' ? 'ordem' : ''}">${e(j).jogos}</td>
           <td class="${c === 'gols' ? 'ordem' : ''}">${e(j).gols}</td>
@@ -174,7 +174,7 @@ export function card(j: JogadorPublico, o: { pequeno?: boolean } = {}): Html {
       ${escudoImg(j.time, o.pequeno ? 1 : 1.5, 'card-escudo')}
     </div>
     <div class="card-boneco">${bonecoImg(j.time, j.posicao, j.username, o.pequeno ? 6 : 9)}</div>
-    <p class="card-nome">${j.numero ? html`<span class="card-camisa" title="Número da camisa">${j.numero}</span>` : ''}@${j.username}</p>
+    <p class="card-nome">${comCamisa(`@${j.username}`, j.numero)}</p>
     <p class="card-time">${curto(j.time)} · ${NOME_DA_POSICAO[j.posicao]}</p>
     ${barrasDeHabilidade(j.posicao, j.habilidades, o.pequeno ? undefined : j.habilidadesIniciais)}
     <dl class="card-numeros">
