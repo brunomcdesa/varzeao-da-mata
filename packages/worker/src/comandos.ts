@@ -117,11 +117,11 @@ function analisar(palavras: string[]): { times: Set<TimeId>; posicoes: Set<Posic
 const PEDIDO = new Set([
   'ENTRAR', 'ENTRANDO', 'ENTRA', 'ME', 'INSCREVE', 'INSCREVER', 'INSCRICAO', 'BORA', 'VAMOS', 'VAMO', 'BOTA', 'COLOCA', 'POE',
   'AI', 'AQUI', 'SIM', 'OPA', 'OI', 'OLA', 'TO', 'TOU', 'ESTOU', 'DENTRO', 'QUERIA', 'GOSTARIA', 'DE', 'PO', 'MANO',
-  'COMENTE', 'COMENTO', 'ENTRO', 'QUER', 'ESQUERDA', 'ESQUERDO', 'DIREITA', 'DIREITO', 'FIZ', 'LA', 'JA', 'TAMBEM', 'TB', 'TBM', 'ENTAO', 'BLZ', 'BELEZA', 'VALEU', 'OBRIGADO', 'OBRIGADA', 'POSSO', 'PODE', 'SERIA',
+  'VAGA', 'VAGAS', 'UMA', 'TEM', 'COMENTE', 'COMENTO', 'ENTRO', 'QUER', 'ESQUERDA', 'ESQUERDO', 'DIREITA', 'DIREITO', 'FIZ', 'LA', 'JA', 'TAMBEM', 'TB', 'TBM', 'ENTAO', 'BLZ', 'BELEZA', 'VALEU', 'OBRIGADO', 'OBRIGADA', 'POSSO', 'PODE', 'SERIA',
 ]);
 
 /** Palavras que, sozinhas com um Time, já são pedido para entrar. */
-const PEDIDO_EXPLICITO = new Set(['ENTRO', 'QUER', 'SOU', 'SER', 'QUERO', 'QUERIA', 'ENTRAR', 'ENTRA', 'ENTRANDO', 'COLOCA', 'BOTA', 'POE', 'INSCREVE', 'INSCREVER', 'JOGAR', 'ME']);
+const PEDIDO_EXPLICITO = new Set(['VAGA', 'ENTRO', 'QUER', 'SOU', 'SER', 'QUERO', 'QUERIA', 'ENTRAR', 'ENTRA', 'ENTRANDO', 'COLOCA', 'BOTA', 'POE', 'INSCREVE', 'INSCREVER', 'JOGAR', 'ME']);
 
 /**
  * Sem ENTRO: vale como Inscrição só quando o comentário é um pedido curto, com exatamente um

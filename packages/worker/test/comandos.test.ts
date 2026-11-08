@@ -33,6 +33,9 @@ describe('Inscrição', () => {
 describe('Voto', () => {
   it('lê o número do Candidato (ADR-0011)', () => {
     expect(interpretar('CRAQUE 3')).toEqual({ tipo: 'VOTO', numero: 3 });
+    // Pedido de vaga sem ENTRO (@eofamoso__2k).
+    expect(interpretar('Queria vaga no tucano meia')).toEqual({ tipo: 'INSCRICAO', time: 'TUC', posicao: 'MEI' });
+    expect(interpretar('tem vaga na arara?')).toEqual({ tipo: 'INSCRICAO', time: 'ARA' });
     expect(interpretar('voto nº 2')).toEqual({ tipo: 'VOTO', numero: 2 });
     expect(interpretar('craque #5 🔥')).toEqual({ tipo: 'VOTO', numero: 5 });
   });
