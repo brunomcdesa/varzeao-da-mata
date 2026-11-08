@@ -39,13 +39,20 @@ export const ESTILO_CURTO: Record<Tom, string> = {
 };
 export const estiloDe = (tom: Tom, voz: string) => (voz.startsWith('voice_') ? ESTILO_CURTO : ESTILO)[tom];
 
+/**
+ * Grafia só para a voz: algumas vozes leem "Varzeão" como "Varzeadão"; com o circunflexo
+ * ("Varzêão") a sílaba "ze" sai fechada e o erro sumiu no teste (scripts/pronuncia.ts).
+ * Na tela e nas legendas continua "Varzeão".
+ */
+export const paraFalar = (texto: string) => texto.replace(/Varzeão/g, 'Varzêão').replace(/VARZEÃO/g, 'VARZÊÃO');
+
 export function pedidoGemini(texto: string, tom: Tom, voz: string, modelo: string): unknown {
   return {
     model: modelo,
     input: [
       {
         type: 'user_input',
-        content: [{ type: 'text', text: texto, annotations: [{ type: 'speech_metadata', style: estiloDe(tom, voz) }] }],
+        content: [{ type: 'text', text: paraFalar(texto), annotations: [{ type: 'speech_metadata', style: estiloDe(tom, voz) }] }],
       },
     ],
     response_format: { type: 'audio', mime_type: 'audio/wav', sample_rate: 24000 },
@@ -157,7 +164,7 @@ export function pedidoGeminiVarias(falas: { texto: string; tom: Tom }[], voz: st
         type: 'user_input',
         content: falas.map((f, i) => ({
           type: 'text',
-          text: i < falas.length - 1 ? f.texto + SEPARADOR : f.texto,
+          text: paraFalar(i < falas.length - 1 ? f.texto + SEPARADOR : f.texto),
           annotations: [{ type: 'speech_metadata', style: estiloDe(f.tom, voz) }],
         })),
       },
