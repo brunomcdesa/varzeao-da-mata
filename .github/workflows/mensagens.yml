@@ -1,0 +1,19 @@
+# Diagnóstico: o token do Instagram tem a permissão de mensagens e enxerga as DMs? Só à mão.
+name: mensagens
+on:
+  workflow_dispatch:
+jobs:
+  mensagens:
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      IG_APP_ID: ${{ vars.IG_APP_ID }}
+      IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+      - run: pnpm job mensagens

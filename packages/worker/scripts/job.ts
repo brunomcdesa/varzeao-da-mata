@@ -22,7 +22,7 @@ try {
 }
 
 const [qual, ...flags] = process.argv.slice(2);
-if (!['coletar', 'partida', 'resumo', 'boas-vindas', 'procurar'].includes(qual ?? '')) {
+if (!['coletar', 'partida', 'resumo', 'boas-vindas', 'procurar', 'mensagens'].includes(qual ?? '')) {
   console.log('Uso: pnpm job coletar | partida [--sem-esperar] | resumo | boas-vindas [--enviar]');
   process.exit(1);
 }
@@ -51,7 +51,18 @@ try {
         }
       : {}),
   };
-  if (qual === 'procurar') {
+  if (qual === 'mensagens') {
+    // Diagnóstico: o token tem a permissão de mensagens e enxerga as DMs?
+    const v = await ig!.validade().catch((e) => ({ erro: (e as Error).message }));
+    console.log('token:', JSON.stringify(v));
+    try {
+      const cs = await ig!.conversas();
+      console.log(`${cs.length} conversa(s) visível(is) pela API.`);
+      for (const c of cs) console.log(`  ${c.updated_time ?? ''} ${(c.participants?.data ?? []).map((p) => p.username ?? '?').join(', ')}`);
+    } catch (e) {
+      console.log(`DMs: ${(e as Error).message}`);
+    }
+  } else if (qual === 'procurar') {
     // Diagnóstico: onde está o comentário de USUARIO (em todos os posts da conta, cru da API).
     const quem = (process.env.USUARIO ?? '').replace(/^@/, '').toLowerCase();
     const midias = await ig!.midiasDesde(new Date(0));

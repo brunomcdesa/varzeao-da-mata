@@ -144,6 +144,12 @@ export class Instagram {
     return { expiraEm: em > 0 ? new Date(em * 1000) : null, escopos: r.data.scopes ?? [] };
   }
 
+  /** Conversas da DM (diagnóstico da permissão de mensagens). */
+  async conversas(): Promise<{ id: string; updated_time?: string; participants?: { data: { username?: string }[] } }[]> {
+    const r = await this.chamar<Pagina<{ id: string; updated_time?: string; participants?: { data: { username?: string }[] } }>>('GET', `${this.o.userId}/conversations`, { platform: 'instagram', fields: 'id,updated_time,participants', limit: '20' });
+    return r.data;
+  }
+
   /** Mídias publicadas desde `desde` (as mais novas primeiro). */
   async midiasDesde(desde: Date, limite = 100): Promise<Midia[]> {
     const lista: Midia[] = [];
