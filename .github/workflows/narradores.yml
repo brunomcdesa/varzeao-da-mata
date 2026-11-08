@@ -7,6 +7,10 @@ on:
       ids:
         description: 'JSON {"Nome": "voice_..."} para regravar sem criar vozes novas'
         default: ''
+      pronuncia:
+        description: 'Só o teste de pronúncia (sem criar vozes nem amostras)'
+        type: boolean
+        default: false
 permissions:
   contents: write
 jobs:
@@ -22,15 +26,20 @@ jobs:
       - uses: ./.github/actions/preparar
         with:
           video: 'true'
-      - run: pnpm --filter @liga/renderer narradores "$RUNNER_TEMP/narradores"
-      - uses: actions/upload-artifact@v4
+      - if: inputs.pronuncia
+        run: pnpm --filter @liga/renderer pronuncia
+      - if: ${{ !inputs.pronuncia }}
+        run: pnpm --filter @liga/renderer narradores "$RUNNER_TEMP/narradores"
+      - if: ${{ !inputs.pronuncia }}
+        uses: actions/upload-artifact@v4
         with:
           name: narradores
           path: |
             ${{ runner.temp }}/narradores/*.mp3
             ${{ runner.temp }}/narradores/narradores.json
       # As amostras também vão para o branch 'amostras' (só os mp3 e os ids), para baixar com git.
-      - run: |
+      - if: ${{ !inputs.pronuncia }}
+        run: |
           cd "$RUNNER_TEMP/narradores"
           git init -q -b amostras && git add *.mp3 narradores.json
           git -c user.name=liga -c user.email=liga@users.noreply.github.com commit -qm "Amostras dos Narradores"

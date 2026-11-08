@@ -13,6 +13,7 @@
     "apresentacao": "tsx scripts/apresentacao.ts",
     "vozes": "tsx scripts/vozes.ts",
     "narradores": "tsx scripts/narradores.ts",
+    "pronuncia": "tsx scripts/pronuncia.ts",
     "testar-grito": "tsx scripts/testar-grito.ts"
   },
   "dependencies": {
