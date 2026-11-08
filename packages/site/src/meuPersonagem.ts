@@ -11,6 +11,8 @@ import { BASE_API, INSTAGRAM, ajustarLocalmente } from './dados.js';
 import { curto, html, NOME_DA_POSICAO, POSICOES_EM_ORDEM } from './ui.js';
 
 const CHAVE = 'varzeao:vinculo';
+/** Quais partes do painel a pessoa deixou abertas: o painel e a página são redesenhados depois de um pedido. */
+const abertas = new Set<string>();
 /** Mesma folga da Inscrição (FOLGA_DE_ELENCO no worker). */
 const FOLGA = 5;
 
@@ -158,8 +160,13 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
     const temVaga = (t: TimeId) => t === j.time || contagem.get(t)! < menor + FOLGA;
     const resultado = estado.processadoEm && estado.mensagem ? html`<p class="${estado.resultado === 'TRANSFERIDO' ? 'sucesso' : 'erro'}">${estado.mensagem}</p>` : '';
 
+    // As duas partes ficam recolhidas (no celular ocupam muito); abrem sozinhas quando há
+    // algo para mostrar, e lembram se a pessoa abriu.
+    const abrirTransferencia = abertas.has('transferencia') || pendente || Boolean(mensagem) || Boolean(resultado);
     mostrar(html`<h2 class="secao">Seu personagem</h2>
       <p class="legenda">Vinculado a este navegador como @${g.username}. <button type="button" class="link" data-acao="sair">Desvincular</button></p>
+      <details class="dobra" data-dobra="transferencia" ${abrirTransferencia ? 'open' : ''}>
+      <summary>Transferência <small>${j.transferenciaUsada || estado.resultado === 'TRANSFERIDO' ? 'já usada nesta temporada' : '1 por temporada'}</small></summary>
       ${mensagem ? html`<p class="sucesso">${mensagem}</p>` : ''}
       ${resultado}
       ${pendente
@@ -177,10 +184,14 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
                 ${POSICOES_EM_ORDEM.map((p) => html`<option value="${p}" ${p === j.posicao ? 'selected' : ''}>${NOME_DA_POSICAO[p]}${p === j.posicao ? ' (atual)' : ''}</option>`)}
               </select></label>
               <p><button type="submit" class="botao">Pedir transferência</button></p>
-            </form>`}`);
+            </form>`}
+      </details>`);
 
     caixa.insertAdjacentHTML('beforeend', blocoVisual().s);
     ligarVisual(g);
+    for (const d of caixa.querySelectorAll<HTMLDetailsElement>('details[data-dobra]')) {
+      d.addEventListener('toggle', () => (d.open ? abertas.add(d.dataset.dobra!) : abertas.delete(d.dataset.dobra!)));
+    }
 
     caixa.querySelector('[data-acao="sair"]')!.addEventListener('click', async () => {
       parar();
@@ -214,8 +225,9 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
   function blocoVisual() {
     const swatch = (grupo: string, cor: string, atual: string) =>
       html`<button type="button" class="amostra" data-${grupo}="${cor}" style="--amostra:${cor}" aria-pressed="${String(cor === atual)}" aria-label="${grupo === 'pele' ? 'Pele' : 'Cabelo'} ${cor}"></button>`;
-    return html`<form class="form-visual">
-      <h3 class="secao">Visual e camisa</h3>
+    return html`<details class="dobra" data-dobra="visual" ${abertas.has('visual') ? 'open' : ''}>
+      <summary>Visual e camisa <small>${numero ? `camisa ${numero}` : 'boneco e número'}</small></summary>
+      <form class="form-visual">
       <div class="visual-grade">
         <canvas class="pixel previa-boneco" width="${LARGURA_SPRITE * 8}" height="${ALTURA_SPRITE * 8}" aria-label="Como o seu boneco vai ficar"></canvas>
         <div class="visual-opcoes">
@@ -227,7 +239,8 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
       </div>
       <p><button type="submit" class="botao">Salvar visual e camisa</button></p>
       <p class="estado-visual" role="status" aria-live="polite"></p>
-    </form>`;
+    </form>
+    </details>`;
   }
 
   function ligarVisual(g: Guardado) {
@@ -300,6 +313,7 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
     });
   }
   const timersVisual: number[] = [];
+
 
   // ---- início
   const g = ler<Guardado>(CHAVE);

@@ -2544,3 +2544,47 @@ a.jogo:hover {
     grid-template-columns: 1fr;
   }
 }
+
+.dobra {
+  border-top: 2px dashed var(--placa-sombra);
+  padding: 10px 0 4px;
+}
+.dobra > summary {
+  cursor: pointer;
+  font: 400 1.5rem var(--display);
+  color: var(--tinta);
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 32px;
+}
+.dobra > summary::-webkit-details-marker {
+  display: none;
+}
+.dobra > summary::before {
+  content: '▸';
+  font-size: 1rem;
+  transition: transform 0.15s;
+}
+.dobra[open] > summary::before {
+  transform: rotate(90deg);
+}
+.dobra > summary small {
+  font: 600 0.8125rem var(--texto);
+  color: var(--tinta-fraca);
+}
+.dobra > summary:focus-visible {
+  outline: 3px solid var(--amarelo);
+  outline-offset: 2px;
+}
+.dobra .form-visual {
+  margin-top: 8px;
+  border-top: 0;
+  padding-top: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dobra > summary::before {
+    transition: none;
+  }
+}
