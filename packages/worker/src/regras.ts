@@ -20,7 +20,7 @@ export const FOLGA_DE_ELENCO = 5;
  * Time cheio: realoca no Time mais vazio (mesma posição) e responde o comentário explicando.
  * Desligado, o pedido fica como TIME_CHEIO e é relido até abrir vaga.
  */
-export const REALOCAR_QUANDO_CHEIO = false;
+export const REALOCAR_QUANDO_CHEIO = true;
 
 /** A Escalação de futebol society: 7 lugares, nesta ordem. */
 export const FORMACAO: readonly Posicao[] = ['GOL', 'ZAG', 'ZAG', 'MEI', 'MEI', 'ATA', 'ATA'];

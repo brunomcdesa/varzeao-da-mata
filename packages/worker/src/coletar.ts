@@ -173,12 +173,15 @@ async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posica
     `INSERT INTO jogador (ig_user_id, username, time_id, posicao, ovr, habilidades, inscrito_em) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
     [c.igUserId, c.username, time, posicao, ovr, JSON.stringify(habilidades), c.comentadoEm.toISOString()],
   );
-  if (time === pedido) return 'INSCRITO';
+  // Resposta no comentário: a pessoa fica sabendo que entrou (e onde, se foi realocada).
+  const vaga = `${NOME_DA_POSICAO_FALADO[posicao]} ${doTime(time)}, OVR ${ovr}`;
   await ctx.responder?.(
     c.igCommentId,
-    `@${c.username} o time ${doTime(pedido)} encheu, então você entrou no time ${doTime(time)} como ${NOME_DA_POSICAO_FALADO[posicao]}, pra equilibrar a Liga. Bem-vindo ao Varzeão! ⚽`,
+    time === pedido
+      ? `@${c.username} você entrou no Varzeão da Mata! Agora é ${vaga}. Seu boneco já está no site (link na bio). ⚽`
+      : `@${c.username} o time ${doTime(pedido)} encheu, então você entrou no time ${doTime(time)} para equilibrar a Liga. Agora é ${vaga}. Bem-vindo ao Varzeão! ⚽`,
   );
-  return 'REALOCADO';
+  return time === pedido ? 'INSCRITO' : 'REALOCADO';
 }
 
 async function votar(b: Banco, c: Comentario, numero: number, ctx: Contexto): Promise<Resultado> {

@@ -71,7 +71,10 @@ describe('Inscrição', () => {
     const j = (await banco.query<{ time_id: string; posicao: string }>(`SELECT time_id, posicao FROM jogador WHERE ig_user_id = 'cap-extra'`)).rows[0]!;
     expect(j.time_id).not.toBe('CAP');
     expect(j.posicao).toBe('ATA');
-    expect(respostas[0]).toMatch(/time da Capivara encheu, então você entrou no time (do|da) \S+ como atacante/);
+    expect(respostas[0]).toMatch(/time da Capivara encheu, então você entrou no time (do|da) \S+ para equilibrar a Liga\. Agora é atacante (do|da) \S+, OVR \d+/);
+    const confirmacao: string[] = [];
+    await processarComentario(banco, comentario('tat0', 'entro tatu goleiro', { username: 'goleirao' }), { ...semVotacao, responder: async (_id, t) => void confirmacao.push(t) });
+    expect(confirmacao[0]).toMatch(/^@goleirao você entrou no Varzeão da Mata! Agora é goleiro do Tatu, OVR \d+\./);
     expect(await processarComentario(banco, comentario('onc0', 'ENTRO ONCA ATA'), semVotacao)).toBe('INSCRITO');
   });
 
