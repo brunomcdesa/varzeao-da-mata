@@ -60,9 +60,11 @@ const chave = process.env.GEMINI_API_KEY;
 if (!chave) throw new Error('Falta GEMINI_API_KEY.');
 const pasta = resolve(process.argv[2] ?? 'narradores');
 await mkdir(pasta, { recursive: true });
+// NARRADORES_IDS='{"Seu Dito":"voice_..."}': regrava as amostras sem criar vozes novas.
+const existentes = JSON.parse(process.env.NARRADORES_IDS || '{}') as Record<string, string>;
 const ids: Record<string, string> = {};
 for (const c of CANDIDATOS) {
-  const { id, previa } = await criarVoz(chave, c);
+  const { id, previa } = existentes[c.nome] ? { id: existentes[c.nome]!, previa: null } : await criarVoz(chave, c);
   ids[c.nome] = id;
   console.log(`${c.nome}: ${id}`);
   const partes: string[] = [];

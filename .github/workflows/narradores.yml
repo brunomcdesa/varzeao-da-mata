@@ -3,6 +3,12 @@
 name: narradores
 on:
   workflow_dispatch:
+    inputs:
+      ids:
+        description: 'JSON {"Nome": "voice_..."} para regravar sem criar vozes novas'
+        default: ''
+permissions:
+  contents: write
 jobs:
   narradores:
     runs-on: ubuntu-latest
@@ -10,6 +16,7 @@ jobs:
     timeout-minutes: 15
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      NARRADORES_IDS: ${{ inputs.ids }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/preparar
@@ -22,3 +29,9 @@ jobs:
           path: |
             ${{ runner.temp }}/narradores/*.mp3
             ${{ runner.temp }}/narradores/narradores.json
+      # As amostras também vão para o branch 'amostras' (só os mp3 e os ids), para baixar com git.
+      - run: |
+          cd "$RUNNER_TEMP/narradores"
+          git init -q -b amostras && git add *.mp3 narradores.json
+          git -c user.name=liga -c user.email=liga@users.noreply.github.com commit -qm "Amostras dos Narradores"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" amostras
