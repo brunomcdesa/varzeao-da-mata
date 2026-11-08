@@ -1,0 +1,24 @@
+# Cria os candidatos a Narrador no Voice design do Gemini e guarda as amostras (mp3) como
+# artefato do workflow, para ouvir e escolher. Só à mão.
+name: narradores
+on:
+  workflow_dispatch:
+jobs:
+  narradores:
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 15
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+        with:
+          video: 'true'
+      - run: pnpm --filter @liga/renderer narradores "$RUNNER_TEMP/narradores"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: narradores
+          path: |
+            ${{ runner.temp }}/narradores/*.mp3
+            ${{ runner.temp }}/narradores/narradores.json

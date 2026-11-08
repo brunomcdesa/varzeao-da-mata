@@ -27,13 +27,25 @@ export const ESTILO: Record<Tom, string> = {
   grito: `${BASE}, gritando o gol a plenos pulmões, eufórico e rouco, esticando bem a vogal de "gol" como nas rádios.`,
 };
 
+/**
+ * Vozes criadas no Voice design (id voice_...) já trazem a persona (idade, timbre, sotaque);
+ * a Google recomenda estilo curto, só com a emoção do momento, para a voz não mudar de
+ * identidade. Estilo longo ("gritando a plenos pulmões, rouco") fazia a voz afinar.
+ */
+export const ESTILO_CURTO: Record<Tom, string> = {
+  normal: 'Narrando o jogo, ritmo rápido.',
+  animado: 'Empolgado, reagindo ao lance.',
+  grito: 'Gritando o gol, eufórico.',
+};
+export const estiloDe = (tom: Tom, voz: string) => (voz.startsWith('voice_') ? ESTILO_CURTO : ESTILO)[tom];
+
 export function pedidoGemini(texto: string, tom: Tom, voz: string, modelo: string): unknown {
   return {
     model: modelo,
     input: [
       {
         type: 'user_input',
-        content: [{ type: 'text', text: texto, annotations: [{ type: 'speech_metadata', style: ESTILO[tom] }] }],
+        content: [{ type: 'text', text: texto, annotations: [{ type: 'speech_metadata', style: estiloDe(tom, voz) }] }],
       },
     ],
     response_format: { type: 'audio', mime_type: 'audio/wav', sample_rate: 24000 },
@@ -146,7 +158,7 @@ export function pedidoGeminiVarias(falas: { texto: string; tom: Tom }[], voz: st
         content: falas.map((f, i) => ({
           type: 'text',
           text: i < falas.length - 1 ? f.texto + SEPARADOR : f.texto,
-          annotations: [{ type: 'speech_metadata', style: ESTILO[f.tom] }],
+          annotations: [{ type: 'speech_metadata', style: estiloDe(f.tom, voz) }],
         })),
       },
     ],
