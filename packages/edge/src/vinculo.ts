@@ -9,6 +9,9 @@
  *   POST /vinculo/sair           {sessao}                 → {ok}
  *   POST /transferencia          {sessao, time?, posicao?} → {ok}
  *   POST /transferencia/estado   {sessao}                 → o pedido com o resultado da coleta
+ *   POST /perfil                 {sessao, visual?, numero?} → {ok} (visual do boneco, camisa)
+ *   POST /perfil/estado          {sessao}                 → o pedido com o resultado da coleta
+ *   (o voto do Craque vinculado vai pelo /votos, com a sessão)
  *
  * A sessão é um segredo aleatório que só o navegador guarda; no KV fica só o hash dela.
  * Só a própria conta consegue mandar DM com o próprio @, então o código prova o dono.
@@ -174,6 +177,25 @@ export async function rotasDoVinculo(req: Request, env: EnvVinculo, agora: Date,
     }
     const s = await sessaoDe(env, c.sessao);
     return s ? json({ jogadorId: s.jogadorId, username: s.username }) : json({ erro: 'Não vinculado' }, 404);
+  }
+
+  if (pathname === '/perfil' || pathname === '/perfil/estado') {
+    const c = await corpo<{ sessao: string; visual: { pele: string; cabelo: string; penteado: string }; numero: number }>(req);
+    if (!sessaoValida(c?.sessao)) return json({ erro: 'Sessão inválida' }, 400);
+    const s = await sessaoDe(env, c.sessao);
+    if (!s) return json({ erro: 'Não vinculado' }, 401);
+    const chave = `perfil-site/${s.jogadorId}`;
+    if (pathname === '/perfil/estado') return json((await env.AGENDA.get(chave, 'json')) ?? {});
+    const v = c.visual;
+    const visual = v && typeof v === 'object' ? { pele: String(v.pele).slice(0, 9), cabelo: String(v.cabelo).slice(0, 9), penteado: String(v.penteado).slice(0, 12) } : undefined;
+    const numero = c.numero !== undefined && c.numero !== null ? Number(c.numero) : undefined;
+    if (numero !== undefined && (!Number.isInteger(numero) || numero < 1 || numero > 99)) return json({ erro: 'O número da camisa vai de 1 a 99.' }, 400);
+    if (!visual && numero === undefined) return json({ erro: 'Nada para salvar' }, 400);
+    // A coleta valida as cores e o número (sem repetir no Time) e devolve a mensagem.
+    const pedido = { jogadorId: s.jogadorId, ...(visual ? { visual } : {}), ...(numero !== undefined ? { numero } : {}), pedidoEm: agora.toISOString() };
+    await env.AGENDA.put(chave, JSON.stringify(pedido), { expirationTtl: 7 * 86400 });
+    const disparou = await disparar('coletar').catch(() => false);
+    return json({ ok: true, pedido, disparou });
   }
 
   if (pathname === '/transferencia' || pathname === '/transferencia/estado') {

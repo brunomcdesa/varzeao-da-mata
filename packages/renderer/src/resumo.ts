@@ -3,7 +3,7 @@
  * e a chamada para votar e jogar. Sequência de cartelas no mesmo estilo de várzea dos lances,
  * narrada pelo Locutor da Liga; cada cartela estica até a sua fala caber inteira.
  */
-import { FALA_DO_TIME, IDENTIDADE, doTime, nomeDaRodada, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, doTime, nomeDaRodada, type Posicao, type TimeId, type Aparencia } from '@liga/shared';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, plaquinha } from './desenho.js';
 import type { Fala } from './narracao.js';
@@ -37,6 +37,8 @@ export interface DadosDoResumo {
   };
   /** Anúncio do Craque da Temporada (o dia seguinte à Final): só essa cartela e a chamada. */
   craqueDaTemporada?: { username: string; time: TimeId; posicao: Posicao; notaMedia: number; gols: number; jogos: number; votos: number };
+  /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
+  aparencias?: Record<string, Aparencia>;
 }
 
 export type Cartela = 'ABERTURA' | 'PLACARES' | 'CAMPEAO' | 'TABELA' | 'NOVOS' | 'CANDIDATOS' | 'CRAQUE' | 'DESTAQUES' | 'CHAMADA';

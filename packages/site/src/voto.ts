@@ -22,6 +22,24 @@ const lerGuardado = (k: string): string | null => {
 
 export const votoNoSiteDisponivel = () => Boolean(BASE_API);
 
+/** Sessão do personagem vinculado neste navegador (meuPersonagem.ts), se houver. */
+function sessaoVinculada(): string | null {
+  try {
+    return (JSON.parse(lerGuardado('varzeao:vinculo') ?? 'null') as { sessao?: string } | null)?.sessao ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** @ do personagem vinculado, para o site dizer "votando como @fulano". */
+export function arrobaVinculado(): string | null {
+  try {
+    return (JSON.parse(lerGuardado('varzeao:vinculo') ?? 'null') as { username?: string } | null)?.username ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function aparelho(): string {
   let id = lerGuardado('varzeao:aparelho');
   if (!id || !/^[a-z0-9-]{16,64}$/.test(id)) {
@@ -72,7 +90,8 @@ export async function votar(rodada: number, numero: number, caixaDoDesafio: HTML
   const r = await fetch(`${BASE_API}votos`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ rodada, numero, aparelho: aparelho(), turnstile }),
+    // Com o personagem vinculado (ADR-0013), o voto é do @: um por pessoa, vale o último.
+    body: JSON.stringify({ rodada, numero, aparelho: aparelho(), turnstile, ...(sessaoVinculada() ? { sessao: sessaoVinculada() } : {}) }),
   });
   const j = (await r.json().catch(() => ({}))) as { ok?: boolean; numero?: number; jaVotou?: boolean; erro?: string };
   if (!r.ok || !j.ok) throw new Error(j.erro ?? 'Não deu para registrar o voto agora. Tente de novo.');

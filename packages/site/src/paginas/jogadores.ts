@@ -174,7 +174,7 @@ export function card(j: JogadorPublico, o: { pequeno?: boolean } = {}): Html {
       ${escudoImg(j.time, o.pequeno ? 1 : 1.5, 'card-escudo')}
     </div>
     <div class="card-boneco">${bonecoImg(j.time, j.posicao, j.username, o.pequeno ? 6 : 9)}</div>
-    <p class="card-nome">@${j.username}</p>
+    <p class="card-nome">${j.numero ? html`<span class="card-camisa" title="Número da camisa">${j.numero}</span>` : ''}@${j.username}</p>
     <p class="card-time">${curto(j.time)} · ${NOME_DA_POSICAO[j.posicao]}</p>
     ${barrasDeHabilidade(j.posicao, j.habilidades, o.pequeno ? undefined : j.habilidadesIniciais)}
     <dl class="card-numeros">

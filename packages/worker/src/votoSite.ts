@@ -45,6 +45,29 @@ export async function importarVotosDoSite(banco: Banco, agenda: Agenda, rodada: 
     );
     novos += r.rows.length;
   }
+  return novos + (await importarVotosVinculados(banco, agenda, rodada));
+}
+
+/**
+ * Votos de quem vinculou o personagem (ADR-0013): contam como o voto do @, junto com os
+ * comentados; vale o último, como no comentário.
+ */
+export async function importarVotosVinculados(banco: Banco, agenda: Agenda, rodada: number): Promise<number> {
+  const prefixo = `voto-vinculado/${rodada}/`;
+  let novos = 0;
+  for (const { nome, metadados } of await agenda.listarComMetadados<MetadadosDoVoto>(prefixo)) {
+    if (!metadados) continue;
+    const jogadorId = nome.slice(prefixo.length);
+    const r = await banco.query(
+      `INSERT INTO voto (rodada_id, ig_user_id, jogador_id, votado_em)
+       SELECT $1, j.ig_user_id, c.jogador_id, $4 FROM jogador j JOIN candidato c ON c.rodada_id = $1 AND c.numero = $3 WHERE j.id = $2
+       ON CONFLICT (rodada_id, ig_user_id) DO UPDATE SET jogador_id = EXCLUDED.jogador_id, votado_em = EXCLUDED.votado_em
+       WHERE voto.votado_em < EXCLUDED.votado_em
+       RETURNING ig_user_id`,
+      [rodada, jogadorId, metadados.numero, metadados.em],
+    );
+    novos += r.rows.length;
+  }
   return novos;
 }
 

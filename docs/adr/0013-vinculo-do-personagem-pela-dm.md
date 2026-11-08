@@ -17,9 +17,12 @@ Motivo: comentário é ambíguo. O pedido de um amigo vira pedido do próprio co
   - no máximo 8 códigos por rede (IP) por hora;
   - o site confere a DM a cada 8 s, por até 2 minutos depois de "Já mandei".
 
-## Próximas entregas
+## Segunda entrega: visual, camisa e voto
 
-Visual do boneco, número da camisa e voto no Craque como o próprio @ (um voto por pessoa, não por aparelho).
+- **Visual do boneco:** pele (6 tons), cor do cabelo (9) e corte (curto, careca, black, moicano). As opções ficam em `@liga/shared` (aparencia.ts) e valem no site, no Reels, no Ao Vivo e no Resumo. Quem não escolheu continua com o visual sorteado pelo @.
+- **Número da camisa:** de 1 a 99, sem repetir no Time. Aparece no card do site.
+- Os dois vão para `perfil-site/<jogadorId>` no KV, a coleta valida e grava (`jogador.visual`, `jogador.numero`), e o resultado volta para o site.
+- **Voto no Craque:** com o personagem vinculado, o voto do site vale como o voto do @, um por pessoa e junto com o comentado. Vale o último, então dá para mudar até a votação fechar. A borda grava em `voto-vinculado/<rodada>/<jogadorId>`, e a coleta junta na tabela `voto`.
 
 ## Considered Options
 

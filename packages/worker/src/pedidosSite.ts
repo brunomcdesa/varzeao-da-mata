@@ -7,6 +7,7 @@ import type { Posicao, TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { transferirJogador, type Resultado } from './coletar.js';
 import type { Agenda } from './nuvem.js';
+import { aplicarPerfil } from './perfil.js';
 
 export const PREFIXO_PEDIDO_SITE = 'pedido-site/';
 
@@ -23,9 +24,28 @@ export interface PedidoDoSite {
   processadoEm?: string;
 }
 
-/** Aplica os pedidos pendentes. Devolve quantos foram processados. */
+export const PREFIXO_PERFIL_SITE = 'perfil-site/';
+
+export interface PerfilDoSite {
+  jogadorId: string;
+  visual?: { pele: string; cabelo: string; penteado: string };
+  numero?: number;
+  pedidoEm: string;
+  resultado?: 'SALVO' | 'RECUSADO';
+  mensagem?: string;
+  processadoEm?: string;
+}
+
+/** Aplica os pedidos pendentes (Transferência e perfil). Devolve quantos foram processados. */
 export async function processarPedidosDoSite(banco: Banco, agenda: Agenda, agora: Date): Promise<number> {
   let n = 0;
+  for (const chave of await agenda.listar(PREFIXO_PERFIL_SITE)) {
+    const p = await agenda.ler<PerfilDoSite>(chave);
+    if (!p || p.processadoEm) continue;
+    const r = await banco.transacao((b) => aplicarPerfil(b, p.jogadorId, { ...(p.visual ? { visual: p.visual } : {}), ...(p.numero !== undefined ? { numero: p.numero } : {}) }));
+    await agenda.gravar(chave, { ...p, resultado: r.ok ? 'SALVO' : 'RECUSADO', mensagem: r.mensagem, processadoEm: agora.toISOString() });
+    n++;
+  }
   for (const chave of await agenda.listar(PREFIXO_PEDIDO_SITE)) {
     const p = await agenda.ler<PedidoDoSite>(chave);
     if (!p || p.processadoEm || p.tipo !== 'TRANSFERENCIA') continue;

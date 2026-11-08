@@ -13,6 +13,7 @@ import { ALTURA_ESCUDO, LARGURA_ESCUDO, escudo as escudoDoTime } from '../src/es
 import type { VarzeaApi } from './api.js';
 import { RoteiroResumo, desenharQuadroResumo, type DadosDoResumo } from '../src/resumo.js';
 import { RoteiroApresentacao, desenharQuadroApresentacao, type DadosDaApresentacao } from '../src/apresentacao.js';
+import { definirAparencias } from '../src/sprites.js';
 import { RoteiroAnuncio, desenharQuadroAnuncio, type TelaDoSite } from '../src/anuncio.js';
 import telaBusca from './telas/1-busca.png';
 import telaConvite from './telas/2-convite.png';
@@ -86,6 +87,7 @@ async function preparar(dados: PartidaParaVideo, quadrosPorSegundo = 30): Promis
   resumo = null;
   apresentacao = null;
   anuncio = null;
+  definirAparencias(dados.aparencias ?? {});
   roteiro = new Roteiro(new Timeline(dados.resultado, dados.escalacoes), dados.roteiro);
   opcoes = {
     times: dados.resultado.times,
@@ -105,6 +107,7 @@ async function prepararResumo(
   fps = quadrosPorSegundo;
   apresentacao = null;
   anuncio = null;
+  definirAparencias(dados.aparencias ?? {});
   resumo = new RoteiroResumo(dados, minimos);
   return { duracao: resumo.duracao, totalQuadros: resumo.totalQuadros(fps) };
 }

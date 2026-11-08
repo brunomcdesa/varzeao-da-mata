@@ -6,6 +6,7 @@
  * Legenda: . vazio · K contorno · H cabelo · S pele · C camisa · c detalhe da camisa
  *          B calção · M meião · L luva/mão do goleiro (cor da camisa)
  */
+import { CABELOS, PELES, type Aparencia, type Penteado } from '@liga/shared';
 import type { AcaoJogador } from './jogada.js';
 
 export type Direcao = 'FRENTE' | 'COSTAS' | 'LADO';
@@ -133,6 +134,7 @@ const POSES: Record<Pose, string[]> = {
 export const LARGURA_SPRITE = 12;
 export const ALTURA_SPRITE = 16;
 
+
 export interface Visual {
   camisa: string;
   detalhe: string;
@@ -140,17 +142,48 @@ export interface Visual {
   meiao: string;
   pele: string;
   cabelo: string;
+  penteado?: Penteado;
 }
 
-const PELES = ['#F3CDA8', '#E2AE80', '#C68B59', '#9A6238', '#6E4426', '#4B2E1B'];
-const CABELOS = ['#1C130D', '#2E1D12', '#4A2E19', '#7A4A22', '#B98A3E', '#111111', '#3A2A20'];
 
-/** Pele e cabelo escolhidos pelo @, para o mesmo Jogador ter sempre o mesmo boneco. */
-export function aparencia(nome: string): { pele: string; cabelo: string } {
+/** Aparências escolhidas pelos donos, pelo @ (sem @, minúsculo). Sem escolha, vale o sorteio. */
+const escolhidas = new Map<string, Aparencia>();
+const chaveDoNome = (nome: string) => nome.replace(/^@/, '').toLowerCase();
+export function definirAparencias(lista: Record<string, Aparencia>): void {
+  for (const [nome, a] of Object.entries(lista)) escolhidas.set(chaveDoNome(nome), a);
+}
+
+/** Pele e cabelo do Jogador: os que o dono escolheu, ou os sorteados pelo @ (sempre os mesmos). */
+export function aparencia(nome: string): Aparencia {
+  const escolhida = escolhidas.get(chaveDoNome(nome));
+  if (escolhida) return escolhida;
   let h = 2166136261;
   for (let i = 0; i < nome.length; i++) h = Math.imul(h ^ nome.charCodeAt(i), 16777619);
   h >>>= 0;
-  return { pele: PELES[h % PELES.length]!, cabelo: CABELOS[(h >>> 8) % CABELOS.length]! };
+  return { pele: PELES[h % PELES.length]!, cabelo: CABELOS[(h >>> 8) % 7]! };
+}
+
+/** Troca o cabelo da grade: careca (H vira pele), moicano (só o meio), black (cabelo mais largo). */
+function comPenteado(grade: string[], penteado: Penteado | undefined, pose: Pose): string[] {
+  if (!penteado || penteado === 'CURTO' || pose === 'MERGULHO') return grade;
+  if (penteado === 'CARECA') return grade.map((l) => l.replace(/H/g, 'S'));
+  if (penteado === 'MOICANO') return grade.map((l) => [...l].map((c, x) => (c === 'H' && (x < 5 || x > 6) ? 'S' : c)).join(''));
+  // BLACK: as três primeiras linhas da cabeça ganham uma coluna de cabelo de cada lado.
+  return grade.map((l, y) => {
+    if (y > 2) return l;
+    const a = l.indexOf('K');
+    const b = l.lastIndexOf('K');
+    if (a < 1 || b > l.length - 2 || l[a - 1] !== '.' || l[b + 1] !== '.') return l;
+    const c = [...l];
+    c[a - 1] = 'K';
+    c[b + 1] = 'K';
+    // Na linha de cima só o contorno cresce; nas outras, o cabelo também.
+    if (y > 0) {
+      c[a] = 'H';
+      c[b] = 'H';
+    }
+    return c.join('');
+  });
 }
 
 const CONTORNO = '#15110E';
@@ -165,10 +198,10 @@ function novoCanvas(w: number, h: number): HTMLCanvasElement | OffscreenCanvas {
 }
 
 export function sprite(pose: Pose, v: Visual): HTMLCanvasElement | OffscreenCanvas {
-  const k = `${pose}|${v.camisa}|${v.detalhe}|${v.calcao}|${v.meiao}|${v.pele}|${v.cabelo}`;
+  const k = `${pose}|${v.camisa}|${v.detalhe}|${v.calcao}|${v.meiao}|${v.pele}|${v.cabelo}|${v.penteado ?? ''}`;
   const pronto = cache.get(k);
   if (pronto) return pronto;
-  const grade = POSES[pose];
+  const grade = comPenteado(POSES[pose], v.penteado, pose);
   const c = novoCanvas(LARGURA_SPRITE, ALTURA_SPRITE);
   const g = c.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
   const cores: Record<string, string> = {

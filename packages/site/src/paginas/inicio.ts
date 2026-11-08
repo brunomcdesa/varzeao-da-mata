@@ -4,7 +4,7 @@ import { contagem, diaLongo, hora, liga, partida, partidasDaRodada, rodadaAtual,
 import { montarTimeline, transmitir } from '../transmissao.js';
 import { bonecoImg, curto, escudoImg, html, jogadorLink, nota, rotuloClassico, type Html } from '../ui.js';
 import { chamadaDeVoto, comoEntrar, linhaDePartida, perfil, tabelaDeClassificacao } from './comum.js';
-import { votar, votoGuardado, votoNoSiteDisponivel } from '../voto.js';
+import { arrobaVinculado, votar, votoGuardado, votoNoSiteDisponivel } from '../voto.js';
 import type { Pagina } from './tipos.js';
 
 /** A Partida que merece o destaque: a que está rolando, senão a próxima. */
@@ -71,6 +71,8 @@ function votacao(l: LigaPublica): Html {
     const temporada = aberta.votacao === 'TEMPORADA';
     const noSite = votoNoSiteDisponivel();
     const meu = votoGuardado(aberta.id);
+    // Personagem vinculado (ADR-0013): vota como o @, e pode mudar o voto (vale o último).
+    const arroba = arrobaVinculado();
     return html`<section class="placa votacao" aria-labelledby="titulo-votacao" data-rodada="${aberta.id}">
       <h2 id="titulo-votacao">${temporada ? 'Quem é o Craque da Temporada?' : `Craque ${aberta.fase === 'LIGA' ? `da Rodada ${aberta.numero}` : 'das Semifinais'}`}</h2>
       <p>${
@@ -84,13 +86,19 @@ function votacao(l: LigaPublica): Html {
           ${bonecoImg(c.time, c.posicao, c.username, 3)}
           <span class="quem">${jogadorLink(c.jogadorId, c.username)}<small>${curto(c.time)} · ${temporada ? 'média' : 'nota'} ${nota(c.nota)}</small></span>
           ${noSite
-            ? html`<button type="button" class="botao-voto" data-numero="${c.numero}" ${meu ? 'disabled' : ''} aria-label="Votar no número ${c.numero}, @${c.username}">${meu === c.numero ? 'Seu voto' : `Votar no ${c.numero}`}</button>`
+            ? html`<button type="button" class="botao-voto" data-numero="${c.numero}" ${meu && !arroba ? 'disabled' : ''} aria-label="Votar no número ${c.numero}, @${c.username}">${meu === c.numero ? 'Seu voto' : `Votar no ${c.numero}`}</button>`
             : chamadaDeVoto(c.numero)}
         </li>`,
       )}</ol>
       ${noSite
         ? html`<div class="voto-desafio" hidden></div>
-            <p class="voto-aviso" role="status" aria-live="polite">${meu ? `Você votou no ${meu} por este aparelho. Um voto por aparelho.` : 'Um voto por aparelho no site. Pelo Instagram, um por perfil.'}</p>`
+            <p class="voto-aviso" role="status" aria-live="polite">${
+              arroba
+                ? `Votando como @${arroba}: um voto por pessoa, junto com o do Instagram. Vale o último, então dá para mudar.${meu ? ` Seu voto: ${meu}.` : ''}`
+                : meu
+                  ? `Você votou no ${meu} por este aparelho. Um voto por aparelho.`
+                  : 'Um voto por aparelho no site. Pelo Instagram, um por perfil.'
+            }</p>`
         : ''}
     </section>`;
   }
@@ -126,7 +134,9 @@ function ligarVotacao(main: HTMLElement): void {
           x.textContent = meu ? 'Seu voto' : `Votar no ${x.dataset.numero}`;
           x.closest('li')?.classList.toggle('meu-voto', meu);
         }
-        if (aviso) aviso.textContent = r.jaVotou ? `Este aparelho já tinha votado no ${r.numero}. Vale o primeiro voto.` : `Voto registrado no ${r.numero}. Valeu!`;
+        const arroba = arrobaVinculado();
+        if (arroba) for (const x of botoes) x.disabled = false;
+        if (aviso) aviso.textContent = arroba ? `Voto de @${arroba} no ${r.numero}. Vale o último: dá para mudar até a votação fechar.` : r.jaVotou ? `Este aparelho já tinha votado no ${r.numero}. Vale o primeiro voto.` : `Voto registrado no ${r.numero}. Valeu!`;
       } catch (e) {
         for (const x of botoes) x.disabled = false;
         if (aviso) aviso.textContent = (e as Error).message;

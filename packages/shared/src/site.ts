@@ -2,6 +2,7 @@
  * Formato dos dados públicos do site (gerados pelo worker, lidos pelo site).
  * Regra: nada que revele o resultado de uma Partida antes do seu Apito Inicial.
  */
+import type { Aparencia } from './aparencia.js';
 import type { Posicao, TimeId } from './index.js';
 import type { Habilidades } from './habilidades.js';
 
@@ -143,6 +144,10 @@ export interface JogadorPublico {
   inscritoEm: string;
   /** Já usou a Transferência da Temporada atual (ADR-0012). */
   transferenciaUsada: boolean;
+  /** Visual do boneco escolhido pelo dono (ADR-0013); null = o sorteado pelo @. */
+  visual: Aparencia | null;
+  /** Número da camisa escolhido pelo dono. */
+  numero: number | null;
   /** Números da carreira (todas as Temporadas); `nestaTemporada` só a atual. */
   jogos: number;
   gols: number;

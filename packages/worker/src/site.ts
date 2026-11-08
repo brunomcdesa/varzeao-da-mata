@@ -7,7 +7,7 @@
  * aparecem depois do Apito (o lance a lance) ou do fim do Ao Vivo (placar, tabela, Card).
  * Escalações aparecem assim que existem (a partir do Corte).
  */
-import { IDENTIDADE, TIMES, duracaoAoVivoMs, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Habilidades } from '@liga/shared';
+import { IDENTIDADE, TIMES, duracaoAoVivoMs, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Habilidades, type Aparencia } from '@liga/shared';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { classificar } from './tabela.js';
@@ -172,8 +172,8 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
 
   // ---- jogadores
   const jogadores = (
-    await banco.query<{ id: string; username: string; time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; inscrito_em: string | Date }>(
-      `SELECT id::text AS id, username, time_id, posicao, ovr, habilidades, inscrito_em FROM jogador WHERE NOT banido ORDER BY id`,
+    await banco.query<{ id: string; username: string; time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; inscrito_em: string | Date; visual: Aparencia | string | null; numero: number | null }>(
+      `SELECT id::text AS id, username, time_id, posicao, ovr, habilidades, inscrito_em, visual, numero FROM jogador WHERE NOT banido ORDER BY id`,
     )
   ).rows;
   const transferiram = new Set(
@@ -203,6 +203,8 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       habilidadesIniciais: minhas[0] ? habilidadesDe(j.posicao, minhas[0].ovr_antes, minhas[0].habilidades_antes) : habilidadesDe(j.posicao, j.ovr, j.habilidades),
       inscritoEm: new Date(j.inscrito_em).toISOString(),
       transferenciaUsada: transferiram.has(j.id),
+      visual: j.visual ? (typeof j.visual === 'string' ? (JSON.parse(j.visual) as Aparencia) : j.visual) : null,
+      numero: j.numero ?? null,
       ...estatisticasVazias(),
       vezesCandidato: 0,
       craqueDaRodada: 0,

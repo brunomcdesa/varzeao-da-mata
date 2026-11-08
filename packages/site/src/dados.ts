@@ -3,6 +3,7 @@
  * lance a lance de uma Partida que acabou de começar vem do worker na borda (liga-api),
  * porque os arquivos estáticos só são regerados de hora em hora.
  */
+import { definirAparencias } from '@liga/renderer';
 import { duracaoAoVivoMs, type JogadorPublico, type LigaPublica, type LinhaTabelaPublica, type PartidaNoCalendario, type PartidaPublica, type SituacaoPartida } from '@liga/shared';
 
 const meta = (nome: string) => document.querySelector<HTMLMetaElement>(`meta[name="${nome}"]`)?.content.trim() ?? '';
@@ -88,7 +89,12 @@ interface ResultadoMinimo {
   penaltis?: { placar: { mandante: number; visitante: number } };
   vencedor: 'mandante' | 'visitante' | null;
 }
-export const jogadores = (fresco = false) => buscar<JogadorPublico[]>(`${BASE_DADOS}jogadores.json`, fresco);
+export const jogadores = async (fresco = false): Promise<JogadorPublico[]> => {
+  const lista = await buscar<JogadorPublico[]>(`${BASE_DADOS}jogadores.json`, fresco);
+  // O boneco de cada um como o dono escolheu (ADR-0013); sem escolha, o sorteado pelo @.
+  definirAparencias(Object.fromEntries(lista.filter((j) => j.visual).map((j) => [j.username, j.visual!])));
+  return lista;
+};
 
 /**
  * Partida com o que já pode ser mostrado agora. Se o Apito já soou e o arquivo estático

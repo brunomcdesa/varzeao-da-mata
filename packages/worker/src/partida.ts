@@ -3,6 +3,8 @@
  * status da Partida. Reexecutar retoma de onde parou e nunca refaz uma etapa concluída:
  * uma Partida simulada nunca é simulada de novo (o resultado é o que está no banco).
  */
+import { aparenciasEscolhidas } from './perfil.js';
+import type { Aparencia } from '@liga/shared';
 import { randomInt } from 'node:crypto';
 import { nomeDaEtapa, type Escalacao, type TimeId } from '@liga/shared';
 import { simularPartida, type Lado, type ResultadoPartida } from '@liga/sim';
@@ -16,6 +18,8 @@ export interface DadosDoVideo {
   escalacoes: Record<Lado, Escalacao>;
   nomes: Record<Lado, (string | null)[]>;
   subtitulo?: string;
+  /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
+  aparencias?: Record<string, Aparencia>;
 }
 
 /** Grava o MP4 da Partida em `saida`. Injetado para os testes não dependerem do navegador. */
@@ -132,6 +136,7 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
     escalacoes: escalada.escalacoes,
     nomes: escalada.nomes,
     subtitulo: subtituloDaPartida(p.rodada, p.fase, new Date(p.apito_inicial)),
+    aparencias: await aparenciasEscolhidas(banco),
   };
 
   let video = p.video_url;

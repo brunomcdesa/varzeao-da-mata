@@ -2,7 +2,7 @@
  * Desenho de um quadro do Reels: o campo da Timeline no instante que o Roteiro manda,
  * mais as cartelas de abertura e de fim e o escurecimento dos cortes.
  */
-import { IDENTIDADE, type Escalacao } from '@liga/shared';
+import { IDENTIDADE, type Aparencia, type Escalacao } from '@liga/shared';
 import type { Lado, ResultadoPartida } from '@liga/sim';
 import { CAMPO, cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, faixaDeTorcida, plaquinha, type OpcoesDesenho } from './desenho.js';
@@ -25,6 +25,8 @@ export interface PartidaParaVideo {
   nomes: Record<Lado, (string | null)[]>;
   subtitulo?: string;
   roteiro?: OpcoesRoteiro;
+  /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
+  aparencias?: Record<string, Aparencia>;
 }
 
 export function desenharQuadroVideo(ctx: CanvasRenderingContext2D, roteiro: Roteiro, tVideo: number, o: OpcoesVideo): QuadroRoteiro {

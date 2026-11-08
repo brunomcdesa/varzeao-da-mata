@@ -10,7 +10,7 @@
  *   os votos do KV para o banco e mantém `votacao-aberta` em dia.
  */
 
-import { rotasDoVinculo } from './vinculo.js';
+import { rotasDoVinculo, sessaoDe } from './vinculo.js';
 
 export interface Env {
   AGENDA: KVNamespace;
@@ -186,7 +186,7 @@ async function resumo(texto: string): Promise<string> {
 }
 
 async function votar(req: Request, env: Env, agora: Date, f: Fetch): Promise<Response> {
-  let corpo: { rodada?: unknown; numero?: unknown; aparelho?: unknown; turnstile?: unknown };
+  let corpo: { rodada?: unknown; numero?: unknown; aparelho?: unknown; turnstile?: unknown; sessao?: unknown };
   try {
     corpo = (await req.json()) as typeof corpo;
   } catch {
@@ -209,6 +209,16 @@ async function votar(req: Request, env: Env, agora: Date, f: Fetch): Promise<Res
     });
     const v = (await r.json()) as { success?: boolean };
     if (!v.success) return json({ erro: 'Não deu para confirmar que você não é um robô. Tente de novo.' }, 403);
+  }
+
+  // Personagem vinculado (ADR-0013): o voto é do @, um por pessoa, e vale o último (como
+  // no comentário). A coleta junta com os votos comentados desse @.
+  if (typeof corpo.sessao === 'string' && corpo.sessao) {
+    const s = await sessaoDe(env, corpo.sessao);
+    if (s) {
+      await env.AGENDA.put(`voto-vinculado/${rodada}/${s.jogadorId}`, '', { metadata: { numero, em: agora.toISOString() }, expirationTtl: 14 * 86400 });
+      return json({ ok: true, numero, comoArroba: s.username });
+    }
   }
 
   // Um voto por aparelho: o primeiro vale.

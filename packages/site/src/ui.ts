@@ -50,7 +50,7 @@ export function escudoImg(time: TimeId, escala = 2, classe = ''): Html {
 export function bonecoImg(time: TimeId, posicao: Posicao, username: string | null, escala = 3, pose: Pose = 'FRENTE_PARADO', classe = ''): Html {
   const nome = username ? `@${username}` : `base-${time}-${posicao}`;
   const v = visualDoJogador(time, posicao, nome);
-  const src = paraDataUrl(`boneco-${pose}-${time}-${posicao}-${nome}`, () => sprite(pose, v), LARGURA_SPRITE, ALTURA_SPRITE);
+  const src = paraDataUrl(`boneco-${pose}-${time}-${posicao}-${nome}-${v.pele}-${v.cabelo}-${v.penteado ?? ''}`, () => sprite(pose, v), LARGURA_SPRITE, ALTURA_SPRITE);
   return html`<img class="pixel boneco ${classe}" src="${src}" width="${LARGURA_SPRITE * escala}" height="${ALTURA_SPRITE * escala}" alt="" />`;
 }
 
