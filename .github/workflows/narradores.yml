@@ -7,6 +7,10 @@ on:
       ids:
         description: 'JSON {"Nome": "voice_..."} para regravar sem criar vozes novas'
         default: ''
+      cota:
+        description: 'Só um pedido de voz, para ver a resposta da API'
+        type: boolean
+        default: false
       pronuncia:
         description: 'Só o teste de pronúncia (sem criar vozes nem amostras)'
         type: boolean
@@ -26,11 +30,13 @@ jobs:
       - uses: ./.github/actions/preparar
         with:
           video: 'true'
-      - if: inputs.pronuncia
+      - if: inputs.cota
+        run: pnpm --filter @liga/renderer exec tsx scripts/cota.ts
+      - if: inputs.pronuncia && !inputs.cota
         run: pnpm --filter @liga/renderer pronuncia
-      - if: ${{ !inputs.pronuncia }}
+      - if: ${{ !inputs.pronuncia && !inputs.cota }}
         run: pnpm --filter @liga/renderer narradores "$RUNNER_TEMP/narradores"
-      - if: ${{ !inputs.pronuncia }}
+      - if: ${{ !inputs.pronuncia && !inputs.cota }}
         uses: actions/upload-artifact@v4
         with:
           name: narradores
@@ -38,7 +44,7 @@ jobs:
             ${{ runner.temp }}/narradores/*.mp3
             ${{ runner.temp }}/narradores/narradores.json
       # As amostras também vão para o branch 'amostras' (só os mp3 e os ids), para baixar com git.
-      - if: ${{ !inputs.pronuncia }}
+      - if: ${{ !inputs.pronuncia && !inputs.cota }}
         run: |
           cd "$RUNNER_TEMP/narradores"
           git init -q -b amostras && git add *.mp3 narradores.json
