@@ -2,7 +2,7 @@
 import { IDENTIDADE, duracaoAoVivoMs, nomeDaEtapa, type EscalacaoPublica, type PartidaPublica } from '@liga/shared';
 import type { Desempenho, Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { contagem, diaLongo, hora, partida, situacaoAgora } from '../dados.js';
-import { DURACAO_JOGO, resultadoDaCobranca } from '@liga/renderer';
+import { DURACAO_JOGO, narradorDa, resultadoDaCobranca } from '@liga/renderer';
 import { montarTimeline, transmitir } from '../transmissao.js';
 import { bonecoImg, curto, escudoImg, html, jogadorLink, nota, NOME_DA_POSICAO, rotuloClassico, type Html } from '../ui.js';
 import type { Pagina } from './tipos.js';
@@ -114,7 +114,7 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
                 </div>`
               : html`<p class="legenda">Ao vivo no tempo da Liga: 90 minutos em 4 e meio. Não dá para adiantar.</p>`}
             ${p.narracao
-              ? html`<p><button type="button" class="botao" data-acao="narracao" aria-pressed="false">🔊 Ligar narração</button></p>`
+              ? html`<p><button type="button" class="botao" data-acao="narracao" aria-pressed="false">🔊 Ligar narração</button> <span class="legenda">Narração: ${p.resultado ? narradorDa((p.resultado as { seed: number }).seed).nome : ''}</span></p>`
               : ''}
             ${p.video ? html`<p><a class="botao secundario" href="${p.video}" rel="noopener">Melhores momentos (Reels)</a></p>` : ''}
           </section>`

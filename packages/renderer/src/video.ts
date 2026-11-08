@@ -9,6 +9,7 @@ import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTab
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
 import type { OpcoesRoteiro, QuadroRoteiro, Roteiro } from './roteiro.js';
 import { aparencia, sprite } from './sprites.js';
+import { narradorDa } from './narradores.js';
 
 export interface OpcoesVideo extends OpcoesDesenho {
   /** Linha de contexto na abertura, ex.: "Rodada 1, jogo das 12h". */
@@ -150,6 +151,8 @@ function desenharAbertura(pin: Pincel, r: ResultadoPartida, p: number, tVideo: n
     pin.ctx.globalAlpha = alpha * ex;
     pin.placa(COLUNAS / 2 - 15, 262, 30, 24, { fundo: COR.placa, luz: '#FFF8E6', sombra: COR.placaSombra });
     pin.texto('x', COLUNAS / 2, 273, 20, display, COR.tinta);
+    // Quem narra esta Partida (sorteado pela semente).
+    pin.texto(`Narração: ${narradorDa(r.seed).nome}`, COLUNAS / 2, 372, 10, texto, COR.placa, { peso: 600 });
   }
   pin.ctx.restore();
 }

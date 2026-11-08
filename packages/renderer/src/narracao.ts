@@ -6,6 +6,7 @@
  */
 import { FALA_DO_TIME, doTime, nomeDoClassico, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, type Lado, type Lance } from '@liga/sim';
+import { narradorDa } from './narradores.js';
 import { F_CHUTE_PENALTI, instanteDaCobranca, resultadoDaCobranca } from './penaltis.js';
 import type { Roteiro, Segmento } from './roteiro.js';
 
@@ -72,13 +73,14 @@ export function montarNarracao(roteiro: Roteiro): Fala[] {
   const segs = roteiro.segmentos;
   const primeiroLance = segs.find((s) => s.tipo === 'LANCE');
 
-  // Abertura
+  // Abertura: o Narrador da Partida se apresenta.
+  const narrador = narradorDa(r.seed);
   const classico = nomeDoClassico(r.times.mandante, r.times.visitante);
   falas.push({
     id: 'abertura',
-    texto: classico
-      ? `É o ${classico}! ${curto('mandante')} contra ${curto('visitante')}!`
-      : `Bola rolando no Varzeão da Mata! ${curto('mandante')} contra ${curto('visitante')}!`,
+    texto: `${narrador.apresentacao} ${
+      classico ? `É o ${classico}! ${curto('mandante')} contra ${curto('visitante')}!` : `Bola rolando no Varzeão da Mata! ${curto('mandante')} contra ${curto('visitante')}!`
+    }`,
     inicio: 0.25,
     limite: segs[0]!.fim,
     tom: 'animado',
@@ -127,6 +129,7 @@ export function montarNarracao(roteiro: Roteiro): Fala[] {
       GOL: [
         [`Gooooool ${doTime(time(atq))}!`, 'grito'],
         [`É gooool! Gol ${doTime(time(atq))}!`, 'grito'],
+        [narrador.gol.replace('{time}', doTime(time(atq))), 'grito'],
       ],
       DEFESA: [
         [`Que defesa ${def.replace(/^o /, 'do ')}!`, 'animado'],
@@ -209,7 +212,7 @@ export function montarNarracao(roteiro: Roteiro): Fala[] {
   const vencedor = r.penaltis && r.vencedor
     ? `${cap(artigoDe(time(r.vencedor)))} ${curto(r.vencedor)} venceu nos pênaltis!`
     : r.vencedor ? `Vitória ${doTime(time(r.vencedor))}!` : 'Tudo igual no Varzeão!';
-  falas.push({ id: 'fim', texto: `Fim de jogo! ${placar}. ${vencedor}`, inicio: fim.inicio + 0.35, limite: fim.fim, tom: 'animado', segmento: segs.length - 1, parte: 'antes' });
+  falas.push({ id: 'fim', texto: `Fim de jogo! ${placar}. ${vencedor} ${narrador.despedida}`, inicio: fim.inicio + 0.35, limite: fim.fim, tom: 'animado', segmento: segs.length - 1, parte: 'antes' });
   return falas;
 }
 

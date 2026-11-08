@@ -20,6 +20,7 @@ import { Roteiro, type OpcoesRoteiro } from '../src/roteiro.js';
 import { Timeline } from '../src/timeline.js';
 import { exigenciasDaNarracao, montarEventos, montarNarracao } from '../src/narracao.js';
 import { TAXA, agendarFalas, codificarWav, lerWavMono, mixar, mixarAoVivo, type VozNaMixagem } from '../src/audio.js';
+import { narradorDa } from '../src/narradores.js';
 import { agendarAoVivo, duracaoAoVivo, eventosAoVivo, roteiroAoVivo } from '../src/aoVivo.js';
 import { criarLocutor } from './locutor.js';
 import type { VarzeaApi } from '../video/api.js';
@@ -96,7 +97,9 @@ async function montarAudio(partida: PartidaParaVideo, dir: string): Promise<{ ar
   const timeline = new Timeline(partida.resultado, partida.escalacoes);
   const base = new Roteiro(timeline, partida.roteiro);
   const falasBase = montarNarracao(base);
-  const vozes = await sintetizar(falasBase);
+  const narrador = narradorDa(partida.resultado.seed);
+  console.log(`  Narrador: ${narrador.nome}`);
+  const vozes = await sintetizar(falasBase, narrador.voz);
   const duracao = (id: string) => vozes.get(id)!.length / TAXA;
   const opcoes: OpcoesRoteiro = { ...partida.roteiro, minimos: exigenciasDaNarracao(base, falasBase, duracao) };
   const roteiro = new Roteiro(timeline, opcoes);
@@ -156,8 +159,8 @@ async function codificar(pagina: import('playwright').Page, totalQuadros: number
 }
 
 /** Sintetiza as falas pelo Locutor e devolve as amostras de cada uma (48 kHz mono). */
-async function sintetizar(falas: Fala[]): Promise<Map<string, Float32Array>> {
-  const locutor = criarLocutor(join(raiz, '.cache/locutor'));
+async function sintetizar(falas: Fala[], voz?: string): Promise<Map<string, Float32Array>> {
+  const locutor = criarLocutor(join(raiz, '.cache/locutor'), undefined, voz);
   if (locutor.modo === 'espeak') console.warn('  Sem chave de voz: usando a voz de teste do espeak-ng.');
   if (locutor.modo === 'mudo') console.warn('  Sem chave de voz nem espeak-ng: o vídeo sai sem a voz do Locutor.');
   const wavs = await locutor.falarTodas(falas, (feitas) => {
@@ -332,7 +335,7 @@ export async function gravarNarracaoAoVivo(partida: PartidaParaVideo, saida: str
   const vozes = new Map<string, Float32Array>();
   for (let i = 0; i < falas.length; i += 20) {
     const lote = falas.slice(i, i + 20).map((f) => ({ id: f.id, texto: f.texto, tom: f.tom }) as Fala);
-    for (const [id, a] of await sintetizar(lote)) vozes.set(id, a);
+    for (const [id, a] of await sintetizar(lote, narradorDa(partida.resultado.seed).voz)) vozes.set(id, a);
   }
   const duracaoFala = (id: string) => vozes.get(id)!.length / TAXA;
   const agenda = agendarAoVivo(falas, duracaoFala);

@@ -62,7 +62,8 @@ export function ssml(texto: string, tom: Tom, voz: string, estilo?: string): str
   );
 }
 
-export function criarLocutor(pastaCache: string, modoForcado?: string): Locutor {
+/** `vozGemini`: a voz do Narrador da Partida (senão GEMINI_TTS_VOZ ou a padrão). */
+export function criarLocutor(pastaCache: string, modoForcado?: string, vozGemini?: string): Locutor {
   const chave = process.env.AZURE_SPEECH_KEY;
   const regiao = process.env.AZURE_SPEECH_REGION;
   const voz = process.env.AZURE_SPEECH_VOICE ?? 'pt-BR-AntonioNeural';
@@ -96,7 +97,7 @@ export function criarLocutor(pastaCache: string, modoForcado?: string): Locutor 
   };
 
   if (modo === 'gemini') {
-    const voz = process.env.GEMINI_TTS_VOZ || VOZ_PADRAO;
+    const voz = vozGemini || process.env.GEMINI_TTS_VOZ || VOZ_PADRAO;
     const modelo = process.env.GEMINI_TTS_MODELO || MODELO_PADRAO;
     const chaveDe = (texto: string, tom: Tom) => `gemini|${modelo}|${voz}|${tom}|${texto}`;
     const falar = (texto: string, tom: Tom) => comCache(chaveDe(texto, tom), () => falarGemini(texto, tom, chaveGemini!, voz, modelo));
