@@ -7,7 +7,7 @@
  */
 import { CABELOS, NOME_DO_PENTEADO, PELES, PENTEADOS, TIMES, type Aparencia, type JogadorPublico, type Penteado, type Posicao, type TimeId } from '@liga/shared';
 import { ALTURA_SPRITE, LARGURA_SPRITE, aparencia, sprite, visualDoJogador, type Pose } from '@liga/renderer';
-import { BASE_API, INSTAGRAM } from './dados.js';
+import { BASE_API, INSTAGRAM, ajustarLocalmente } from './dados.js';
 import { curto, html, NOME_DA_POSICAO, POSICOES_EM_ORDEM } from './ui.js';
 
 const CHAVE = 'varzeao:vinculo';
@@ -142,6 +142,10 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
     if (!g) return convite();
     const estado = (await api<Pedido>('transferencia/estado', { sessao: g.sessao }).catch(() => null))?.dados ?? {};
     painel(g, estado, mensagem);
+    if (estado.resultado === 'TRANSFERIDO' && estado.processadoEm && !j.transferenciaUsada) {
+      ajustarLocalmente(j.id, { ...(estado.time ? { time: estado.time } : {}), ...(estado.posicao ? { posicao: estado.posicao } : {}), transferenciaUsada: true });
+      window.setTimeout(() => window.dispatchEvent(new HashChangeEvent('hashchange')), 2500);
+    }
     if (estado.pedidoEm && !estado.processadoEm && tentativa < 40) timers.push(window.setTimeout(() => void seguir('', tentativa + 1), 10_000));
   }
 
@@ -282,7 +286,12 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
         if (p?.processadoEm) {
           estado.textContent = p.mensagem ?? '';
           estado.className = `estado-visual ${p.resultado === 'SALVO' ? 'sucesso' : 'erro'}`;
-          if (p.resultado === 'SALVO' && novoNumero !== null) numero = novoNumero;
+          if (p.resultado === 'SALVO') {
+            if (novoNumero !== null) numero = novoNumero;
+            ajustarLocalmente(j.id, { visual: escolha, ...(novoNumero !== null ? { numero: novoNumero } : {}) });
+            // Redesenha a página: o card já mostra o boneco e a camisa novos.
+            window.setTimeout(() => window.dispatchEvent(new HashChangeEvent('hashchange')), 1500);
+          }
           return;
         }
         if (tentativa < 30) timersVisual.push(window.setTimeout(() => void conferir(tentativa + 1), 8000));

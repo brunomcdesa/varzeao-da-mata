@@ -89,8 +89,49 @@ interface ResultadoMinimo {
   penaltis?: { placar: { mandante: number; visitante: number } };
   vencedor: 'mandante' | 'visitante' | null;
 }
+/**
+ * Mudanças que o dono acabou de fazer pelo site (ADR-0013). Já estão no banco, mas o
+ * jogadores.json só é republicado em 1 ou 2 minutos; até lá, este navegador já mostra.
+ */
+export interface AjusteLocal {
+  visual?: JogadorPublico['visual'];
+  numero?: number;
+  time?: JogadorPublico['time'];
+  posicao?: JogadorPublico['posicao'];
+  transferenciaUsada?: boolean;
+  em: number;
+}
+const CHAVE_AJUSTES = 'varzeao:ajustes';
+const VALIDADE_AJUSTE_MS = 15 * 60_000;
+export function ajustarLocalmente(jogadorId: string, a: Omit<AjusteLocal, 'em'>): void {
+  try {
+    const todos = JSON.parse(localStorage.getItem(CHAVE_AJUSTES) ?? '{}') as Record<string, AjusteLocal>;
+    todos[jogadorId] = { ...todos[jogadorId], ...a, em: Date.now() };
+    localStorage.setItem(CHAVE_AJUSTES, JSON.stringify(todos));
+  } catch {
+    /* sem armazenamento: aparece na próxima publicação */
+  }
+}
+function comAjustes(lista: JogadorPublico[]): JogadorPublico[] {
+  let todos: Record<string, AjusteLocal> = {};
+  try {
+    todos = JSON.parse(localStorage.getItem(CHAVE_AJUSTES) ?? '{}') as Record<string, AjusteLocal>;
+  } catch {
+    return lista;
+  }
+  const validos = Object.entries(todos).filter(([, a]) => Date.now() - a.em < VALIDADE_AJUSTE_MS);
+  if (!validos.length) return lista;
+  const porId = new Map(validos);
+  return lista.map((j) => {
+    const a = porId.get(j.id);
+    if (!a) return j;
+    const { em: _em, ...campos } = a;
+    return { ...j, ...campos };
+  });
+}
+
 export const jogadores = async (fresco = false): Promise<JogadorPublico[]> => {
-  const lista = await buscar<JogadorPublico[]>(`${BASE_DADOS}jogadores.json`, fresco);
+  const lista = comAjustes(await buscar<JogadorPublico[]>(`${BASE_DADOS}jogadores.json`, fresco));
   // O boneco de cada um como o dono escolheu (ADR-0013); sem escolha, o sorteado pelo @.
   definirAparencias(Object.fromEntries(lista.filter((j) => j.visual).map((j) => [j.username, j.visual!])));
   return lista;

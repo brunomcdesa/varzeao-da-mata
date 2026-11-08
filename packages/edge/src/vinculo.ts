@@ -21,7 +21,14 @@ export interface EnvVinculo {
   AGENDA: KVNamespace;
   PUBLICO: R2Bucket;
   IG_USER_ID: string;
+  /** Com o banco, a borda aplica o pedido na hora; sem ele, a coleta aplica (1 a 2 min). */
+  DATABASE_URL?: string;
 }
+
+/** Aplica no banco agora (Transferência ou perfil); null quando a borda não tem o banco. */
+export type AplicarAgora = (
+  pedido: { tipo: 'TRANSFERENCIA'; jogadorId: string; time?: string; posicao?: string } | { tipo: 'PERFIL'; jogadorId: string; visual?: unknown; numero?: number },
+) => Promise<{ resultado: string; mensagem: string } | null>;
 
 type Graph = <T>(metodo: 'GET' | 'POST', caminho: string, params: Record<string, string>) => Promise<T>;
 type Disparar = (job: string) => Promise<boolean>;
@@ -104,7 +111,7 @@ export async function sessaoDe(env: EnvVinculo, sessao: string): Promise<SessaoV
   return env.AGENDA.get<SessaoVinculada>(`vinculo/sessao/${await hash(sessao)}`, 'json');
 }
 
-export async function rotasDoVinculo(req: Request, env: EnvVinculo, agora: Date, graph: Graph, disparar: Disparar): Promise<Response | null> {
+export async function rotasDoVinculo(req: Request, env: EnvVinculo, agora: Date, graph: Graph, disparar: Disparar, aplicar: AplicarAgora = async () => null): Promise<Response | null> {
   const { pathname } = new URL(req.url);
   if (req.method !== 'POST') return null;
 
@@ -193,9 +200,12 @@ export async function rotasDoVinculo(req: Request, env: EnvVinculo, agora: Date,
     if (!visual && numero === undefined) return json({ erro: 'Nada para salvar' }, 400);
     // A coleta valida as cores e o número (sem repetir no Time) e devolve a mensagem.
     const pedido = { jogadorId: s.jogadorId, ...(visual ? { visual } : {}), ...(numero !== undefined ? { numero } : {}), pedidoEm: agora.toISOString() };
-    await env.AGENDA.put(chave, JSON.stringify(pedido), { expirationTtl: 7 * 86400 });
+    // Na hora, se a borda tem o banco; a coleta só republica o site.
+    const feito = await aplicar({ tipo: 'PERFIL', ...pedido }).catch(() => null);
+    const registro = feito ? { ...pedido, resultado: feito.resultado, mensagem: feito.mensagem, processadoEm: agora.toISOString() } : pedido;
+    await env.AGENDA.put(chave, JSON.stringify(registro), { expirationTtl: 7 * 86400 });
     const disparou = await disparar('coletar').catch(() => false);
-    return json({ ok: true, pedido, disparou });
+    return json({ ok: true, pedido: registro, disparou });
   }
 
   if (pathname === '/transferencia' || pathname === '/transferencia/estado') {
@@ -213,7 +223,9 @@ export async function rotasDoVinculo(req: Request, env: EnvVinculo, agora: Date,
     if (!time && !posicao) return json({ erro: 'Escolha o time ou a posição' }, 400);
     const anterior = await env.AGENDA.get<PedidoDoSite>(chave, 'json');
     if (anterior && !anterior.processadoEm) return json({ erro: 'Já tem um pedido em andamento' }, 409);
-    const pedido: PedidoDoSite = { tipo: 'TRANSFERENCIA', jogadorId: s.jogadorId, ...(time ? { time } : {}), ...(posicao ? { posicao } : {}), pedidoEm: agora.toISOString() };
+    const base: PedidoDoSite = { tipo: 'TRANSFERENCIA', jogadorId: s.jogadorId, ...(time ? { time } : {}), ...(posicao ? { posicao } : {}), pedidoEm: agora.toISOString() };
+    const feito = await aplicar(base).catch(() => null);
+    const pedido: PedidoDoSite = feito ? { ...base, resultado: feito.resultado, mensagem: feito.mensagem, processadoEm: agora.toISOString() } : base;
     await env.AGENDA.put(chave, JSON.stringify(pedido), { expirationTtl: 7 * 86400 });
     // A coleta aplica o pedido; dispara agora para a resposta vir em 1 a 2 minutos.
     const disparou = await disparar('coletar').catch(() => false);

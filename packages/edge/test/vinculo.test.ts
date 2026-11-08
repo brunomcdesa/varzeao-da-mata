@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { responder, type Env } from '../src/index.js';
-import { codigoNaMensagem } from '../src/vinculo.js';
+import { codigoNaMensagem, rotasDoVinculo } from '../src/vinculo.js';
 
 function kv() {
   const m = new Map<string, string>();
@@ -119,5 +119,21 @@ describe('Vínculo pela DM (ADR-0013)', () => {
     for (const [k, v] of t.AGENDA.m) m.AGENDA.m.set(k, v);
     const outra = 'x'.repeat(43);
     expect(await (await m.post('/vinculo/verificar', { codigo: r.codigo, sessao: outra })).json()).toMatchObject({ vinculado: false, expirado: true });
+  });
+
+  it('com o banco na borda, o pedido é aplicado na hora e já volta com a mensagem', async () => {
+    const t = montar([]);
+    const sessao = 'b'.repeat(43);
+    const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sessao)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+    await t.AGENDA.put(`vinculo/sessao/${h}`, JSON.stringify({ jogadorId: '7', username: 'Fulano_10', vinculadoEm: agora.toISOString() }));
+    const pedidos: unknown[] = [];
+    const req = new Request('https://borda/perfil', { method: 'POST', body: JSON.stringify({ sessao, numero: 10 }) });
+    const r = await rotasDoVinculo(req, t.env, agora, async () => ({}) as never, async () => true, async (p) => {
+      pedidos.push(p);
+      return { resultado: 'SALVO', mensagem: 'Pronto! Salvo: camisa 10.' };
+    });
+    expect(await r!.json()).toMatchObject({ ok: true, pedido: { resultado: 'SALVO', mensagem: 'Pronto! Salvo: camisa 10.' } });
+    expect(pedidos).toEqual([{ tipo: 'PERFIL', jogadorId: '7', numero: 10, pedidoEm: agora.toISOString() }]);
+    expect(JSON.parse(t.AGENDA.m.get('perfil-site/7')!)).toMatchObject({ resultado: 'SALVO', processadoEm: agora.toISOString() });
   });
 });
