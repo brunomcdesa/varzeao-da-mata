@@ -84,4 +84,30 @@ describe('Pedidos do site (ADR-0013)', () => {
     expect(new Date(votos[0]!.votado_em).toISOString()).toBe('2026-11-08T19:00:00.000Z');
     expect(await importarVotosDoSite(banco, agenda, r.id)).toBe(0);
   });
+
+  it('camisa disputada: fica com quem pediu primeiro; quem se transfere para time com o número perde a camisa', async () => {
+    const a = await inscrever(); // fulano, Onça
+    await processarComentario(banco, { igCommentId: 'c2', igMediaId: 'm', igUserId: 'u2', username: 'ciclano', texto: 'ENTRO ONCA ZAG', comentadoEm: new Date('2026-11-08T12:01:00Z') }, { rodadaEmVotacao: null });
+    const b = (await banco.query<{ id: string }>(`SELECT id::text AS id FROM jogador WHERE username = 'ciclano'`)).rows[0]!.id;
+    const agenda = new AgendaNaMemoria();
+    // O ciclano (id maior) pediu antes: ele fica com a 9.
+    await agenda.gravar(`perfil-site/${a}`, { jogadorId: a, numero: 9, pedidoEm: '2026-11-08T18:00:05Z' } satisfies PerfilDoSite);
+    await agenda.gravar(`perfil-site/${b}`, { jogadorId: b, numero: 9, pedidoEm: '2026-11-08T18:00:01Z' } satisfies PerfilDoSite);
+    await processarPedidosDoSite(banco, agenda, agora);
+    expect((await agenda.ler<PerfilDoSite>(`perfil-site/${b}`))!.resultado).toBe('SALVO');
+    expect((await agenda.ler<PerfilDoSite>(`perfil-site/${a}`))!.resultado).toBe('RECUSADO');
+    // O banco também não deixa repetir no Time.
+    await expect(banco.query(`UPDATE jogador SET numero = 9 WHERE id = $1`, [a])).rejects.toThrow();
+
+    // Um terceiro, com a 9 na Preguiça, se transfere para a Onça: perde a camisa.
+    await processarComentario(banco, { igCommentId: 'c3', igMediaId: 'm', igUserId: 'u3', username: 'beltrano', texto: 'ENTRO PREGUICA MEIA', comentadoEm: new Date('2026-11-08T12:02:00Z') }, { rodadaEmVotacao: null });
+    const c = (await banco.query<{ id: string }>(`SELECT id::text AS id FROM jogador WHERE username = 'beltrano'`)).rows[0]!.id;
+    await banco.query(`UPDATE jogador SET numero = 9 WHERE id = $1`, [c]);
+    await agenda.gravar(`pedido-site/${c}`, { tipo: 'TRANSFERENCIA', jogadorId: c, time: 'ONC', pedidoEm: agora.toISOString() } satisfies PedidoDoSite);
+    await processarPedidosDoSite(banco, agenda, agora);
+    const p = (await agenda.ler<PedidoDoSite>(`pedido-site/${c}`))!;
+    expect(p.resultado).toBe('TRANSFERIDO');
+    expect(p.mensagem).toMatch(/camisa 9 já tem dono da Onça/);
+    expect((await banco.query<{ numero: number | null }>(`SELECT numero FROM jogador WHERE id = $1`, [c])).rows[0]!.numero).toBeNull();
+  });
 });

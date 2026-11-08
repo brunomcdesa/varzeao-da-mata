@@ -31,7 +31,15 @@ export async function aplicarPerfil(b: Banco, jogadorId: string, p: { visual?: u
     if (!Number.isInteger(n) || n < 1 || n > 99) return { ok: false, mensagem: 'O número da camisa vai de 1 a 99.' };
     const dono = (await b.query<{ username: string }>(`SELECT username FROM jogador WHERE time_id = $1 AND numero = $2 AND id <> $3 AND NOT banido`, [j.time_id, n, jogadorId])).rows[0];
     if (dono) return { ok: false, mensagem: `A camisa ${n} já é de @${dono.username} no seu time. Escolha outro número.` };
-    await b.query(`UPDATE jogador SET numero = $2 WHERE id = $1`, [jogadorId, n]);
+    try {
+      await b.query(`SAVEPOINT camisa`);
+      await b.query(`UPDATE jogador SET numero = $2 WHERE id = $1`, [jogadorId, n]);
+      await b.query(`RELEASE SAVEPOINT camisa`);
+    } catch {
+      // Outra coleta deu esse número no mesmo instante (o índice único do banco segura).
+      await b.query(`ROLLBACK TO SAVEPOINT camisa`);
+      return { ok: false, mensagem: `A camisa ${n} acabou de ser escolhida por outra pessoa do seu time. Escolha outro número.` };
+    }
     feitos.push(`camisa ${n}`);
   }
   return { ok: true, mensagem: `Pronto! ${feitos.length ? `Salvo: ${feitos.join(' e ')}.` : ''} Aparece no site na próxima publicação, em alguns minutos.` };
