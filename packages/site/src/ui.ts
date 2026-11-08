@@ -87,3 +87,13 @@ export function taca(tamanho = 36, classe = ''): Html {
   const rects = TACA.flatMap((linha, y) => [...linha].map((c, x) => (c === 'x' ? `<rect x="${x}" y="${y}" width="1" height="1"/>` : ''))).join('');
   return new Html(`<svg class="taca ${classe}" viewBox="0 0 9 10" width="${tamanho}" height="${Math.round((tamanho * 10) / 9)}" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor">${rects}</svg>`);
 }
+
+/** Número da camisa escolhido pelo dono (ADR-0013): um quadradinho logo depois do @. */
+export function camisaNum(numero: number | null | undefined): Html {
+  return numero ? html`<span class="camisa-num" title="Camisa ${numero}" aria-label="camisa ${numero}">${numero}</span>` : html``;
+}
+
+/** O @ com a camisa ao lado, sempre na mesma linha. */
+export function comCamisa(conteudo: Html | string, numero: number | null | undefined): Html {
+  return numero ? html`<span class="com-camisa"><span class="com-camisa-nome">${conteudo}</span>${camisaNum(numero)}</span>` : html`${conteudo}`;
+}

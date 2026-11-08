@@ -10,6 +10,10 @@
  *   os votos do KV para o banco e mantém `votacao-aberta` em dia.
  */
 
+import type { Posicao, TimeId } from '@liga/shared';
+import { transferirJogador } from '../../worker/src/coletar.js';
+import { aplicarPerfil } from '../../worker/src/perfil.js';
+import { comBanco } from './banco.js';
 import { rotasDoVinculo, sessaoDe } from './vinculo.js';
 
 export interface Env {
@@ -24,6 +28,8 @@ export interface Env {
   GH_DISPARO_TOKEN?: string;
   /** dono/repositório dos workflows. */
   GH_REPOSITORIO?: string;
+  /** Banco (Neon): a borda aplica na hora a Transferência e o perfil pedidos pelo site. */
+  DATABASE_URL?: string;
 }
 
 export interface ItemDaAgenda {
@@ -143,6 +149,20 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
       return graph(f, env, token, metodo, caminho, params);
     },
     (job) => dispararUm(env, job, f),
+    async (p) => {
+      if (!env.DATABASE_URL) return null;
+      return comBanco(env.DATABASE_URL, (b) =>
+        b.transacao(async (t) => {
+          if (p.tipo === 'PERFIL') {
+            const r = await aplicarPerfil(t, p.jogadorId, { ...(p.visual !== undefined ? { visual: p.visual } : {}), ...(p.numero !== undefined ? { numero: p.numero } : {}) });
+            return { resultado: r.ok ? 'SALVO' : 'RECUSADO', mensagem: r.mensagem };
+          }
+          const r = await transferirJogador(t, p.jogadorId, { times: p.time ? [p.time as TimeId] : [], ...(p.posicao ? { posicao: p.posicao as Posicao } : {}) }, { quando: agora, ref: `site:${p.jogadorId}:${agora.toISOString()}` });
+          const m = r.mensagem ?? 'Pedido não entendido.';
+          return { resultado: r.resultado, mensagem: m.charAt(0).toUpperCase() + m.slice(1) };
+        }),
+      );
+    },
   ).catch((e: Error) => json({ erro: `Não deu agora: ${e.message.slice(0, 200)}` }, 502));
   if (vinculo) return vinculo;
   if (req.method !== 'GET' && req.method !== 'HEAD') return json({ erro: 'método não permitido' }, 405);

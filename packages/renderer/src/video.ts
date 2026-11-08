@@ -208,12 +208,16 @@ function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number
     pin.texto(`OVR ${delta}`, tx + 76, y + 115, 7, texto, melhor.deltaOvr >= 0 ? '#9FE08A' : '#FF8A7A', { peso: 600 });
   }
 
-  // Chamada para jogar.
+  // Faixa curta: compartilhar e entrar na Liga (a tela completa fica no Resumo).
   pin.ctx.globalAlpha = entre(p, 0.35, 0.5);
-  pin.tabua(36, 300, 198, 70);
-  pin.texto('Quer jogar? Comente', COLUNAS / 2, 318, 10, texto, COR.placa, { peso: 600 });
-  pin.texto('ENTRO + time + posição', COLUNAS / 2, 342, pin.caber('ENTRO + time + posição', 180, 26, display), display, COR.amarelo, { contorno: COR.contorno });
-  pin.texto('Ex.: ENTRO CAPIVARA ATA', COLUNAS / 2, 358, 7, texto, COR.placaSombra, { peso: 500 });
+  pin.tabua(36, 288, 198, 88);
+  const coracao = ['.XX.XX.', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'];
+  const bate = Math.sin(tVideo * 5) > 0.6 ? 1 : 0;
+  coracao.forEach((l, y) => [...l].forEach((c, x) => c === 'X' && pin.r(62 + x * 2 - bate, 299 + y * 2 - bate, 2 + bate, 2 + bate, '#E4572E')));
+  pin.texto('Curte e compartilha!', COLUNAS / 2 + 8, 304, pin.caber('Curte e compartilha!', 150, 16, display), display, '#FFFFFF', { contorno: COR.contorno });
+  pin.texto('Quer jogar? Comente', COLUNAS / 2, 324, 10, texto, COR.placa, { peso: 600 });
+  pin.texto('ENTRO + time + posição', COLUNAS / 2, 346, pin.caber('ENTRO + time + posição', 180, 26, display), display, COR.amarelo, { contorno: COR.contorno });
+  pin.texto('Ex.: ENTRO CAPIVARA ATA', COLUNAS / 2, 364, 7, texto, COR.placaSombra, { peso: 500 });
 
   if (o.escudo) {
     pin.ctx.globalAlpha = entre(p, 0.5, 0.65);

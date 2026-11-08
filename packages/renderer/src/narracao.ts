@@ -212,7 +212,7 @@ export function montarNarracao(roteiro: Roteiro): Fala[] {
   const vencedor = r.penaltis && r.vencedor
     ? `${cap(artigoDe(time(r.vencedor)))} ${curto(r.vencedor)} venceu nos pênaltis!`
     : r.vencedor ? `Vitória ${doTime(time(r.vencedor))}!` : 'Tudo igual no Varzeão!';
-  falas.push({ id: 'fim', texto: `Fim de jogo! ${placar}. ${vencedor} ${narrador.despedida}`, inicio: fim.inicio + 0.35, limite: fim.fim, tom: 'animado', segmento: segs.length - 1, parte: 'antes' });
+  falas.push({ id: 'fim', texto: `Fim de jogo! ${placar}. ${vencedor} Curtiu? Compartilha com a galera! ${narrador.despedida}`, inicio: fim.inicio + 0.35, limite: fim.fim, tom: 'animado', segmento: segs.length - 1, parte: 'antes' });
   return falas;
 }
 

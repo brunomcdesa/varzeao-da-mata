@@ -23,9 +23,9 @@ const base: DadosDoResumo = {
 
 describe('Resumo da Rodada', () => {
   it('tem as cartelas na ordem e pula as que não têm conteúdo', () => {
-    expect(new RoteiroResumo(base).segmentos.map((s) => s.cartela)).toEqual(['ABERTURA', 'PLACARES', 'TABELA', 'NOVOS', 'CANDIDATOS', 'CHAMADA']);
+    expect(new RoteiroResumo(base).segmentos.map((s) => s.cartela)).toEqual(['ABERTURA', 'PLACARES', 'TABELA', 'NOVOS', 'CANDIDATOS', 'CHAMADA', 'COMPARTILHE']);
     const semNovos = new RoteiroResumo({ ...base, novosContratados: [], totalNovos: 0, candidatos: [] });
-    expect(semNovos.segmentos.map((s) => s.cartela)).toEqual(['ABERTURA', 'PLACARES', 'TABELA', 'CHAMADA']);
+    expect(semNovos.segmentos.map((s) => s.cartela)).toEqual(['ABERTURA', 'PLACARES', 'TABELA', 'CHAMADA', 'COMPARTILHE']);
   });
 
   it('narra placares e a ponta da tabela, sem falar @', () => {

@@ -12,12 +12,13 @@ import { COLUNAS, COR, LINHAS, Pincel } from './pixel.js';
 import type { Segmento } from './roteiro.js';
 import type { Pose } from './sprites.js';
 import { desenharEscudoDaLiga, veu } from './video.js';
+import ALVOS from '../video/telas/alvos.json';
 
-export type CartelaAnuncio = 'NOVIDADE' | 'TRANSFERENCIA' | 'SITE' | 'CODIGO' | 'DM' | 'PRONTO' | 'PEDIR' | 'COMENTARIO';
+export type CartelaAnuncio = 'NOVIDADE' | 'RECURSOS' | 'SITE' | 'CODIGO' | 'DM' | 'PRONTO' | 'PEDIR' | 'VISUAL' | 'COMENTARIO' | 'COMPARTILHE';
 export type SegmentoAnuncio = Segmento & { cartela: CartelaAnuncio };
 
-const ORDEM: CartelaAnuncio[] = ['NOVIDADE', 'TRANSFERENCIA', 'SITE', 'CODIGO', 'DM', 'PRONTO', 'PEDIR', 'COMENTARIO'];
-const DURACAO_BASE: Record<CartelaAnuncio, number> = { NOVIDADE: 4.5, TRANSFERENCIA: 5.5, SITE: 5.5, CODIGO: 6, DM: 5.5, PRONTO: 5.5, PEDIR: 6.5, COMENTARIO: 7.5 };
+const ORDEM: CartelaAnuncio[] = ['NOVIDADE', 'RECURSOS', 'SITE', 'CODIGO', 'DM', 'PRONTO', 'PEDIR', 'VISUAL', 'COMENTARIO', 'COMPARTILHE'];
+const DURACAO_BASE: Record<CartelaAnuncio, number> = { NOVIDADE: 4.5, RECURSOS: 7, SITE: 5.5, CODIGO: 6, DM: 5.5, PRONTO: 5, PEDIR: 7, VISUAL: 8, COMENTARIO: 7.5, COMPARTILHE: 6.5 };
 const CORTE = 0.3;
 
 /** O exemplo do vídeo: um atacante da Onça que vai para a Preguiça como zagueiro. */
@@ -56,12 +57,14 @@ export class RoteiroAnuncio {
 export function narracaoDoAnuncio(roteiro: RoteiroAnuncio): Fala[] {
   const texto: Record<CartelaAnuncio, string> = {
     NOVIDADE: 'Novidade no Varzeão da Mata! Agora você cuida do seu personagem pelo site.',
-    TRANSFERENCIA: 'Uma vez por temporada, você pode trocar de time, de posição, ou dos dois.',
+    RECURSOS: 'Dá pra trocar de time ou de posição, mudar o visual do boneco, escolher o número da camisa e votar no Craque com o seu arroba.',
     SITE: 'É fácil: abre o site, que tá no link da bio, e procura o seu arroba.',
     CODIGO: 'Toca em Vincular pela DM. Vai aparecer um código, tipo vê zê, um, dois, três, quatro.',
     DM: 'Manda esse código aqui na nossa DM, pela sua própria conta.',
     PRONTO: 'Volta no site e toca em Já mandei. Pronto: personagem vinculado!',
-    PEDIR: 'Agora é só escolher o time e a posição, e pedir a transferência. Vale do próximo jogo em diante.',
+    PEDIR: 'Em Transferência, escolhe o time e a posição e pede. Uma vez por temporada, e vale do próximo jogo em diante.',
+    VISUAL: 'Em Visual e camisa, escolhe a pele, o cabelo, o corte e o número. Salvou, já tá no seu card!',
+    COMPARTILHE: 'Curtiu? Compartilha com a galera e chama mais gente pro Varzeão! Pra entrar, é só comentar ENTRO, o time e a posição.',
     COMENTARIO: 'Prefere comentar? Escreve TRANSFERIR, o time e a posição. Só não vale ir pra time lotado: a Liga mantém os times equilibrados!',
   };
   return roteiro.segmentos.map((s, i): Fala => ({
@@ -69,14 +72,14 @@ export function narracaoDoAnuncio(roteiro: RoteiroAnuncio): Fala[] {
     texto: texto[s.cartela],
     inicio: s.inicio + 0.35,
     limite: s.fim,
-    tom: s.cartela === 'NOVIDADE' || s.cartela === 'PRONTO' ? 'animado' : 'normal',
+    tom: s.cartela === 'NOVIDADE' || s.cartela === 'PRONTO' || s.cartela === 'COMPARTILHE' ? 'animado' : 'normal',
     segmento: i,
     parte: 'antes',
   }));
 }
 
 /** Telas reais do site (capturas a 360×640), na ordem do passo a passo. */
-export type TelaDoSite = 'busca' | 'convite' | 'codigo' | 'vinculado' | 'pedido' | 'feito';
+export type TelaDoSite = 'busca' | 'convite' | 'codigo' | 'vinculado' | 'transferencia' | 'pedido' | 'feito' | 'visual' | 'visualEscolhido' | 'camisa' | 'card';
 
 export interface OpcoesAnuncio {
   fonteDisplay?: string;
@@ -85,15 +88,8 @@ export interface OpcoesAnuncio {
   telas?: Partial<Record<TelaDoSite, CanvasImageSource>>;
 }
 
-/** Onde estão os botões nas capturas (px CSS da tela de 360×640), para o dedo tocar. */
-const ALVO = {
-  linhaDoJogador: [80, 545],
-  vincular: [113, 347],
-  jaMandei: [89, 421],
-  time: [180, 452],
-  posicao: [180, 534],
-  pedir: [132, 601],
-} as const;
+/** Onde estão os botões nas capturas (px CSS da tela de 360×640), medidos junto com elas. */
+const ALVO = ALVOS as unknown as Record<string, readonly [number, number]>;
 const LARGURA_TELA = 360;
 const ALTURA_TELA = 640;
 
@@ -209,29 +205,36 @@ export function desenharQuadroAnuncio(ctx: CanvasRenderingContext2D, roteiro: Ro
       surge(entre(t, 1.5, 2.0), () => boneco(pin, pose(), uniforme(EX.de, EX.posicao, `@${EX.username}`), COLUNAS / 2 - 24, 334, 4));
       break;
     }
-    case 'TRANSFERENCIA': {
-      titulo('Transferência');
-      surge(entre(t, 0.3, 0.7), () => {
-        desenharEscudo(pin, EX.de, 22, 120, 2);
-        desenharEscudo(pin, EX.para, COLUNAS - 22 - 50, 120, 2);
-        for (let k = 0; k < 7; k++) pin.r(92 + k * 13, 150, 7, 3, COR.amarelo);
-        pin.r(184, 146, 3, 11, COR.amarelo);
-        pin.r(187, 148, 2, 7, COR.amarelo);
-      });
-      // O boneco atravessa de um time para o outro e troca de uniforme no meio.
-      const ida = entre(t, 1.0, 3.0);
-      if (t > 0.9) {
-        const x = 30 + ida * (COLUNAS - 60 - 48);
-        const time = ida < 0.5 ? EX.de : EX.para;
-        const posicao = ida < 0.5 ? EX.posicao : EX.nova;
-        const p: Pose = ida >= 1 ? pose() : Math.floor(tVideo * 6) % 2 === 0 ? 'FRENTE_CORRE_A' : 'FRENTE_CORRE_B';
-        boneco(pin, p, uniforme(time, posicao, `@${EX.username}`), x, 196, 4);
-      }
-      surge(entre(t, 0.8, 1.2), () => {
-        pin.tabua(14, 290, 242, 92);
-        pin.texto('1 vez por temporada', COLUNAS / 2, 312, 22, display, COR.amarelo, { contorno: COR.contorno });
-        pin.texto('troque de time, de posição', COLUNAS / 2, 340, 12, texto, COR.placa, { peso: 700 });
-        pin.texto('ou dos dois', COLUNAS / 2, 358, 12, texto, COR.placa, { peso: 700 });
+    case 'RECURSOS': {
+      titulo('O que dá pra fazer');
+      const itens: [string, string][] = [
+        ['Transferência', 'time, posição ou os dois'],
+        ['Visual do boneco', 'pele, cabelo e corte'],
+        ['Número da camisa', 'de 1 a 99'],
+        ['Votar no Craque', 'com o seu @'],
+      ];
+      itens.forEach(([nome, detalhe], k) => {
+        surge(entre(t, 0.4 + k * 0.9, 0.8 + k * 0.9), () => {
+          const y = 90 + k * 78;
+          pin.tabua(14, y, 242, 66);
+          pin.texto(nome, 92, y + 24, pin.caber(nome, 150, 20, display), display, COR.amarelo, { alinhar: 'left', contorno: COR.contorno });
+          pin.texto(detalhe, 92, y + 46, pin.caber(detalhe, 150, 11, texto, 700), texto, COR.placa, { alinhar: 'left', peso: 700 });
+          // Ícone de cada coisa, em pixel art.
+          if (k === 0) {
+            desenharEscudo(pin, EX.de, 22, y + 14, 0.8);
+            pin.r(52, y + 30, 6, 3, COR.amarelo);
+            desenharEscudo(pin, EX.para, 58, y + 14, 0.8);
+          } else if (k === 1) {
+            const cortes = ['CURTO', 'BLACK', 'MOICANO'] as const;
+            boneco(pin, 'FRENTE_PARADO', { ...uniforme(EX.de, EX.posicao, `@${EX.username}`), penteado: cortes[Math.floor(tVideo * 1.5) % 3]!, cabelo: ['#1C130D', '#E8C547', '#B98A3E'][Math.floor(tVideo * 1.5) % 3]! }, 30, y + 8, 3);
+          } else if (k === 2) {
+            pin.placa(28, y + 14, 40, 38, { fundo: IDENTIDADE[EX.de].primaria, sombra: COR.contorno });
+            pin.texto('7', 48, y + 34, 26, display, '#FFFFFF', { contorno: COR.contorno });
+          } else {
+            pin.placa(28, y + 14, 40, 38, { fundo: COR.amarelo, luz: '#FFE07A', sombra: '#B88600' });
+            pin.texto('1', 48, y + 34, 26, display, COR.tinta);
+          }
+        });
       });
       break;
     }
@@ -239,7 +242,7 @@ export function desenharQuadroAnuncio(ctx: CanvasRenderingContext2D, roteiro: Ro
       titulo('1. Abra o site');
       surge(entre(t, 0.2, 0.6), () => {
         const c = site([['busca', 0], ['convite', 2.6]]);
-        dedo(c.em(...ALVO.linhaDoJogador), 2.2);
+        dedo(c.em(...ALVO.linhaDoJogador!), 2.2);
       });
       legenda('link na bio: ache o seu @', 432, 0.8);
       break;
@@ -248,7 +251,7 @@ export function desenharQuadroAnuncio(ctx: CanvasRenderingContext2D, roteiro: Ro
       titulo('2. Peça o código');
       surge(entre(t, 0.2, 0.6), () => {
         const c = site([['convite', 0], ['codigo', 1.6]]);
-        dedo(c.em(...ALVO.vincular), 1.2);
+        dedo(c.em(...ALVO.vincular!), 1.2);
       });
       legenda('toque em "Vincular pela DM"', 432, 0.8);
       break;
@@ -276,7 +279,7 @@ export function desenharQuadroAnuncio(ctx: CanvasRenderingContext2D, roteiro: Ro
       titulo('4. Já mandei');
       surge(entre(t, 0.2, 0.6), () => {
         const c = site([['codigo', 0], ['vinculado', 1.5]]);
-        dedo(c.em(...ALVO.jaMandei), 1.0);
+        dedo(c.em(...ALVO.jaMandei!), 1.0);
         // Selo de vinculado por cima da tela, com confete.
         surge(entre(t, 1.8, 2.2), () => {
           pin.placa(c.x + 14, c.y + c.h - 64, c.w - 28, 46, { fundo: '#7FB069', luz: '#A7D28F', sombra: '#4E8A3A' });
@@ -291,14 +294,28 @@ export function desenharQuadroAnuncio(ctx: CanvasRenderingContext2D, roteiro: Ro
       break;
     }
     case 'PEDIR': {
-      titulo('5. Peça a transferência');
+      titulo('5. Transferência');
       surge(entre(t, 0.2, 0.6), () => {
-        const c = site([['vinculado', 0], ['pedido', 1.7], ['feito', 2.9]]);
-        dedo(c.em(...ALVO.time), 1.0);
-        dedo(c.em(...ALVO.posicao), 1.7);
-        dedo(c.em(...ALVO.pedir), 2.5);
+        const c = site([['vinculado', 0], ['transferencia', 1.3], ['pedido', 2.6], ['feito', 3.7]]);
+        dedo(c.em(...ALVO.abrirTransferencia!), 0.9);
+        dedo(c.em(...ALVO.time!), 2.0);
+        dedo(c.em(...ALVO.posicao!), 2.6);
+        dedo(c.em(...ALVO.pedir!), 3.3);
       });
-      legenda('vale do próximo jogo em diante', 432, 3.0);
+      legenda('1 vez por temporada', 432, 3.9);
+      break;
+    }
+    case 'VISUAL': {
+      titulo('6. Visual e camisa');
+      surge(entre(t, 0.2, 0.6), () => {
+        const c = site([['vinculado', 0], ['visual', 1.3], ['visualEscolhido', 3.4], ['camisa', 4.0], ['card', 5.2]]);
+        dedo(c.em(...ALVO.abrirVisual!), 0.9);
+        dedo(c.em(...ALVO.pele!), 2.0);
+        dedo(c.em(...ALVO.cabelo!), 2.6);
+        dedo(c.em(...ALVO.corte!), 3.2);
+        dedo(c.em(...ALVO.salvar!), 4.8);
+      });
+      legenda('salvou, já está no seu card', 432, 5.3);
       break;
     }
     case 'COMENTARIO': {
@@ -318,12 +335,12 @@ export function desenharQuadroAnuncio(ctx: CanvasRenderingContext2D, roteiro: Ro
         pin.texto('Time lotado não vale:', COLUNAS / 2, 188, 18, display, COR.amarelo, { contorno: COR.contorno });
         pin.texto('a Liga mantém os times', COLUNAS / 2, 214, 12, texto, COR.placa, { peso: 700 });
         pin.texto('equilibrados', COLUNAS / 2, 232, 12, texto, COR.placa, { peso: 700 });
-        pin.texto('⚖', COLUNAS / 2, 254, 14, texto, COR.amarelo);
       });
-      surge(entre(t, 3.6, 4.1), () => {
-        pin.texto('site: link na bio', COLUNAS / 2, 296, 12, texto, COR.placa, { peso: 700 });
-        if (o.escudo) desenharEscudoDaLiga(pin, o.escudo, COLUNAS / 2, 374, 96);
-      });
+      surge(entre(t, 3.6, 4.1), () => pin.texto('site: link na bio', COLUNAS / 2, 296, 12, texto, COR.placa, { peso: 700 }));
+      break;
+    }
+    case 'COMPARTILHE': {
+      desenharCompartilhe(pin, t, tVideo, o);
       break;
     }
   }
@@ -335,4 +352,49 @@ export function desenharQuadroAnuncio(ctx: CanvasRenderingContext2D, roteiro: Ro
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.restore();
   }
+}
+
+/**
+ * Tela "Curte e compartilha!": chama a galera para a Liga. Fecha o anúncio e o Resumo
+ * da Rodada (nas Partidas vai só a faixa curta, no fim).
+ */
+export function desenharCompartilhe(pin: Pincel, t: number, tVideo: number, o: OpcoesAnuncio = {}): void {
+  const display = o.fonteDisplay ?? FONTE_DISPLAY;
+  const texto = o.fonteTexto ?? FONTE_TEXTO;
+  const surge = (a: number, desenhar: () => void, dy = 10) => {
+    if (a <= 0) return;
+    pin.ctx.save();
+    pin.ctx.globalAlpha = a;
+    pin.ctx.translate(0, (1 - a) * dy * pin.px);
+    desenhar();
+    pin.ctx.restore();
+  };
+  const a = entre(t, 0, 0.5);
+  pin.ctx.globalAlpha = a;
+  const pulso = 1 + 0.05 * Math.sin(t * 6);
+  pin.texto('Curte e', COLUNAS / 2, 52, 34, display, COR.placa, { contorno: COR.contorno, espessura: 1.5 });
+  pin.texto('compartilha!', COLUNAS / 2, 88, 40 * pulso, display, COR.amarelo, { contorno: COR.contorno, espessura: 1.5 });
+  pin.ctx.globalAlpha = 1;
+  // Coração e a seta de compartilhar, em pixel art.
+  surge(entre(t, 0.5, 0.9), () => {
+    const coracao = ['.XX.XX.', 'XXXXXXX', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'];
+    const bate = 1 + 0.12 * Math.max(0, Math.sin(t * 5));
+    const tam = Math.round(4 * bate);
+    coracao.forEach((l, y) => [...l].forEach((c, x) => c === 'X' && pin.r(78 + x * tam - (tam - 4) * 3, 118 + y * tam, tam, tam, '#E4572E')));
+    const seta = ['....X..', '....XX.', 'XXXXXXX', 'X...XX.', 'X...X..', 'X......', 'XXXXX..'];
+    seta.forEach((l, y) => [...l].forEach((c, x) => c === 'X' && pin.r(160 + x * 4, 116 + y * 4, 4, 4, '#FFFFFF')));
+  });
+  surge(entre(t, 1.0, 1.4), () => {
+    pin.tabua(14, 160, 242, 112);
+    pin.texto('chame a galera pra Liga', COLUNAS / 2, 180, pin.caber('chame a galera pra Liga', 220, 13, texto, 700), texto, COR.placa, { peso: 700 });
+    pin.texto('Para entrar, comente:', COLUNAS / 2, 204, 11, texto, COR.placaSombra, { peso: 600 });
+    pin.texto('ENTRO', COLUNAS / 2, 230, 28, display, '#FFFFFF', { contorno: COR.contorno, espessura: 1.5 });
+    pin.texto('+ TIME + POSIÇÃO', COLUNAS / 2, 256, pin.caber('+ TIME + POSIÇÃO', 220, 20, display), display, COR.amarelo, { contorno: COR.contorno });
+  });
+  // A turma comemorando: quanto mais gente, melhor a Liga.
+  surge(entre(t, 1.6, 2.1), () => {
+    const turma: [TimeId, Posicao][] = [['TAT', 'MEI'], [EX.de, EX.posicao], ['PRE', 'ZAG']];
+    turma.forEach(([time, pos], k) => boneco(pin, Math.floor(tVideo * 3 + k) % 2 === 0 ? 'FRENTE_COMEMORA' : 'FRENTE_PARADO', uniforme(time, pos, `amigo${k}`), 60 + k * 54, 290, 3));
+  });
+  if (o.escudo) surge(entre(t, 2.2, 2.7), () => desenharEscudoDaLiga(pin, o.escudo!, COLUNAS / 2, 404, 80));
 }

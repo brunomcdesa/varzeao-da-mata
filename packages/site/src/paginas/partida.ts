@@ -1,15 +1,15 @@
 /** Partida: escalações a partir do Corte, transmissão ao vivo ou replay, lances e Notas. */
 import { IDENTIDADE, duracaoAoVivoMs, nomeDaEtapa, type EscalacaoPublica, type PartidaPublica } from '@liga/shared';
 import type { Desempenho, Lado, ResultadoPartida, SlotRef } from '@liga/sim';
-import { contagem, diaLongo, hora, partida, situacaoAgora } from '../dados.js';
+import { contagem, diaLongo, hora, jogadores, partida, situacaoAgora } from '../dados.js';
 import { DURACAO_JOGO, narradorDa, resultadoDaCobranca } from '@liga/renderer';
 import { montarTimeline, transmitir } from '../transmissao.js';
-import { bonecoImg, curto, escudoImg, html, jogadorLink, nota, NOME_DA_POSICAO, rotuloClassico, type Html } from '../ui.js';
+import { bonecoImg, curto, escudoImg, html, jogadorLink, nota, NOME_DA_POSICAO, rotuloClassico, type Html, comCamisa } from '../ui.js';
 import type { Pagina } from './tipos.js';
 
 const CORTE_MIN = 30;
 
-function escalacao(e: EscalacaoPublica, lado: Lado, r: ResultadoPartida | null): Html {
+function escalacao(e: EscalacaoPublica, lado: Lado, r: ResultadoPartida | null, camisas: Map<string, number>): Html {
   const desempenho = (lugar: number): Desempenho | undefined => r?.desempenhos.find((d) => d.slot.lado === lado && d.slot.indice === lugar);
   return html`<section class="escalacao placa" aria-labelledby="esc-${lado}">
     <h3 id="esc-${lado}">${escudoImg(e.time, 1.5)} ${curto(e.time)}</h3>
@@ -21,7 +21,7 @@ function escalacao(e: EscalacaoPublica, lado: Lado, r: ResultadoPartida | null):
         return html`<li>
           ${bonecoImg(e.time, j.posicao, j.username, 2)}
           <span class="pos" title="${NOME_DA_POSICAO[j.posicao]}">${j.posicao}</span>
-          <span class="quem">${jogadorLink(j.jogadorId, j.username)}</span>
+          <span class="quem">${comCamisa(jogadorLink(j.jogadorId, j.username), j.jogadorId ? camisas.get(j.jogadorId) : null)}</span>
           ${d && (d.gols || d.assistencias) ? html`<span class="feitos">${'●'.repeat(d.gols)}${d.assistencias ? html`<small>+${d.assistencias} assist.</small>` : ''}</span>` : html`<span class="feitos"></span>`}
           <span class="ovr" title="OVR antes do jogo">${j.ovr}${d && delta ? html`<small class="${delta > 0 ? 'sobe' : 'desce'}">${delta > 0 ? '▲' : '▼'}${Math.abs(delta)}</small>` : ''}</span>
           ${d ? html`<span class="nota-chip" title="Nota da Partida">${nota(d.nota)}</span>` : ''}
@@ -58,7 +58,8 @@ const ROTULO: Record<string, string> = { GOL: 'Gol', DEFESA: 'Defesa', BLOQUEIO:
 
 export const paginaPartida: Pagina = async (main, [idTexto]) => {
   const id = Number(idTexto);
-  const p = await partida(id, true);
+  const [p, todos] = await Promise.all([partida(id, true), jogadores().catch(() => [])]);
+  const camisas = new Map(todos.filter((j) => j.numero).map((j) => [j.id, j.numero!]));
   if (!p) {
     main.innerHTML = html`<section class="placa vazio"><h1>Partida não encontrada</h1><p>Ela ainda não foi escalada ou não existe. <a href="#/jogos">Ver todos os jogos</a>.</p></section>`.s;
     return;
@@ -121,7 +122,7 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
         : ''}
 
       ${p.escalacoes
-        ? html`<div class="escalacoes">${escalacao(p.escalacoes.mandante, 'mandante', mostrarFinal ? r : null)}${escalacao(p.escalacoes.visitante, 'visitante', mostrarFinal ? r : null)}</div>
+        ? html`<div class="escalacoes">${escalacao(p.escalacoes.mandante, 'mandante', mostrarFinal ? r : null, camisas)}${escalacao(p.escalacoes.visitante, 'visitante', mostrarFinal ? r : null, camisas)}</div>
             ${mostrarFinal ? html`<p class="legenda">● gol · ▲▼ OVR depois do jogo · Nota de 0 a 10, comparada ao que se espera do OVR.</p>` : html`<p class="legenda">OVR antes do jogo. Vaga sem inscrito é completada pela Base (OVR 55).</p>`}`
         : html`<section class="placa vazio"><p>A escalação sai no Corte, ${CORTE_MIN} minutos antes do apito: quem tem menos jogos entra primeiro.</p></section>`}
 

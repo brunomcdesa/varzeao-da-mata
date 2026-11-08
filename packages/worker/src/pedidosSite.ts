@@ -39,16 +39,17 @@ export interface PerfilDoSite {
 /** Aplica os pedidos pendentes (Transferência e perfil). Devolve quantos foram processados. */
 export async function processarPedidosDoSite(banco: Banco, agenda: Agenda, agora: Date): Promise<number> {
   let n = 0;
-  for (const chave of await agenda.listar(PREFIXO_PERFIL_SITE)) {
-    const p = await agenda.ler<PerfilDoSite>(chave);
-    if (!p || p.processadoEm) continue;
+  // Quem pediu primeiro é atendido primeiro (vale para a camisa disputada).
+  const perfis = (await Promise.all((await agenda.listar(PREFIXO_PERFIL_SITE)).map(async (chave) => ({ chave, p: await agenda.ler<PerfilDoSite>(chave) })))).filter((x) => x.p && !x.p.processadoEm).sort((a, b) => a.p!.pedidoEm.localeCompare(b.p!.pedidoEm));
+  for (const { chave, p: lido } of perfis) {
+    const p = lido!;
     const r = await banco.transacao((b) => aplicarPerfil(b, p.jogadorId, { ...(p.visual ? { visual: p.visual } : {}), ...(p.numero !== undefined ? { numero: p.numero } : {}) }));
     await agenda.gravar(chave, { ...p, resultado: r.ok ? 'SALVO' : 'RECUSADO', mensagem: r.mensagem, processadoEm: agora.toISOString() });
     n++;
   }
-  for (const chave of await agenda.listar(PREFIXO_PEDIDO_SITE)) {
-    const p = await agenda.ler<PedidoDoSite>(chave);
-    if (!p || p.processadoEm || p.tipo !== 'TRANSFERENCIA') continue;
+  const pedidos = (await Promise.all((await agenda.listar(PREFIXO_PEDIDO_SITE)).map(async (chave) => ({ chave, p: await agenda.ler<PedidoDoSite>(chave) })))).filter((x) => x.p && !x.p.processadoEm && x.p.tipo === 'TRANSFERENCIA').sort((a, b) => a.p!.pedidoEm.localeCompare(b.p!.pedidoEm));
+  for (const { chave, p: lido } of pedidos) {
+    const p = lido!;
     const r = await banco.transacao((b) =>
       transferirJogador(b, p.jogadorId, { times: p.time ? [p.time] : [], ...(p.posicao ? { posicao: p.posicao } : {}) }, { quando: agora, ref: `site:${p.jogadorId}:${p.pedidoEm}` }),
     );

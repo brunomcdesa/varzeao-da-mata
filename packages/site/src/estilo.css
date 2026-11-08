@@ -2529,18 +2529,84 @@ a.jogo:hover {
   background: #fffaf0;
   color: var(--tinta);
 }
-.card-camisa {
-  display: inline-block;
-  min-width: 1.6em;
-  margin-right: 6px;
-  padding: 0 4px;
-  background: var(--sobre, #fff);
-  color: var(--cor, #000);
-  font-family: var(--display);
-  text-align: center;
-}
 @media (max-width: 420px) {
   .visual-grade {
     grid-template-columns: 1fr;
   }
+}
+
+.dobra {
+  border-top: 2px dashed var(--placa-sombra);
+  padding: 10px 0 4px;
+}
+.dobra > summary {
+  cursor: pointer;
+  font: 400 1.5rem var(--display);
+  color: var(--tinta);
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 32px;
+}
+.dobra > summary::-webkit-details-marker {
+  display: none;
+}
+.dobra > summary::before {
+  content: '▸';
+  font-size: 1rem;
+  transition: transform 0.15s;
+}
+.dobra[open] > summary::before {
+  transform: rotate(90deg);
+}
+.dobra > summary small {
+  font: 600 0.8125rem var(--texto);
+  color: var(--tinta-fraca);
+}
+.dobra > summary:focus-visible {
+  outline: 3px solid var(--amarelo);
+  outline-offset: 2px;
+}
+.dobra .form-visual {
+  margin-top: 8px;
+  border-top: 0;
+  padding-top: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dobra > summary::before {
+    transition: none;
+  }
+}
+
+/* Número da camisa (ADR-0013): quadradinho logo depois do @, na mesma linha */
+.com-camisa {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  max-width: 100%;
+  min-width: 0;
+}
+/* O @ comprido é cortado com reticências; o número fica sempre à vista. */
+.com-camisa-nome {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.escalacao .quem {
+  min-width: 0;
+  overflow: hidden;
+}
+.camisa-num {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  min-width: 1.35em;
+  height: 1.35em;
+  padding: 0 2px;
+  font: 400 0.8em/1 var(--display);
+  color: var(--tinta);
+  background: var(--placa);
+  border: 1px solid var(--contorno);
 }

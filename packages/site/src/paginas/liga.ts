@@ -1,7 +1,7 @@
 /** Jogos (calendário), Tabela, Times e a página de cada Time. */
 import { FALA_DO_TIME, IDENTIDADE, TIMES, nomeDaRodada, type JogadorPublico, type LigaPublica, type TimeId } from '@liga/shared';
 import { diaLongo, jogadores, liga, rodadaAtual } from '../dados.js';
-import { bonecoImg, curto, escudoImg, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre } from '../ui.js';
+import { bonecoImg, curto, escudoImg, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa } from '../ui.js';
 import { chaveamento } from './chave.js';
 import { linhaDePartida, tabelaDeClassificacao } from './comum.js';
 import type { Pagina } from './tipos.js';
@@ -85,7 +85,7 @@ export const paginaTimes: Pagina = async (main) => {
 function linhaDoElenco(j: JogadorPublico): ReturnType<typeof html> {
   return html`<li><a href="#/jogador/${j.id}" class="elenco-linha">
     ${bonecoImg(j.time, j.posicao, j.username, 2)}
-    <span class="quem">@${j.username}</span>
+    <span class="quem">${comCamisa(`@${j.username}`, j.numero)}</span>
     <span class="dado" title="Jogos">${j.jogos} j</span>
     <span class="dado" title="Gols">${j.gols} g</span>
     <span class="dado" title="Nota média">${nota(j.notaMedia)}</span>
