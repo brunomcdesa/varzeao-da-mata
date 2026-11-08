@@ -149,6 +149,7 @@ function enchimento(
     return embaralhar(rng, [`Tensão total na marca do pênalti.`, `A torcida não respira!`, `Quem vai bater agora?`, `Goleiro se ajeita na linha.`, `Silêncio na Mata...`]);
   }
 
+  // Só o que aparece na tela: nada de lateral, falta ou bola parada (o jogo não mostra).
   const posse = [
     `Bola com ${artigo(o.posse).toLowerCase()} ${curto(o.posse)}.`,
     `${cap(jog(o.posse, 'ZAG'))} sai jogando.`,
@@ -160,18 +161,15 @@ function enchimento(
     `${curto(o.posse)} vai ganhando terreno.`,
     `Passe curto, ${jog(o.posse, 'MEI')} domina.`,
     `${cap(jog(o.posse, 'ATA'))} se movimenta, pede profundidade.`,
-    `Lateral para ${artigo(o.posse).toLowerCase()} ${curto(o.posse)}.`,
     `${curto(o.posse)} roda a bola, procurando espaço.`,
     `${cap(jog(outro, 'ATA'))} pressiona a saída.`,
     `${curto(outro)} recua e fecha os espaços.`,
     `Marcação forte ${de(outro)} no meio.`,
-    `Falta no meio-campo. ${curto(o.posse)} cobra rápido.`,
     `Dividida no meio! A bola fica com ${artigo(o.posse).toLowerCase()} ${curto(o.posse)}.`,
     `${cap(jog(o.posse, 'ZAG'))} tenta o lançamento... a zaga ${de(outro)} afasta.`,
     `Recupera ${de(o.posse)}, e começa tudo de novo.`,
     `${curto(o.posse)} chega pela direita.`,
     `${curto(o.posse)} tenta pela esquerda.`,
-    `Bola parada no meio, ${jog(o.posse, 'MEI')} levanta a cabeça.`,
   ];
   const contexto = [
     `${minuto} minutos de jogo. ${placarFalado(tl, placar)}`,
