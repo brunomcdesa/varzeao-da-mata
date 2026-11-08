@@ -8,7 +8,7 @@ on:
         description: 'JSON {"Nome": "voice_..."} para regravar sem criar vozes novas'
         default: ''
       cota:
-        description: 'Só um pedido de voz, para ver a resposta da API'
+        description: 'Opções de pronúncia de Varzeão (um pedido de voz)'
         type: boolean
         default: false
       pronuncia:
@@ -32,7 +32,10 @@ jobs:
           video: 'true'
       - if: inputs.cota
         run: |
-          MODELO=gemini-3.8-flash-lite-tts pnpm --filter @liga/renderer exec tsx scripts/cota.ts
+          pnpm --filter @liga/renderer exec tsx scripts/opcoes-pronuncia.ts "$RUNNER_TEMP/narradores"
+          cd "$RUNNER_TEMP/narradores" && git init -q -b amostras && git add opcoes-varzeao.mp3
+          git -c user.name=liga -c user.email=liga@users.noreply.github.com commit -qm "Opções de pronúncia"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" amostras
       - if: inputs.pronuncia && !inputs.cota
         run: pnpm --filter @liga/renderer pronuncia
       - if: ${{ !inputs.pronuncia && !inputs.cota }}

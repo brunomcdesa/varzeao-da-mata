@@ -46,7 +46,7 @@ export const estiloDe = (tom: Tom, voz: string) => (voz.startsWith('voice_') ? E
  * ("Varzêão") a sílaba "ze" sai fechada e o erro sumiu no teste (scripts/pronuncia.ts).
  * Na tela e nas legendas continua "Varzeão".
  */
-export const paraFalar = (texto: string) => texto.replace(/Varzeão/g, 'Varzêão').replace(/VARZEÃO/g, 'VARZÊÃO');
+export const paraFalar = (texto: string) => process.env.SEM_GRAFIA === '1' ? texto : texto.replace(/Varzeão/g, 'Varzêão').replace(/VARZEÃO/g, 'VARZÊÃO');
 
 export function pedidoGemini(texto: string, tom: Tom, voz: string, modelo: string): unknown {
   return {
