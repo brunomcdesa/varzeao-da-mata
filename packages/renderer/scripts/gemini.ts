@@ -42,11 +42,13 @@ export const ESTILO_CURTO: Record<Tom, string> = {
 export const estiloDe = (tom: Tom, voz: string) => (voz.startsWith('voice_') ? ESTILO_CURTO : ESTILO)[tom];
 
 /**
- * Grafia só para a voz: algumas vozes leem "Varzeão" como "Varzeadão"; com o circunflexo
- * ("Varzêão") a sílaba "ze" sai fechada e o erro sumiu no teste (scripts/pronuncia.ts).
- * Na tela e nas legendas continua "Varzeão".
+ * Grafia só para a voz. As vozes criadas no Voice design às vezes leem "Varzeão" como
+ * "Varzeadão"; com o circunflexo ("Varzêão") acertam. A voz pronta (Lumi, o Beto Bola)
+ * lê certo como se escreve, e com o circunflexo puxava para "Varzeaão" (ouvido em 08/11).
+ * Na tela e nas legendas é sempre "Varzeão".
  */
-export const paraFalar = (texto: string) => process.env.SEM_GRAFIA === '1' ? texto : texto.replace(/Varzeão/g, 'Varzêão').replace(/VARZEÃO/g, 'VARZÊÃO');
+export const paraFalar = (texto: string, voz: string) =>
+  process.env.SEM_GRAFIA === '1' || !voz.startsWith('voice_') ? texto : texto.replace(/Varzeão/g, 'Varzêão').replace(/VARZEÃO/g, 'VARZÊÃO');
 
 export function pedidoGemini(texto: string, tom: Tom, voz: string, modelo: string): unknown {
   return {
@@ -54,7 +56,7 @@ export function pedidoGemini(texto: string, tom: Tom, voz: string, modelo: strin
     input: [
       {
         type: 'user_input',
-        content: [{ type: 'text', text: paraFalar(texto), annotations: [{ type: 'speech_metadata', style: estiloDe(tom, voz) }] }],
+        content: [{ type: 'text', text: paraFalar(texto, voz), annotations: [{ type: 'speech_metadata', style: estiloDe(tom, voz) }] }],
       },
     ],
     response_format: { type: 'audio', mime_type: 'audio/wav', sample_rate: 24000 },
@@ -166,7 +168,7 @@ export function pedidoGeminiVarias(falas: { texto: string; tom: Tom }[], voz: st
         type: 'user_input',
         content: falas.map((f, i) => ({
           type: 'text',
-          text: paraFalar(i < falas.length - 1 ? f.texto + SEPARADOR : f.texto),
+          text: paraFalar(i < falas.length - 1 ? f.texto + SEPARADOR : f.texto, voz),
           annotations: [{ type: 'speech_metadata', style: estiloDe(f.tom, voz) }],
         })),
       },
