@@ -14,11 +14,11 @@ import type { Pose } from './sprites.js';
 import { desenharEscudoDaLiga, veu } from './video.js';
 import ALVOS from '../video/telas/alvos.json';
 
-export type CartelaAnuncio = 'NOVIDADE' | 'RECURSOS' | 'SITE' | 'CODIGO' | 'DM' | 'PRONTO' | 'PEDIR' | 'VISUAL' | 'COMENTARIO';
+export type CartelaAnuncio = 'NOVIDADE' | 'RECURSOS' | 'SITE' | 'CODIGO' | 'DM' | 'PRONTO' | 'PEDIR' | 'VISUAL' | 'COMENTARIO' | 'COMPARTILHE';
 export type SegmentoAnuncio = Segmento & { cartela: CartelaAnuncio };
 
-const ORDEM: CartelaAnuncio[] = ['NOVIDADE', 'RECURSOS', 'SITE', 'CODIGO', 'DM', 'PRONTO', 'PEDIR', 'VISUAL', 'COMENTARIO'];
-const DURACAO_BASE: Record<CartelaAnuncio, number> = { NOVIDADE: 4.5, RECURSOS: 7, SITE: 5.5, CODIGO: 6, DM: 5.5, PRONTO: 5, PEDIR: 7, VISUAL: 8, COMENTARIO: 7.5 };
+const ORDEM: CartelaAnuncio[] = ['NOVIDADE', 'RECURSOS', 'SITE', 'CODIGO', 'DM', 'PRONTO', 'PEDIR', 'VISUAL', 'COMENTARIO', 'COMPARTILHE'];
+const DURACAO_BASE: Record<CartelaAnuncio, number> = { NOVIDADE: 4.5, RECURSOS: 7, SITE: 5.5, CODIGO: 6, DM: 5.5, PRONTO: 5, PEDIR: 7, VISUAL: 8, COMENTARIO: 7.5, COMPARTILHE: 6.5 };
 const CORTE = 0.3;
 
 /** O exemplo do vídeo: um atacante da Onça que vai para a Preguiça como zagueiro. */
@@ -64,6 +64,7 @@ export function narracaoDoAnuncio(roteiro: RoteiroAnuncio): Fala[] {
     PRONTO: 'Volta no site e toca em Já mandei. Pronto: personagem vinculado!',
     PEDIR: 'Em Transferência, escolhe o time e a posição e pede. Uma vez por temporada, e vale do próximo jogo em diante.',
     VISUAL: 'Em Visual e camisa, escolhe a pele, o cabelo, o corte e o número. Salvou, já tá no seu card!',
+    COMPARTILHE: 'Curtiu? Compartilha com a galera e chama mais gente pro Varzeão! Pra entrar, é só comentar ENTRO, o time e a posição.',
     COMENTARIO: 'Prefere comentar? Escreve TRANSFERIR, o time e a posição. Só não vale ir pra time lotado: a Liga mantém os times equilibrados!',
   };
   return roteiro.segmentos.map((s, i): Fala => ({
@@ -71,7 +72,7 @@ export function narracaoDoAnuncio(roteiro: RoteiroAnuncio): Fala[] {
     texto: texto[s.cartela],
     inicio: s.inicio + 0.35,
     limite: s.fim,
-    tom: s.cartela === 'NOVIDADE' || s.cartela === 'PRONTO' ? 'animado' : 'normal',
+    tom: s.cartela === 'NOVIDADE' || s.cartela === 'PRONTO' || s.cartela === 'COMPARTILHE' ? 'animado' : 'normal',
     segmento: i,
     parte: 'antes',
   }));
@@ -335,10 +336,38 @@ export function desenharQuadroAnuncio(ctx: CanvasRenderingContext2D, roteiro: Ro
         pin.texto('a Liga mantém os times', COLUNAS / 2, 214, 12, texto, COR.placa, { peso: 700 });
         pin.texto('equilibrados', COLUNAS / 2, 232, 12, texto, COR.placa, { peso: 700 });
       });
-      surge(entre(t, 3.6, 4.1), () => {
-        pin.texto('site: link na bio', COLUNAS / 2, 296, 12, texto, COR.placa, { peso: 700 });
-        if (o.escudo) desenharEscudoDaLiga(pin, o.escudo, COLUNAS / 2, 374, 96);
+      surge(entre(t, 3.6, 4.1), () => pin.texto('site: link na bio', COLUNAS / 2, 296, 12, texto, COR.placa, { peso: 700 }));
+      break;
+    }
+    case 'COMPARTILHE': {
+      const a = entre(t, 0, 0.5);
+      pin.ctx.globalAlpha = a;
+      const pulso = 1 + 0.05 * Math.sin(t * 6);
+      pin.texto('Curte e', COLUNAS / 2, 52, 34, display, COR.placa, { contorno: COR.contorno, espessura: 1.5 });
+      pin.texto('compartilha!', COLUNAS / 2, 88, 40 * pulso, display, COR.amarelo, { contorno: COR.contorno, espessura: 1.5 });
+      pin.ctx.globalAlpha = 1;
+      // Coração e a seta de compartilhar, em pixel art.
+      surge(entre(t, 0.5, 0.9), () => {
+        const coracao = ['.XX.XX.', 'XXXXXXX', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'];
+        const bate = 1 + 0.12 * Math.max(0, Math.sin(t * 5));
+        const tam = Math.round(4 * bate);
+        coracao.forEach((l, y) => [...l].forEach((c, x) => c === 'X' && pin.r(78 + x * tam - (tam - 4) * 3, 118 + y * tam, tam, tam, '#E4572E')));
+        const seta = ['....X..', '....XX.', 'XXXXXXX', 'X...XX.', 'X...X..', 'X......', 'XXXXX..'];
+        seta.forEach((l, y) => [...l].forEach((c, x) => c === 'X' && pin.r(160 + x * 4, 116 + y * 4, 4, 4, '#FFFFFF')));
       });
+      surge(entre(t, 1.0, 1.4), () => {
+        pin.tabua(14, 160, 242, 112);
+        pin.texto('chame a galera pra Liga', COLUNAS / 2, 180, pin.caber('chame a galera pra Liga', 220, 13, texto, 700), texto, COR.placa, { peso: 700 });
+        pin.texto('Para entrar, comente:', COLUNAS / 2, 204, 11, texto, COR.placaSombra, { peso: 600 });
+        pin.texto('ENTRO', COLUNAS / 2, 230, 28, display, '#FFFFFF', { contorno: COR.contorno, espessura: 1.5 });
+        pin.texto('+ TIME + POSIÇÃO', COLUNAS / 2, 256, pin.caber('+ TIME + POSIÇÃO', 220, 20, display), display, COR.amarelo, { contorno: COR.contorno });
+      });
+      // A turma comemorando: quanto mais gente, melhor a Liga.
+      surge(entre(t, 1.6, 2.1), () => {
+        const turma: [TimeId, Posicao][] = [['TAT', 'MEI'], [EX.de, EX.posicao], ['PRE', 'ZAG']];
+        turma.forEach(([time, pos], k) => boneco(pin, Math.floor(tVideo * 3 + k) % 2 === 0 ? 'FRENTE_COMEMORA' : 'FRENTE_PARADO', uniforme(time, pos, `amigo${k}`), 60 + k * 54, 290, 3));
+      });
+      if (o.escudo) surge(entre(t, 2.2, 2.7), () => desenharEscudoDaLiga(pin, o.escudo!, COLUNAS / 2, 404, 80));
       break;
     }
   }
