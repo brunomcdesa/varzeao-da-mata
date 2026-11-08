@@ -348,6 +348,8 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
             const chave = `narracao/${randomUUID()}.m4a`;
             await c.armazenamento.enviar('publico', chave, new Uint8Array(await readFile(arquivo)), { tipo: 'audio/mp4', cache: 'public, max-age=31536000, immutable' });
             await c.banco.query(`UPDATE partida SET narracao_url = $2 WHERE id = $1`, [p.id, c.armazenamento.urlPublica(chave)]);
+            // A cópia que a borda entrega no Ao Vivo foi guardada antes da narração: guarda de novo, agora com ela.
+            await guardarPartidaPrivada(c, p.id, apito);
           } catch (e) {
             log(`Partida ${p.id}: sem narração do Ao Vivo (${(e as Error).message}).`);
           }
