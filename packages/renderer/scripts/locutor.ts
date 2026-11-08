@@ -142,7 +142,7 @@ export function criarLocutor(pastaCache: string, modoForcado?: string, vozGemini
             const anterior = process.env.GEMINI_TTS_MODELO;
             process.env.GEMINI_TTS_MODELO = MODELO_LITE;
             try {
-              return await criarLocutor(pastaCache, 'gemini').falarTodas(falas, progresso);
+              return await criarLocutor(pastaCache, 'gemini', voz).falarTodas(falas, progresso);
             } catch (e2) {
               if (!(e2 instanceof CotaDiariaEsgotada) && !/recusou/.test((e2 as Error).message)) throw e2;
               console.warn(`  ⚠ O modelo lite também falhou: ${(e2 as Error).message.slice(0, 300)}`);
