@@ -121,7 +121,17 @@ export class Timeline {
       visitante: posicoesBase(escalacoes.visitante, 'visitante'),
     };
     this.janelas = montarJanelas(resultado.lances);
-    this.planos = resultado.lances.map((l) => montarPlano(l, this.bases, escalacoes, resultado.seed));
+    // Jogo contínuo: a bola só volta ao meio depois de gol. Nos outros lances ela termina
+    // com quem começa o próximo ataque (passe ou chutão recuperado) e o próximo sai dali.
+    const lances = resultado.lances;
+    const saida = (i: number): Ponto => {
+      const proximo = lances[i + 1];
+      if (!proximo || lances[i]!.tipo === 'GOL') return MEIO;
+      return this.bases[proximo.criador.lado][proximo.criador.indice]!;
+    };
+    this.planos = lances.map((l, i) =>
+      montarPlano(l, this.bases, escalacoes, resultado.seed, { entrada: i === 0 ? MEIO : saida(i - 1), saida: saida(i) }),
+    );
     this.trilhas = this.planos.map((p) => new Map(p.atores.map((a) => [chave(a.slot), a.quadros])));
     this.disputa = montarDisputa(resultado, DURACAO_JOGO);
   }

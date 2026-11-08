@@ -57,7 +57,19 @@ const PESOS: [EstiloJogada, number][] = [
   ['INDIVIDUAL', 0.2],
 ];
 
-export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Record<Lado, Escalacao>, seed: number): Plano {
+/**
+ * Continuidade entre lances: de onde a bola vem (`entrada`) e para onde ela vai no fim
+ * (`saida`). Só depois de gol a bola volta ao meio; senão quem ficou com ela entrega para
+ * quem começa o próximo ataque (ou dá o chutão e o outro time recupera).
+ */
+export interface Continuidade {
+  entrada?: Ponto;
+  saida?: Ponto;
+}
+
+export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Record<Lado, Escalacao>, seed: number, cont: Continuidade = {}): Plano {
+  const entrada = cont.entrada ?? MEIO;
+  const saida = cont.saida ?? MEIO;
   const rng = criarRng(((seed >>> 0) * 31 + lance.numero * 7919) >>> 0);
   const atq = lance.ataque;
   const def: Lado = atq === 'mandante' ? 'visitante' : 'mandante';
@@ -101,8 +113,8 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
   };
   const posse = (de: number, ate: number, s: SlotRef) => bola.push({ de, ate, tipo: 'POSSE', ator: s });
 
-  // Todo lance começa com a bola rolando do meio-campo para o criador.
-  bola.push({ de: 0, ate: 0.08, tipo: 'VOO', origem: { ponto: MEIO }, destino: { ator: C }, altura: 0 });
+  // A bola chega ao criador de onde o lance anterior a deixou (do meio, só depois de gol).
+  bola.push({ de: 0, ate: 0.08, tipo: 'VOO', origem: { ponto: entrada }, destino: { ator: C }, altura: 0 });
 
   // Destino do chute, que depende do resultado do lance.
   const r = rng.next();
@@ -206,7 +218,7 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
       const sobra: Ponto = { x: frente.x - lateral * 0.04, y: frente.y - dir * 0.05 };
       bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.83, tipo: 'VOO', origem: { ator: M }, destino: { ponto: sobra }, altura: 0.25 });
       bola.push({ de: 0.83, ate: 0.88, tipo: 'VOO', origem: { ponto: sobra }, destino: { ator: M }, altura: 0 });
-      bola.push({ de: 0.88, ate: 1, tipo: 'VOO', origem: { ator: M }, destino: { ponto: MEIO }, altura: 0.55 });
+      bola.push({ de: 0.88, ate: 1, tipo: 'VOO', origem: { ator: M }, destino: { ponto: saida }, altura: 0.55 });
       acao(M, 0.87, 0.91, 'PASSE');
       return fechar();
     }
@@ -236,12 +248,12 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
     acao(C, F_RESOLUCAO_CHUTE + 0.04, 0.95, 'COMEMORANDO');
   } else if (lance.tipo === 'DEFESA') {
     bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.9, tipo: 'POSSE', ator: G });
-    bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ator: G }, destino: { ponto: MEIO }, altura: 0.6 });
+    bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ator: G }, destino: { ponto: saida }, altura: 0.6 });
     acao(G, 0.88, 0.92, 'PASSE');
   } else {
     bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.86, tipo: 'PARADA', ponto: destino });
     bola.push({ de: 0.86, ate: 0.9, tipo: 'VOO', origem: { ponto: destino }, destino: { ator: G }, altura: 0 });
-    bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ator: G }, destino: { ponto: MEIO }, altura: 0.6 });
+    bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ator: G }, destino: { ponto: saida }, altura: 0.6 });
     acao(G, 0.88, 0.92, 'PASSE');
   }
 
@@ -274,13 +286,13 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
         { slot: D, quadros: [[0, null], [0.36, null], [F_RESOLUCAO_DESARME, bote], [0.75, Pt(bote.x, 0.27)], [1, null]] },
       ],
       bola: [
-        { de: 0, ate: 0.08, tipo: 'VOO', origem: { ponto: MEIO }, destino: { ator: l.criador }, altura: 0 },
+        { de: 0, ate: 0.08, tipo: 'VOO', origem: { ponto: entrada }, destino: { ator: l.criador }, altura: 0 },
         { de: 0.08, ate: 0.3, tipo: 'POSSE', ator: l.criador },
         { de: 0.3, ate: 0.36, tipo: 'VOO', origem: { ator: l.criador }, destino: { ator: Fd }, altura: 0 },
         { de: 0.36, ate: F_RESOLUCAO_DESARME, tipo: 'POSSE', ator: Fd },
         { de: F_RESOLUCAO_DESARME, ate: 0.75, tipo: 'POSSE', ator: D },
-        { de: 0.75, ate: 0.95, tipo: 'VOO', origem: { ator: D }, destino: { ponto: MEIO }, altura: 0.45 },
-        { de: 0.95, ate: 1, tipo: 'PARADA', ponto: MEIO },
+        { de: 0.75, ate: 0.95, tipo: 'VOO', origem: { ator: D }, destino: { ponto: saida }, altura: 0.45 },
+        { de: 0.95, ate: 1, tipo: 'PARADA', ponto: saida },
       ],
       acoes: [
         { slot: l.criador, de: 0.29, ate: 0.315, acao: 'PASSE' },
@@ -301,11 +313,11 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
         { slot: D, quadros: [[0, null], [0.3, null], [F_RESOLUCAO_DESARME, roubo], [0.75, longe], [1, null]] },
       ],
       bola: [
-        { de: 0, ate: 0.08, tipo: 'VOO', origem: { ponto: MEIO }, destino: { ator: l.criador }, altura: 0 },
+        { de: 0, ate: 0.08, tipo: 'VOO', origem: { ponto: entrada }, destino: { ator: l.criador }, altura: 0 },
         { de: 0.08, ate: F_RESOLUCAO_DESARME, tipo: 'POSSE', ator: l.criador },
         { de: F_RESOLUCAO_DESARME, ate: 0.75, tipo: 'POSSE', ator: D },
-        { de: 0.75, ate: 0.95, tipo: 'VOO', origem: { ator: D }, destino: { ponto: MEIO }, altura: 0.45 },
-        { de: 0.95, ate: 1, tipo: 'PARADA', ponto: MEIO },
+        { de: 0.75, ate: 0.95, tipo: 'VOO', origem: { ator: D }, destino: { ponto: saida }, altura: 0.45 },
+        { de: 0.95, ate: 1, tipo: 'PARADA', ponto: saida },
       ],
       acoes: [
         { slot: D, de: F_RESOLUCAO_DESARME - 0.05, ate: F_RESOLUCAO_DESARME + 0.04, acao: 'CARRINHO' },
