@@ -6,7 +6,7 @@
 import type { Posicao, TimeId } from '@liga/shared';
 import { TIMES } from '@liga/shared';
 import type { Banco } from './banco.js';
-import { citacoes, interpretar, type Comando } from './comandos.js';
+import { CONTA_DA_LIGA, citacoes, interpretar, type Comando } from './comandos.js';
 import { FOLGA_DE_ELENCO, FORMACAO, sortearHabilidadesIniciais } from './regras.js';
 import { normalizar } from './vocabulario.js';
 
@@ -58,7 +58,7 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
       // Inscrição (o leitor passou a aceitar "Onça, atacante" sem ENTRO).
       const antes = (await b.query<{ tipo: string | null; resultado: string | null }>(`SELECT tipo, resultado FROM comando WHERE ig_comment_id = $1`, [c.igCommentId])).rows[0];
       const releitura = antes?.tipo === 'IGNORADO' || antes?.resultado === 'SEM_POSICAO' || antes?.resultado === 'SEM_TIME';
-      if (!releitura) return 'REPETIDO';
+      if (!releitura || `@${c.username}`.toUpperCase() === CONTA_DA_LIGA) return 'REPETIDO';
       const jaInscrito = (await b.query(`SELECT 1 FROM jogador WHERE ig_user_id = $1`, [c.igUserId])).rows.length > 0;
       if (jaInscrito || (interpretar(c.texto).tipo !== 'INSCRICAO' && !(await juntarComOutroComentario(b, c)))) return 'REPETIDO';
     }
@@ -71,10 +71,12 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
       )
     ).rows[0];
 
-    let comando: Comando = interpretar(c.texto);
+    // A própria Liga comenta (respostas, instruções): nunca é Inscrição nem voto.
+    const daLiga = `@${c.username}`.toUpperCase() === CONTA_DA_LIGA || c.igUserId === process.env.IG_USER_ID;
+    let comando: Comando = daLiga ? { tipo: 'IGNORADO' } : interpretar(c.texto);
     // Pedido em dois comentários ("Arara" e "Entro como meia"): junta o Time de um com a
     // posição do outro.
-    if (!jogador && comando.tipo !== 'INSCRICAO' && comando.tipo !== 'VOTO') {
+    if (!daLiga && !jogador && comando.tipo !== 'INSCRICAO' && comando.tipo !== 'VOTO') {
       const junto = await juntarComOutroComentario(b, c);
       if (junto) comando = junto;
     }

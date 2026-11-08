@@ -94,6 +94,11 @@ describe('Inscrição', () => {
     expect(await processarComentario(banco, comentario('torcedor', 'que meia!', t(51)), semVotacao)).toBe('IGNORADO');
   });
 
+  it('comentário da própria Liga nunca inscreve', async () => {
+    expect(await processarComentario(banco, comentario('liga', 'Comente ENTRO (POSICAO) ARARA', { username: 'varzeao_da_mata' }), semVotacao)).toBe('IGNORADO');
+    expect((await banco.query(`SELECT 1 FROM jogador WHERE ig_user_id = 'liga'`)).rows).toHaveLength(0);
+  });
+
   it('só o Time: entra na posição mais vazia dele', async () => {
     expect(await processarComentario(banco, comentario('a', 'entro capivara atacante'), semVotacao)).toBe('INSCRITO');
     expect(await processarComentario(banco, comentario('b', 'entro capivara goleiro'), semVotacao)).toBe('INSCRITO');
