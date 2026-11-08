@@ -15,7 +15,12 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       USUARIO: ${{ inputs.usuario }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/preparar
       - run: pnpm liga comentarios
+      # Com um @: procura o comentário dessa pessoa direto no Instagram, em todos os posts.
+      - if: inputs.usuario != ''
+        run: pnpm job procurar

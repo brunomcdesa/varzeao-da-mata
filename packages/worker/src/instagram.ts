@@ -77,7 +77,8 @@ export interface Midia {
   caption?: string;
 }
 
-interface ComentarioBruto {
+export interface ComentarioBruto {
+  hidden?: boolean;
   id: string;
   text?: string;
   timestamp: string;
@@ -155,6 +156,18 @@ export class Instagram {
       }
       if (!pagina.paging?.next) return lista;
       pagina = await this.chamar<Pagina<Midia>>('GET', pagina.paging.next);
+    }
+  }
+
+  /** Comentários como a API devolve (com respostas), para diagnóstico. */
+  async comentariosCrus(mediaId: string): Promise<ComentarioBruto[]> {
+    const campos = 'id,text,timestamp,username,hidden,from{id,username}';
+    const lista: ComentarioBruto[] = [];
+    let pagina = await this.chamar<Pagina<ComentarioBruto>>('GET', `${mediaId}/comments`, { fields: `${campos},replies{${campos}}`, limit: '50' });
+    for (;;) {
+      for (const c of pagina.data) lista.push(c, ...(c.replies?.data ?? []));
+      if (!pagina.paging?.next) return lista;
+      pagina = await this.chamar<Pagina<ComentarioBruto>>('GET', pagina.paging.next);
     }
   }
 
