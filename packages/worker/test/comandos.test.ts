@@ -77,6 +77,8 @@ describe('Comentários sem Comando', () => {
       expect(interpretar('Quero ser do Onça, Centroavante.')).toEqual({ tipo: 'INSCRICAO', time: 'ONC', posicao: 'ATA' });
       expect(interpretar('@varzeao_da_mata eu fiz lá sou atacante da arara')).toEqual({ tipo: 'INSCRICAO', time: 'ARA', posicao: 'ATA' });
       expect(interpretar('Entro - capivara , goleira ❤️')).toEqual({ tipo: 'INSCRICAO', time: 'CAP', posicao: 'GOL' });
+      expect(interpretar('Capivara , ponta esquerda')).toEqual({ tipo: 'INSCRICAO', time: 'CAP', posicao: 'ATA' });
+      expect(interpretar('Quer ser atacante dos Tamandua,me chamo Alisson')).toEqual({ tipo: 'INSCRICAO', time: 'TAM', posicao: 'ATA' });
     });
 
     it('não vale em frase sobre o jogo, com dois times ou marcando alguém', () => {

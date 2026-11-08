@@ -45,7 +45,7 @@ export const CONTA_DA_LIGA = '@VARZEAO_DA_MATA';
 export function interpretar(texto: string): Comando {
   const palavras = normalizar(texto)
     // "meu nome é Fulano": o nome não é Time nem posição, e não atrapalha o pedido.
-    .replace(/\bMEU NOME (E |EH )?\S+/g, ' ')
+    .replace(/\b(MEU NOME (E |EH )?|ME CHAMO |AQUI E (O |A )?)\S+/g, ' ')
     .split(' ')
     .filter((p) => p && p !== CONTA_DA_LIGA);
   const prefixo = palavras[0];
@@ -109,11 +109,11 @@ function analisar(palavras: string[]): { times: Set<TimeId>; posicoes: Set<Posic
 const PEDIDO = new Set([
   'ENTRAR', 'ENTRANDO', 'ENTRA', 'ME', 'INSCREVE', 'INSCREVER', 'INSCRICAO', 'BORA', 'VAMOS', 'VAMO', 'BOTA', 'COLOCA', 'POE',
   'AI', 'AQUI', 'SIM', 'OPA', 'OI', 'OLA', 'TO', 'TOU', 'ESTOU', 'DENTRO', 'QUERIA', 'GOSTARIA', 'DE', 'PO', 'MANO',
-  'COMENTE', 'COMENTO', 'ENTRO', 'FIZ', 'LA', 'JA', 'TAMBEM', 'TB', 'TBM', 'ENTAO', 'BLZ', 'BELEZA', 'VALEU', 'OBRIGADO', 'OBRIGADA', 'POSSO', 'PODE', 'SERIA',
+  'COMENTE', 'COMENTO', 'ENTRO', 'QUER', 'ESQUERDA', 'ESQUERDO', 'DIREITA', 'DIREITO', 'FIZ', 'LA', 'JA', 'TAMBEM', 'TB', 'TBM', 'ENTAO', 'BLZ', 'BELEZA', 'VALEU', 'OBRIGADO', 'OBRIGADA', 'POSSO', 'PODE', 'SERIA',
 ]);
 
 /** Palavras que, sozinhas com um Time, já são pedido para entrar. */
-const PEDIDO_EXPLICITO = new Set(['ENTRO', 'SOU', 'SER', 'QUERO', 'QUERIA', 'ENTRAR', 'ENTRA', 'ENTRANDO', 'COLOCA', 'BOTA', 'POE', 'INSCREVE', 'INSCREVER', 'JOGAR', 'ME']);
+const PEDIDO_EXPLICITO = new Set(['ENTRO', 'QUER', 'SOU', 'SER', 'QUERO', 'QUERIA', 'ENTRAR', 'ENTRA', 'ENTRANDO', 'COLOCA', 'BOTA', 'POE', 'INSCREVE', 'INSCREVER', 'JOGAR', 'ME']);
 
 /**
  * Sem ENTRO: vale como Inscrição só quando o comentário é um pedido curto, com exatamente um
