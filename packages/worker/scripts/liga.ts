@@ -224,10 +224,13 @@ async function main(): Promise<void> {
 
       case 'comentarios': {
         // Comentários lidos e o que o leitor fez com cada um (sem @ de quem comentou).
-        const r = await banco.query<{ texto: string; tipo: string | null; resultado: string | null; comentado_em: Date }>(
-          `SELECT texto, tipo, resultado, comentado_em FROM comando ORDER BY comentado_em DESC LIMIT 300`,
+        // Com --usuario, só os comentários dessa pessoa (e aí mostra o @).
+        const de = process.env.USUARIO?.replace(/^@/, '').toLowerCase() || null;
+        const r = await banco.query<{ username: string; texto: string; tipo: string | null; resultado: string | null; comentado_em: Date }>(
+          `SELECT username, texto, tipo, resultado, comentado_em FROM comando WHERE ($1::text IS NULL OR lower(username) = $1) ORDER BY comentado_em DESC LIMIT 300`,
+          [de],
         );
-        for (const c of r.rows) console.log(`${new Date(c.comentado_em).toISOString().slice(5, 16)}  ${(c.resultado ?? '?').padEnd(15)} ${JSON.stringify(c.texto)}`);
+        for (const c of r.rows) console.log(`${new Date(c.comentado_em).toISOString().slice(5, 16)}  ${(c.resultado ?? '?').padEnd(15)} ${de ? `@${c.username} ` : ''}${JSON.stringify(c.texto)}`);
         console.log(`${r.rows.length} comentário(s).`);
         break;
       }
