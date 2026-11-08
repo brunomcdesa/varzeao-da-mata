@@ -2,6 +2,8 @@
  * Leitor de Comandos (GLOSSARY: Comando). Função pura: texto do comentário → intenção.
  *
  *   "ENTRO <time|apelido> <posição|sinônimo>"  → Inscrição (em qualquer ordem, com palavras de ligação)
+ *   "Onça, atacante" (sem ENTRO)                → também Inscrição, se o comentário for só isso:
+ *                                                 um Time, uma posição e palavras de ligação
  *   "CRAQUE 3" (ou "VOTO 3")                    → voto no Candidato número 3
  *   "3" sozinho                                 → o mesmo, mas só vale no post do Resumo
  *   qualquer outra coisa                        → ignorado
@@ -48,26 +50,13 @@ export function interpretar(texto: string): Comando {
     return { tipo: 'VOTO', numero: Number(m[1]) };
   }
 
-  if (prefixo !== 'ENTRO') return { tipo: 'IGNORADO' };
+  if (prefixo !== 'ENTRO') return semPrefixo(palavras);
 
   const resto = palavras.slice(1);
   // Só a própria pessoa se inscreve: comentário marcando alguém não inscreve ninguém.
   if (resto.some((p) => p.startsWith('@'))) return { tipo: 'INVALIDO', prefixo: 'ENTRO', motivo: 'MARCOU_TERCEIRO' };
 
-  const times = new Set<TimeId>();
-  const posicoes = new Set<Posicao>();
-  let i = 0;
-  while (i < resto.length) {
-    const casou = casar(resto, i, TIMES) ?? casar(resto, i, POSICOES);
-    if (casou) {
-      const [tamanho, valor] = casou;
-      if ((APELIDOS_DE_TIME as Record<string, string[]>)[valor]) times.add(valor as TimeId);
-      else posicoes.add(valor as Posicao);
-      i += tamanho;
-      continue;
-    }
-    i++; // palavra de ligação ou desconhecida
-  }
+  const { times, posicoes } = analisar(resto);
   if (times.size > 1) return { tipo: 'INVALIDO', prefixo: 'ENTRO', motivo: 'TIMES_DEMAIS' };
   if (posicoes.size > 1) return { tipo: 'INVALIDO', prefixo: 'ENTRO', motivo: 'POSICOES_DEMAIS' };
   const [time] = times;
@@ -75,6 +64,48 @@ export function interpretar(texto: string): Comando {
   if (!time) return { tipo: 'INVALIDO', prefixo: 'ENTRO', motivo: 'SEM_TIME' };
   if (!posicao) return { tipo: 'INVALIDO', prefixo: 'ENTRO', motivo: 'SEM_POSICAO' };
   return { tipo: 'INSCRICAO', time, posicao };
+}
+
+/** Times e posições citados, e as palavras que não são nenhum dos dois. */
+function analisar(palavras: string[]): { times: Set<TimeId>; posicoes: Set<Posicao>; outras: string[] } {
+  const times = new Set<TimeId>();
+  const posicoes = new Set<Posicao>();
+  const outras: string[] = [];
+  let i = 0;
+  while (i < palavras.length) {
+    const casou = casar(palavras, i, TIMES) ?? casar(palavras, i, POSICOES);
+    if (casou) {
+      const [tamanho, valor] = casou;
+      if ((APELIDOS_DE_TIME as Record<string, string[]>)[valor]) times.add(valor as TimeId);
+      else posicoes.add(valor as Posicao);
+      i += tamanho;
+      continue;
+    }
+    outras.push(palavras[i]!);
+    i++; // palavra de ligação ou desconhecida
+  }
+  return { times, posicoes, outras };
+}
+
+/** Palavras que aparecem em quem pede para entrar sem escrever ENTRO ("quero entrar na onça de atacante"). */
+const PEDIDO = new Set([
+  'ENTRAR', 'ENTRANDO', 'ENTRA', 'ME', 'INSCREVE', 'INSCREVER', 'INSCRICAO', 'BORA', 'VAMOS', 'VAMO', 'BOTA', 'COLOCA', 'POE',
+  'AI', 'AQUI', 'SIM', 'OPA', 'OI', 'OLA', 'TO', 'TOU', 'ESTOU', 'DENTRO', 'QUERIA', 'GOSTARIA', 'DE', 'PO', 'MANO',
+]);
+
+/**
+ * Sem ENTRO: vale como Inscrição só quando o comentário é um pedido curto, com exatamente um
+ * Time e uma posição e nada além de palavras de ligação ("Onça, atacante"; "quero entrar na
+ * capivara de goleiro"). Frase comentando o jogo ("o atacante da onça jogou muito") não entra.
+ */
+function semPrefixo(palavras: string[]): Comando {
+  if (palavras.length > 9 || palavras.some((p) => p.startsWith('@'))) return { tipo: 'IGNORADO' };
+  const { times, posicoes, outras } = analisar(palavras);
+  if (times.size !== 1 || posicoes.size !== 1) return { tipo: 'IGNORADO' };
+  if (!outras.every((p) => PALAVRAS_DE_LIGACAO.has(p) || PEDIDO.has(p))) return { tipo: 'IGNORADO' };
+  const [time] = times;
+  const [posicao] = posicoes;
+  return { tipo: 'INSCRICAO', time: time!, posicao: posicao! };
 }
 
 /** A expressão mais longa que começa na palavra `i`, se houver. Ignora palavras de ligação soltas. */

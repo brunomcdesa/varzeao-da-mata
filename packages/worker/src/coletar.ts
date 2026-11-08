@@ -53,7 +53,12 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
        VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ig_comment_id) DO NOTHING RETURNING id`,
       [c.igCommentId, c.igMediaId, c.igUserId, c.username, c.texto, c.comentadoEm.toISOString()],
     );
-    if (!novo.rows.length) return 'REPETIDO';
+    if (!novo.rows.length) {
+      // Comentário já visto. Só volta a ser lido se tinha sido ignorado e hoje vale como
+      // Inscrição (o leitor passou a aceitar "Onça, atacante" sem ENTRO).
+      const antes = (await b.query<{ tipo: string | null }>(`SELECT tipo FROM comando WHERE ig_comment_id = $1`, [c.igCommentId])).rows[0];
+      if (antes?.tipo !== 'IGNORADO' || interpretar(c.texto).tipo !== 'INSCRICAO') return 'REPETIDO';
+    }
 
     // O @ pode mudar; o Jogador é da conta (ig_user_id), então o username só é atualizado.
     const jogador = (

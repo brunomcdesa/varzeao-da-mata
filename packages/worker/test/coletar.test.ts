@@ -117,6 +117,17 @@ describe('Voto para Craque da Rodada', () => {
     expect(await processarComentario(banco, comentario('fã2', 'CRAQUE 2'), semVotacao)).toBe('VOTACAO_FECHADA');
   });
 
+  it('comentário ignorado antes vira Inscrição quando o leitor passa a aceitá-lo', async () => {
+    const c = comentario('nova', 'Onça, atacante');
+    // Simula o leitor antigo: o comentário ficou registrado como ignorado.
+    await banco.query(
+      `INSERT INTO comando (ig_comment_id, ig_media_id, ig_user_id, username, texto, comentado_em, tipo, resultado) VALUES ($1, $2, $3, $4, $5, $6, 'IGNORADO', 'IGNORADO')`,
+      [c.igCommentId, c.igMediaId, c.igUserId, c.username, c.texto, c.comentadoEm.toISOString()],
+    );
+    expect(await processarComentario(banco, c, semVotacao)).toBe('INSCRITO');
+    expect(await processarComentario(banco, c, semVotacao)).toBe('REPETIDO');
+  });
+
   it('o número sozinho só vale no post do Resumo', async () => {
     const rodada = await prepararCandidatos();
     const ctx = { rodadaEmVotacao: rodada, postDaVotacao: 'RESUMO' };
