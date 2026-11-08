@@ -84,6 +84,11 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
       } else if (agoraLe !== 'INSCRICAO' && agoraLe !== 'TRANSFERENCIA' && !(await juntarComOutroComentario(b, c))) return 'REPETIDO';
     }
 
+    // Inscrito à mão pela DM sem o id da conta (id provisório "dm-<@>"): o primeiro comentário
+    // do mesmo @ assume o Jogador.
+    if (!c.igUserId.startsWith('dm-')) {
+      await b.query(`UPDATE jogador SET ig_user_id = $1 WHERE ig_user_id = 'dm-' || lower($2) AND NOT EXISTS (SELECT 1 FROM jogador WHERE ig_user_id = $1)`, [c.igUserId, c.username]);
+    }
     // O @ pode mudar; o Jogador é da conta (ig_user_id), então o username só é atualizado.
     const jogador = (
       await b.query<{ id: string; banido: boolean }>(
