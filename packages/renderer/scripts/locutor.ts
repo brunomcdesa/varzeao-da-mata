@@ -24,7 +24,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Tom } from '../src/narracao.js';
-import { CotaDiariaEsgotada, MODELO_PADRAO, VOZ_PADRAO, falarGemini, falarVariasGemini } from './gemini.js';
+import { CotaDiariaEsgotada, MODELO_PADRAO, VOZ_PADRAO, falarGemini, falarVariasGemini, paraFalar } from './gemini.js';
 
 export interface Locutor {
   /** WAV PCM 16 bits 48 kHz mono. */
@@ -98,7 +98,7 @@ export function criarLocutor(pastaCache: string, modoForcado?: string): Locutor 
   if (modo === 'gemini') {
     const voz = process.env.GEMINI_TTS_VOZ || VOZ_PADRAO;
     const modelo = process.env.GEMINI_TTS_MODELO || MODELO_PADRAO;
-    const chaveDe = (texto: string, tom: Tom) => `gemini|${modelo}|${voz}|${tom}|${texto}`;
+    const chaveDe = (texto: string, tom: Tom) => `gemini|${modelo}|${voz}|${tom}|${paraFalar(texto)}`;
     const falar = (texto: string, tom: Tom) => comCache(chaveDe(texto, tom), () => falarGemini(texto, tom, chaveGemini!, voz, modelo));
     const diagnostico = async (wav: Uint8Array, motivo: string) => {
       const pasta = join(pastaCache, 'falhas');
