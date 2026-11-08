@@ -14,13 +14,18 @@ import type { VarzeaApi } from './api.js';
 import { RoteiroResumo, desenharQuadroResumo, type DadosDoResumo } from '../src/resumo.js';
 import { RoteiroApresentacao, desenharQuadroApresentacao, type DadosDaApresentacao } from '../src/apresentacao.js';
 import { definirAparencias } from '../src/sprites.js';
-import { RoteiroAnuncio, desenharQuadroAnuncio, type TelaDoSite } from '../src/anuncio.js';
 import telaBusca from './telas/1-busca.png';
 import telaConvite from './telas/2-convite.png';
 import telaCodigo from './telas/3-codigo.png';
 import telaVinculado from './telas/4-vinculado.png';
-import telaPedido from './telas/5-pedido.png';
-import telaFeito from './telas/6-feito.png';
+import telaTransferencia from './telas/5-transferencia.png';
+import telaPedido from './telas/6-pedido.png';
+import telaFeito from './telas/7-feito.png';
+import telaVisual from './telas/8-visual.png';
+import telaVisualEscolhido from './telas/8b-visual-escolhido.png';
+import telaCamisa from './telas/9-visual-escolhido.png';
+import telaCard from './telas/11-card.png';
+import { RoteiroAnuncio, desenharQuadroAnuncio, type TelaDoSite } from '../src/anuncio.js';
 import { Roteiro, Timeline, desenharCapa, desenharQuadroVideo, type OpcoesVideo, type PartidaParaVideo } from '../src/index.js';
 
 const FONTES: [string, string, string][] = [
@@ -42,7 +47,7 @@ let apresentacao: RoteiroApresentacao | null = null;
 let fps = 30;
 /** Quando preenchido, a página grava o Reels de anúncio (vínculo pela DM). */
 let anuncio: RoteiroAnuncio | null = null;
-const URL_DAS_TELAS: Record<TelaDoSite, string> = { busca: telaBusca, convite: telaConvite, codigo: telaCodigo, vinculado: telaVinculado, pedido: telaPedido, feito: telaFeito };
+const URL_DAS_TELAS: Record<TelaDoSite, string> = { busca: telaBusca, convite: telaConvite, codigo: telaCodigo, vinculado: telaVinculado, transferencia: telaTransferencia, pedido: telaPedido, feito: telaFeito, visual: telaVisual, visualEscolhido: telaVisualEscolhido, camisa: telaCamisa, card: telaCard };
 const telas: Partial<Record<TelaDoSite, HTMLImageElement>> = {};
 const telasProntas = Promise.all(
   (Object.entries(URL_DAS_TELAS) as [TelaDoSite, string][]).map(

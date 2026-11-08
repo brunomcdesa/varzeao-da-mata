@@ -1,0 +1,54 @@
+{
+ "linhaDoJogador": [
+  142,
+  552
+ ],
+ "vincular": [
+  113,
+  347
+ ],
+ "jaMandei": [
+  89,
+  421
+ ],
+ "abrirTransferencia": [
+  180,
+  268
+ ],
+ "abrirVisual": [
+  180,
+  316
+ ],
+ "time": [
+  180,
+  356
+ ],
+ "posicao": [
+  180,
+  438
+ ],
+ "pedir": [
+  132,
+  505
+ ],
+ "pele": [
+  224,
+  338
+ ],
+ "cabelo": [
+  98,
+  438
+ ],
+ "corte": [
+  219,
+  506
+ ],
+ "numero": [
+  104,
+  404
+ ],
+ "salvar": [
+  137,
+  461
+ ]
+}
