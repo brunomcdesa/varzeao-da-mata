@@ -165,12 +165,58 @@ async function sintetizar(falas: Fala[]): Promise<Map<string, Float32Array>> {
   });
   if (process.stdout.isTTY) process.stdout.write('\r');
   const vozes = new Map<string, Float32Array>();
-  falas.forEach((f, i) => {
+  const ritmos: number[] = [];
+  let desaceleradas = 0;
+  for (const [i, f] of falas.entries()) {
     const { amostras, taxa } = lerWavMono(wavs[i]!);
     if (taxa !== TAXA) throw new Error(`voz em ${taxa} Hz; esperado ${TAXA}`);
-    vozes.set(f.id, amostras);
-  });
+    const r = await ritmar(amostras, f.texto);
+    ritmos.push(r.ritmo);
+    if (r.fator < 1) desaceleradas++;
+    vozes.set(f.id, r.amostras);
+  }
+  if (ritmos.length && locutor.modo !== 'mudo') {
+    const media = ritmos.reduce((a, b) => a + b, 0) / ritmos.length;
+    console.log(`  Ritmo da voz: ${media.toFixed(1)} letras/s em média; ${desaceleradas} fala(s) desacelerada(s) até ${RITMO_MAXIMO}.`);
+  }
   return vozes;
+}
+
+/**
+ * Teto de ritmo do Locutor (letras por segundo de voz, contando espaços). O Gemini às
+ * vezes narra a mesma frase bem mais depressa; acima do teto a fala é desacelerada (sem
+ * mudar o tom, com o atempo do ffmpeg), até no máximo 25%.
+ */
+const RITMO_MAXIMO = 15;
+
+export async function ritmar(amostras: Float32Array, texto: string): Promise<{ amostras: Float32Array; ritmo: number; fator: number }> {
+  // Duração com voz: do primeiro ao último trecho acima do limiar (sem os silêncios das pontas).
+  const limiar = 0.02;
+  let a = 0;
+  let b = amostras.length - 1;
+  while (a < b && Math.abs(amostras[a]!) < limiar) a++;
+  while (b > a && Math.abs(amostras[b]!) < limiar) b--;
+  const segundos = (b - a) / TAXA;
+  const letras = texto.replace(/\s+/g, ' ').trim().length;
+  const ritmo = segundos > 0.3 ? letras / segundos : 0;
+  if (ritmo <= RITMO_MAXIMO) return { amostras, ritmo, fator: 1 };
+  const fator = Math.max(0.8, RITMO_MAXIMO / ritmo);
+  const pasta = await mkdtemp(join(tmpdir(), 'varzea-ritmo-'));
+  try {
+    const entrada = join(pasta, 'a.wav');
+    const saida = join(pasta, 'b.wav');
+    await writeFile(entrada, codificarWav(amostras, amostras));
+    await new Promise<void>((ok, erro) => {
+      const ff = spawn('ffmpeg', ['-y', '-hide_banner', '-loglevel', 'error', '-i', entrada, '-filter:a', `atempo=${fator.toFixed(3)}`, '-ac', '1', '-ar', String(TAXA), saida]);
+      ff.on('error', erro);
+      ff.on('close', (c) => (c === 0 ? ok() : erro(new Error(`ffmpeg (atempo) saiu com código ${c}`))));
+    });
+    return { amostras: lerWavMono(await readFile(saida)).amostras, ritmo, fator };
+  } catch {
+    return { amostras, ritmo, fator: 1 }; // sem ffmpeg: segue com a fala como veio
+  } finally {
+    await rm(pasta, { recursive: true, force: true });
+  }
 }
 
 /**
