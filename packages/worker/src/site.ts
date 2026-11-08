@@ -176,6 +176,13 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       `SELECT id::text AS id, username, time_id, posicao, ovr, habilidades, inscrito_em FROM jogador WHERE NOT banido ORDER BY id`,
     )
   ).rows;
+  const transferiram = new Set(
+    (
+      await banco.query<{ jogador_id: string }>(
+        `SELECT t.jogador_id::text AS jogador_id FROM transferencia t JOIN temporada tp ON tp.id = t.temporada_id WHERE tp.status IN ('PRE_TEMPORADA', 'EM_ANDAMENTO')`,
+      )
+    ).rows.map((r) => r.jogador_id),
+  );
   const porJogador = new Map<string, JogadorPublico>();
   const resumido = (id: string): JogadorResumido | null => {
     const j = porJogador.get(id);
@@ -195,6 +202,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       habilidades: oculta ? habilidadesDe(j.posicao, oculta.ovr_antes, oculta.habilidades_antes) : habilidadesDe(j.posicao, j.ovr, j.habilidades),
       habilidadesIniciais: minhas[0] ? habilidadesDe(j.posicao, minhas[0].ovr_antes, minhas[0].habilidades_antes) : habilidadesDe(j.posicao, j.ovr, j.habilidades),
       inscritoEm: new Date(j.inscrito_em).toISOString(),
+      transferenciaUsada: transferiram.has(j.id),
       ...estatisticasVazias(),
       vezesCandidato: 0,
       craqueDaRodada: 0,

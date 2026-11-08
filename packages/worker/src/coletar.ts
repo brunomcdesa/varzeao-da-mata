@@ -230,28 +230,39 @@ async function jaInscrito(b: Banco, c: Comentario, pedido: { time: TimeId; posic
  * delas na posição nova.
  */
 async function transferir(b: Banco, c: Comentario, jogadorId: string, pedido: { times: TimeId[]; posicao?: Posicao }, ctx: Contexto): Promise<Resultado> {
-  const j = (await b.query<{ time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null }>(`SELECT time_id, posicao, ovr, habilidades FROM jogador WHERE id = $1`, [jogadorId])).rows[0]!;
-  const responder = (texto: string) => ctx.responder?.(c.igCommentId, `@${c.username} ${texto}`);
+  const r = await transferirJogador(b, jogadorId, pedido, { quando: c.comentadoEm, ref: c.igCommentId });
+  if (r.mensagem) await ctx.responder?.(c.igCommentId, `@${c.username} ${r.mensagem}`);
+  return r.resultado;
+}
+
+/**
+ * Núcleo da Transferência (ADR-0012), usado pelo comentário e pelo site. Devolve o
+ * resultado e a mensagem para o Jogador (em "você"), ou sem mensagem quando não deve
+ * responder. `ref`: o comentário ou o pedido do site que originou.
+ */
+export async function transferirJogador(
+  b: Banco,
+  jogadorId: string,
+  pedido: { times: TimeId[]; posicao?: Posicao },
+  o: { quando: Date; ref: string },
+): Promise<{ resultado: Resultado; mensagem?: string }> {
+  const j = (await b.query<{ time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null }>(`SELECT time_id, posicao, ovr, habilidades FROM jogador WHERE id = $1`, [jogadorId])).rows[0];
+  if (!j) return { resultado: 'IGNORADO' };
   // Citou dois Times ("sair da Onça e ir pra Preguiça"): um tem que ser o dele, e o destino
   // é o outro. Se nenhum é o dele, o pedido não é claro: não mexe nem responde.
-  if (pedido.times.length === 2 && !pedido.times.includes(j.time_id)) return 'IGNORADO';
+  if (pedido.times.length === 2 && !pedido.times.includes(j.time_id)) return { resultado: 'IGNORADO' };
   const destino = pedido.times.find((t) => t !== j.time_id) ?? pedido.times[0] ?? j.time_id;
   const posicao = pedido.posicao ?? j.posicao;
   if (destino === j.time_id && posicao === j.posicao) {
-    await responder(`você já é ${NOME_DA_POSICAO_FALADO[j.posicao]} ${doTime(j.time_id)}. 😄`);
-    return 'MESMO_LUGAR';
+    return { resultado: 'MESMO_LUGAR', mensagem: `você já é ${NOME_DA_POSICAO_FALADO[j.posicao]} ${doTime(j.time_id)}. 😄` };
   }
 
-  const temporada = await temporadaDaTransferencia(b, c.comentadoEm);
+  const temporada = await temporadaDaTransferencia(b, o.quando);
   if (!temporada) {
-    await responder('as transferências estão fechadas: só valem na Fase de Liga. Elas reabrem na próxima temporada. ⚽');
-    return 'TRANSFERENCIA_FECHADA';
+    return { resultado: 'TRANSFERENCIA_FECHADA', mensagem: 'as transferências estão fechadas: só valem na Fase de Liga. Elas reabrem na próxima temporada. ⚽' };
   }
-  const usada = (await b.query<{ para_time: TimeId }>(`SELECT para_time FROM transferencia WHERE jogador_id = $1 AND temporada_id = $2`, [jogadorId, temporada])).rows[0];
-  if (usada) {
-    await responder(`você já usou a transferência desta temporada. Dá para transferir de novo na próxima. ⚽`);
-    return 'TRANSFERENCIA_USADA';
-  }
+  const usada = (await b.query(`SELECT 1 FROM transferencia WHERE jogador_id = $1 AND temporada_id = $2`, [jogadorId, temporada])).rows[0];
+  if (usada) return { resultado: 'TRANSFERENCIA_USADA', mensagem: 'você já usou a transferência desta temporada. Dá para transferir de novo na próxima. ⚽' };
 
   if (destino !== j.time_id) {
     // Equilíbrio: conta os Elencos sem ele (ele sai da origem) e aplica a regra da Inscrição.
@@ -262,8 +273,7 @@ async function transferir(b: Banco, c: Comentario, jogadorId: string, pedido: { 
     const menor = Math.min(...contagem.values());
     if (contagem.get(destino)! >= menor + FOLGA_DE_ELENCO) {
       const vazios = TIMES.filter((t) => contagem.get(t) === menor && t !== j.time_id).map((t) => doTime(t).replace(/^d[oa] /, ''));
-      await responder(`o time ${doTime(destino)} está cheio agora, então a transferência não deu. Times com vaga: ${vazios.join(', ')}. ⚽`);
-      return 'DESTINO_CHEIO';
+      return { resultado: 'DESTINO_CHEIO', mensagem: `o time ${doTime(destino)} está cheio agora, então a transferência não deu. Times com vaga: ${vazios.join(', ')}. ⚽` };
     }
   }
 
@@ -272,13 +282,13 @@ async function transferir(b: Banco, c: Comentario, jogadorId: string, pedido: { 
   await b.query(`UPDATE jogador SET time_id = $2, posicao = $3, ovr = $4, habilidades = $5 WHERE id = $1`, [jogadorId, destino, posicao, ovr, JSON.stringify(habilidades)]);
   await b.query(
     `INSERT INTO transferencia (jogador_id, temporada_id, de_time, para_time, de_posicao, para_posicao, ig_comment_id, feita_em) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [jogadorId, temporada, j.time_id, destino, j.posicao, posicao, c.igCommentId, c.comentadoEm.toISOString()],
+    [jogadorId, temporada, j.time_id, destino, j.posicao, posicao, o.ref, o.quando.toISOString()],
   );
   const vaga = `${NOME_DA_POSICAO_FALADO[posicao]} ${doTime(destino)}, OVR ${ovr}`;
-  await responder(
-    `${destino === j.time_id ? 'mudança de posição feita' : 'transferência feita'}! Agora você é ${vaga}. Vale a partir do próximo jogo escalado. Esta foi a sua transferência da temporada. ⚽`,
-  );
-  return 'TRANSFERIDO';
+  return {
+    resultado: 'TRANSFERIDO',
+    mensagem: `${destino === j.time_id ? 'mudança de posição feita' : 'transferência feita'}! Agora você é ${vaga}. Vale a partir do próximo jogo escalado. Esta foi a sua transferência da temporada. ⚽`,
+  };
 }
 
 /**

@@ -99,7 +99,7 @@ export function criarLocutor(pastaCache: string, modoForcado?: string, vozGemini
   if (modo === 'gemini') {
     const voz = vozGemini || process.env.GEMINI_TTS_VOZ || VOZ_PADRAO;
     const modelo = process.env.GEMINI_TTS_MODELO || MODELO_PADRAO;
-    const chaveDe = (texto: string, tom: Tom) => `gemini|${modelo}|${voz}|${tom}|${paraFalar(texto)}`;
+    const chaveDe = (texto: string, tom: Tom) => `gemini|${modelo}|${voz}|${tom}|${paraFalar(texto, voz)}`;
     const falar = (texto: string, tom: Tom) => comCache(chaveDe(texto, tom), () => falarGemini(texto, tom, chaveGemini!, voz, modelo));
     const diagnostico = async (wav: Uint8Array, motivo: string) => {
       const pasta = join(pastaCache, 'falhas');

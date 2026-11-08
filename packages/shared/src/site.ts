@@ -141,6 +141,8 @@ export interface JogadorPublico {
   habilidades: Habilidades;
   habilidadesIniciais: Habilidades;
   inscritoEm: string;
+  /** Já usou a Transferência da Temporada atual (ADR-0012). */
+  transferenciaUsada: boolean;
   /** Números da carreira (todas as Temporadas); `nestaTemporada` só a atual. */
   jogos: number;
   gols: number;

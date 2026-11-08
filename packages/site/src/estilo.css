@@ -2399,3 +2399,61 @@ a.jogo:hover {
 .sala-craque_temporada .estrela {
   background: var(--amarelo);
 }
+
+/* ------------------------------------------------------------ meu personagem (ADR-0013) */
+
+.meu-personagem .secao {
+  margin-top: 0;
+}
+.meu-personagem .legenda {
+  color: var(--tinta-fraca);
+}
+.codigo-vinculo {
+  font: 400 3rem/1 var(--display);
+  letter-spacing: 0.08em;
+  margin: 8px 0 12px;
+  user-select: all;
+}
+.passos-vinculo {
+  margin: 0 0 12px;
+  padding-left: 1.4em;
+  display: grid;
+  gap: 4px;
+}
+.meu-personagem a {
+  color: var(--tinta);
+}
+.meu-personagem .sucesso {
+  color: #2f6b22;
+  font-weight: 600;
+}
+.meu-personagem .erro {
+  color: #9c3412;
+  font-weight: 600;
+}
+.meu-personagem button.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--tinta);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.form-transferencia {
+  display: grid;
+  gap: 10px;
+  max-width: 420px;
+}
+.form-transferencia label {
+  display: grid;
+  gap: 4px;
+  font-weight: 600;
+}
+.form-transferencia select {
+  font: inherit;
+  padding: 8px;
+  border: 2px solid var(--contorno);
+  background: #fffaf0;
+  color: var(--tinta);
+}

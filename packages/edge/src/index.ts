@@ -10,6 +10,8 @@
  *   os votos do KV para o banco e mantém `votacao-aberta` em dia.
  */
 
+import { rotasDoVinculo } from './vinculo.js';
+
 export interface Env {
   AGENDA: KVNamespace;
   PUBLICO: R2Bucket;
@@ -131,6 +133,18 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   const { pathname } = new URL(req.url);
   if (pathname === '/votos' && req.method === 'POST') return votar(req, env, agora, f);
+  const vinculo = await rotasDoVinculo(
+    req,
+    env,
+    agora,
+    async (metodo, caminho, params) => {
+      const token = (await env.AGENDA.get<{ token: string }>('ig/token', 'json'))?.token;
+      if (!token) throw new Error('Sem token do Instagram no KV (ig/token).');
+      return graph(f, env, token, metodo, caminho, params);
+    },
+    (job) => dispararUm(env, job, f),
+  ).catch((e: Error) => json({ erro: `Não deu agora: ${e.message.slice(0, 200)}` }, 502));
+  if (vinculo) return vinculo;
   if (req.method !== 'GET' && req.method !== 'HEAD') return json({ erro: 'método não permitido' }, 405);
 
   const m = pathname.match(/^\/partidas\/(\d+)(?:\/lances)?$/);
@@ -235,9 +249,15 @@ export function jobsDoMinuto(agora: Date): string[] {
 }
 
 export async function dispararJobs(env: Env, agora: Date, f: Fetch = fetch): Promise<string[]> {
-  if (!env.GH_DISPARO_TOKEN || !env.GH_REPOSITORIO) return [];
   const disparados: string[] = [];
-  for (const job of jobsDoMinuto(agora)) {
+  for (const job of jobsDoMinuto(agora)) if (await dispararUm(env, job, f)) disparados.push(job);
+  return disparados;
+}
+
+/** Dispara um workflow (origem=borda: só roda se LIGA_ATIVA=sim). */
+export async function dispararUm(env: Env, job: string, f: Fetch = fetch): Promise<boolean> {
+  if (!env.GH_DISPARO_TOKEN || !env.GH_REPOSITORIO) return false;
+  {
     const r = await f(`https://api.github.com/repos/${env.GH_REPOSITORIO}/actions/workflows/${job}.yml/dispatches`, {
       method: 'POST',
       headers: {
@@ -250,10 +270,9 @@ export async function dispararJobs(env: Env, agora: Date, f: Fetch = fetch): Pro
       // origem=borda: o workflow só roda se LIGA_ATIVA=sim (o "play" manual roda sempre).
       body: JSON.stringify({ ref: 'master', inputs: { origem: 'borda' } }),
     });
-    if (r.ok) disparados.push(job);
-    else console.error(`não disparou ${job}: ${r.status} ${await r.text()}`);
+    if (!r.ok) console.error(`não disparou ${job}: ${r.status} ${await r.text()}`);
+    return r.ok;
   }
-  return disparados;
 }
 
 export default {

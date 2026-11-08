@@ -130,7 +130,7 @@ export interface OpcoesApresentacao {
 const suave = (f: number) => f * f * (3 - 2 * f);
 const entre = (f: number, a: number, b: number) => suave(Math.min(1, Math.max(0, (f - a) / (b - a))));
 
-function uniforme(time: TimeId, posicao: Posicao, nome: string): Visual {
+export function uniforme(time: TimeId, posicao: Posicao, nome: string): Visual {
   const id = IDENTIDADE[time];
   const goleiro = posicao === 'GOL';
   return {
@@ -142,7 +142,7 @@ function uniforme(time: TimeId, posicao: Posicao, nome: string): Visual {
   };
 }
 
-function boneco(pin: Pincel, pose: Pose, v: Visual, x: number, y: number, escala: number): void {
+export function boneco(pin: Pincel, pose: Pose, v: Visual, x: number, y: number, escala: number): void {
   pin.ctx.imageSmoothingEnabled = false;
   pin.ctx.drawImage(sprite(pose, v), Math.round(x * pin.px), Math.round(y * pin.px), 12 * escala * pin.px, 16 * escala * pin.px);
 }

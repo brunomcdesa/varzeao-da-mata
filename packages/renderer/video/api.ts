@@ -11,6 +11,7 @@ export interface VarzeaApi {
   preparar(dados: PartidaParaVideo, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
   prepararResumo(dados: DadosDoResumo, minimos?: Record<number, { antes?: number }>, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
   prepararApresentacao(dados: DadosDaApresentacao, minimos?: Record<number, { antes?: number }>, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
+  prepararAnuncio(minimos?: Record<number, { antes?: number }>, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
   desenhar(n: number): void;
   /** Desenha `quantos` quadros a partir de `inicio` e devolve cada um como JPEG em base64. */
   capturar(inicio: number, quantos: number, qualidade?: number): string[];

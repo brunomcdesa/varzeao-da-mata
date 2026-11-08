@@ -3,6 +3,7 @@ import { IDENTIDADE, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type Hab
 import { jogadores, liga } from '../dados.js';
 import { bonecoImg, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html } from '../ui.js';
 import type { Pagina } from './tipos.js';
+import { blocoDoDono, ligarMeuPersonagem } from '../meuPersonagem.js';
 
 type Criterio = 'ovr' | 'gols' | 'assistencias' | 'notaMedia' | 'jogos' | 'desarmes' | 'defesas' | 'dribles' | 'bloqueios' | 'titulos' | 'craqueDaRodada' | 'craqueDaTemporada';
 const CRITERIOS: Record<Criterio, string> = {
@@ -228,6 +229,7 @@ export const paginaJogador: Pagina = async (main, [id]) => {
       <h1 class="sr">@${j.username}</h1>
       <p class="ranking-frase">${rankOvr}º maior OVR da Liga · ${rankPos}º entre ${daPosicao.length} ${NOME_DA_POSICAO[j.posicao].toLowerCase()}s</p>
       ${salaDeTrofeus(j)}
+      ${blocoDoDono()}
       <section aria-labelledby="titulo-numeros">
         <div class="numeros-cabeca">
           <h2 id="titulo-numeros" class="secao">Números</h2>
@@ -277,6 +279,7 @@ export const paginaJogador: Pagina = async (main, [id]) => {
     const v = (e.target as HTMLSelectElement).value;
     if (v) location.hash = `#/comparar/${j.id}/${v}`;
   });
+  return ligarMeuPersonagem(main, j, todos);
 };
 
 function numeros(e: Estatisticas, j: JogadorPublico): Html {

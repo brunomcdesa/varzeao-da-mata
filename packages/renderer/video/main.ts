@@ -13,6 +13,13 @@ import { ALTURA_ESCUDO, LARGURA_ESCUDO, escudo as escudoDoTime } from '../src/es
 import type { VarzeaApi } from './api.js';
 import { RoteiroResumo, desenharQuadroResumo, type DadosDoResumo } from '../src/resumo.js';
 import { RoteiroApresentacao, desenharQuadroApresentacao, type DadosDaApresentacao } from '../src/apresentacao.js';
+import { RoteiroAnuncio, desenharQuadroAnuncio, type TelaDoSite } from '../src/anuncio.js';
+import telaBusca from './telas/1-busca.png';
+import telaConvite from './telas/2-convite.png';
+import telaCodigo from './telas/3-codigo.png';
+import telaVinculado from './telas/4-vinculado.png';
+import telaPedido from './telas/5-pedido.png';
+import telaFeito from './telas/6-feito.png';
 import { Roteiro, Timeline, desenharCapa, desenharQuadroVideo, type OpcoesVideo, type PartidaParaVideo } from '../src/index.js';
 
 const FONTES: [string, string, string][] = [
@@ -32,6 +39,31 @@ let resumo: RoteiroResumo | null = null;
 /** Quando preenchido, a página grava o Reels de apresentação da Liga. */
 let apresentacao: RoteiroApresentacao | null = null;
 let fps = 30;
+/** Quando preenchido, a página grava o Reels de anúncio (vínculo pela DM). */
+let anuncio: RoteiroAnuncio | null = null;
+const URL_DAS_TELAS: Record<TelaDoSite, string> = { busca: telaBusca, convite: telaConvite, codigo: telaCodigo, vinculado: telaVinculado, pedido: telaPedido, feito: telaFeito };
+const telas: Partial<Record<TelaDoSite, HTMLImageElement>> = {};
+const telasProntas = Promise.all(
+  (Object.entries(URL_DAS_TELAS) as [TelaDoSite, string][]).map(
+    ([nome, url]) =>
+      new Promise<void>((ok, erro) => {
+        const img = new Image();
+        img.onload = () => ok();
+        img.onerror = () => erro(new Error(`tela ${nome} não carregou`));
+        img.src = url;
+        telas[nome] = img;
+      }),
+  ),
+);
+
+async function prepararAnuncio(minimos: Record<number, { antes?: number }> = {}, quadrosPorSegundo = 30): Promise<{ duracao: number; totalQuadros: number }> {
+  await Promise.all([fontesProntas, escudoPronto, telasProntas]);
+  fps = quadrosPorSegundo;
+  resumo = null;
+  apresentacao = null;
+  anuncio = new RoteiroAnuncio(minimos);
+  return { duracao: anuncio.duracao, totalQuadros: anuncio.totalQuadros(fps) };
+}
 
 const escudo = new Image();
 const escudoPronto = new Promise<void>((ok, erro) => {
@@ -53,6 +85,7 @@ async function preparar(dados: PartidaParaVideo, quadrosPorSegundo = 30): Promis
   fps = quadrosPorSegundo;
   resumo = null;
   apresentacao = null;
+  anuncio = null;
   roteiro = new Roteiro(new Timeline(dados.resultado, dados.escalacoes), dados.roteiro);
   opcoes = {
     times: dados.resultado.times,
@@ -71,6 +104,7 @@ async function prepararResumo(
   await Promise.all([fontesProntas, escudoPronto]);
   fps = quadrosPorSegundo;
   apresentacao = null;
+  anuncio = null;
   resumo = new RoteiroResumo(dados, minimos);
   return { duracao: resumo.duracao, totalQuadros: resumo.totalQuadros(fps) };
 }
@@ -83,11 +117,13 @@ async function prepararApresentacao(
   await Promise.all([fontesProntas, escudoPronto]);
   fps = quadrosPorSegundo;
   resumo = null;
+  anuncio = null;
   apresentacao = new RoteiroApresentacao(dados, minimos);
   return { duracao: apresentacao.duracao, totalQuadros: apresentacao.totalQuadros(fps) };
 }
 
 function desenhar(n: number): void {
+  if (anuncio) return desenharQuadroAnuncio(ctx, anuncio, n / fps, { escudo, telas });
   if (apresentacao) return desenharQuadroApresentacao(ctx, apresentacao, n / fps, { escudo });
   if (resumo) return desenharQuadroResumo(ctx, resumo, n / fps, { escudo });
   if (!roteiro || !opcoes) throw new Error('chame varzea.preparar antes');
@@ -112,6 +148,7 @@ function capa(qualidade = 0.95): string {
 
 /** Segmentos do roteiro (para a prévia escolher quadros-chave). */
 function segmentos(): { tipo: string; inicio: number; fim: number; resolucao?: number }[] {
+  if (anuncio) return anuncio.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
   if (apresentacao) return apresentacao.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
   if (resumo) return resumo.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
   if (!roteiro) throw new Error('chame varzea.preparar antes');
@@ -129,5 +166,5 @@ function escudoPng(time: TimeId, escala: number): string {
   return c.toDataURL('image/png').slice('data:image/png;base64,'.length);
 }
 
-const api: VarzeaApi = { preparar, prepararResumo, prepararApresentacao, desenhar, capturar, capa, segmentos, escudoPng, times: () => [...TIMES] };
+const api: VarzeaApi = { preparar, prepararResumo, prepararApresentacao, prepararAnuncio, desenhar, capturar, capa, segmentos, escudoPng, times: () => [...TIMES] };
 window.varzea = api;
