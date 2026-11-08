@@ -57,7 +57,8 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
       // Comentário já visto. Só volta a ser lido se tinha sido ignorado e hoje vale como
       // Inscrição (o leitor passou a aceitar "Onça, atacante" sem ENTRO).
       const antes = (await b.query<{ tipo: string | null; resultado: string | null }>(`SELECT tipo, resultado FROM comando WHERE ig_comment_id = $1`, [c.igCommentId])).rows[0];
-      const releitura = antes?.tipo === 'IGNORADO' || antes?.resultado === 'SEM_POSICAO' || antes?.resultado === 'SEM_TIME';
+      // TIME_CHEIO também: quando outros Times recebem gente, abre vaga e a pessoa entra sozinha.
+      const releitura = antes?.tipo === 'IGNORADO' || ['SEM_POSICAO', 'SEM_TIME', 'TIME_CHEIO'].includes(antes?.resultado ?? '');
       if (!releitura || `@${c.username}`.toUpperCase() === CONTA_DA_LIGA) return 'REPETIDO';
       const jaInscrito = (await b.query(`SELECT 1 FROM jogador WHERE ig_user_id = $1`, [c.igUserId])).rows.length > 0;
       if (jaInscrito || (interpretar(c.texto).tipo !== 'INSCRICAO' && !(await juntarComOutroComentario(b, c)))) return 'REPETIDO';

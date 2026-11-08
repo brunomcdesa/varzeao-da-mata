@@ -94,6 +94,15 @@ describe('Inscrição', () => {
     expect(await processarComentario(banco, comentario('torcedor', 'que meia!', t(51)), semVotacao)).toBe('IGNORADO');
   });
 
+  it('time cheio: entra sozinho quando abre vaga', async () => {
+    for (let k = 0; k <= FOLGA_DE_ELENCO; k++) await processarComentario(banco, comentario(`o${k}`, 'entro onça ata'), semVotacao);
+    const atrasado = comentario('atrasado', 'entro onça meia');
+    expect(await processarComentario(banco, atrasado, semVotacao)).toBe('TIME_CHEIO');
+    // Os outros 7 Times recebem um inscrito cada: a Onça pode crescer de novo.
+    for (const t of ['tatu', 'capivara', 'arara', 'tucano', 'sagui', 'preguiça', 'tamanduá']) await processarComentario(banco, comentario(`x-${t}`, `entro ${t} ata`), semVotacao);
+    expect(await processarComentario(banco, atrasado, semVotacao)).toBe('INSCRITO');
+  });
+
   it('comentário da própria Liga nunca inscreve', async () => {
     expect(await processarComentario(banco, comentario('liga', 'Comente ENTRO (POSICAO) ARARA', { username: 'varzeao_da_mata' }), semVotacao)).toBe('IGNORADO');
     expect((await banco.query(`SELECT 1 FROM jogador WHERE ig_user_id = 'liga'`)).rows).toHaveLength(0);
