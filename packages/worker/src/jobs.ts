@@ -24,6 +24,7 @@ import { rodarPartida, type DadosDoVideo } from './partida.js';
 import { craqueDaRodada, dadosDoResumo, fecharRodada, HORA_DO_RESUMO, type DadosDoResumo } from './resumo.js';
 import { exportarSite } from './site.js';
 import { contextoDaVotacao, importarVotosDoSite, sincronizarVotacao } from './votoSite.js';
+import { processarPedidosDoSite } from './pedidosSite.js';
 
 export interface ContextoDoJob {
   banco: Banco;
@@ -88,6 +89,8 @@ export interface RelatorioColeta {
   resultados: Partial<Record<Resultado, number>>;
   /** Votos do site trazidos do KV nesta coleta. */
   votosDoSite: number;
+  /** Pedidos feitos pelo site (Transferência) aplicados nesta coleta. */
+  pedidosDoSite: number;
   publicados: number;
   arquivosDoSite: number;
 }
@@ -186,8 +189,9 @@ export async function jobColetar(c: ContextoDoJob): Promise<RelatorioColeta> {
     resultados[r] = (resultados[r] ?? 0) + 1;
   }
   const { importados } = await sincronizarVotacao(c.banco, c.agenda);
+  const pedidosDoSite = await processarPedidosDoSite(c.banco, c.agenda, agoraDe(c));
   const arquivosDoSite = await publicarSite(c);
-  const rel = { comentarios: comentarios.length, resultados, votosDoSite: importados, publicados, arquivosDoSite };
+  const rel = { comentarios: comentarios.length, resultados, votosDoSite: importados, pedidosDoSite, publicados, arquivosDoSite };
   logDe(c)(`coletar: ${JSON.stringify(rel)}`);
   return rel;
 }
@@ -306,6 +310,8 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
       for (const com of coments) await processarComentario(c.banco, com, votacao);
       // Últimos votos do site antes de a votação fechar (ela fecha quando este jogo é escalado).
       if (votacao.rodadaEmVotacao !== null) await importarVotosDoSite(c.banco, c.agenda, votacao.rodadaEmVotacao);
+      // Transferências pedidas pelo site até o Corte entram nesta Escalação.
+      await processarPedidosDoSite(c.banco, c.agenda, agoraDe(c));
     }
 
     const anterior = (await c.banco.query<{ id: number }>(`SELECT s.id FROM rodada s JOIN rodada r ON r.temporada_id = s.temporada_id AND s.numero = r.numero - 1 WHERE r.id = $1`, [p.rodada_id])).rows[0];
