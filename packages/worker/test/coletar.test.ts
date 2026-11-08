@@ -183,3 +183,65 @@ describe('Voto para Craque da Rodada', () => {
     expect((await craqueDaRodada(banco, rodada))?.username).toBe('bia.onca');
   });
 });
+
+describe('Transferência (ADR-0012)', () => {
+  const respostas: string[] = [];
+  const ctx = { rodadaEmVotacao: null, responder: async (_: string, t: string) => void respostas.push(t) };
+  let temporada: number;
+  beforeEach(async () => {
+    respostas.length = 0;
+    temporada = (await banco.query<{ id: number }>(`INSERT INTO temporada (numero, inicio, status) VALUES (1, '2026-11-06', 'EM_ANDAMENTO') RETURNING id`)).rows[0]!.id;
+    const r = (await banco.query<{ id: number }>(`INSERT INTO rodada (temporada_id, numero, fase, data) VALUES ($1, 1, 'LIGA', '2026-11-10') RETURNING id`, [temporada])).rows[0]!;
+    await banco.query(`INSERT INTO partida (rodada_id, mandante_id, visitante_id, apito_inicial) VALUES ($1, 'ONC', 'PRE', '2026-11-10T15:00:00Z')`, [r.id]);
+  });
+  const time = async (u: string) => (await banco.query<{ time_id: string; posicao: string; ovr: number }>('SELECT time_id, posicao, ovr FROM jogador WHERE ig_user_id = $1', [u])).rows[0]!;
+
+  it('troca de Time, leva as Habilidades e responde; a segunda na Temporada não vale', async () => {
+    await processarComentario(banco, comentario('u1', 'ENTRO ONCA MEIA'), ctx);
+    expect(await processarComentario(banco, comentario('u1', 'Posso ir pro time da preguiça pra equilibrar?'), ctx)).toBe('TRANSFERIDO');
+    expect(await time('u1')).toMatchObject({ time_id: 'PRE', posicao: 'MEI' });
+    expect(respostas.at(-1)).toMatch(/transferência feita! Agora você é meia da Preguiça/);
+    expect(await processarComentario(banco, comentario('u1', 'TRANSFERIR arara'), ctx)).toBe('TRANSFERENCIA_USADA');
+    expect((await time('u1')).time_id).toBe('PRE');
+  });
+
+  it('trocar só de posição recalcula o OVR pelas Habilidades e conta como a Transferência', async () => {
+    await processarComentario(banco, comentario('u1', 'ENTRO ONCA ATA'), ctx);
+    expect(await processarComentario(banco, comentario('u1', 'quero virar goleiro'), ctx)).toBe('TRANSFERIDO');
+    const j = await time('u1');
+    expect(j).toMatchObject({ time_id: 'ONC', posicao: 'GOL' });
+    expect(respostas.at(-1)).toMatch(/mudança de posição feita/);
+  });
+
+  it('não vai para um Time cheio (mesma folga da Inscrição)', async () => {
+    for (let i = 0; i < FOLGA_DE_ELENCO; i++) await processarComentario(banco, comentario(`a${i}`, 'ENTRO ARARA ATA'), { ...ctx, realocar: false });
+    await processarComentario(banco, comentario('u1', 'ENTRO ONCA MEIA'), ctx);
+    expect(await processarComentario(banco, comentario('u1', 'TRANSFERIR arara'), ctx)).toBe('DESTINO_CHEIO');
+    expect((await time('u1')).time_id).toBe('ONC');
+  });
+
+  it('fecha no fim da Fase de Liga', async () => {
+    await processarComentario(banco, comentario('u1', 'ENTRO ONCA MEIA'), ctx);
+    expect(await processarComentario(banco, comentario('u1', 'TRANSFERIR preguiça', { comentadoEm: new Date('2026-11-10T14:45:00Z') }), ctx)).toBe('TRANSFERENCIA_FECHADA');
+  });
+
+  it('"ENTRO" de quem já joga não troca de Time, só explica', async () => {
+    await processarComentario(banco, comentario('u1', 'ENTRO ONCA MEIA'), ctx);
+    expect(await processarComentario(banco, comentario('u1', 'ENTRO PREGUICA'), ctx)).toBe('JA_INSCRITO');
+    expect((await time('u1')).time_id).toBe('ONC');
+    expect(respostas.at(-1)).toMatch(/comente TRANSFERIR/);
+  });
+
+  it('quem ainda não joga e pede para ir pra um Time entra nele', async () => {
+    expect(await processarComentario(banco, comentario('u9', 'quero ir pra preguiça'), ctx)).toBe('INSCRITO');
+    expect((await time('u9')).time_id).toBe('PRE');
+  });
+
+  it('comentário já lido como ignorado vira Transferência na releitura, se é depois da Inscrição', async () => {
+    await processarComentario(banco, comentario('u1', 'ENTRO ONCA MEIA'), ctx);
+    const c = comentario('u1', 'Posso ir pro time da preguiça pra equilibrar?');
+    await banco.query(`INSERT INTO comando (ig_comment_id, ig_media_id, ig_user_id, username, texto, comentado_em, tipo, resultado) VALUES ($1, 'm', 'u1', 'user_u1', $2, $3, 'IGNORADO', 'IGNORADO')`, [c.igCommentId, c.texto, c.comentadoEm.toISOString()]);
+    expect(await processarComentario(banco, c, ctx)).toBe('TRANSFERIDO');
+    expect(await processarComentario(banco, c, ctx)).toBe('REPETIDO');
+  });
+});

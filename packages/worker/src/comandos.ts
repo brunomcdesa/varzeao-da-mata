@@ -7,6 +7,9 @@
  *   "ENTRO ARARA" / "eu sou da arara"           → Inscrição sem posição: entra na mais vazia do Time
  *   "CRAQUE 3" (ou "VOTO 3")                    → voto no Candidato número 3
  *   "3" sozinho                                 → o mesmo, mas só vale no post do Resumo
+ *   "TRANSFERIR PREGUIÇA [posição]"             → Transferência (ADR-0012); também "quero ir pra
+ *                                                 Preguiça", "posso ir pro time da Preguiça",
+ *                                                 "quero virar zagueiro" (só a posição)
  *   qualquer outra coisa                        → ignorado
  */
 import type { Posicao, TimeId } from '@liga/shared';
@@ -25,7 +28,12 @@ export type Comando =
   | { tipo: 'INSCRICAO'; time: TimeId; posicao?: Posicao }
   /** `solto`: só o número, sem CRAQUE; vale apenas no post da votação. */
   | { tipo: 'VOTO'; numero: number; solto?: true }
-  | { tipo: 'INVALIDO'; prefixo: 'ENTRO' | 'CRAQUE'; motivo: MotivoInvalido }
+  /**
+   * Transferência (ADR-0012). `times`: os Times citados (1, ou 2 quando cita o de origem
+   * também: "sair da Onça e ir pra Preguiça"); vazio = só troca de posição.
+   */
+  | { tipo: 'TRANSFERENCIA'; times: TimeId[]; posicao?: Posicao }
+  | { tipo: 'INVALIDO'; prefixo: 'ENTRO' | 'CRAQUE' | 'TRANSFERIR'; motivo: MotivoInvalido }
   | { tipo: 'IGNORADO' };
 
 /** Expressões (1 a 4 palavras) → valor, das mais longas para as mais curtas. */
@@ -59,7 +67,7 @@ export function interpretar(texto: string): Comando {
     return { tipo: 'VOTO', numero: Number(m[1]) };
   }
 
-  if (prefixo !== 'ENTRO') return semPrefixo(palavras);
+  if (prefixo !== 'ENTRO') return transferencia(palavras) ?? semPrefixo(palavras);
 
   const resto = palavras.slice(1);
   // Só a própria pessoa se inscreve: comentário marcando alguém não inscreve ninguém.
@@ -131,6 +139,32 @@ function semPrefixo(palavras: string[]): Comando {
   // Só o Time: precisa de um pedido explícito ("eu sou da arara", "quero entrar na onça"),
   // senão "Onça!" de torcedor viraria Inscrição.
   return outras.some((p) => PEDIDO_EXPLICITO.has(p)) ? { tipo: 'INSCRICAO', time: time! } : { tipo: 'IGNORADO' };
+}
+
+/** Verbos de quem quer mudar ("posso ir pro", "quero mudar pra", "quero virar zagueiro"). */
+const MUDANCA = new Set(['IR', 'MUDAR', 'MUDO', 'MUDA', 'TROCAR', 'TROCO', 'TROCA', 'VIRAR', 'SAIR', 'SAIO']);
+/** Palavras que podem acompanhar um pedido de Transferência curto. */
+const DA_TRANSFERENCIA = new Set(['EQUILIBRAR', 'EQUILIBRIO', 'AJUDAR', 'OUTRO', 'POSSO', 'PODE', 'QUERIA', 'GOSTARIA', 'ME', 'DEIXA', 'TEM', 'COMO', 'AGORA', 'E', 'VIR', 'IR', 'PASSAR']);
+
+/**
+ * Transferência (ADR-0012): com a palavra TRANSFERIR (ou transferência, transfere...) vale
+ * em qualquer frase; sem ela, só pedido curto com um verbo de mudança e nada além de
+ * palavras de ligação ("posso ir pro time da preguiça pra equilibrar?").
+ */
+function transferencia(palavras: string[]): Comando | null {
+  const explicita = palavras.some((p) => p.startsWith('TRANSFER') || p === 'TRANSFIRO');
+  if (palavras.some((p) => p.startsWith('@'))) return null;
+  const { times, posicoes, outras } = analisar(palavras.filter((p) => !(p.startsWith('TRANSFER') || p === 'TRANSFIRO')));
+  if (!explicita) {
+    if (palavras.length > 12 || !palavras.some((p) => MUDANCA.has(p))) return null;
+    if (times.size + posicoes.size === 0) return null;
+    if (!outras.every((p) => PALAVRAS_DE_LIGACAO.has(p) || PEDIDO.has(p) || MUDANCA.has(p) || DA_TRANSFERENCIA.has(p))) return null;
+  }
+  if (times.size > 2) return { tipo: 'INVALIDO', prefixo: 'TRANSFERIR', motivo: 'TIMES_DEMAIS' };
+  if (posicoes.size > 1) return { tipo: 'INVALIDO', prefixo: 'TRANSFERIR', motivo: 'POSICOES_DEMAIS' };
+  if (times.size + posicoes.size === 0) return { tipo: 'INVALIDO', prefixo: 'TRANSFERIR', motivo: 'SEM_TIME' };
+  const [posicao] = posicoes;
+  return posicao ? { tipo: 'TRANSFERENCIA', times: [...times], posicao } : { tipo: 'TRANSFERENCIA', times: [...times] };
 }
 
 /** A expressão mais longa que começa na palavra `i`, se houver. Ignora palavras de ligação soltas. */

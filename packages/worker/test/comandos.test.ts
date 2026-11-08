@@ -91,3 +91,22 @@ describe('Comentários sem Comando', () => {
     });
   });
 });
+
+describe('Transferência (ADR-0012)', () => {
+  it.each([
+    ['TRANSFERIR Preguiça', { tipo: 'TRANSFERENCIA', times: ['PRE'] }],
+    ['transferir pra preguiça de zagueiro', { tipo: 'TRANSFERENCIA', times: ['PRE'], posicao: 'ZAG' }],
+    ['Posso ir pro time da preguiça pra equilibrar?', { tipo: 'TRANSFERENCIA', times: ['PRE'] }],
+    ['quero ir pra arara', { tipo: 'TRANSFERENCIA', times: ['ARA'] }],
+    ['me transfere pra capivara', { tipo: 'TRANSFERENCIA', times: ['CAP'] }],
+    ['quero virar zagueiro', { tipo: 'TRANSFERENCIA', times: [], posicao: 'ZAG' }],
+    ['quero sair da onça e ir pra preguiça', { tipo: 'TRANSFERENCIA', times: ['ONC', 'PRE'] }],
+    ['Oi, tem transferência? Por enquanto não quero mudar mas uma hora acho q vou querer', { tipo: 'INVALIDO', prefixo: 'TRANSFERIR', motivo: 'SEM_TIME' }],
+  ])('%s', (texto, esperado) => {
+    expect(interpretar(texto)).toEqual(esperado);
+  });
+
+  it.each(['Vamos onça🔥', 'a onça vai ir pra final', 'o atacante da onça vai trocar de chuteira', 'vou pra cima onça'])('não é Transferência: %s', (texto) => {
+    expect(interpretar(texto).tipo).not.toBe('TRANSFERENCIA');
+  });
+});

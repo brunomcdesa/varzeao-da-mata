@@ -3,12 +3,15 @@
  * Cada comentário é gravado em `comando` uma única vez; reprocessar o mesmo comentário
  * não muda nada (idempotência pelo ig_comment_id).
  */
-import type { Posicao, TimeId } from '@liga/shared';
-import { TIMES, doTime } from '@liga/shared';
+import type { Habilidades, Posicao, TimeId } from '@liga/shared';
+import { TIMES, doTime, ovrDasHabilidades } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { CONTA_DA_LIGA, citacoes, interpretar, type Comando } from './comandos.js';
-import { FOLGA_DE_ELENCO, FORMACAO, REALOCAR_QUANDO_CHEIO, sortearHabilidadesIniciais } from './regras.js';
+import { FOLGA_DE_ELENCO, FORMACAO, REALOCAR_QUANDO_CHEIO, habilidadesDe, sortearHabilidadesIniciais } from './regras.js';
 import { normalizar } from './vocabulario.js';
+import { CORTE_MINUTOS } from './escalacao.js';
+
+const CORTE_MS = CORTE_MINUTOS * 60_000;
 
 /** Um comentário como vem da Graph API (/{media-id}/comments: id, text, from, timestamp). */
 export interface Comentario {
@@ -39,7 +42,13 @@ export type Resultado =
   | 'TIMES_DEMAIS'
   | 'POSICOES_DEMAIS'
   | 'MARCOU_TERCEIRO'
-  | 'SEM_CANDIDATO';
+  | 'SEM_CANDIDATO'
+  /** Transferência (ADR-0012). */
+  | 'TRANSFERIDO'
+  | 'TRANSFERENCIA_USADA'
+  | 'TRANSFERENCIA_FECHADA'
+  | 'DESTINO_CHEIO'
+  | 'MESMO_LUGAR';
 
 export interface Contexto {
   /** Rodada cujos Candidatos a Craque estão em votação agora, ou null se não há votação aberta. */
@@ -66,8 +75,13 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
       // TIME_CHEIO também: quando outros Times recebem gente, abre vaga e a pessoa entra sozinha.
       const releitura = antes?.tipo === 'IGNORADO' || ['SEM_POSICAO', 'SEM_TIME', 'TIME_CHEIO'].includes(antes?.resultado ?? '');
       if (!releitura || `@${c.username}`.toUpperCase() === CONTA_DA_LIGA) return 'REPETIDO';
-      const jaInscrito = (await b.query(`SELECT 1 FROM jogador WHERE ig_user_id = $1`, [c.igUserId])).rows.length > 0;
-      if (jaInscrito || (interpretar(c.texto).tipo !== 'INSCRICAO' && !(await juntarComOutroComentario(b, c)))) return 'REPETIDO';
+      const inscrito = (await b.query<{ inscrito_em: Date | string }>(`SELECT inscrito_em FROM jogador WHERE ig_user_id = $1`, [c.igUserId])).rows[0];
+      const agoraLe = interpretar(c.texto).tipo;
+      // Inscrito: só volta a ler pedido de Transferência feito depois de entrar (o leitor
+      // passou a entender "posso ir pro time da preguiça?").
+      if (inscrito) {
+        if (antes?.tipo !== 'IGNORADO' || agoraLe !== 'TRANSFERENCIA' || c.comentadoEm.getTime() < new Date(inscrito.inscrito_em).getTime()) return 'REPETIDO';
+      } else if (agoraLe !== 'INSCRICAO' && agoraLe !== 'TRANSFERENCIA' && !(await juntarComOutroComentario(b, c))) return 'REPETIDO';
     }
 
     // O @ pode mudar; o Jogador é da conta (ig_user_id), então o username só é atualizado.
@@ -90,9 +104,22 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
     let resultado: Resultado;
     if (comando.tipo === 'IGNORADO' || (comando.tipo === 'VOTO' && comando.solto && (!ctx.postDaVotacao || c.igMediaId !== ctx.postDaVotacao))) resultado = 'IGNORADO';
     else if (jogador?.banido) resultado = 'BANIDO';
-    else if (comando.tipo === 'INVALIDO') resultado = comando.motivo;
-    else if (comando.tipo === 'INSCRICAO') resultado = jogador ? 'JA_INSCRITO' : await inscrever(b, c, comando.time, comando.posicao, ctx);
-    else resultado = await votar(b, c, comando.numero, ctx);
+    else if (comando.tipo === 'INVALIDO') {
+      resultado = comando.motivo;
+      // "Tem transferência?": explica como pedir (só na primeira leitura, para não repetir).
+      if (comando.prefixo === 'TRANSFERIR' && novo.rows.length) {
+        await ctx.responder?.(c.igCommentId, `@${c.username} tem sim! Comente TRANSFERIR e o time (e a posição, se quiser), por exemplo: TRANSFERIR Preguiça zagueiro. Vale uma vez por temporada, na Fase de Liga, para um time que não fique desequilibrado. ⚽`);
+      }
+    }
+    else if (comando.tipo === 'INSCRICAO') resultado = jogador ? await jaInscrito(b, c, comando, ctx) : await inscrever(b, c, comando.time, comando.posicao, ctx);
+    else if (comando.tipo === 'TRANSFERENCIA') {
+      // Quem ainda não joga e pede para "ir pra Preguiça" quer entrar: vira Inscrição.
+      if (jogador) resultado = await transferir(b, c, jogador.id, comando, ctx);
+      else if (comando.times.length === 1) {
+        resultado = await inscrever(b, c, comando.times[0]!, comando.posicao, ctx);
+        comando = { tipo: 'INSCRICAO', time: comando.times[0]!, ...(comando.posicao ? { posicao: comando.posicao } : {}) };
+      } else resultado = 'IGNORADO';
+    } else resultado = await votar(b, c, comando.numero, ctx);
 
     const tipo = resultado === 'IGNORADO' || comando.tipo === 'IGNORADO' ? 'IGNORADO' : comando.tipo === 'INVALIDO' ? 'INVALIDO' : comando.tipo;
     await b.query(`UPDATE comando SET tipo = $2, resultado = $3 WHERE ig_comment_id = $1`, [c.igCommentId, tipo, resultado]);
@@ -182,6 +209,90 @@ async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posica
       : `@${c.username} o time ${doTime(pedido)} encheu, então você entrou no time ${doTime(time)} para equilibrar a Liga. Agora é ${vaga}. Bem-vindo ao Varzeão! ⚽`,
   );
   return time === pedido ? 'INSCRITO' : 'REALOCADO';
+}
+
+/** "ENTRO Preguiça" de quem já joga: não troca de Time, mas a Liga explica como pedir. */
+async function jaInscrito(b: Banco, c: Comentario, pedido: { time: TimeId; posicao?: Posicao }, ctx: Contexto): Promise<Resultado> {
+  const j = (await b.query<{ time_id: TimeId; posicao: Posicao }>(`SELECT time_id, posicao FROM jogador WHERE ig_user_id = $1`, [c.igUserId])).rows[0]!;
+  if (pedido.time !== j.time_id || (pedido.posicao && pedido.posicao !== j.posicao)) {
+    await ctx.responder?.(
+      c.igCommentId,
+      `@${c.username} você já joga no Varzeão: é ${NOME_DA_POSICAO_FALADO[j.posicao]} ${doTime(j.time_id)}. Para mudar, comente TRANSFERIR e o time (e a posição, se quiser). Dá para transferir uma vez por temporada. ⚽`,
+    );
+  }
+  return 'JA_INSCRITO';
+}
+
+/**
+ * Transferência (ADR-0012): uma por Temporada, só na Fase de Liga, para um Time que não
+ * fique desequilibrado (mesma regra da Inscrição). Vale para as Escalações a partir do
+ * próximo Corte (as já feitas ficam como estão). O Jogador leva as Habilidades; o OVR é o
+ * delas na posição nova.
+ */
+async function transferir(b: Banco, c: Comentario, jogadorId: string, pedido: { times: TimeId[]; posicao?: Posicao }, ctx: Contexto): Promise<Resultado> {
+  const j = (await b.query<{ time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null }>(`SELECT time_id, posicao, ovr, habilidades FROM jogador WHERE id = $1`, [jogadorId])).rows[0]!;
+  const responder = (texto: string) => ctx.responder?.(c.igCommentId, `@${c.username} ${texto}`);
+  // Citou dois Times ("sair da Onça e ir pra Preguiça"): o destino é o que não é o dele.
+  const destino = pedido.times.find((t) => t !== j.time_id) ?? pedido.times[0] ?? j.time_id;
+  const posicao = pedido.posicao ?? j.posicao;
+  if (destino === j.time_id && posicao === j.posicao) {
+    await responder(`você já é ${NOME_DA_POSICAO_FALADO[j.posicao]} ${doTime(j.time_id)}. 😄`);
+    return 'MESMO_LUGAR';
+  }
+
+  const temporada = await temporadaDaTransferencia(b, c.comentadoEm);
+  if (!temporada) {
+    await responder('as transferências estão fechadas: só valem na Fase de Liga. Elas reabrem na próxima temporada. ⚽');
+    return 'TRANSFERENCIA_FECHADA';
+  }
+  const usada = (await b.query<{ para_time: TimeId }>(`SELECT para_time FROM transferencia WHERE jogador_id = $1 AND temporada_id = $2`, [jogadorId, temporada])).rows[0];
+  if (usada) {
+    await responder(`você já usou a transferência desta temporada. Dá para transferir de novo na próxima. ⚽`);
+    return 'TRANSFERENCIA_USADA';
+  }
+
+  if (destino !== j.time_id) {
+    // Equilíbrio: conta os Elencos sem ele (ele sai da origem) e aplica a regra da Inscrição.
+    const contagem = new Map<string, number>(TIMES.map((t) => [t, 0]));
+    for (const r of (await b.query<{ time_id: string; n: string }>(`SELECT time_id, count(*) AS n FROM jogador WHERE NOT banido AND id <> $1 GROUP BY time_id`, [jogadorId])).rows) {
+      contagem.set(r.time_id, Number(r.n));
+    }
+    const menor = Math.min(...contagem.values());
+    if (contagem.get(destino)! >= menor + FOLGA_DE_ELENCO) {
+      const vazios = TIMES.filter((t) => contagem.get(t) === menor && t !== j.time_id).map((t) => doTime(t).replace(/^d[oa] /, ''));
+      await responder(`o time ${doTime(destino)} está cheio agora, então a transferência não deu. Times com vaga: ${vazios.join(', ')}. ⚽`);
+      return 'DESTINO_CHEIO';
+    }
+  }
+
+  const habilidades = habilidadesDe(j.posicao, j.ovr, j.habilidades);
+  const ovr = ovrDasHabilidades(posicao, habilidades);
+  await b.query(`UPDATE jogador SET time_id = $2, posicao = $3, ovr = $4, habilidades = $5 WHERE id = $1`, [jogadorId, destino, posicao, ovr, JSON.stringify(habilidades)]);
+  await b.query(
+    `INSERT INTO transferencia (jogador_id, temporada_id, de_time, para_time, de_posicao, para_posicao, ig_comment_id, feita_em) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [jogadorId, temporada, j.time_id, destino, j.posicao, posicao, c.igCommentId, c.comentadoEm.toISOString()],
+  );
+  const vaga = `${NOME_DA_POSICAO_FALADO[posicao]} ${doTime(destino)}, OVR ${ovr}`;
+  await responder(
+    `${destino === j.time_id ? 'mudança de posição feita' : 'transferência feita'}! Agora você é ${vaga}. Vale a partir do próximo jogo escalado. Esta foi a sua transferência da temporada. ⚽`,
+  );
+  return 'TRANSFERIDO';
+}
+
+/**
+ * Temporada em que a Transferência conta, ou null se estão fechadas: só antes do último
+ * jogo da Fase de Liga (a partir dele, as Escalações que faltam são do Mata-mata).
+ */
+async function temporadaDaTransferencia(b: Banco, agora: Date): Promise<number | null> {
+  const t = (
+    await b.query<{ id: number; ultimo_da_liga: Date | string | null }>(
+      `SELECT t.id, (SELECT max(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id AND r.fase = 'LIGA') AS ultimo_da_liga
+         FROM temporada t WHERE t.status IN ('PRE_TEMPORADA', 'EM_ANDAMENTO') ORDER BY t.status = 'EM_ANDAMENTO' DESC, t.id LIMIT 1`,
+    )
+  ).rows[0];
+  if (!t) return null;
+  if (t.ultimo_da_liga && agora.getTime() >= new Date(t.ultimo_da_liga).getTime() - CORTE_MS) return null;
+  return t.id;
 }
 
 async function votar(b: Banco, c: Comentario, numero: number, ctx: Contexto): Promise<Resultado> {

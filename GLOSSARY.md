@@ -43,8 +43,12 @@ A ficha visual de um Jogador, com @, Posição, Time e OVR atual.
 _Avoid_: carta, ficha, figurinha
 
 **Inscrição**:
-Comentário feito pela própria pessoa num Reels da Liga que a transforma em Jogador, escolhendo Time e Posição. Só a própria pessoa pode se inscrever; marcar terceiros não inscreve ninguém. Cada @ tem um único Jogador e não troca de Time durante a Temporada.
+Comentário feito pela própria pessoa num Reels da Liga que a transforma em Jogador, escolhendo Time e Posição. Só a própria pessoa pode se inscrever; marcar terceiros não inscreve ninguém. Cada @ tem um único Jogador; para trocar de Time durante a Temporada, só com a Transferência.
 _Avoid_: cadastro, entrada, marcação
+
+**Transferência**:
+Troca de Time, de Posição ou dos dois que o Jogador pede comentando (por exemplo, "TRANSFERIR Preguiça"). Vale uma por Temporada, só na Fase de Liga, e só para um Time que não fique desequilibrado. O Jogador leva as Habilidades, e a mudança vale a partir do próximo Corte. ADR-0012.
+_Avoid_: troca, mudança de time, empréstimo
 
 **Novos Contratados**:
 Os Jogadores que fizeram Inscrição desde a Rodada anterior, apresentados no Resumo da Rodada como confirmação de que entraram na Liga.
