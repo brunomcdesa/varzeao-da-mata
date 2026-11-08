@@ -85,13 +85,28 @@ export function textoNaFaixa(pin: Pincel, txt: string, y: number, tamanho: numbe
   });
 }
 
-function desenharAbertura(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number, o: OpcoesVideo): void {
+/**
+ * Capa do Reels (cover_url): a abertura completa, parada, "Time A x Time B" com os
+ * escudos, descida para o centro da tela para caber no recorte 3:4 da grade do perfil.
+ */
+export function desenharCapa(ctx: CanvasRenderingContext2D, r: ResultadoPartida, o: OpcoesVideo): void {
+  const pin = new Pincel(ctx);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(cenario(), 0, 0, COLUNAS * pin.px, LINHAS * pin.px);
+  veu(pin, 0.84);
+  ctx.save();
+  ctx.translate(0, 50 * pin.px);
+  desenharAbertura(pin, r, 0.6, 0, o, false);
+  ctx.restore();
+}
+
+function desenharAbertura(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number, o: OpcoesVideo, comVeu = true): void {
   const display = o.fonteDisplay ?? FONTE_DISPLAY;
   const texto = o.fonteTexto ?? FONTE_TEXTO;
   const alpha = 1 - entre(p, 0.78, 1);
   pin.ctx.save();
   pin.ctx.globalAlpha = alpha;
-  veu(pin, 0.84);
+  if (comVeu) veu(pin, 0.84);
 
   if (o.escudo) {
     const t = 92;

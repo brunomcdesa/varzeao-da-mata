@@ -261,7 +261,7 @@ async function guardarPartidaPrivada(c: ContextoDoJob, partidaId: number, apito:
 }
 
 /** Cria (ou reaproveita) o container e grava na agenda. Devolve o item agendado. */
-async function agendar(c: ContextoDoJob, o: { tipo: ItemDaAgenda['tipo']; ref: number; videoUrl: string; legenda: string; containerAtual: string | null; publicarEm: Date; salvarContainer: (id: string) => Promise<void> }): Promise<ItemDaAgenda | null> {
+async function agendar(c: ContextoDoJob, o: { tipo: ItemDaAgenda['tipo']; ref: number; videoUrl: string; capaUrl?: string; legenda: string; containerAtual: string | null; publicarEm: Date; salvarContainer: (id: string) => Promise<void> }): Promise<ItemDaAgenda | null> {
   if (!c.ig) {
     logDe(c)(`${o.tipo} ${o.ref}: sem Instagram configurado, não agendou.`);
     return null;
@@ -272,7 +272,7 @@ async function agendar(c: ContextoDoJob, o: { tipo: ItemDaAgenda['tipo']; ref: n
     if (status === 'ERROR' || status === 'EXPIRED') container = null;
   }
   if (!container) {
-    container = await c.ig.criarReels({ videoUrl: o.videoUrl, legenda: o.legenda });
+    container = await c.ig.criarReels({ videoUrl: o.videoUrl, legenda: o.legenda, ...(o.capaUrl ? { capaUrl: o.capaUrl } : {}) });
     await o.salvarContainer(container);
   }
   await c.ig.esperarContainer(container);
@@ -324,12 +324,19 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
         ...(c.gravarReels && !videoUrl ? { gravar: { gravador: c.gravarReels, saida } } : {}),
       });
       await guardarPartidaPrivada(c, p.id, apito);
+      let capaUrl: string | undefined;
       if (!videoUrl && r.video) {
         const local = r.video.replace('file://', '');
-        const chave = `videos/${randomUUID()}.mp4`;
-        await c.armazenamento.enviar('publico', chave, new Uint8Array(await readFile(local)), { tipo: 'video/mp4', cache: 'public, max-age=31536000, immutable' });
-        videoUrl = c.armazenamento.urlPublica(chave);
+        const nome = `videos/${randomUUID()}`;
+        await c.armazenamento.enviar('publico', `${nome}.mp4`, new Uint8Array(await readFile(local)), { tipo: 'video/mp4', cache: 'public, max-age=31536000, immutable' });
+        videoUrl = c.armazenamento.urlPublica(`${nome}.mp4`);
         await c.banco.query(`UPDATE partida SET video_url = $2 WHERE id = $1`, [p.id, videoUrl]);
+        // Capa do Reels ("Time A x Time B" com os escudos), gravada junto com o vídeo.
+        const capa = local.replace(/\.mp4$/, '-capa.jpg');
+        if (await existe(capa)) {
+          await c.armazenamento.enviar('publico', `${nome}-capa.jpg`, new Uint8Array(await readFile(capa)), { tipo: 'image/jpeg', cache: 'public, max-age=31536000, immutable' });
+          capaUrl = c.armazenamento.urlPublica(`${nome}-capa.jpg`);
+        }
       }
       // Narração do Ao Vivo: falha aqui não atrapalha o Reels (o Ao Vivo segue mudo).
       if (c.gravarAoVivo) {
@@ -357,6 +364,7 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
         tipo: 'PARTIDA',
         ref: p.id,
         videoUrl,
+        ...(capaUrl ? { capaUrl } : {}),
         legenda: legendaDaPartida(r.dados, p.rodada),
         containerAtual: p.ig_container_id,
         publicarEm,

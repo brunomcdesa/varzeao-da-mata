@@ -13,7 +13,7 @@ import { ALTURA_ESCUDO, LARGURA_ESCUDO, escudo as escudoDoTime } from '../src/es
 import type { VarzeaApi } from './api.js';
 import { RoteiroResumo, desenharQuadroResumo, type DadosDoResumo } from '../src/resumo.js';
 import { RoteiroApresentacao, desenharQuadroApresentacao, type DadosDaApresentacao } from '../src/apresentacao.js';
-import { Roteiro, Timeline, desenharQuadroVideo, type OpcoesVideo, type PartidaParaVideo } from '../src/index.js';
+import { Roteiro, Timeline, desenharCapa, desenharQuadroVideo, type OpcoesVideo, type PartidaParaVideo } from '../src/index.js';
 
 const FONTES: [string, string, string][] = [
   ['Jersey 10', '400', jersey400],
@@ -104,6 +104,12 @@ function capturar(inicio: number, quantos: number, qualidade = 0.92): string[] {
   return saida;
 }
 
+function capa(qualidade = 0.95): string {
+  if (!roteiro || !opcoes) throw new Error('chame varzea.preparar antes');
+  desenharCapa(ctx, roteiro.timeline.resultado, opcoes);
+  return canvas.toDataURL('image/jpeg', qualidade).slice('data:image/jpeg;base64,'.length);
+}
+
 /** Segmentos do roteiro (para a prévia escolher quadros-chave). */
 function segmentos(): { tipo: string; inicio: number; fim: number; resolucao?: number }[] {
   if (apresentacao) return apresentacao.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
@@ -123,5 +129,5 @@ function escudoPng(time: TimeId, escala: number): string {
   return c.toDataURL('image/png').slice('data:image/png;base64,'.length);
 }
 
-const api: VarzeaApi = { preparar, prepararResumo, prepararApresentacao, desenhar, capturar, segmentos, escudoPng, times: () => [...TIMES] };
+const api: VarzeaApi = { preparar, prepararResumo, prepararApresentacao, desenhar, capturar, capa, segmentos, escudoPng, times: () => [...TIMES] };
 window.varzea = api;

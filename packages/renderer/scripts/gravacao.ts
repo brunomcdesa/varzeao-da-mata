@@ -295,6 +295,10 @@ export async function gravarReels(partidaOriginal: PartidaParaVideo, o: OpcoesGr
       partida.roteiro = montado.roteiro;
     }
     const { duracao, totalQuadros } = await pagina.evaluate(([d, f]) => window.varzea.preparar(d, f), [partida, fps] as const);
+    // Capa do Reels ao lado do vídeo: reels.mp4 → reels-capa.jpg (o job sobe as duas).
+    const capa = Buffer.from(await pagina.evaluate(() => window.varzea.capa()), 'base64');
+    if (o.previa) await mkdir(o.previa, { recursive: true }).then(() => writeFile(join(o.previa!, 'capa.jpg'), capa));
+    else await writeFile(o.saida.replace(/\.mp4$/, '-capa.jpg'), capa);
 
     const r = partida.resultado;
     console.log(

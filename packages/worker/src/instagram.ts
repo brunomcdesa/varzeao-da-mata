@@ -197,8 +197,9 @@ export class Instagram {
   }
 
   /** Cria o container do Reels. O `videoUrl` precisa ser público (R2). */
-  async criarReels(o: { videoUrl: string; legenda: string; capaEmMs?: number }): Promise<string> {
+  async criarReels(o: { videoUrl: string; legenda: string; capaEmMs?: number; capaUrl?: string }): Promise<string> {
     const params: Record<string, string> = { media_type: 'REELS', video_url: o.videoUrl, caption: o.legenda, share_to_feed: 'true' };
+    if (o.capaUrl) params.cover_url = o.capaUrl;
     if (o.capaEmMs !== undefined) params.thumb_offset = String(Math.round(o.capaEmMs));
     const r = await this.chamar<{ id: string }>('POST', `${this.o.userId}/media`, params);
     return r.id;

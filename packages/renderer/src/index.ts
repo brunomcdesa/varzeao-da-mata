@@ -1,7 +1,7 @@
 export { Timeline, DURACAO_JOGO, VELOCIDADE_AO_VIVO, type EstadoQuadro, type Destaque, type Ponto } from './timeline.js';
 export { desenharQuadro, type OpcoesDesenho } from './desenho.js';
 export { Roteiro, type OpcoesRoteiro, type QuadroRoteiro, type Segmento, type TipoSegmento } from './roteiro.js';
-export { desenharQuadroVideo, type OpcoesVideo, type PartidaParaVideo } from './video.js';
+export { desenharCapa, desenharQuadroVideo, type OpcoesVideo, type PartidaParaVideo } from './video.js';
 export { RoteiroResumo, desenharQuadroResumo, narracaoDoResumo, type DadosDoResumo, type Cartela } from './resumo.js';
 export { DADOS_PADRAO as DADOS_DA_APRESENTACAO, RoteiroApresentacao, desenharQuadroApresentacao, narracaoDaApresentacao, type DadosDaApresentacao } from './apresentacao.js';
 export { visualDoJogador, FONTE_DISPLAY, FONTE_TEXTO } from './desenho.js';

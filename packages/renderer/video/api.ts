@@ -14,6 +14,8 @@ export interface VarzeaApi {
   desenhar(n: number): void;
   /** Desenha `quantos` quadros a partir de `inicio` e devolve cada um como JPEG em base64. */
   capturar(inicio: number, quantos: number, qualidade?: number): string[];
+  /** Capa do Reels da Partida preparada, em JPEG base64. */
+  capa(qualidade?: number): string;
   segmentos(): { tipo: string; inicio: number; fim: number; resolucao?: number }[];
   escudoPng(time: TimeId, escala: number): string;
   times(): TimeId[];
