@@ -4,10 +4,10 @@
  * não muda nada (idempotência pelo ig_comment_id).
  */
 import type { Posicao, TimeId } from '@liga/shared';
-import { TIMES } from '@liga/shared';
+import { TIMES, doTime } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { CONTA_DA_LIGA, citacoes, interpretar, type Comando } from './comandos.js';
-import { FOLGA_DE_ELENCO, FORMACAO, sortearHabilidadesIniciais } from './regras.js';
+import { FOLGA_DE_ELENCO, FORMACAO, REALOCAR_QUANDO_CHEIO, sortearHabilidadesIniciais } from './regras.js';
 import { normalizar } from './vocabulario.js';
 
 /** Um comentário como vem da Graph API (/{media-id}/comments: id, text, from, timestamp). */
@@ -27,6 +27,8 @@ export type Resultado =
   | 'INSCRITO'
   | 'JA_INSCRITO'
   | 'TIME_CHEIO'
+  /** O Time pedido estava cheio: entrou no mais vazio, na mesma posição. */
+  | 'REALOCADO'
   | 'NOME_BLOQUEADO'
   | 'VOTO_REGISTRADO'
   | 'VOTO_ANTIGO'
@@ -44,6 +46,10 @@ export interface Contexto {
   rodadaEmVotacao: number | null;
   /** Post do Resumo dessa votação: só nele vale o voto com o número sozinho ("3"). */
   postDaVotacao?: string | null;
+  /** Responde um comentário no Instagram (ex.: avisar quem foi realocado). Erros não param a coleta. */
+  responder?: (igCommentId: string, texto: string) => Promise<void>;
+  /** Sobrescreve REALOCAR_QUANDO_CHEIO (testes). */
+  realocar?: boolean;
 }
 
 export async function processarComentario(banco: Banco, c: Comentario, ctx: Contexto): Promise<Resultado> {
@@ -85,7 +91,7 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
     if (comando.tipo === 'IGNORADO' || (comando.tipo === 'VOTO' && comando.solto && (!ctx.postDaVotacao || c.igMediaId !== ctx.postDaVotacao))) resultado = 'IGNORADO';
     else if (jogador?.banido) resultado = 'BANIDO';
     else if (comando.tipo === 'INVALIDO') resultado = comando.motivo;
-    else if (comando.tipo === 'INSCRICAO') resultado = jogador ? 'JA_INSCRITO' : await inscrever(b, c, comando.time, comando.posicao);
+    else if (comando.tipo === 'INSCRICAO') resultado = jogador ? 'JA_INSCRITO' : await inscrever(b, c, comando.time, comando.posicao, ctx);
     else resultado = await votar(b, c, comando.numero, ctx);
 
     const tipo = resultado === 'IGNORADO' || comando.tipo === 'IGNORADO' ? 'IGNORADO' : comando.tipo === 'INVALIDO' ? 'INVALIDO' : comando.tipo;
@@ -121,6 +127,14 @@ async function juntarComOutroComentario(b: Banco, c: Comentario): Promise<Comand
   return null;
 }
 
+const NOME_DA_POSICAO_FALADO: Record<Posicao, string> = { GOL: 'goleiro', ZAG: 'zagueiro', MEI: 'meia', ATA: 'atacante' };
+
+function hashSimples(texto: string): number {
+  let h = 0;
+  for (let i = 0; i < texto.length; i++) h = (Math.imul(h, 31) + texto.charCodeAt(i)) >>> 0;
+  return h;
+}
+
 /**
  * A posição que o Time mais precisa: a de menos inscritos por vaga na escalação; no empate,
  * a mais divertida de jogar (atacante, meia, zagueiro, goleiro).
@@ -135,8 +149,7 @@ export async function posicaoMaisVazia(b: Banco, time: TimeId): Promise<Posicao>
   return ordem.reduce((melhor, p) => ((contagem.get(p) ?? 0) / vagas(p) < (contagem.get(melhor) ?? 0) / vagas(melhor) ? p : melhor));
 }
 
-async function inscrever(b: Banco, c: Comentario, time: TimeId, pedida: Posicao | undefined): Promise<Resultado> {
-  const posicao = pedida ?? (await posicaoMaisVazia(b, time));
+async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posicao | undefined, ctx: Contexto): Promise<Resultado> {
   if (await usernameBloqueado(b, c.username)) return 'NOME_BLOQUEADO';
 
   // Limite de equilíbrio: nenhum Elenco pode passar o menor por mais que FOLGA_DE_ELENCO.
@@ -145,14 +158,27 @@ async function inscrever(b: Banco, c: Comentario, time: TimeId, pedida: Posicao 
     contagem.set(r.time_id, Number(r.n));
   }
   const menor = Math.min(...contagem.values());
-  if (contagem.get(time)! >= menor + FOLGA_DE_ELENCO) return 'TIME_CHEIO';
+  // Time cheio: entra no mais vazio (empate decidido pelo id do comentário, para espalhar),
+  // na posição pedida, e recebe uma resposta explicando.
+  let time = pedido;
+  if (contagem.get(pedido)! >= menor + FOLGA_DE_ELENCO) {
+    if (!(ctx.realocar ?? REALOCAR_QUANDO_CHEIO)) return 'TIME_CHEIO';
+    const vazios = TIMES.filter((t) => contagem.get(t) === menor);
+    time = vazios[hashSimples(c.igCommentId) % vazios.length]!;
+  }
+  const posicao = pedida ?? (await posicaoMaisVazia(b, time));
 
   const { ovr, habilidades } = sortearHabilidadesIniciais(c.igCommentId, posicao as Posicao);
   await b.query(
     `INSERT INTO jogador (ig_user_id, username, time_id, posicao, ovr, habilidades, inscrito_em) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
     [c.igUserId, c.username, time, posicao, ovr, JSON.stringify(habilidades), c.comentadoEm.toISOString()],
   );
-  return 'INSCRITO';
+  if (time === pedido) return 'INSCRITO';
+  await ctx.responder?.(
+    c.igCommentId,
+    `@${c.username} o time ${doTime(pedido)} encheu, então você entrou no time ${doTime(time)} como ${NOME_DA_POSICAO_FALADO[posicao]}, pra equilibrar a Liga. Bem-vindo ao Varzeão! ⚽`,
+  );
+  return 'REALOCADO';
 }
 
 async function votar(b: Banco, c: Comentario, numero: number, ctx: Contexto): Promise<Resultado> {

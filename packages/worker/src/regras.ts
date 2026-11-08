@@ -16,6 +16,11 @@ export const OVR_BASE = OVR_JOGADOR_DA_BASE;
  * tiver esta quantidade de Jogadores a mais que o menor Elenco da Liga.
  */
 export const FOLGA_DE_ELENCO = 5;
+/**
+ * Time cheio: realoca no Time mais vazio (mesma posição) e responde o comentário explicando.
+ * Desligado, o pedido fica como TIME_CHEIO e é relido até abrir vaga.
+ */
+export const REALOCAR_QUANDO_CHEIO = false;
 
 /** A Escalação de futebol society: 7 lugares, nesta ordem. */
 export const FORMACAO: readonly Posicao[] = ['GOL', 'ZAG', 'ZAG', 'MEI', 'MEI', 'ATA', 'ATA'];

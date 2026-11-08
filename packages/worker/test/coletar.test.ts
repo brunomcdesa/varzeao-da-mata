@@ -63,8 +63,15 @@ describe('Inscrição', () => {
     for (let i = 0; i < FOLGA_DE_ELENCO; i++) {
       expect(await processarComentario(banco, comentario(`cap${i}`, 'ENTRO CAPIVARA ATA'), semVotacao)).toBe('INSCRITO');
     }
-    expect(await processarComentario(banco, comentario('cap-extra', 'ENTRO CAPIVARA ATA'), semVotacao)).toBe('TIME_CHEIO');
-    // Outro Time continua aberto, e quando todos crescem a Capivara volta a aceitar.
+    expect(await processarComentario(banco, comentario('cap-cheio', 'ENTRO CAPIVARA ATA'), { ...semVotacao, realocar: false })).toBe('TIME_CHEIO');
+    // Time cheio: entra no Time mais vazio, na mesma posição, e recebe uma resposta explicando.
+    const respostas: string[] = [];
+    const ctx = { ...semVotacao, realocar: true, responder: async (_id: string, texto: string) => void respostas.push(texto) };
+    expect(await processarComentario(banco, comentario('cap-extra', 'ENTRO CAPIVARA ATA'), ctx)).toBe('REALOCADO');
+    const j = (await banco.query<{ time_id: string; posicao: string }>(`SELECT time_id, posicao FROM jogador WHERE ig_user_id = 'cap-extra'`)).rows[0]!;
+    expect(j.time_id).not.toBe('CAP');
+    expect(j.posicao).toBe('ATA');
+    expect(respostas[0]).toMatch(/time da Capivara encheu, então você entrou no time (do|da) \S+ como atacante/);
     expect(await processarComentario(banco, comentario('onc0', 'ENTRO ONCA ATA'), semVotacao)).toBe('INSCRITO');
   });
 
@@ -92,15 +99,6 @@ describe('Inscrição', () => {
     // Sem pedido nenhum ("Arara" e "meia" soltos) não inscreve.
     expect(await processarComentario(banco, comentario('torcedor', 'Arara', t(50)), semVotacao)).toBe('IGNORADO');
     expect(await processarComentario(banco, comentario('torcedor', 'que meia!', t(51)), semVotacao)).toBe('IGNORADO');
-  });
-
-  it('time cheio: entra sozinho quando abre vaga', async () => {
-    for (let k = 0; k <= FOLGA_DE_ELENCO; k++) await processarComentario(banco, comentario(`o${k}`, 'entro onça ata'), semVotacao);
-    const atrasado = comentario('atrasado', 'entro onça meia');
-    expect(await processarComentario(banco, atrasado, semVotacao)).toBe('TIME_CHEIO');
-    // Os outros 7 Times recebem um inscrito cada: a Onça pode crescer de novo.
-    for (const t of ['tatu', 'capivara', 'arara', 'tucano', 'sagui', 'preguiça', 'tamanduá']) await processarComentario(banco, comentario(`x-${t}`, `entro ${t} ata`), semVotacao);
-    expect(await processarComentario(banco, atrasado, semVotacao)).toBe('INSCRITO');
   });
 
   it('comentário da própria Liga nunca inscreve', async () => {

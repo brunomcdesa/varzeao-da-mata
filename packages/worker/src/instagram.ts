@@ -208,6 +208,12 @@ export class Instagram {
     throw new ErroInstagram(408, null, null, `container ${id} não ficou pronto a tempo`);
   }
 
+  /** Responde um comentário (aparece como resposta da conta da Liga). */
+  async responder(igCommentId: string, texto: string): Promise<string> {
+    const r = await this.chamar<{ id: string }>('POST', `${igCommentId}/replies`, { message: texto });
+    return r.id;
+  }
+
   async publicar(containerId: string): Promise<string> {
     const r = await this.chamar<{ id: string }>('POST', `${this.o.userId}/media_publish`, { creation_id: containerId });
     return r.id;

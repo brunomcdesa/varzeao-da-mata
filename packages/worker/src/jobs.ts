@@ -114,6 +114,18 @@ export async function sincronizarPublicados(c: ContextoDoJob): Promise<number> {
   return n;
 }
 
+/** Resposta a um comentário pelo Instagram; uma falha só vira log (a Inscrição já foi feita). */
+function responderComentario(c: ContextoDoJob): (igCommentId: string, texto: string) => Promise<void> {
+  return async (id, texto) => {
+    if (!c.ig) return;
+    try {
+      await c.ig.responder(id, texto);
+    } catch (e) {
+      logDe(c)(`Não respondeu o comentário ${id}: ${(e as Error).message}`);
+    }
+  };
+}
+
 /**
  * Posts de inscrição (o Reels de apresentação): o coletar lê os comentários deles sempre,
  * não só nos primeiros dias, porque é neles que a maioria vai comentar ENTRO.
@@ -166,7 +178,7 @@ export async function jobColetar(c: ContextoDoJob): Promise<RelatorioColeta> {
   const publicados = await sincronizarPublicados(c);
   const comentarios = await coletarComentarios(c);
   const resultados: RelatorioColeta['resultados'] = {};
-  const votacao = await contextoDaVotacao(c.banco);
+  const votacao = { ...(await contextoDaVotacao(c.banco)), responder: responderComentario(c) };
   for (const com of comentarios) {
     const r = await processarComentario(c.banco, com, votacao);
     resultados[r] = (resultados[r] ?? 0) + 1;
@@ -288,7 +300,7 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
         await dormir(falta + 5_000);
       }
       const coments = await coletarComentarios(c, { dias: 1 });
-      const votacao = await contextoDaVotacao(c.banco);
+      const votacao = { ...(await contextoDaVotacao(c.banco)), responder: responderComentario(c) };
       for (const com of coments) await processarComentario(c.banco, com, votacao);
       // Últimos votos do site antes de a votação fechar (ela fecha quando este jogo é escalado).
       if (votacao.rodadaEmVotacao !== null) await importarVotosDoSite(c.banco, c.agenda, votacao.rodadaEmVotacao);
