@@ -2,6 +2,7 @@
  * A Liga rodando no seu computador, sem Instagram e sem servidor.
  *
  *   pnpm liga temporada [--inicio 2026-11-07]        cria a Temporada (7 Rodadas, 12h/14h/16h/18h)
+ *   pnpm liga comentarios                          os comentários lidos e o resultado de cada um
  *   pnpm liga mudar-inicio --inicio 2026-11-08      antecipa/adia a Temporada (antes do 1º jogo)
  *   pnpm liga inscricoes-de-teste [--quantidade 40]  "comentários" ENTRO de seguidores fictícios
  *   pnpm liga comentar --de rafa "ENTRO CAPIVARA ATA"
@@ -221,6 +222,15 @@ async function main(): Promise<void> {
         break;
       }
 
+      case 'comentarios': {
+        // Comentários lidos e o que o leitor fez com cada um (sem @ de quem comentou).
+        const r = await banco.query<{ texto: string; tipo: string | null; resultado: string | null; comentado_em: Date }>(
+          `SELECT texto, tipo, resultado, comentado_em FROM comando ORDER BY comentado_em DESC LIMIT 300`,
+        );
+        for (const c of r.rows) console.log(`${new Date(c.comentado_em).toISOString().slice(5, 16)}  ${(c.resultado ?? '?').padEnd(15)} ${JSON.stringify(c.texto)}`);
+        console.log(`${r.rows.length} comentário(s).`);
+        break;
+      }
       case 'tabela':
         await mostrarTabela(banco, (await temporadaAtual(banco)).id);
         break;

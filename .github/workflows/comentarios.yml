@@ -1,0 +1,16 @@
+# Lista os comentários lidos e o resultado de cada um (para achar formatos que o leitor
+# ainda não entende). Só à mão: Actions → comentarios → Run workflow.
+name: comentarios
+on:
+  workflow_dispatch:
+jobs:
+  comentarios:
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 5
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+      - run: pnpm liga comentarios
