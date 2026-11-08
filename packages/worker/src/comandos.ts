@@ -4,6 +4,7 @@
  *   "ENTRO <time|apelido> <posição|sinônimo>"  → Inscrição (em qualquer ordem, com palavras de ligação)
  *   "Onça, atacante" (sem ENTRO)                → também Inscrição, se o comentário for só isso:
  *                                                 um Time, uma posição e palavras de ligação
+ *   "ENTRO ARARA" / "eu sou da arara"           → Inscrição sem posição: entra na mais vazia do Time
  *   "CRAQUE 3" (ou "VOTO 3")                    → voto no Candidato número 3
  *   "3" sozinho                                 → o mesmo, mas só vale no post do Resumo
  *   qualquer outra coisa                        → ignorado
@@ -20,7 +21,8 @@ export type MotivoInvalido =
   | 'SEM_CANDIDATO';
 
 export type Comando =
-  | { tipo: 'INSCRICAO'; time: TimeId; posicao: Posicao }
+  /** Sem `posicao`: a pessoa só disse o Time; entra na posição mais vazia dele. */
+  | { tipo: 'INSCRICAO'; time: TimeId; posicao?: Posicao }
   /** `solto`: só o número, sem CRAQUE; vale apenas no post da votação. */
   | { tipo: 'VOTO'; numero: number; solto?: true }
   | { tipo: 'INVALIDO'; prefixo: 'ENTRO' | 'CRAQUE'; motivo: MotivoInvalido }
@@ -41,7 +43,11 @@ const POSICOES = indice(SINONIMOS_DE_POSICAO);
 export const CONTA_DA_LIGA = '@VARZEAO_DA_MATA';
 
 export function interpretar(texto: string): Comando {
-  const palavras = normalizar(texto).split(' ').filter((p) => p && p !== CONTA_DA_LIGA);
+  const palavras = normalizar(texto)
+    // "meu nome é Fulano": o nome não é Time nem posição, e não atrapalha o pedido.
+    .replace(/\bMEU NOME (E |EH )?\S+/g, ' ')
+    .split(' ')
+    .filter((p) => p && p !== CONTA_DA_LIGA);
   const prefixo = palavras[0];
 
   // Voto por número (ADR-0011): não marca ninguém nos comentários.
@@ -65,8 +71,17 @@ export function interpretar(texto: string): Comando {
   const [time] = times;
   const [posicao] = posicoes;
   if (!time) return { tipo: 'INVALIDO', prefixo: 'ENTRO', motivo: 'SEM_TIME' };
-  if (!posicao) return { tipo: 'INVALIDO', prefixo: 'ENTRO', motivo: 'SEM_POSICAO' };
-  return { tipo: 'INSCRICAO', time, posicao };
+  return posicao ? { tipo: 'INSCRICAO', time, posicao } : { tipo: 'INSCRICAO', time };
+}
+
+/**
+ * Times e posições que um comentário cita, sem decidir se é Comando. Serve para juntar dois
+ * comentários da mesma pessoa ("Arara" e depois "Entro como meia").
+ */
+export function citacoes(texto: string): { times: TimeId[]; posicoes: Posicao[] } {
+  const palavras = normalizar(texto).split(' ').filter((p) => p && !p.startsWith('@'));
+  const { times, posicoes } = analisar(palavras);
+  return { times: [...times], posicoes: [...posicoes] };
 }
 
 /** Times e posições citados, e as palavras que não são nenhum dos dois. */
@@ -94,8 +109,11 @@ function analisar(palavras: string[]): { times: Set<TimeId>; posicoes: Set<Posic
 const PEDIDO = new Set([
   'ENTRAR', 'ENTRANDO', 'ENTRA', 'ME', 'INSCREVE', 'INSCREVER', 'INSCRICAO', 'BORA', 'VAMOS', 'VAMO', 'BOTA', 'COLOCA', 'POE',
   'AI', 'AQUI', 'SIM', 'OPA', 'OI', 'OLA', 'TO', 'TOU', 'ESTOU', 'DENTRO', 'QUERIA', 'GOSTARIA', 'DE', 'PO', 'MANO',
-  'FIZ', 'LA', 'JA', 'TAMBEM', 'TB', 'TBM', 'ENTAO', 'BLZ', 'BELEZA', 'VALEU', 'OBRIGADO', 'OBRIGADA', 'POSSO', 'PODE', 'SERIA',
+  'COMENTE', 'COMENTO', 'ENTRO', 'FIZ', 'LA', 'JA', 'TAMBEM', 'TB', 'TBM', 'ENTAO', 'BLZ', 'BELEZA', 'VALEU', 'OBRIGADO', 'OBRIGADA', 'POSSO', 'PODE', 'SERIA',
 ]);
+
+/** Palavras que, sozinhas com um Time, já são pedido para entrar. */
+const PEDIDO_EXPLICITO = new Set(['ENTRO', 'SOU', 'SER', 'QUERO', 'QUERIA', 'ENTRAR', 'ENTRA', 'ENTRANDO', 'COLOCA', 'BOTA', 'POE', 'INSCREVE', 'INSCREVER', 'JOGAR', 'ME']);
 
 /**
  * Sem ENTRO: vale como Inscrição só quando o comentário é um pedido curto, com exatamente um
@@ -105,11 +123,14 @@ const PEDIDO = new Set([
 function semPrefixo(palavras: string[]): Comando {
   if (palavras.length > 9 || palavras.some((p) => p.startsWith('@'))) return { tipo: 'IGNORADO' };
   const { times, posicoes, outras } = analisar(palavras);
-  if (times.size !== 1 || posicoes.size !== 1) return { tipo: 'IGNORADO' };
+  if (times.size !== 1 || posicoes.size > 1) return { tipo: 'IGNORADO' };
   if (!outras.every((p) => PALAVRAS_DE_LIGACAO.has(p) || PEDIDO.has(p))) return { tipo: 'IGNORADO' };
   const [time] = times;
   const [posicao] = posicoes;
-  return { tipo: 'INSCRICAO', time: time!, posicao: posicao! };
+  if (posicao) return { tipo: 'INSCRICAO', time: time!, posicao };
+  // Só o Time: precisa de um pedido explícito ("eu sou da arara", "quero entrar na onça"),
+  // senão "Onça!" de torcedor viraria Inscrição.
+  return outras.some((p) => PEDIDO_EXPLICITO.has(p)) ? { tipo: 'INSCRICAO', time: time! } : { tipo: 'IGNORADO' };
 }
 
 /** A expressão mais longa que começa na palavra `i`, se houver. Ignora palavras de ligação soltas. */

@@ -78,9 +78,29 @@ describe('Inscrição', () => {
   });
 
   it('registra comandos inválidos e ignora comentários comuns', async () => {
-    expect(await processarComentario(banco, comentario('u1', 'entro capivara'), semVotacao)).toBe('SEM_POSICAO');
+    expect(await processarComentario(banco, comentario('u1', 'entro atacante'), semVotacao)).toBe('SEM_TIME');
     expect(await processarComentario(banco, comentario('u2', 'golaço!'), semVotacao)).toBe('IGNORADO');
     expect((await banco.query('SELECT * FROM jogador')).rows).toHaveLength(0);
+  });
+
+  it('pedido em dois comentários: o Time num e a posição no outro', async () => {
+    const t = (min: number) => ({ comentadoEm: new Date(Date.UTC(2026, 10, 8, 2, min)) });
+    expect(await processarComentario(banco, comentario('mumu', 'Arara', t(46)), semVotacao)).toBe('IGNORADO');
+    expect(await processarComentario(banco, comentario('mumu', 'Entro como meia', t(47)), semVotacao)).toBe('INSCRITO');
+    const j = (await banco.query<{ time_id: string; posicao: string }>(`SELECT time_id, posicao FROM jogador WHERE ig_user_id = 'mumu'`)).rows[0]!;
+    expect(j).toEqual({ time_id: 'ARA', posicao: 'MEI' });
+    // Sem pedido nenhum ("Arara" e "meia" soltos) não inscreve.
+    expect(await processarComentario(banco, comentario('torcedor', 'Arara', t(50)), semVotacao)).toBe('IGNORADO');
+    expect(await processarComentario(banco, comentario('torcedor', 'que meia!', t(51)), semVotacao)).toBe('IGNORADO');
+  });
+
+  it('só o Time: entra na posição mais vazia dele', async () => {
+    expect(await processarComentario(banco, comentario('a', 'entro capivara atacante'), semVotacao)).toBe('INSCRITO');
+    expect(await processarComentario(banco, comentario('b', 'entro capivara goleiro'), semVotacao)).toBe('INSCRITO');
+    expect(await processarComentario(banco, comentario('c', 'eu sou da capivara'), semVotacao)).toBe('INSCRITO');
+    // ATA 1/2, GOL 1/1, ZAG 0/2, MEI 0/2: empate entre meia e zagueiro, vai meia.
+    const c = (await banco.query<{ posicao: string }>(`SELECT posicao FROM jogador WHERE ig_user_id = 'c'`)).rows[0]!;
+    expect(c.posicao).toBe('MEI');
   });
 });
 

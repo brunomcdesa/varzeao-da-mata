@@ -6,8 +6,8 @@
 import type { Posicao, TimeId } from '@liga/shared';
 import { TIMES } from '@liga/shared';
 import type { Banco } from './banco.js';
-import { interpretar } from './comandos.js';
-import { FOLGA_DE_ELENCO, sortearHabilidadesIniciais } from './regras.js';
+import { citacoes, interpretar, type Comando } from './comandos.js';
+import { FOLGA_DE_ELENCO, FORMACAO, sortearHabilidadesIniciais } from './regras.js';
 import { normalizar } from './vocabulario.js';
 
 /** Um comentário como vem da Graph API (/{media-id}/comments: id, text, from, timestamp). */
@@ -56,8 +56,11 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
     if (!novo.rows.length) {
       // Comentário já visto. Só volta a ser lido se tinha sido ignorado e hoje vale como
       // Inscrição (o leitor passou a aceitar "Onça, atacante" sem ENTRO).
-      const antes = (await b.query<{ tipo: string | null }>(`SELECT tipo FROM comando WHERE ig_comment_id = $1`, [c.igCommentId])).rows[0];
-      if (antes?.tipo !== 'IGNORADO' || interpretar(c.texto).tipo !== 'INSCRICAO') return 'REPETIDO';
+      const antes = (await b.query<{ tipo: string | null; resultado: string | null }>(`SELECT tipo, resultado FROM comando WHERE ig_comment_id = $1`, [c.igCommentId])).rows[0];
+      const releitura = antes?.tipo === 'IGNORADO' || antes?.resultado === 'SEM_POSICAO' || antes?.resultado === 'SEM_TIME';
+      if (!releitura) return 'REPETIDO';
+      const jaInscrito = (await b.query(`SELECT 1 FROM jogador WHERE ig_user_id = $1`, [c.igUserId])).rows.length > 0;
+      if (jaInscrito || (interpretar(c.texto).tipo !== 'INSCRICAO' && !(await juntarComOutroComentario(b, c)))) return 'REPETIDO';
     }
 
     // O @ pode mudar; o Jogador é da conta (ig_user_id), então o username só é atualizado.
@@ -68,7 +71,13 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
       )
     ).rows[0];
 
-    const comando = interpretar(c.texto);
+    let comando: Comando = interpretar(c.texto);
+    // Pedido em dois comentários ("Arara" e "Entro como meia"): junta o Time de um com a
+    // posição do outro.
+    if (!jogador && comando.tipo !== 'INSCRICAO' && comando.tipo !== 'VOTO') {
+      const junto = await juntarComOutroComentario(b, c);
+      if (junto) comando = junto;
+    }
     let resultado: Resultado;
     if (comando.tipo === 'IGNORADO' || (comando.tipo === 'VOTO' && comando.solto && (!ctx.postDaVotacao || c.igMediaId !== ctx.postDaVotacao))) resultado = 'IGNORADO';
     else if (jogador?.banido) resultado = 'BANIDO';
@@ -82,7 +91,49 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
   });
 }
 
-async function inscrever(b: Banco, c: Comentario, time: TimeId, posicao: string): Promise<Resultado> {
+/**
+ * Se a pessoa (ainda não inscrita) mandou, em até 24 h, um comentário só com o Time e outro só
+ * com a posição (ou um ENTRO sem Time), devolve a Inscrição juntando os dois.
+ */
+async function juntarComOutroComentario(b: Banco, c: Comentario): Promise<Comando | null> {
+  const este = citacoes(c.texto);
+  if (este.times.length > 1 || este.posicoes.length > 1 || (este.times.length === 0) === (este.posicoes.length === 0)) return null;
+  const outros = (
+    await b.query<{ texto: string }>(
+      `SELECT texto FROM comando WHERE ig_user_id = $1 AND ig_comment_id <> $2 AND abs(extract(epoch FROM comentado_em - $3::timestamptz)) < 86400 ORDER BY comentado_em DESC`,
+      [c.igUserId, c.igCommentId, c.comentadoEm.toISOString()],
+    )
+  ).rows;
+  // O comentário com a posição precisa ser um pedido (ENTRO); o do Time pode ser só o nome.
+  const pedido = (texto: string) => /\bENTR(O|AR)\b|\bQUERO\b|\bSOU\b/.test(normalizar(texto));
+  for (const o of outros) {
+    const outro = citacoes(o.texto);
+    if (outro.times.length > 1 || outro.posicoes.length > 1) continue;
+    const time = este.times[0] ?? (outro.posicoes.length === 0 ? outro.times[0] : undefined);
+    const posicao = este.posicoes[0] ?? (outro.times.length === 0 ? outro.posicoes[0] : undefined);
+    if (!time || !posicao) continue;
+    if (!pedido(este.posicoes.length ? c.texto : o.texto) && !pedido(este.times.length ? c.texto : o.texto)) continue;
+    return { tipo: 'INSCRICAO', time, posicao };
+  }
+  return null;
+}
+
+/**
+ * A posição que o Time mais precisa: a de menos inscritos por vaga na escalação; no empate,
+ * a mais divertida de jogar (atacante, meia, zagueiro, goleiro).
+ */
+export async function posicaoMaisVazia(b: Banco, time: TimeId): Promise<Posicao> {
+  const contagem = new Map<string, number>();
+  for (const r of (await b.query<{ posicao: string; n: string }>(`SELECT posicao, count(*) AS n FROM jogador WHERE time_id = $1 AND NOT banido GROUP BY posicao`, [time])).rows) {
+    contagem.set(r.posicao, Number(r.n));
+  }
+  const vagas = (p: Posicao) => FORMACAO.filter((x) => x === p).length;
+  const ordem: Posicao[] = ['ATA', 'MEI', 'ZAG', 'GOL'];
+  return ordem.reduce((melhor, p) => ((contagem.get(p) ?? 0) / vagas(p) < (contagem.get(melhor) ?? 0) / vagas(melhor) ? p : melhor));
+}
+
+async function inscrever(b: Banco, c: Comentario, time: TimeId, pedida: Posicao | undefined): Promise<Resultado> {
+  const posicao = pedida ?? (await posicaoMaisVazia(b, time));
   if (await usernameBloqueado(b, c.username)) return 'NOME_BLOQUEADO';
 
   // Limite de equilíbrio: nenhum Elenco pode passar o menor por mais que FOLGA_DE_ELENCO.

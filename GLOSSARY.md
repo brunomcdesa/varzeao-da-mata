@@ -51,7 +51,7 @@ Os Jogadores que fizeram Inscrição desde a Rodada anterior, apresentados no Re
 _Avoid_: novatos, novos inscritos, reforços
 
 **Comando**:
-Comentário reconhecido pelo sistema em qualquer Reels da Liga: "ENTRO" faz uma Inscrição (um comentário curto só com Time e posição, como "Onça, atacante", também vale); "CRAQUE 3" vota no Candidato número 3. No post do Resumo, o número sozinho ("3") também vale como voto. O voto nunca usa @, para os comentários não marcarem ninguém. Os demais comentários são ignorados.
+Comentário reconhecido pelo sistema em qualquer Reels da Liga: "ENTRO" faz uma Inscrição (um comentário curto só com Time e posição, como "Onça, atacante", também vale; quem diz só o Time, como "ENTRO ARARA" ou "eu sou da arara", entra na posição mais vazia dele; Time e posição em dois comentários da mesma pessoa, em até 24 h, são juntados); "CRAQUE 3" vota no Candidato número 3. No post do Resumo, o número sozinho ("3") também vale como voto. O voto nunca usa @, para os comentários não marcarem ninguém. Os demais comentários são ignorados.
 _Avoid_: palavra-chave, hashtag
 
 **Corte**:
