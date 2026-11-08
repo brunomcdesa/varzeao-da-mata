@@ -116,8 +116,8 @@ export function esperaPedida(mensagem: string): number | null {
 
 /** A cota do dia acabou: não adianta esperar alguns segundos. */
 export class CotaDiariaEsgotada extends Error {
-  constructor(readonly volta: number | null) {
-    super(`a cota diária do Gemini TTS acabou${volta ? ` (volta em ~${Math.ceil(volta / 3600)} h)` : ''}`);
+  constructor(readonly volta: number | null, detalhe = '') {
+    super(`a cota diária do Gemini TTS acabou${volta ? ` (volta em ~${Math.ceil(volta / 3600)} h)` : ''}${detalhe ? `: ${detalhe.slice(0, 600)}` : ''}`);
   }
 }
 
@@ -138,7 +138,7 @@ async function pedir(corpo: unknown, chave: string, descricao: string): Promise<
     ultimoErro = `${resp.status} ${await resp.text()}`;
     if (resp.status !== 429 && resp.status < 500) break;
     const espera = esperaPedida(ultimoErro);
-    if (resp.status === 429 && (/per day|daily/i.test(ultimoErro) || (espera ?? 0) > ESPERA_MAXIMA)) throw new CotaDiariaEsgotada(espera);
+    if (resp.status === 429 && (/per day|daily/i.test(ultimoErro) || (espera ?? 0) > ESPERA_MAXIMA)) throw new CotaDiariaEsgotada(espera, ultimoErro);
     // Limite por minuto (ou instabilidade): espera o que a API pediu e tenta de novo.
     const segundos = (espera ?? 5 * tentativa) + 1;
     console.log(`  … Gemini pediu para esperar ${Math.ceil(segundos)} s (tentativa ${tentativa})`);

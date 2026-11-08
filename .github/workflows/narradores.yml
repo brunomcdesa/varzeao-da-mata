@@ -31,7 +31,9 @@ jobs:
         with:
           video: 'true'
       - if: inputs.cota
-        run: pnpm --filter @liga/renderer exec tsx scripts/cota.ts
+        run: |
+          pnpm --filter @liga/renderer exec tsx scripts/cota.ts
+          for v in voice_vkljhx3z7pon voice_afdapdv2g0zm; do VOZ=$v pnpm --filter @liga/renderer exec tsx scripts/cota.ts; done
       - if: inputs.pronuncia && !inputs.cota
         run: pnpm --filter @liga/renderer pronuncia
       - if: ${{ !inputs.pronuncia && !inputs.cota }}
