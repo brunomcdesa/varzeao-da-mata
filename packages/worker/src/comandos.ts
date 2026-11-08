@@ -37,8 +37,11 @@ function indice<T extends string>(mapa: Record<T, string[]>): [string[], T][] {
 const TIMES = indice(APELIDOS_DE_TIME);
 const POSICOES = indice(SINONIMOS_DE_POSICAO);
 
+/** O @ da própria Liga: quem marca a Liga ao pedir para entrar não está marcando um terceiro. */
+export const CONTA_DA_LIGA = '@VARZEAO_DA_MATA';
+
 export function interpretar(texto: string): Comando {
-  const palavras = normalizar(texto).split(' ').filter(Boolean);
+  const palavras = normalizar(texto).split(' ').filter((p) => p && p !== CONTA_DA_LIGA);
   const prefixo = palavras[0];
 
   // Voto por número (ADR-0011): não marca ninguém nos comentários.
@@ -91,6 +94,7 @@ function analisar(palavras: string[]): { times: Set<TimeId>; posicoes: Set<Posic
 const PEDIDO = new Set([
   'ENTRAR', 'ENTRANDO', 'ENTRA', 'ME', 'INSCREVE', 'INSCREVER', 'INSCRICAO', 'BORA', 'VAMOS', 'VAMO', 'BOTA', 'COLOCA', 'POE',
   'AI', 'AQUI', 'SIM', 'OPA', 'OI', 'OLA', 'TO', 'TOU', 'ESTOU', 'DENTRO', 'QUERIA', 'GOSTARIA', 'DE', 'PO', 'MANO',
+  'FIZ', 'LA', 'JA', 'TAMBEM', 'TB', 'TBM', 'ENTAO', 'BLZ', 'BELEZA', 'VALEU', 'OBRIGADO', 'OBRIGADA', 'POSSO', 'PODE', 'SERIA',
 ]);
 
 /**

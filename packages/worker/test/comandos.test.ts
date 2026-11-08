@@ -62,6 +62,12 @@ describe('Comentários sem Comando', () => {
       expect(interpretar('capivara goleiro 🧤')).toEqual({ tipo: 'INSCRICAO', time: 'CAP', posicao: 'GOL' });
       expect(interpretar('Quero entrar na Arara de meia')).toEqual({ tipo: 'INSCRICAO', time: 'ARA', posicao: 'MEI' });
       expect(interpretar('zagueiro tatu')).toEqual({ tipo: 'INSCRICAO', time: 'TAT', posicao: 'ZAG' });
+      // Formatos vistos nos comentários da estreia.
+      expect(interpretar('Meia,Sagui')).toEqual({ tipo: 'INSCRICAO', time: 'SAG', posicao: 'MEI' });
+      expect(interpretar('onça  ponta')).toEqual({ tipo: 'INSCRICAO', time: 'ONC', posicao: 'ATA' });
+      expect(interpretar('Quero ser do Onça, Centroavante.')).toEqual({ tipo: 'INSCRICAO', time: 'ONC', posicao: 'ATA' });
+      expect(interpretar('@varzeao_da_mata eu fiz lá sou atacante da arara')).toEqual({ tipo: 'INSCRICAO', time: 'ARA', posicao: 'ATA' });
+      expect(interpretar('Entro - capivara , goleira ❤️')).toEqual({ tipo: 'INSCRICAO', time: 'CAP', posicao: 'GOL' });
     });
 
     it('não vale em frase sobre o jogo, com dois times ou marcando alguém', () => {
@@ -69,6 +75,8 @@ describe('Comentários sem Comando', () => {
       expect(interpretar('onça ou tatu, atacante')).toEqual({ tipo: 'IGNORADO' });
       expect(interpretar('@amigo onça atacante')).toEqual({ tipo: 'IGNORADO' });
       expect(interpretar('vai onça!')).toEqual({ tipo: 'IGNORADO' });
+      expect(interpretar('Comente ENTRO (POSICAO) ARARA')).toEqual({ tipo: 'IGNORADO' });
+      expect(interpretar('@varzeao_da_mata me coloca por favor')).toEqual({ tipo: 'IGNORADO' });
     });
   });
 });
