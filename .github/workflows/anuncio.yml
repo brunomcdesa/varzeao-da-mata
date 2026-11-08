@@ -1,0 +1,58 @@
+# Reels de anúncio do vínculo pela DM (ADR-0013), em dois passos, à mão:
+#   1. acao=gravar: grava com a voz do Locutor, sobe no R2 e guarda uma cópia no branch
+#      'amostras' (anuncio.mp4) para conferir. O link do vídeo aparece no log (VIDEO_URL=...).
+#   2. acao=postar, video=<o link>: publica no Instagram com a legenda.
+name: anuncio
+on:
+  workflow_dispatch:
+    inputs:
+      acao:
+        description: 'gravar ou postar'
+        type: choice
+        options: [gravar, postar]
+        default: gravar
+      video:
+        description: 'Para postar: o link do vídeo (VIDEO_URL do passo gravar)'
+        default: ''
+permissions:
+  contents: write
+concurrency: anuncio
+jobs:
+  anuncio:
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      IG_APP_ID: ${{ vars.IG_APP_ID }}
+      IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET_PUBLICO: ${{ vars.R2_BUCKET_PUBLICO }}
+      R2_BUCKET_PRIVADO: ${{ vars.R2_BUCKET_PRIVADO }}
+      R2_URL_PUBLICA: ${{ vars.R2_URL_PUBLICA }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_TTS_VOZ: ${{ vars.GEMINI_TTS_VOZ || 'Lumi' }}
+      GEMINI_TTS_RPM: ${{ vars.GEMINI_TTS_RPM || '10' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+        with:
+          video: ${{ inputs.acao == 'gravar' && 'true' || 'false' }}
+      - if: inputs.acao == 'gravar'
+        run: pnpm postar-anuncio --gravar --copia "$RUNNER_TEMP/anuncio.mp4"
+      - if: inputs.acao == 'gravar'
+        run: |
+          mkdir -p "$RUNNER_TEMP/amostras" && cp "$RUNNER_TEMP/anuncio.mp4" "$RUNNER_TEMP/amostras/" && cd "$RUNNER_TEMP/amostras"
+          git init -q -b amostras && git add anuncio.mp4
+          git -c user.name=liga -c user.email=liga@users.noreply.github.com commit -qm "Anúncio para conferir"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" amostras
+      - if: inputs.acao == 'postar'
+        run: pnpm postar-anuncio --postar --video "$VIDEO"
+        env:
+          VIDEO: ${{ inputs.video }}
