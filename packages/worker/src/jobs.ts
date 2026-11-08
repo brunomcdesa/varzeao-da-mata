@@ -600,8 +600,19 @@ export async function jobBoasVindas(c: ContextoDoJob, o: { enviar: boolean }): P
   const nome: Record<Posicao, string> = { GOL: 'goleiro', ZAG: 'zagueiro', MEI: 'meia', ATA: 'atacante' };
   let respondidos = 0;
   let pulados = 0;
+  let sumidos = 0;
   for (const a of alvos) {
-    if (feitos.has(a.ig_comment_id) || (await c.ig.quemRespondeu(a.ig_comment_id)).includes(conta)) {
+    if (feitos.has(a.ig_comment_id)) {
+      pulados++;
+      continue;
+    }
+    const quem = await c.ig.quemRespondeu(a.ig_comment_id).catch(() => null);
+    if (quem === null) {
+      logDe(c)(`@${a.username}: comentário não existe mais, pulado.`);
+      sumidos++;
+      continue;
+    }
+    if (quem.includes(conta)) {
       pulados++;
       continue;
     }
@@ -623,6 +634,6 @@ export async function jobBoasVindas(c: ContextoDoJob, o: { enviar: boolean }): P
       logDe(c)(`Não respondeu @${a.username}: ${(e as Error).message}`);
     }
   }
-  logDe(c)(`boas-vindas: ${respondidos} respondido(s), ${pulados} já tinham resposta, ${alvos.length} inscrito(s).`);
+  logDe(c)(`boas-vindas: ${respondidos} respondido(s), ${pulados} já tinham resposta, ${sumidos} comentário(s) apagado(s), ${alvos.length} inscrito(s).`);
   return { respondidos, pulados };
 }
