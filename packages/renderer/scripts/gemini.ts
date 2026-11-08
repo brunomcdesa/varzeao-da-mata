@@ -18,6 +18,8 @@ import { codificarWav, lerWavMono } from '../src/audio.js';
 import type { Tom } from '../src/narracao.js';
 
 export const MODELO_PADRAO = 'gemini-3.8-flash-tts';
+/** Modelo de reserva, com cota diária própria (a cota é por modelo). */
+export const MODELO_LITE = 'gemini-3.8-flash-lite-tts';
 export const VOZ_PADRAO = 'Lumi';
 
 const BASE = 'Narrador de futebol de várzea brasileiro, voz de rádio, sotaque brasileiro';

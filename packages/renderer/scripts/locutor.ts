@@ -24,7 +24,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Tom } from '../src/narracao.js';
-import { CotaDiariaEsgotada, MODELO_PADRAO, VOZ_PADRAO, falarGemini, falarVariasGemini, paraFalar } from './gemini.js';
+import { CotaDiariaEsgotada, MODELO_LITE, MODELO_PADRAO, VOZ_PADRAO, falarGemini, falarVariasGemini, paraFalar } from './gemini.js';
 
 export interface Locutor {
   /** WAV PCM 16 bits 48 kHz mono. */
@@ -134,6 +134,22 @@ export function criarLocutor(pastaCache: string, modoForcado?: string): Locutor 
           return out as Uint8Array[];
         } catch (e) {
           if (!(e instanceof CotaDiariaEsgotada)) throw e;
+          // A cota é por modelo (100 pedidos/dia no Tier 1): antes da voz reserva, a mesma voz
+          // no modelo lite, que tem cota própria. O vídeo inteiro vai nele (não mistura).
+          if (modelo !== MODELO_LITE) {
+            console.warn(`\n  ⚠ ${e.message}. Tentando o modelo ${MODELO_LITE}.`);
+            const anterior = process.env.GEMINI_TTS_MODELO;
+            process.env.GEMINI_TTS_MODELO = MODELO_LITE;
+            try {
+              return await criarLocutor(pastaCache, 'gemini').falarTodas(falas, progresso);
+            } catch (e2) {
+              if (!(e2 instanceof CotaDiariaEsgotada) && !/recusou/.test((e2 as Error).message)) throw e2;
+              console.warn(`  ⚠ O modelo lite também falhou: ${(e2 as Error).message.slice(0, 300)}`);
+            } finally {
+              if (anterior === undefined) delete process.env.GEMINI_TTS_MODELO;
+              else process.env.GEMINI_TTS_MODELO = anterior;
+            }
+          }
           // Sem cota hoje: o vídeo inteiro sai com a voz reserva (não mistura vozes no mesmo vídeo).
           const reserva = criarLocutor(pastaCache, process.env.LOCUTOR_RESERVA ?? (chave && regiao ? 'azure' : temEspeak ? 'espeak' : 'mudo'));
           console.warn(`\n  ⚠ ${e.message}. Este vídeo vai com a voz reserva (${reserva.modo}).`);
