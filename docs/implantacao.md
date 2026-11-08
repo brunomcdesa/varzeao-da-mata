@@ -157,7 +157,7 @@ Depois, em **Actions → site → Run workflow**, publique o site.
 ### Relógio dos jobs (recomendado)
 
 O agendamento do GitHub atrasa e às vezes pula horários. A borda, que roda a cada minuto,
-dispara os workflows na hora certa (coletar às :17, partida às 11h25/13h25/15h25/17h25,
+dispara os workflows na hora certa (coletar a cada 10 minutos, partida às 11h25/13h25/15h25/17h25,
 resumo às 18h10); o cron do GitHub fica de reserva. Para ligar, no ambiente **PROD**:
 
 - secret `GH_DISPARO_TOKEN`: em github.com → Settings → Developer settings → Fine-grained

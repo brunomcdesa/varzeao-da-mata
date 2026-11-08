@@ -225,7 +225,8 @@ export function jobsDoMinuto(agora: Date): string[] {
   const h = local.getUTCHours();
   const m = local.getUTCMinutes();
   const jobs: string[] = [];
-  if (m === 17) jobs.push('coletar');
+  // Coleta a cada 10 minutos (:07, :17, :27…): quem comenta aparece logo.
+  if (m % 10 === 7) jobs.push('coletar');
   if (m === 25 && [11, 13, 15, 17].includes(h)) jobs.push('partida');
   if (m === 10 && h === 18) jobs.push('resumo');
   return jobs;
