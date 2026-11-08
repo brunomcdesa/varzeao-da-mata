@@ -83,6 +83,7 @@ interface ComentarioBruto {
   timestamp: string;
   username?: string;
   from?: { id: string; username?: string };
+  replies?: { data: ComentarioBruto[] };
 }
 
 export class Instagram {
@@ -160,14 +161,20 @@ export class Instagram {
   /** Comentários de uma mídia (de primeiro nível), no formato que o `coletar` entende. */
   async comentarios(mediaId: string, desde?: Date): Promise<Comentario[]> {
     const lista: Comentario[] = [];
-    let pagina = await this.chamar<Pagina<ComentarioBruto>>('GET', `${mediaId}/comments`, { fields: 'id,text,timestamp,username,from{id,username}', limit: '50' });
+    // As respostas a outros comentários também contam ("entro onça atacante" respondendo alguém).
+    const campos = 'id,text,timestamp,username,from{id,username}';
+    let pagina = await this.chamar<Pagina<ComentarioBruto>>('GET', `${mediaId}/comments`, { fields: `${campos},replies{${campos}}`, limit: '50' });
+    const guardar = (c: ComentarioBruto) => {
+      const quando = new Date(Date.parse(c.timestamp));
+      if (desde && quando.getTime() < desde.getTime()) return;
+      const username = c.from?.username ?? c.username;
+      if (!c.from?.id || !username) return; // sem autor identificável não dá para inscrever ninguém
+      lista.push({ igCommentId: c.id, igMediaId: mediaId, igUserId: c.from.id, username, texto: c.text ?? '', comentadoEm: quando });
+    };
     for (;;) {
       for (const c of pagina.data) {
-        const quando = new Date(Date.parse(c.timestamp));
-        if (desde && quando.getTime() < desde.getTime()) continue;
-        const username = c.from?.username ?? c.username;
-        if (!c.from?.id || !username) continue; // sem autor identificável não dá para inscrever ninguém
-        lista.push({ igCommentId: c.id, igMediaId: mediaId, igUserId: c.from.id, username, texto: c.text ?? '', comentadoEm: quando });
+        guardar(c);
+        for (const resposta of c.replies?.data ?? []) guardar(resposta);
       }
       if (!pagina.paging?.next) break;
       pagina = await this.chamar<Pagina<ComentarioBruto>>('GET', pagina.paging.next);
