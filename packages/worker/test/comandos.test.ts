@@ -106,6 +106,14 @@ describe('Transferência (ADR-0012)', () => {
     expect(interpretar(texto)).toEqual(esperado);
   });
 
+  it.each([
+    'Opa varzeao tudo bem então, meu amigo e o its___mu_27 ele está no time da onça mais ele quer ser transferido para o time da preguiça poderia mudar ele para o time da preguiça?',
+    'transfere o its___mu pra preguiça',
+    'meu irmão quer ir pra arara',
+  ])('pedido por outra pessoa não é Transferência: %s', (texto) => {
+    expect(interpretar(texto).tipo).toBe('IGNORADO');
+  });
+
   it.each(['Vamos onça🔥', 'a onça vai ir pra final', 'o atacante da onça vai trocar de chuteira', 'vou pra cima onça'])('não é Transferência: %s', (texto) => {
     expect(interpretar(texto).tipo).not.toBe('TRANSFERENCIA');
   });

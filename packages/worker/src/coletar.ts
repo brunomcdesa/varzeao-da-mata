@@ -232,7 +232,9 @@ async function jaInscrito(b: Banco, c: Comentario, pedido: { time: TimeId; posic
 async function transferir(b: Banco, c: Comentario, jogadorId: string, pedido: { times: TimeId[]; posicao?: Posicao }, ctx: Contexto): Promise<Resultado> {
   const j = (await b.query<{ time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null }>(`SELECT time_id, posicao, ovr, habilidades FROM jogador WHERE id = $1`, [jogadorId])).rows[0]!;
   const responder = (texto: string) => ctx.responder?.(c.igCommentId, `@${c.username} ${texto}`);
-  // Citou dois Times ("sair da Onça e ir pra Preguiça"): o destino é o que não é o dele.
+  // Citou dois Times ("sair da Onça e ir pra Preguiça"): um tem que ser o dele, e o destino
+  // é o outro. Se nenhum é o dele, o pedido não é claro: não mexe nem responde.
+  if (pedido.times.length === 2 && !pedido.times.includes(j.time_id)) return 'IGNORADO';
   const destino = pedido.times.find((t) => t !== j.time_id) ?? pedido.times[0] ?? j.time_id;
   const posicao = pedido.posicao ?? j.posicao;
   if (destino === j.time_id && posicao === j.posicao) {

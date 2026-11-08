@@ -154,6 +154,9 @@ const DA_TRANSFERENCIA = new Set(['EQUILIBRAR', 'EQUILIBRIO', 'AJUDAR', 'OUTRO',
 function transferencia(palavras: string[]): Comando | null {
   const explicita = palavras.some((p) => p.startsWith('TRANSFER') || p === 'TRANSFIRO');
   if (palavras.some((p) => p.startsWith('@'))) return null;
+  // Pedido por outra pessoa ("meu amigo its___mu quer ir pra preguiça"): não é da própria
+  // pessoa, então não mexe em ninguém nem responde; quem cuida é a Liga, no privado.
+  if (porOutraPessoa(palavras)) return explicita ? { tipo: 'IGNORADO' } : null;
   const { times, posicoes, outras } = analisar(palavras.filter((p) => !(p.startsWith('TRANSFER') || p === 'TRANSFIRO')));
   if (!explicita) {
     if (palavras.length > 12 || !palavras.some((p) => MUDANCA.has(p))) return null;
@@ -165,6 +168,17 @@ function transferencia(palavras: string[]): Comando | null {
   if (times.size + posicoes.size === 0) return { tipo: 'INVALIDO', prefixo: 'TRANSFERIR', motivo: 'SEM_TIME' };
   const [posicao] = posicoes;
   return posicao ? { tipo: 'TRANSFERENCIA', times: [...times], posicao } : { tipo: 'TRANSFERENCIA', times: [...times] };
+}
+
+/** Quem fala de terceiros: amigo, irmão, ele/ela... */
+const TERCEIROS = new Set([
+  'AMIGO', 'AMIGA', 'AMIGOS', 'ELE', 'ELA', 'DELE', 'DELA', 'IRMAO', 'IRMA', 'PRIMO', 'PRIMA', 'NAMORADO', 'NAMORADA',
+  'MARIDO', 'ESPOSA', 'FILHO', 'FILHA', 'PAI', 'MAE', 'COLEGA', 'PARCEIRO', 'PARCEIRA', 'COMPANHEIRO', 'COMPANHEIRA',
+]);
+
+/** O comentário fala de outra pessoa: palavra de terceiro ou um nome de usuário sem @ (its___mu_27). */
+function porOutraPessoa(palavras: string[]): boolean {
+  return palavras.some((p) => TERCEIROS.has(p) || /[._]/.test(p) || (/\d/.test(p) && /[A-Z]/.test(p)));
 }
 
 /** A expressão mais longa que começa na palavra `i`, se houver. Ignora palavras de ligação soltas. */

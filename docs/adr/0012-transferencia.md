@@ -12,6 +12,7 @@ Motivo: os seguidores pediram, e a transferência é a forma mais natural de equ
 - **O que ele leva:** as Habilidades e as estatísticas pessoais. O OVR passa a ser o das Habilidades na posição nova. Os pontos e os jogos já disputados ficam com o Time antigo.
 - **Mata-mata:** as transferências fecham no Corte do último jogo da Fase de Liga e reabrem na Temporada seguinte.
 - **"ENTRO" de quem já joga:** não vira Transferência. A Liga responde explicando como pedir.
+- **Pedido por outra pessoa:** comentário que fala de terceiros não vira Transferência e não recebe resposta automática; a Liga cuida no privado. Conta como terceiro um @, um nome de usuário sem @ (its___mu_27) ou palavras como "meu amigo", "ele" e "dela". Se o comentário cita dois Times e nenhum é o de quem comentou, também não mexe.
 - **Quem ainda não joga:** se pede para ir para um Time ("quero ir pra Preguiça"), entra nele, como numa Inscrição.
 - **Comentários antigos:** um pedido já lido como ignorado, feito depois da Inscrição, é lido de novo e vira Transferência. Foi assim que o primeiro pedido, de @its___mu_27, foi atendido.
 
