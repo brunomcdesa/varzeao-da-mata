@@ -5,7 +5,8 @@
  *
  * A sessão é um segredo que só este navegador guarda (localStorage); a borda guarda o hash.
  */
-import { TIMES, type JogadorPublico, type Posicao, type TimeId } from '@liga/shared';
+import { CABELOS, NOME_DO_PENTEADO, PELES, PENTEADOS, TIMES, type Aparencia, type JogadorPublico, type Penteado, type Posicao, type TimeId } from '@liga/shared';
+import { ALTURA_SPRITE, LARGURA_SPRITE, aparencia, sprite, visualDoJogador, type Pose } from '@liga/renderer';
 import { BASE_API, INSTAGRAM } from './dados.js';
 import { curto, html, NOME_DA_POSICAO, POSICOES_EM_ORDEM } from './ui.js';
 
@@ -174,6 +175,9 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
               <p><button type="submit" class="botao">Pedir transferência</button></p>
             </form>`}`);
 
+    caixa.insertAdjacentHTML('beforeend', blocoVisual().s);
+    ligarVisual(g);
+
     caixa.querySelector('[data-acao="sair"]')!.addEventListener('click', async () => {
       parar();
       await api('vinculo/sair', { sessao: g.sessao }).catch(() => null);
@@ -199,6 +203,95 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
     });
   }
 
+  // ---- visual do boneco e número da camisa
+  let escolha: Required<Aparencia> = { penteado: 'CURTO', ...aparencia(`@${j.username}`) } as Required<Aparencia>;
+  let numero: number | null = j.numero;
+
+  function blocoVisual() {
+    const swatch = (grupo: string, cor: string, atual: string) =>
+      html`<button type="button" class="amostra" data-${grupo}="${cor}" style="--amostra:${cor}" aria-pressed="${String(cor === atual)}" aria-label="${grupo === 'pele' ? 'Pele' : 'Cabelo'} ${cor}"></button>`;
+    return html`<form class="form-visual">
+      <h3 class="secao">Visual e camisa</h3>
+      <div class="visual-grade">
+        <canvas class="pixel previa-boneco" width="${LARGURA_SPRITE * 8}" height="${ALTURA_SPRITE * 8}" aria-label="Como o seu boneco vai ficar"></canvas>
+        <div class="visual-opcoes">
+          <fieldset><legend>Pele</legend><div class="amostras">${PELES.map((c) => swatch('pele', c, escolha.pele))}</div></fieldset>
+          <fieldset><legend>Cabelo</legend><div class="amostras">${CABELOS.map((c) => swatch('cabelo', c, escolha.cabelo))}</div></fieldset>
+          <fieldset><legend>Corte</legend><div class="cortes">${PENTEADOS.map((p) => html`<button type="button" class="corte" data-penteado="${p}" aria-pressed="${String(p === escolha.penteado)}">${NOME_DO_PENTEADO[p]}</button>`)}</div></fieldset>
+          <label class="camisa"><span>Número da camisa</span><input type="number" name="numero" min="1" max="99" inputmode="numeric" value="${numero ?? ''}" placeholder="1 a 99" /></label>
+        </div>
+      </div>
+      <p><button type="submit" class="botao">Salvar visual e camisa</button></p>
+      <p class="estado-visual" role="status" aria-live="polite"></p>
+    </form>`;
+  }
+
+  function ligarVisual(g: Guardado) {
+    // O painel é redesenhado enquanto um pedido está pendente: não acumula o giro do boneco.
+    timersVisual.splice(0).forEach((t) => clearTimeout(t));
+    const form = caixa.querySelector<HTMLFormElement>('.form-visual');
+    if (!form) return;
+    const canvas = form.querySelector<HTMLCanvasElement>('.previa-boneco')!;
+    const estado = form.querySelector<HTMLElement>('.estado-visual')!;
+    let quadro = 0;
+    const desenhar = () => {
+      const c = canvas.getContext('2d')!;
+      c.imageSmoothingEnabled = false;
+      c.clearRect(0, 0, canvas.width, canvas.height);
+      const pose: Pose = (['FRENTE_PARADO', 'FRENTE_COMEMORA', 'COSTAS_PARADO', 'LADO_PARADO'] as Pose[])[quadro % 4]!;
+      c.drawImage(sprite(pose, { ...visualDoJogador(j.time, j.posicao, `@${j.username}`), ...escolha }) as CanvasImageSource, 0, 0, canvas.width, canvas.height);
+    };
+    desenhar();
+    // Gira o boneco devagar para mostrar o corte de frente, de costas e de lado.
+    const girar = () => {
+      quadro++;
+      desenhar();
+      timersVisual.push(window.setTimeout(girar, 1100));
+    };
+    timersVisual.push(window.setTimeout(girar, 1100));
+    form.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('button[data-pele], button[data-cabelo], button[data-penteado]');
+      if (!b) return;
+      if (b.dataset.pele) escolha = { ...escolha, pele: b.dataset.pele };
+      if (b.dataset.cabelo) escolha = { ...escolha, cabelo: b.dataset.cabelo };
+      if (b.dataset.penteado) escolha = { ...escolha, penteado: b.dataset.penteado as Penteado };
+      for (const x of form.querySelectorAll<HTMLButtonElement>('button[data-pele], button[data-cabelo], button[data-penteado]')) {
+        const v = x.dataset.pele ?? x.dataset.cabelo ?? x.dataset.penteado;
+        x.setAttribute('aria-pressed', String(v === escolha.pele || v === escolha.cabelo || v === escolha.penteado));
+      }
+      quadro = 0;
+      desenhar();
+    });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const n = (form.elements.namedItem('numero') as HTMLInputElement).value.trim();
+      const novoNumero = n ? Number(n) : null;
+      if (novoNumero !== null && (!Number.isInteger(novoNumero) || novoNumero < 1 || novoNumero > 99)) {
+        estado.textContent = 'O número da camisa vai de 1 a 99.';
+        return;
+      }
+      estado.textContent = 'Salvando...';
+      const r = await api<{ ok?: boolean; erro?: string }>('perfil', { sessao: g.sessao, visual: escolha, ...(novoNumero !== null && novoNumero !== numero ? { numero: novoNumero } : {}) }).catch(() => null);
+      if (!r?.dados.ok) {
+        estado.textContent = r?.dados.erro ?? 'Não deu para salvar agora. Tente de novo.';
+        return;
+      }
+      estado.textContent = 'Enviado. A Liga confere em 1 ou 2 minutos...';
+      const conferir = async (tentativa: number) => {
+        const p = (await api<{ processadoEm?: string; resultado?: string; mensagem?: string }>('perfil/estado', { sessao: g.sessao }).catch(() => null))?.dados;
+        if (p?.processadoEm) {
+          estado.textContent = p.mensagem ?? '';
+          estado.className = `estado-visual ${p.resultado === 'SALVO' ? 'sucesso' : 'erro'}`;
+          if (p.resultado === 'SALVO' && novoNumero !== null) numero = novoNumero;
+          return;
+        }
+        if (tentativa < 30) timersVisual.push(window.setTimeout(() => void conferir(tentativa + 1), 8000));
+      };
+      void conferir(0);
+    });
+  }
+  const timersVisual: number[] = [];
+
   // ---- início
   const g = ler<Guardado>(CHAVE);
   if (g && g.jogadorId === j.id) {
@@ -214,5 +307,8 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
     // Este navegador já é de outro personagem: um por navegador.
     caixa.hidden = true;
   } else convite();
-  return parar;
+  return () => {
+    parar();
+    timersVisual.splice(0).forEach((t) => clearTimeout(t));
+  };
 }

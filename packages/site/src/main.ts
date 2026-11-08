@@ -1,5 +1,5 @@
 /** Site da Liga: roteamento por hash (funciona em qualquer hospedagem estática). */
-import { ErroDeDados, liga } from './dados.js';
+import { ErroDeDados, jogadores, liga } from './dados.js';
 import { inicio } from './paginas/inicio.js';
 import { paginaComparar, paginaJogador, paginaJogadores } from './paginas/jogadores.js';
 import { paginaJogos, paginaTabela, paginaTime, paginaTimes } from './paginas/liga.js';
@@ -25,6 +25,9 @@ const main = document.getElementById('conteudo')!;
 let limpar: (() => void) | void;
 let versao = 0;
 
+/** Os visuais escolhidos pelos donos chegam com jogadores.json: espera antes de desenhar bonecos. */
+const aparenciasProntas = jogadores().catch(() => null);
+
 async function navegar(): Promise<void> {
   const caminho = decodeURIComponent(location.hash.replace(/^#/, ''));
   const rota = ROTAS.find((r) => r.padrao.test(caminho));
@@ -41,6 +44,7 @@ async function navegar(): Promise<void> {
   }
   try {
     const params = caminho.match(rota.padrao)!.slice(1);
+    await aparenciasProntas;
     const fim = await rota.pagina(main, params);
     if (minha !== versao) fim?.();
     else limpar = fim;

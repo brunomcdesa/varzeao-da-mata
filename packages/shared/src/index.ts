@@ -91,3 +91,4 @@ export * from './site.js';
 export * from './rodada.js';
 export * from './habilidades.js';
 import type { Habilidades } from './habilidades.js';
+export * from './aparencia.js';

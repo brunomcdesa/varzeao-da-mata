@@ -25,6 +25,7 @@ import { craqueDaRodada, dadosDoResumo, fecharRodada, HORA_DO_RESUMO, type Dados
 import { exportarSite } from './site.js';
 import { contextoDaVotacao, importarVotosDoSite, sincronizarVotacao } from './votoSite.js';
 import { processarPedidosDoSite } from './pedidosSite.js';
+import { aparenciasEscolhidas } from './perfil.js';
 
 export interface ContextoDoJob {
   banco: Banco;
@@ -499,7 +500,7 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
     const pasta = await mkdtemp(join(tmpdir(), 'varzea-craque-'));
     try {
       const saida = join(pasta, 'craque.mp4');
-      await c.gravarResumo(dados, saida);
+      await c.gravarResumo({ ...dados, aparencias: await aparenciasEscolhidas(c.banco) }, saida);
       const chave = `videos/${randomUUID()}.mp4`;
       await c.armazenamento.enviar('publico', chave, new Uint8Array(await readFile(saida)), { tipo: 'video/mp4', cache: 'public, max-age=31536000, immutable' });
       item = await agendar(c, {
@@ -588,7 +589,7 @@ export async function jobResumo(c: ContextoDoJob): Promise<number | null> {
   const pasta = await mkdtemp(join(tmpdir(), 'varzea-resumo-'));
   try {
     const saida = join(pasta, 'resumo.mp4');
-    await c.gravarResumo(dados, saida);
+    await c.gravarResumo({ ...dados, aparencias: await aparenciasEscolhidas(c.banco) }, saida);
     const chave = `videos/${randomUUID()}.mp4`;
     await c.armazenamento.enviar('publico', chave, new Uint8Array(await readFile(saida)), { tipo: 'video/mp4', cache: 'public, max-age=31536000, immutable' });
     await c.banco.query(`UPDATE rodada SET resumo_status = 'RENDERIZADO' WHERE id = $1`, [r.id]);
