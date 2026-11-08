@@ -3,6 +3,7 @@
  * e a chamada para votar e jogar. Sequência de cartelas no mesmo estilo de várzea dos lances,
  * narrada pelo Locutor da Liga; cada cartela estica até a sua fala caber inteira.
  */
+import { desenharCompartilhe } from './anuncio.js';
 import { FALA_DO_TIME, IDENTIDADE, doTime, nomeDaRodada, type Posicao, type TimeId, type Aparencia } from '@liga/shared';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, plaquinha } from './desenho.js';
@@ -41,12 +42,12 @@ export interface DadosDoResumo {
   aparencias?: Record<string, Aparencia>;
 }
 
-export type Cartela = 'ABERTURA' | 'PLACARES' | 'CAMPEAO' | 'TABELA' | 'NOVOS' | 'CANDIDATOS' | 'CRAQUE' | 'DESTAQUES' | 'CHAMADA';
+export type Cartela = 'ABERTURA' | 'PLACARES' | 'CAMPEAO' | 'TABELA' | 'NOVOS' | 'CANDIDATOS' | 'CRAQUE' | 'DESTAQUES' | 'CHAMADA' | 'COMPARTILHE';
 
 /** Segmento do Roteiro com a cartela que ele mostra (tipo 'ABERTURA' = trilha cheia na mixagem). */
 export type SegmentoResumo = Segmento & { cartela: Cartela };
 
-const DURACAO_BASE: Record<Cartela, number> = { ABERTURA: 3, PLACARES: 5, CAMPEAO: 6, TABELA: 6, NOVOS: 4, CANDIDATOS: 7, CRAQUE: 7, DESTAQUES: 6, CHAMADA: 5 };
+const DURACAO_BASE: Record<Cartela, number> = { ABERTURA: 3, PLACARES: 5, CAMPEAO: 6, TABELA: 6, NOVOS: 4, CANDIDATOS: 7, CRAQUE: 7, DESTAQUES: 6, CHAMADA: 5, COMPARTILHE: 6 };
 const CORTE = 0.3;
 
 export class RoteiroResumo {
@@ -71,7 +72,7 @@ export class RoteiroResumo {
       if (dados.totalNovos > 0) cartelas.push('NOVOS');
       if (dados.candidatos.length) cartelas.push('CANDIDATOS');
     }
-    cartelas.push('CHAMADA');
+    cartelas.push('CHAMADA', 'COMPARTILHE');
     let cursor = 0;
     this.segmentos = cartelas.map((cartela, i) => {
       const inicio = cursor;
@@ -170,8 +171,11 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
         texto = d.fimDaTemporada?.proxima
           ? `A Temporada ${d.fimDaTemporada.proxima.numero} começa ${diaFalado(d.fimDaTemporada.proxima.inicio)}. Quer jogar? Comente ENTRO, o time e a posição!`
           : d.candidatos.length
-          ? `Vote no seu Craque${d.votacao === 'TEMPORADA' ? ' da Temporada' : ''} comentando só o número dele, ou pelo site. ${d.votacao === 'TEMPORADA' ? 'O resultado sai amanhã às sete da noite!' : 'E se quiser jogar, comente ENTRO, o time e a posição!'}`
+          ? `Vote no seu Craque${d.votacao === 'TEMPORADA' ? ' da Temporada' : ''} comentando só o número dele, ou pelo site.${d.votacao === 'TEMPORADA' ? ' O resultado sai amanhã às sete da noite!' : ''}`
           : 'A próxima Temporada vem aí. Quer jogar? Comente ENTRO, o time e a posição!';
+        break;
+      case 'COMPARTILHE':
+        texto = 'Curtiu? Compartilha com a galera e chama mais gente pro Varzeão! Pra entrar, é só comentar ENTRO, o time e a posição.';
         break;
     }
     falas.push({ id: `resumo-${i}`, texto, inicio: s.inicio + 0.35, limite: s.fim, tom: s.cartela === 'ABERTURA' ? 'animado' : 'normal', segmento: i, parte: 'antes' });
@@ -451,6 +455,9 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       if (f.goleiro) cartao(k++, 'Melhor goleiro', { ...f.goleiro, posicao: 'GOL' }, f.goleiro.notaMedia.toFixed(1).replace('.', ','), 'nota média');
       break;
     }
+    case 'COMPARTILHE':
+      desenharCompartilhe(pin, q.tempo, tVideo, o);
+      break;
     case 'CHAMADA': {
       const proxima = d.fimDaTemporada?.proxima;
       if (proxima) {
@@ -480,19 +487,14 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
         break;
       }
       pin.ctx.globalAlpha = entre(q.tempo, 0.1, 0.5);
-      pin.tabua(22, 110, 226, 110);
+      // Só o voto: entrar na Liga e compartilhar ficam na tela seguinte (COMPARTILHE).
+      pin.tabua(22, 160, 226, 120);
       const chamada = d.votacao === 'TEMPORADA' ? 'Craque da Temporada' : 'Vote no Craque';
-      pin.texto(chamada, COLUNAS / 2, 132, pin.caber(chamada, 200, 20, display), display, COR.amarelo, { contorno: COR.contorno });
-      pin.texto('comente só o número', COLUNAS / 2, 154, 9, texto, COR.placa, { peso: 600 });
+      pin.texto(chamada, COLUNAS / 2, 184, pin.caber(chamada, 200, 22, display), display, COR.amarelo, { contorno: COR.contorno });
+      pin.texto('comente só o número', COLUNAS / 2, 208, 10, texto, COR.placa, { peso: 600 });
       const exemplo = `1 a ${d.candidatos.length}`;
-      pin.texto(exemplo, COLUNAS / 2, 182, pin.caber(exemplo, 200, 30, display), display, '#FFFFFF', { contorno: COR.contorno });
-      pin.texto('ou vote no site, link na bio', COLUNAS / 2, 206, 7, texto, COR.placaSombra, { peso: 500 });
-      pin.ctx.globalAlpha = entre(q.tempo, 0.6, 1.0);
-      pin.tabua(22, 240, 226, 96);
-      pin.texto('Quer jogar? Comente', COLUNAS / 2, 260, 10, texto, COR.placa, { peso: 600 });
-      pin.texto('ENTRO + time + posição', COLUNAS / 2, 286, pin.caber('ENTRO + time + posição', 200, 26, display), display, COR.amarelo, { contorno: COR.contorno });
-      pin.texto('Ex.: ENTRO CAPIVARA ATA', COLUNAS / 2, 312, 7, texto, COR.placaSombra, { peso: 500 });
-      if (o.escudo) desenharEscudoDaLiga(pin, o.escudo, COLUNAS / 2, 400, 70);
+      pin.texto(exemplo, COLUNAS / 2, 240, pin.caber(exemplo, 200, 34, display), display, '#FFFFFF', { contorno: COR.contorno });
+      pin.texto('ou vote no site, link na bio', COLUNAS / 2, 266, 8, texto, COR.placaSombra, { peso: 500 });
       pin.ctx.globalAlpha = 1;
       break;
     }

@@ -340,34 +340,7 @@ export function desenharQuadroAnuncio(ctx: CanvasRenderingContext2D, roteiro: Ro
       break;
     }
     case 'COMPARTILHE': {
-      const a = entre(t, 0, 0.5);
-      pin.ctx.globalAlpha = a;
-      const pulso = 1 + 0.05 * Math.sin(t * 6);
-      pin.texto('Curte e', COLUNAS / 2, 52, 34, display, COR.placa, { contorno: COR.contorno, espessura: 1.5 });
-      pin.texto('compartilha!', COLUNAS / 2, 88, 40 * pulso, display, COR.amarelo, { contorno: COR.contorno, espessura: 1.5 });
-      pin.ctx.globalAlpha = 1;
-      // Coração e a seta de compartilhar, em pixel art.
-      surge(entre(t, 0.5, 0.9), () => {
-        const coracao = ['.XX.XX.', 'XXXXXXX', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'];
-        const bate = 1 + 0.12 * Math.max(0, Math.sin(t * 5));
-        const tam = Math.round(4 * bate);
-        coracao.forEach((l, y) => [...l].forEach((c, x) => c === 'X' && pin.r(78 + x * tam - (tam - 4) * 3, 118 + y * tam, tam, tam, '#E4572E')));
-        const seta = ['....X..', '....XX.', 'XXXXXXX', 'X...XX.', 'X...X..', 'X......', 'XXXXX..'];
-        seta.forEach((l, y) => [...l].forEach((c, x) => c === 'X' && pin.r(160 + x * 4, 116 + y * 4, 4, 4, '#FFFFFF')));
-      });
-      surge(entre(t, 1.0, 1.4), () => {
-        pin.tabua(14, 160, 242, 112);
-        pin.texto('chame a galera pra Liga', COLUNAS / 2, 180, pin.caber('chame a galera pra Liga', 220, 13, texto, 700), texto, COR.placa, { peso: 700 });
-        pin.texto('Para entrar, comente:', COLUNAS / 2, 204, 11, texto, COR.placaSombra, { peso: 600 });
-        pin.texto('ENTRO', COLUNAS / 2, 230, 28, display, '#FFFFFF', { contorno: COR.contorno, espessura: 1.5 });
-        pin.texto('+ TIME + POSIÇÃO', COLUNAS / 2, 256, pin.caber('+ TIME + POSIÇÃO', 220, 20, display), display, COR.amarelo, { contorno: COR.contorno });
-      });
-      // A turma comemorando: quanto mais gente, melhor a Liga.
-      surge(entre(t, 1.6, 2.1), () => {
-        const turma: [TimeId, Posicao][] = [['TAT', 'MEI'], [EX.de, EX.posicao], ['PRE', 'ZAG']];
-        turma.forEach(([time, pos], k) => boneco(pin, Math.floor(tVideo * 3 + k) % 2 === 0 ? 'FRENTE_COMEMORA' : 'FRENTE_PARADO', uniforme(time, pos, `amigo${k}`), 60 + k * 54, 290, 3));
-      });
-      if (o.escudo) surge(entre(t, 2.2, 2.7), () => desenharEscudoDaLiga(pin, o.escudo!, COLUNAS / 2, 404, 80));
+      desenharCompartilhe(pin, t, tVideo, o);
       break;
     }
   }
@@ -379,4 +352,49 @@ export function desenharQuadroAnuncio(ctx: CanvasRenderingContext2D, roteiro: Ro
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.restore();
   }
+}
+
+/**
+ * Tela "Curte e compartilha!": chama a galera para a Liga. Fecha o anúncio e o Resumo
+ * da Rodada (nas Partidas vai só a faixa curta, no fim).
+ */
+export function desenharCompartilhe(pin: Pincel, t: number, tVideo: number, o: OpcoesAnuncio = {}): void {
+  const display = o.fonteDisplay ?? FONTE_DISPLAY;
+  const texto = o.fonteTexto ?? FONTE_TEXTO;
+  const surge = (a: number, desenhar: () => void, dy = 10) => {
+    if (a <= 0) return;
+    pin.ctx.save();
+    pin.ctx.globalAlpha = a;
+    pin.ctx.translate(0, (1 - a) * dy * pin.px);
+    desenhar();
+    pin.ctx.restore();
+  };
+  const a = entre(t, 0, 0.5);
+  pin.ctx.globalAlpha = a;
+  const pulso = 1 + 0.05 * Math.sin(t * 6);
+  pin.texto('Curte e', COLUNAS / 2, 52, 34, display, COR.placa, { contorno: COR.contorno, espessura: 1.5 });
+  pin.texto('compartilha!', COLUNAS / 2, 88, 40 * pulso, display, COR.amarelo, { contorno: COR.contorno, espessura: 1.5 });
+  pin.ctx.globalAlpha = 1;
+  // Coração e a seta de compartilhar, em pixel art.
+  surge(entre(t, 0.5, 0.9), () => {
+    const coracao = ['.XX.XX.', 'XXXXXXX', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'];
+    const bate = 1 + 0.12 * Math.max(0, Math.sin(t * 5));
+    const tam = Math.round(4 * bate);
+    coracao.forEach((l, y) => [...l].forEach((c, x) => c === 'X' && pin.r(78 + x * tam - (tam - 4) * 3, 118 + y * tam, tam, tam, '#E4572E')));
+    const seta = ['....X..', '....XX.', 'XXXXXXX', 'X...XX.', 'X...X..', 'X......', 'XXXXX..'];
+    seta.forEach((l, y) => [...l].forEach((c, x) => c === 'X' && pin.r(160 + x * 4, 116 + y * 4, 4, 4, '#FFFFFF')));
+  });
+  surge(entre(t, 1.0, 1.4), () => {
+    pin.tabua(14, 160, 242, 112);
+    pin.texto('chame a galera pra Liga', COLUNAS / 2, 180, pin.caber('chame a galera pra Liga', 220, 13, texto, 700), texto, COR.placa, { peso: 700 });
+    pin.texto('Para entrar, comente:', COLUNAS / 2, 204, 11, texto, COR.placaSombra, { peso: 600 });
+    pin.texto('ENTRO', COLUNAS / 2, 230, 28, display, '#FFFFFF', { contorno: COR.contorno, espessura: 1.5 });
+    pin.texto('+ TIME + POSIÇÃO', COLUNAS / 2, 256, pin.caber('+ TIME + POSIÇÃO', 220, 20, display), display, COR.amarelo, { contorno: COR.contorno });
+  });
+  // A turma comemorando: quanto mais gente, melhor a Liga.
+  surge(entre(t, 1.6, 2.1), () => {
+    const turma: [TimeId, Posicao][] = [['TAT', 'MEI'], [EX.de, EX.posicao], ['PRE', 'ZAG']];
+    turma.forEach(([time, pos], k) => boneco(pin, Math.floor(tVideo * 3 + k) % 2 === 0 ? 'FRENTE_COMEMORA' : 'FRENTE_PARADO', uniforme(time, pos, `amigo${k}`), 60 + k * 54, 290, 3));
+  });
+  if (o.escudo) surge(entre(t, 2.2, 2.7), () => desenharEscudoDaLiga(pin, o.escudo!, COLUNAS / 2, 404, 80));
 }
