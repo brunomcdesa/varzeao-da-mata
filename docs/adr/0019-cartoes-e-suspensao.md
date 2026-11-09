@@ -7,7 +7,7 @@ Motivo: os cartões dão drama ao jogo e à Rodada seguinte, e fazem o rodízio 
 ## Regras
 
 - **Suspensão:** o Jogador suspenso não entra na Escalação. O rodízio escolhe outro do Elenco e, se não houver, a vaga fica com um Jogador da Base.
-- **Simulação:** os cartões e a expulsão são decididos na simulação e sobem a `VERSAO_SIM` para 4, junto com a Postura (ADR-0018).
+- **Simulação:** os cartões e a expulsão são decididos na simulação e sobem a `VERSAO_SIM` para 4, junto com a Postura (ADR-0018), a Especialização e o Pênalti com canto (ADR-0021).
 - **Capitão suspenso:** a faixa de Capitão passa para o próximo (ADR-0018).
 
 ## Considered Options

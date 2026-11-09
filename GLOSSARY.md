@@ -188,6 +188,22 @@ _Avoid_: advertência, punição
 Uma Partida em que o Jogador fica fora da Escalação por causa de Cartões.
 _Avoid_: gancho, punição
 
+**Presença**:
+A confirmação, feita pelo site ou comentando CONFIRMO até o Corte, de que o Jogador quer jogar o próximo jogo do Time. Quem confirmou passa na frente no rodízio da Escalação. ADR-0021.
+_Avoid_: check-in, convocação
+
+**Especialização**:
+A função que o Jogador escolhe dentro da sua Posição (por exemplo Artilheiro, Volante, Xerife ou Paredão), que dá um bônus num Duelo e um custo pequeno em outro. São 3 por Posição, no máximo uma valendo em cada jogo, trocada uma vez por Rodada. ADR-0021.
+_Avoid_: estilo, classe, perfil, função
+
+**Treino**:
+A Habilidade de foco que o Jogador escolhe pelo site; os ganhos dela sobem mais rápido. ADR-0021.
+_Avoid_: foco, upgrade, boost
+
+**Canto**:
+O lado escolhido por batedor e goleiro na Disputa de pênaltis; quem não escolhe tem o canto sorteado. ADR-0021.
+_Avoid_: lado, direção
+
 **Janela de Transferências**:
 O período da Pré-temporada em que qualquer Jogador pode trocar para qualquer Time, de qualquer Série, desde que o destino não fique desequilibrado. Não gasta a Transferência da Temporada.
 _Avoid_: mercado, janela de inverno

@@ -8,7 +8,7 @@ Motivo: dá aos Jogadores uma decisão de verdade antes do jogo, sem precisar de
 
 - **Quem é:** o Jogador com mais Partidas pelo Time. Se o Capitão não tem Vínculo ou está suspenso, a faixa passa para o próximo da lista que tenha Vínculo. Se ninguém tiver Vínculo, a Postura fica Equilibrada.
 - **Por que pelo site:** a escolha é privada. Um Comando nos comentários entregaria a tática ao rival antes do jogo.
-- **Simulação:** a Postura entra na simulação e sobe a `VERSAO_SIM` para 4, junto com os cartões (ADR-0019). Só vale para Partidas escaladas depois da subida.
+- **Simulação:** a Postura entra na simulação e sobe a `VERSAO_SIM` para 4, junto com a Especialização e o Pênalti com canto (ADR-0021) e com os cartões (ADR-0019). Só vale para Partidas escaladas depois da subida.
 
 ## Considered Options
 
