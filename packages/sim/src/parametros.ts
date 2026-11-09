@@ -2,11 +2,18 @@
  * Botões de calibração do motor. Mudar qualquer valor muda resultados de seeds
  * antigas, então exige subir VERSAO_SIM (ADR-0002).
  */
-export const VERSAO_SIM = 4;
+export const VERSAO_SIM = 5;
 
 export const PARAMETROS = {
-  /** Lances de ataque disputados na Partida inteira. */
+  /** Lances de ataque de referência: a média das retas de EXPECTATIVA da Nota (ADR-0004). */
   lances: 20,
+  /**
+   * Ritmo (VERSAO_SIM 5, ADR-0016): os lances de ataque variam por Partida, numa curva em sino
+   * entre `ritmoMinimo` e `ritmoMaximo`. Jogo travado tem poucos, jogo aberto tem muitos; cada
+   * Duelo continua decidido pelas Habilidades.
+   */
+  ritmoMinimo: 6,
+  ritmoMaximo: 34,
   /** Quantos pontos de Habilidade de diferença equivalem a "1 unidade" na curva logística. */
   escalaDuelo: 12,
   /** Peso da Habilidade contra a sorte em cada Duelo (0 = moeda). */
