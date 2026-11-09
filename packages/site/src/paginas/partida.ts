@@ -52,7 +52,8 @@ function textoDoLance(r: ResultadoPartida, nomes: Record<Lado, (string | null)[]
   if (l.tipo === 'FALTA' && l.falta) {
     const onde = l.falta.local === 'AREA' ? 'na área: pênalti' : l.falta.local === 'ENTRADA' ? 'na entrada da área' : 'no meio do caminho';
     const cartao = l.falta.cartao === 'VERMELHO' ? (l.falta.segundoAmarelo ? ', segundo amarelo e expulsão' : ', vermelho direto') : l.falta.cartao === 'AMARELO' ? ', cartão amarelo' : '';
-    return inicio(`falta ${de(l.falta.autor)} em ${n(l.finalizador ?? l.criador)} ${onde}${cartao}`);
+    const vitima = n(l.finalizador ?? l.criador);
+    return inicio(`falta ${de(l.falta.autor)} ${vitima === 'a Base' ? 'na Base' : `em ${vitima}`} ${onde}${cartao}`);
   }
   if (l.bolaParada === 'PENALTI') {
     const canto = l.canto ? ` (bateu no canto ${l.canto.cobrador === 'ESQUERDA' ? 'esquerdo' : l.canto.cobrador === 'DIREITA' ? 'direito' : 'do meio'})` : '';

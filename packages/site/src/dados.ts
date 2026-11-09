@@ -134,6 +134,8 @@ export interface AjusteLocal {
   transferenciaUsada?: boolean;
   apelido?: string | null;
   apelidoTrocadoEm?: string | null;
+  especializacao?: NonNullable<JogadorPublico['especializacao']> | null;
+  treino?: NonNullable<JogadorPublico['treino']> | null;
   em: number;
 }
 const CHAVE_AJUSTES = 'varzeao:ajustes';

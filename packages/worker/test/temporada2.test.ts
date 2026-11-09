@@ -48,6 +48,9 @@ describe('Temporada 2 no worker', () => {
     expect(job.dados.torcida).toBeUndefined();
     const site = await exportarSite(banco, new Date('2026-12-30T12:00:00Z'));
     expect((site.arquivos.get(`partidas/${p.id}.json`) as { torcida?: unknown }).torcida).toBeUndefined();
+    // Nada da T2 nos Jogadores do site da T1 (Especialização, Treino, cartões).
+    const doSite = site.arquivos.get('jogadores.json') as { especializacao?: unknown; treino?: unknown; historico: { amarelos?: unknown; expulso?: unknown }[] }[];
+    expect(doSite.every((j) => !('especializacao' in j) && !('treino' in j) && j.historico.every((h) => !('amarelos' in h) && !('expulso' in h)))).toBe(true);
     expect(res.postura).toBeUndefined();
     expect(res.desempenhos.every((d) => d.faltas === undefined)).toBe(true);
   });
@@ -63,6 +66,7 @@ describe('Temporada 2 no worker', () => {
     expect(job.dados.torcida?.[lado]).toBe(2);
     const site = await exportarSite(banco, new Date('2026-12-30T12:00:00Z'));
     expect((site.arquivos.get(`partidas/${p.id}.json`) as { torcida?: Record<string, number> }).torcida?.[lado]).toBe(2);
+    expect((site.arquivos.get('jogadores.json') as { especializacao?: unknown }[]).every((j) => 'especializacao' in j)).toBe(true);
   });
 
   it('Especialização: só da própria Posição e uma troca por dia', async () => {

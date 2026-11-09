@@ -6,7 +6,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
     "build": "node scripts/build.mjs",
-    "dev": "node scripts/build.mjs --servir"
+    "dev": "node scripts/build.mjs --servir",
+    "test": "vitest run"
   },
   "dependencies": {
     "@liga/renderer": "workspace:*",

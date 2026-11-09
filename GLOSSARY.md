@@ -18,6 +18,10 @@ _Avoid_: bot, NPC, reserva
 A trajetória de um Jogador ao longo de várias Temporadas. Time e OVR persistem de uma Temporada para a seguinte.
 _Avoid_: histórico, perfil
 
+**Página de Carreira**:
+Página do site, a partir da Temporada 2, que mostra a Carreira de um Jogador Temporada por Temporada: Time e Série, números, OVR do começo ao fim, cartões e troféus (ADR-0025).
+_Avoid_: perfil, ficha
+
 **Posição**:
 A função do Jogador em campo, informada na Inscrição: GOL, ZAG, MEI ou ATA.
 _Avoid_: função, papel

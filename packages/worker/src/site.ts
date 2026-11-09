@@ -7,7 +7,7 @@
  * aparecem depois do Apito (o lance a lance) ou do fim do Ao Vivo (placar, tabela, Card).
  * Escalações aparecem assim que existem (a partir do Corte).
  */
-import { IDENTIDADE, TIMES, duracaoAoVivoMs, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Habilidades, type Aparencia } from '@liga/shared';
+import { IDENTIDADE, TIMES, duracaoAoVivoMs, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2 } from '@liga/shared';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { seriesDaTemporada, type SeriesDaTemporada } from './series.js';
@@ -197,8 +197,8 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
 
   // ---- jogadores
   const jogadores = (
-    await banco.query<{ id: string; username: string; time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; inscrito_em: string | Date; visual: Aparencia | string | null; numero: number | null; apelido: string | null; apelido_em: string | Date | null }>(
-      `SELECT id::text AS id, username, time_id, posicao, ovr, habilidades, inscrito_em, visual, numero, apelido, apelido_em FROM jogador WHERE NOT banido ORDER BY id`,
+    await banco.query<{ id: string; username: string; time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; inscrito_em: string | Date; visual: Aparencia | string | null; numero: number | null; apelido: string | null; apelido_em: string | Date | null; especializacao: Especializacao | null; treino: HabilidadeId | null }>(
+      `SELECT id::text AS id, username, time_id, posicao, ovr, habilidades, inscrito_em, visual, numero, apelido, apelido_em, especializacao, treino FROM jogador WHERE NOT banido ORDER BY id`,
     )
   ).rows;
   const transferiram = new Set(
@@ -208,6 +208,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       )
     ).rows.map((r) => r.jogador_id),
   );
+  const comRegrasT2 = temporada !== undefined && temRegrasT2(temporada.numero);
   const porJogador = new Map<string, JogadorPublico>();
   const resumido = (id: string): JogadorResumido | null => {
     const j = porJogador.get(id);
@@ -232,6 +233,8 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       transferenciaUsada: transferiram.has(j.id),
       visual: j.visual ? (typeof j.visual === 'string' ? (JSON.parse(j.visual) as Aparencia) : j.visual) : null,
       numero: j.numero ?? null,
+      // Temporada 2 (ADR-0023): só aparece quando a Temporada atual tem as regras novas.
+      ...(comRegrasT2 ? { especializacao: j.especializacao ?? null, treino: j.treino ?? null } : {}),
       ...estatisticasVazias(),
       vezesCandidato: 0,
       craqueDaRodada: 0,
@@ -278,6 +281,11 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       j.historico.push({
         partidaId: p.id, temporada: numero, rodada: p.rodada, fase: p.fase, nota: d.nota, ovr: d.ovrDepois, habilidades: d.habilidadesDepois ?? habilidadesDe(d.posicao, d.ovrDepois, null), gols: d.gols,
         rival: r.times[outro], emCasa: d.slot.lado === 'mandante', pro: r.gols[d.slot.lado], contra: r.gols[outro],
+        time: r.times[d.slot.lado], assistencias: d.assistencias,
+        ...(comSeries(p.temporada_id) ? { serie: p.serie } : {}),
+        // Cartões só existem nas Partidas da T2 (ADR-0021).
+        ...(d.amarelos ? { amarelos: d.amarelos } : {}),
+        ...(d.expulso ? { expulso: true } : {}),
       });
     }
     if (r.classico && r.decisivo) {

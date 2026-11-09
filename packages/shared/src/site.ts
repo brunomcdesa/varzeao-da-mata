@@ -3,8 +3,8 @@
  * Regra: nada que revele o resultado de uma Partida antes do seu Apito Inicial.
  */
 import type { Aparencia } from './aparencia.js';
-import type { Posicao, Serie, TimeId } from './index.js';
-import type { Habilidades } from './habilidades.js';
+import type { Especializacao, Posicao, Serie, TimeId } from './index.js';
+import type { HabilidadeId, Habilidades } from './habilidades.js';
 
 export interface TimePublico {
   id: TimeId;
@@ -200,7 +200,19 @@ export interface JogadorPublico {
   nestaTemporada: Estatisticas;
   trofeus: Trofeu[];
   /** OVR depois de cada Partida já revelada, em ordem (todas as Temporadas). */
-  historico: { partidaId: number; temporada: number; rodada: number; fase: 'LIGA' | 'MATA_MATA'; nota: number; ovr: number; habilidades: Habilidades; gols: number; rival: TimeId; emCasa: boolean; pro: number; contra: number }[];
+  historico: {
+    partidaId: number; temporada: number; rodada: number; fase: 'LIGA' | 'MATA_MATA'; nota: number; ovr: number; habilidades: Habilidades; gols: number; rival: TimeId; emCasa: boolean; pro: number; contra: number;
+    /** Time pelo qual jogou e assistências (Página de Carreira, ADR-0025). */
+    time?: TimeId;
+    assistencias?: number;
+    serie?: Serie;
+    /** Temporada 2 (ADR-0021): cartões. Ausentes nas Partidas da T1. */
+    amarelos?: number;
+    expulso?: boolean;
+  }[];
+  /** Temporada 2 (ADR-0023): Especialização e Treino escolhidos. Ausentes na T1. */
+  especializacao?: Especializacao | null;
+  treino?: HabilidadeId | null;
 }
 
 export interface EscalacaoPublica {

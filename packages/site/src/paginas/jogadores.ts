@@ -1,5 +1,5 @@
 /** Jogadores: busca e ranking, o Card de cada um e a comparação lado a lado. */
-import { IDENTIDADE, nomeVisivel, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId } from '@liga/shared';
+import { IDENTIDADE, nomeVisivel, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId, temRegrasT2 } from '@liga/shared';
 import { jogadores, liga, timesAtivos } from '../dados.js';
 import { bonecoImg, comCamisa, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html } from '../ui.js';
 import type { Pagina } from './tipos.js';
@@ -229,6 +229,7 @@ export const paginaJogador: Pagina = async (main, [id]) => {
     <div class="jogador-detalhes">
       <h1 class="sr">${j.apelido ? `${j.apelido} (@${j.username})` : `@${j.username}`}</h1>
       <p class="ranking-frase">${rankOvr}º maior OVR da Liga · ${rankPos}º entre ${daPosicao.length} ${NOME_DA_POSICAO[j.posicao].toLowerCase()}s</p>
+      ${temRegrasT2(l.temporada?.numero ?? 0) ? html`<p><a class="botao secundario" href="#/carreira/${j.id}">Ver a Carreira, temporada por temporada</a></p>` : ''}
       ${salaDeTrofeus(j)}
       ${blocoDoDono()}
       <section aria-labelledby="titulo-numeros">
@@ -281,7 +282,7 @@ export const paginaJogador: Pagina = async (main, [id]) => {
     if (v) location.hash = `#/comparar/${j.id}/${v}`;
   });
   // Transferência só para os Times que jogam a Temporada (com a Série B, os 16).
-  return ligarMeuPersonagem(main, j, todos, timesAtivos(l));
+  return ligarMeuPersonagem(main, j, todos, timesAtivos(l), temRegrasT2(l.temporada?.numero ?? 0));
 };
 
 function numeros(e: Estatisticas, j: JogadorPublico): Html {

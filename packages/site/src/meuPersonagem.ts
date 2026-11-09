@@ -5,6 +5,7 @@
  *
  * A sessão é um segredo que só este navegador guarda (localStorage); a borda guarda o hash.
  */
+import { CANTOS, DESCRICAO_DA_ESPECIALIZACAO, ESPECIALIZACOES, HABILIDADES, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, POSTURAS, type Canto, type Especializacao, type HabilidadeId, type Postura } from '@liga/shared';
 import { APELIDO_MAX, apelidoLiberaEm, podeTrocarApelido, CABELOS, NOME_DO_PENTEADO, validarApelido, PELES, PENTEADOS, TIMES, type Aparencia, type JogadorPublico, type Penteado, type Posicao, type TimeId } from '@liga/shared';
 import { ALTURA_SPRITE, LARGURA_SPRITE, aparencia, sprite, visualDoJogador, type Pose } from '@liga/renderer';
 import { BASE_API, INSTAGRAM, ajustarLocalmente } from './dados.js';
@@ -63,7 +64,11 @@ export const vinculoDisponivel = () => Boolean(BASE_API);
 /** Lugar na página do Jogador; `ligarMeuPersonagem` preenche. */
 export const blocoDoDono = () => (vinculoDisponivel() ? html`<section class="meu-personagem placa" aria-live="polite"></section>` : html``);
 
-export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: JogadorPublico[], ativos: readonly TimeId[] = TIMES): () => void {
+/**
+ * `t2`: a Temporada atual tem as regras da Temporada 2 (ADRs 0020 a 0024). Sem ela, o painel
+ * é exatamente o da T1: nada de Presença, Postura, Especialização, Treino ou Canto.
+ */
+export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: JogadorPublico[], ativos: readonly TimeId[] = TIMES, t2 = false): () => void {
   const achada = raiz.querySelector<HTMLElement>('.meu-personagem');
   if (!achada) return () => {};
   const caixa: HTMLElement = achada;
@@ -187,6 +192,10 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
             </form>`}
       </details>`);
 
+    if (t2) {
+      caixa.insertAdjacentHTML('beforeend', blocoEscolhas().s);
+      ligarEscolhas(g);
+    }
     caixa.insertAdjacentHTML('beforeend', blocoApelido().s);
     ligarApelido(g);
     caixa.insertAdjacentHTML('beforeend', blocoVisual().s);
@@ -218,6 +227,131 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
       if (!r?.dados.ok) return painel(g, estado, r?.dados.erro ?? 'Não deu para enviar agora. Tente de novo.');
       void seguir();
     });
+  }
+
+  // ---- Temporada 2: Presença, Postura (Capitão), Especialização, Treino e Canto
+  let especializacao: Especializacao | null = j.especializacao ?? null;
+  let treino: HabilidadeId | null = j.treino ?? null;
+  let canto: Canto | null = null;
+  const NOME_DA_POSTURA: Record<Postura, string> = { OFENSIVA: 'Ofensiva', EQUILIBRADA: 'Equilibrada', DEFENSIVA: 'Defensiva' };
+  const DESCRICAO_DA_POSTURA: Record<Postura, string> = {
+    OFENSIVA: 'O Time ataca mais e deixa a defesa mais exposta.',
+    EQUILIBRADA: 'Sem mudar nada (é a Postura quando o Capitão não escolhe).',
+    DEFENSIVA: 'O Time se fecha atrás e ataca menos.',
+  };
+  const NOME_DO_CANTO: Record<Canto, string> = { ESQUERDA: 'Esquerda', MEIO: 'Meio', DIREITA: 'Direita' };
+
+  function blocoEscolhas() {
+    const opcoes = ESPECIALIZACOES[j.posicao] as readonly Especializacao[];
+    const radio = (nome: string, valor: string, atual: boolean, rotulo: string, ajuda = '') =>
+      html`<label class="opcao-t2"><input type="radio" name="${nome}" value="${valor}" ${atual ? 'checked' : ''} /><span><strong>${rotulo}</strong>${ajuda ? html`<small>${ajuda}</small>` : ''}</span></label>`;
+    return html`<details class="dobra" data-dobra="jogo" ${abertas.has('jogo') ? 'open' : ''}>
+      <summary>Próximo jogo <small>presença e Postura</small></summary>
+      <div class="escolha-t2" data-tipo="PRESENCA">
+        <p>Confirme que vai jogar: quem confirma entra antes no rodízio, logo depois do Craque. Vale até o Corte do próximo jogo do seu Time. Também dá para comentar <strong>CONFIRMO</strong> no post.</p>
+        <p><button type="button" class="botao" data-enviar="PRESENCA">Confirmar presença</button></p>
+        <p class="estado-escolha" role="status" aria-live="polite"></p>
+      </div>
+      <form class="escolha-t2" data-tipo="POSTURA">
+        <p>Se você é o Capitão do ${curto(j.time)} (quem tem mais jogos pelo Time entre os vinculados ao site), escolha como o Time joga até o Corte.</p>
+        <fieldset class="opcoes-t2">${POSTURAS.map((p) => radio('valor', p, p === 'EQUILIBRADA', NOME_DA_POSTURA[p], DESCRICAO_DA_POSTURA[p]))}</fieldset>
+        <p><button type="submit" class="botao">Escolher a Postura</button></p>
+        <p class="estado-escolha" role="status" aria-live="polite"></p>
+      </form>
+    </details>
+    <details class="dobra" data-dobra="especializacao" ${abertas.has('especializacao') ? 'open' : ''}>
+      <summary>Especialização <small>${especializacao ? NOME_DA_ESPECIALIZACAO[especializacao] : 'nenhuma'}</small></summary>
+      <form class="escolha-t2" data-tipo="ESPECIALIZACAO">
+        <p>Um jeito de jogar: melhora uma coisa e piora outra. Vale a partir do próximo jogo; dá para trocar uma vez por dia.</p>
+        <fieldset class="opcoes-t2">
+          ${opcoes.map((e) => radio('valor', e, e === especializacao, NOME_DA_ESPECIALIZACAO[e], DESCRICAO_DA_ESPECIALIZACAO[e]))}
+          ${radio('valor', '', especializacao === null, 'Nenhuma', 'Joga sem Especialização.')}
+        </fieldset>
+        <p><button type="submit" class="botao">Salvar Especialização</button></p>
+        <p class="estado-escolha" role="status" aria-live="polite"></p>
+      </form>
+    </details>
+    <details class="dobra" data-dobra="treino" ${abertas.has('treino') ? 'open' : ''}>
+      <summary>Treino <small>${treino ? NOME_DA_HABILIDADE[treino] : 'sem foco'}</small></summary>
+      <form class="escolha-t2" data-tipo="TREINO">
+        <p>A Habilidade em foco sobe 50% mais rápido quando você joga bem. Ela não cai mais devagar.</p>
+        <label><span>Foco</span><select name="valor">
+          <option value="" ${treino === null ? 'selected' : ''}>Sem foco</option>
+          ${HABILIDADES.map((h) => html`<option value="${h}" ${h === treino ? 'selected' : ''}>${NOME_DA_HABILIDADE[h]}</option>`)}
+        </select></label>
+        <p><button type="submit" class="botao">Salvar Treino</button></p>
+        <p class="estado-escolha" role="status" aria-live="polite"></p>
+      </form>
+    </details>
+    <details class="dobra" data-dobra="canto" ${abertas.has('canto') ? 'open' : ''}>
+      <summary>Canto do pênalti <small data-canto-atual>${canto ? NOME_DO_CANTO[canto] : 'sorteado'}</small></summary>
+      <form class="escolha-t2" data-tipo="CANTO">
+        <p>${j.posicao === 'GOL' ? 'Para onde você pula' : 'Onde você bate'} nos pênaltis, no jogo e na disputa. Só você vê. Sem escolha, o canto é sorteado a cada cobrança.</p>
+        <fieldset class="opcoes-t2 cantos">
+          ${CANTOS.map((c) => radio('valor', c, c === canto, NOME_DO_CANTO[c]))}
+          ${radio('valor', '', canto === null, 'Sortear')}
+        </fieldset>
+        <p><button type="submit" class="botao">Salvar canto</button></p>
+        <p class="estado-escolha" role="status" aria-live="polite"></p>
+      </form>
+    </details>`;
+  }
+
+  function ligarEscolhas(g: Guardado) {
+    // O canto não é público: vem do último pedido deste navegador (borda).
+    void api<Record<string, { escolha?: { valor?: Canto | null }; resultado?: string } | null>>('escolha/estado', { sessao: g.sessao })
+      .then((r) => {
+        const c = r.dados.CANTO;
+        if (c && c.resultado !== 'RECUSADO' && c.escolha) {
+          canto = c.escolha.valor ?? null;
+          const atual = caixa.querySelector('[data-canto-atual]');
+          if (atual) atual.textContent = canto ? NOME_DO_CANTO[canto] : 'sorteado';
+          for (const i of caixa.querySelectorAll<HTMLInputElement>('form[data-tipo="CANTO"] input[name="valor"]')) i.checked = i.value === (canto ?? '');
+        }
+      })
+      .catch(() => null);
+    const enviar = async (tipo: string, valor: string | null, estado: HTMLElement) => {
+      estado.textContent = 'Enviando...';
+      estado.className = 'estado-escolha';
+      const r = await api<{ ok?: boolean; erro?: string; pedido?: { resultado?: string; mensagem?: string; processadoEm?: string } }>('escolha', { sessao: g.sessao, tipo, valor }).catch(() => null);
+      if (r?.status === 401) {
+        gravar(CHAVE, null);
+        return convite('O vínculo deste navegador expirou. Vincule de novo.');
+      }
+      const p = r?.dados.pedido;
+      if (!r?.dados.ok) {
+        estado.textContent = r?.dados.erro ?? 'Não deu para enviar agora. Tente de novo.';
+        estado.className = 'estado-escolha erro';
+        return;
+      }
+      if (!p?.processadoEm) {
+        estado.textContent = 'Enviado. A Liga aplica em 1 ou 2 minutos.';
+        return;
+      }
+      const ok = p.resultado !== 'RECUSADO';
+      estado.textContent = p.mensagem ?? (ok ? 'Pronto!' : 'Não deu.');
+      estado.className = `estado-escolha ${ok ? 'sucesso' : 'erro'}`;
+      if (!ok) return;
+      if (tipo === 'ESPECIALIZACAO') especializacao = (valor as Especializacao | null) ?? null;
+      if (tipo === 'TREINO') treino = (valor as HabilidadeId | null) ?? null;
+      if (tipo === 'CANTO') canto = (valor as Canto | null) ?? null;
+      if (tipo === 'ESPECIALIZACAO' || tipo === 'TREINO') ajustarLocalmente(j.id, { especializacao, treino });
+      const resumo = caixa.querySelector(`details[data-dobra="${tipo === 'CANTO' ? 'canto' : tipo.toLowerCase()}"] summary small`);
+      if (resumo && tipo === 'ESPECIALIZACAO') resumo.textContent = especializacao ? NOME_DA_ESPECIALIZACAO[especializacao] : 'nenhuma';
+      if (resumo && tipo === 'TREINO') resumo.textContent = treino ? NOME_DA_HABILIDADE[treino] : 'sem foco';
+      if (resumo && tipo === 'CANTO') resumo.textContent = canto ? NOME_DO_CANTO[canto] : 'sorteado';
+    };
+    for (const bloco of caixa.querySelectorAll<HTMLElement>('.escolha-t2')) {
+      const tipo = bloco.dataset.tipo!;
+      const estado = bloco.querySelector<HTMLElement>('.estado-escolha')!;
+      if (bloco instanceof HTMLFormElement) {
+        bloco.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const v = new FormData(bloco).get('valor');
+          void enviar(tipo, v ? String(v) : null, estado);
+        });
+      } else bloco.querySelector('[data-enviar]')?.addEventListener('click', () => void enviar(tipo, null, estado));
+    }
   }
 
   // ---- apelido (ADR-0014): o nome que aparece no jogo, na narração e no site
