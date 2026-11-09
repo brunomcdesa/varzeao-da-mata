@@ -2904,6 +2904,10 @@ a.jogo:hover {
 }
 
 /* Faixa de Capitão (T2, ADR-0020) */
+.card-pos .faixa-capitao {
+  font-size: 0.9em;
+  vertical-align: 2px;
+}
 .com-faixa {
   display: inline-flex;
   align-items: center;

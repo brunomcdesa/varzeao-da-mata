@@ -170,11 +170,11 @@ export function card(j: JogadorPublico, o: { pequeno?: boolean } = {}): Html {
   return html`<div class="card ${o.pequeno ? 'pequeno' : ''}" style="--cor:${id.primaria};--cor2:${id.secundaria};--sobre:${tintaSobre(id.primaria)}">
     <div class="card-topo">
       <span class="card-ovr">${j.ovr}</span>
-      <span class="card-pos">${j.posicao}</span>
+      <span class="card-pos">${j.posicao}${faixaC(j.capitao)}</span>
       ${escudoImg(j.time, o.pequeno ? 1 : 1.5, 'card-escudo')}
     </div>
     <div class="card-boneco">${bonecoImg(j.time, j.posicao, j.username, o.pequeno ? 6 : 9)}</div>
-    <p class="card-nome">${comCamisa(nomeVisivel(j), j.numero)}${faixaC(j.capitao)}</p>
+    <p class="card-nome">${comCamisa(nomeVisivel(j), j.numero)}</p>
     ${j.apelido ? html`<p class="card-arroba">@${j.username}</p>` : ''}
     <p class="card-time">${curto(j.time)} · ${NOME_DA_POSICAO[j.posicao]}${j.capitao ? ' · Capitão' : ''}</p>
     ${barrasDeHabilidade(j.posicao, j.habilidades, o.pequeno ? undefined : j.habilidadesIniciais)}
