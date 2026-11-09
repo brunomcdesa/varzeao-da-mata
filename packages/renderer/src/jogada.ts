@@ -81,6 +81,8 @@ export const FISICA = {
 };
 
 export interface Continuidade {
+  /** O próximo lance é bola parada: quem vai cobrar já corre para a bola no fim deste. */
+  cobrancaSeguinte?: { slot: SlotRef; ponto: Ponto };
   /** Duração do lance em segundos de jogo (para dar tempo de o cobrador chegar à bola parada). */
   duracao?: number;
   entrada?: Ponto;
@@ -101,13 +103,61 @@ export function pontoDoLateral(lance: Lance, bases: Record<Lado, Ponto[]>): Pont
   return { x: b.x < 0.5 ? 0.012 : 0.988, y: Math.min(0.85, Math.max(0.15, b.y)) };
 }
 
+/**
+ * Quem cobra a bola parada: no escanteio, o criador (é dele a assistência); no lateral, o
+ * companheiro de linha mais perto do ponto da cobrança (o desenho escolhe; o resultado não muda).
+ */
+export function cobradorDaBolaParada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Record<Lado, Escalacao>): SlotRef {
+  if (lance.bolaParada !== 'LATERAL') return lance.criador;
+  const linha = pontoDoLateral(lance, bases);
+  const lado = lance.criador.lado;
+  let melhor: SlotRef = lance.cobrador ?? lance.criador;
+  let menor = Infinity;
+  escalacoes[lado].jogadores.forEach((j, indice) => {
+    if (j.posicao === 'GOL' || indice === lance.criador.indice) return;
+    const b = bases[lado][indice]!;
+    const d = Math.hypot(b.x - linha.x, b.y - linha.y);
+    if (d < menor) {
+      menor = d;
+      melhor = { lado, indice };
+    }
+  });
+  return melhor;
+}
+
+/** Onde o cobrador fica para cobrar (ao lado da bola). */
+export function pontoDoCobrador(lance: Lance, bases: Record<Lado, Ponto[]>): Ponto {
+  if (lance.bolaParada === 'ESCANTEIO') {
+    const canto = pontoDoEscanteio(lance);
+    const lado = canto.x < 0.5 ? -1 : 1;
+    return { x: canto.x - lado * 0.01, y: canto.y + sentido(lance.ataque) * 0.008 };
+  }
+  const linha = pontoDoLateral(lance, bases);
+  return { x: linha.x + (linha.x < 0.5 ? 0.015 : -0.015), y: linha.y };
+}
+
 export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Record<Lado, Escalacao>, seed: number, cont: Continuidade = {}): Plano {
-  const plano = montarJogada(lance, bases, escalacoes, seed, cont);
-  // Lateral: um companheiro vai até a linha lateral, com calma, e cobra com as duas mãos para o
-  // criador. A jogada toda é empurrada para depois da cobrança (a resolução fica onde estava).
-  if (lance.bolaParada !== 'LATERAL' || !lance.cobrador) return plano;
+  let plano = comLateral(lance, montarJogada(lance, bases, escalacoes, seed, cont), bases, escalacoes, cont);
+  // A bola parada do próximo lance: o cobrador já sai correndo para a bola no fim deste.
+  const c = cont.cobrancaSeguinte;
+  if (c) {
+    const atual = plano.atores.find((a) => a.slot.lado === c.slot.lado && a.slot.indice === c.slot.indice);
+    const quadros: QuadroAtor[] = (atual?.quadros ?? []).filter(([f]) => f <= 0.78);
+    if (!quadros.length) quadros.push([0, null], [0.7, null]);
+    quadros.push([1, c.ponto]);
+    plano = { ...plano, atores: [...plano.atores.filter((a) => a !== atual), { slot: c.slot, quadros }] };
+  }
+  return plano;
+}
+
+/**
+ * Lateral: um companheiro vai até a linha lateral e cobra com as duas mãos para o criador. A
+ * jogada toda é empurrada para depois da cobrança (a resolução fica onde estava).
+ */
+function comLateral(lance: Lance, plano: Plano, bases: Record<Lado, Ponto[]>, escalacoes: Record<Lado, Escalacao>, cont: Continuidade): Plano {
+  if (lance.bolaParada !== 'LATERAL') return plano;
   const linha = cont.entrada ?? MEIO;
-  const L = lance.cobrador;
+  const L = cobradorDaBolaParada(lance, bases, escalacoes);
   // Só cobra depois de chegar à linha (na velocidade da física), com 2 s segurando a bola.
   const dur = cont.duracao ?? 240;
   const baseL = bases[L.lado][L.indice]!;
@@ -123,7 +173,8 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
   // Se o cobrador também tem papel na jogada (tabela, por exemplo), ele cobra e depois segue o papel.
   const papel = plano.atores.find((x) => x.slot.lado === L.lado && x.slot.indice === L.indice);
   const depois = (papel?.quadros ?? []).map(([f, pos]): QuadroAtor => [f === 0 ? 0 : g(f), pos]).filter(([f]) => f > T + 0.04);
-  const quadrosL: QuadroAtor[] = [[0, null], [chegaL, perto], [T + 0.01, perto], ...(depois.length ? depois : [[T + 0.16, null] as QuadroAtor])];
+  // Ele já vinha correndo para a linha no fim do lance anterior.
+  const quadrosL: QuadroAtor[] = [[0, perto], [chegaL, perto], [T + 0.01, perto], ...(depois.length ? depois : [[T + 0.16, null] as QuadroAtor])];
   return {
     ...plano,
     bola: [
@@ -397,7 +448,7 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
     const Fe = lance.finalizador!;
     const Z = lance.marcador ?? lance.defensor;
     const Ge = goleiroDe(escalacoes[def], def);
-    const cobranca: Ponto = { x: canto.x - lado * 0.01, y: canto.y + dir * 0.008 };
+    const cobranca: Ponto = pontoDoCobrador(lance, bases);
     const cabeca = P(0.5 + lado * (0.05 + rng.next() * 0.06), 0.09);
     const fx0 = bases[Fe.lado][Fe.indice]!.x;
     // A bola só é cobrada depois de o cobrador chegar à bandeirinha (na velocidade da física).
@@ -405,7 +456,8 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
     const baseC = bases[C.lado][C.indice]!;
     const cobra = Math.min(0.52, Math.max(0.3, (Math.hypot(baseC.x - cobranca.x, baseC.y - cobranca.y) / (FISICA.sprint * 0.85) + 6) / dur));
     const chega = cobra - 3 / dur;
-    ator(C, [[0, null], [chega, cobranca], [cobra + 0.02, cobranca], [cobra + 0.2, null]]);
+    // Ele já vinha correndo para a bandeirinha no fim do lance anterior.
+    ator(C, [[0, cobranca], [chega, cobranca], [cobra + 0.02, cobranca], [cobra + 0.2, null]]);
     // Todo mundo vai para a área enquanto a bola espera na bandeirinha: os atacantes, um
     // zagueiro que sobe e um meia na entrada da área; quem defende marca de perto e os
     // atacantes do outro time ficam na meia-lua. Depois voltam devagar às posições.

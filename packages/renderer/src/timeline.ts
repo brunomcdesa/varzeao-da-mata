@@ -15,6 +15,8 @@ import {
   F_RESOLUCAO_DESARME,
   MEIO,
   montarPlano,
+  cobradorDaBolaParada,
+  pontoDoCobrador,
   pontoDoEscanteio,
   pontoDoLateral,
   sentido,
@@ -146,6 +148,9 @@ export class Timeline {
         entrada: i === 0 ? MEIO : saida(i - 1),
         saida: saida(i),
         ...(proximo?.bolaParada === 'ESCANTEIO' ? { escanteio: pontoDoEscanteio(proximo) } : {}),
+        ...(proximo?.bolaParada && l.tipo !== 'GOL'
+          ? { cobrancaSeguinte: { slot: cobradorDaBolaParada(proximo, this.bases, escalacoes), ponto: pontoDoCobrador(proximo, this.bases) } }
+          : {}),
       });
     });
     this.trilhas = this.planos.map((p) => new Map(p.atores.map((a) => [chave(a.slot), a.quadros])));
