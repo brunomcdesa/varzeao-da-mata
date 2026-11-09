@@ -1,7 +1,7 @@
 /** Jogos (calendário), Tabela, Times e a página de cada Time. */
-import { FALA_DO_TIME, IDENTIDADE, TIMES, forcaProvavel, nomeDaRodada, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
-import { diaLongo, jogadores, liga, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos } from '../dados.js';
-import { bonecoImg, curto, escudoImg, forcaHtml, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa } from '../ui.js';
+import { FALA_DO_TIME, IDENTIDADE, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, forcaProvavel, nomeDaRodada, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
+import { diaLongo, jogadores, liga, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos , formaDosTimes } from '../dados.js';
+import { bonecoImg, campinho, curto, escudoImg, forcaHtml, formaHtml, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa } from '../ui.js';
 import { chaveamento } from './chave.js';
 import { linhaDePartida, tabelaDeClassificacao } from './comum.js';
 import type { Pagina } from './tipos.js';
@@ -79,12 +79,12 @@ export const paginaTabela: Pagina = async (main) => {
         ${seriesDaLiga(l).map(
           (s) => html`<section aria-labelledby="titulo-tabela-${s.toLowerCase()}">
             <h2 id="titulo-tabela-${s.toLowerCase()}" class="secao"><span class="selo-serie serie-${s.toLowerCase()}">Série ${s}</span></h2>
-            <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(tabelaDaSerie(l, s), { serie: s })}</div>
+            <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(tabelaDaSerie(l, s), { serie: s, forma: formaDosTimes(l) })}</div>
           </section>`,
         )}
         <p class="legenda"><a href="#/jogos">Ver o chaveamento do Mata-mata em Jogos</a></p>`.s
     : html`<h1 class="titulo-pagina">Tabela da Fase de Liga</h1>
-    <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(l.tabela)}</div>
+    <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(l.tabela, { forma: formaDosTimes(l) })}</div>
     <p class="legenda"><a href="#/jogos">Ver o chaveamento do Mata-mata em Jogos</a></p>`.s;
 };
 
@@ -146,6 +146,7 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
           ? html`<p class="titulos-time">${titulosDo(l, t).map(() => taca(20, 'trofeu'))}<span>${titulosDo(l, t).length === 1 ? 'Campeão' : `${titulosDo(l, t).length} vezes campeão`}: ${titulosDo(l, t).map((n) => `Temporada ${n}`).join(', ')}</span></p>`
           : ''}
         ${linha ? html`<p class="campanha">${temSeries(l) ? `Série ${serie} · ` : ''}${pos}º lugar · ${linha.pontos} pontos · ${linha.vitorias}V ${linha.empates}E ${linha.derrotas}D · saldo ${linha.saldo > 0 ? '+' : ''}${linha.saldo}</p>` : ''}
+        ${(formaDosTimes(l).get(t) ?? []).length ? html`<p class="forma-time">Últimos jogos ${formaHtml(formaDosTimes(l).get(t)!)}</p>` : ''}
         ${forcaHtml(forcaProvavel(elenco))}
         <p class="legenda-forca">Força da escalação provável do próximo jogo (rodízio: entra quem jogou menos).</p>
         ${estreante ? html`<p class="campanha">Estreia na próxima Temporada, na Série B. Quem comentar ENTRO ${curto(t).toUpperCase()} já entra quando ela começar.</p>` : ''}
@@ -154,6 +155,19 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
     ${salaDoTime(l, t)}
     <div class="time-colunas">
       <section aria-labelledby="titulo-elenco">
+        ${estreante
+          ? ''
+          : html`<h2 class="secao">Escalação provável <small>próximo jogo</small></h2>
+            ${campinho(
+              escalacaoProvavel(elenco).map((x) => ({
+                posicao: x.posicao,
+                time: t,
+                username: x.jogador?.username ?? null,
+                apelido: x.jogador?.apelido ?? null,
+                ovr: x.jogador?.ovr ?? OVR_JOGADOR_DA_BASE,
+                ...(x.jogador ? { href: `#/jogador/${x.jogador.id}` } : {}),
+              })),
+            )}`}
         <h2 id="titulo-elenco" class="secao">Elenco <small>${elenco.length} inscritos · ordenado por OVR</small></h2>
         ${elenco.length
           ? POSICOES_EM_ORDEM.map((pos) => {

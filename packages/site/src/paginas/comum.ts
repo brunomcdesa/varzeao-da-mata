@@ -1,7 +1,7 @@
 /** Blocos usados em várias páginas: linha de Partida, tabela, chamadas para comentar. */
-import { TIMES_QUE_TROCAM_DE_SERIE, etapaDa, nomeDaEtapa, type LigaPublica, type LinhaTabelaPublica, type PartidaNoCalendario, type Serie } from '@liga/shared';
+import { TIMES_QUE_TROCAM_DE_SERIE, etapaDa, nomeDaEtapa, type LigaPublica, type LinhaTabelaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
 import { INSTAGRAM, contagem, diaCurto, hora, situacaoAgora, timesAtivos } from '../dados.js';
-import { curto, escudoImg, html, rotuloClassico, type Html } from '../ui.js';
+import { curto, escudoImg, formaHtml, html, rotuloClassico, type Html } from '../ui.js';
 
 export function linhaDePartida(p: PartidaNoCalendario, o: { comDia?: boolean; destaque?: boolean } = {}): Html {
   const s = situacaoAgora(p);
@@ -33,7 +33,7 @@ export function linhaDePartida(p: PartidaNoCalendario, o: { comDia?: boolean; de
  * Tabela da Fase de Liga. `serie`: com Série B, a A marca os 2 últimos (Rebaixamento) e a
  * legenda diz a regra de cada Série (ADR-0017).
  */
-export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compacta?: boolean; destaque?: string; semLegenda?: boolean; serie?: Serie } = {}): Html {
+export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compacta?: boolean; destaque?: string; semLegenda?: boolean; serie?: Serie; forma?: Map<TimeId, ('V' | 'E' | 'D')[]> } = {}): Html {
   const caem = o.serie === 'A' ? linhas.length - TIMES_QUE_TROCAM_DE_SERIE : Infinity;
   return html`<table class="classificacao ${o.compacta ? 'compacta' : ''}">
     <thead><tr>
@@ -43,15 +43,17 @@ export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compact
       <th scope="col" title="Jogos">J</th>
       ${o.compacta ? '' : html`<th scope="col" title="Vitórias">V</th><th scope="col" title="Empates">E</th><th scope="col" title="Derrotas">D</th><th scope="col" title="Gols pró">GP</th><th scope="col" title="Gols contra">GC</th>`}
       <th scope="col" title="Saldo de gols">SG</th>
+      ${o.forma ? html`<th scope="col" class="col-forma" title="Últimos 5 jogos">Forma</th>` : ''}
     </tr></thead>
     <tbody>${linhas.map(
       (l, i) => html`<tr class="${l.time === o.destaque ? 'destaque' : ''} ${i < 4 ? 'classifica' : ''} ${i >= caem ? 'rebaixamento' : ''}">
         <td class="pos">${i + 1}</td>
-        <th scope="row" class="time"><a href="#/time/${l.time}">${escudoImg(l.time, 1)}<span>${curto(l.time)}</span></a></th>
+        <th scope="row" class="time"><a href="#/time/${l.time}">${escudoImg(l.time, 1)}<span>${curto(l.time)}${o.forma ? formaHtml(o.forma.get(l.time) ?? []) : ''}</span></a></th>
         <td class="pontos">${l.pontos}</td>
         <td>${l.jogos}</td>
         ${o.compacta ? '' : html`<td>${l.vitorias}</td><td>${l.empates}</td><td>${l.derrotas}</td><td>${l.golsPro}</td><td>${l.golsContra}</td>`}
         <td>${l.saldo > 0 ? `+${l.saldo}` : l.saldo}</td>
+        ${o.forma ? html`<td class="col-forma">${formaHtml(o.forma.get(l.time) ?? [])}</td>` : ''}
       </tr>`,
     )}</tbody>
   </table>

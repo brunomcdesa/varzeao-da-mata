@@ -1,4 +1,4 @@
-import { duracaoAoVivoMs, type LigaPublica, type SituacaoPartida } from '@liga/shared';
+import { duracaoAoVivoMs, type LigaPublica, type SituacaoPartida, type TimeId } from '@liga/shared';
 
 // Regras do calendário que não dependem da página (testáveis fora do navegador).
 const fmtChave = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -27,3 +27,22 @@ export function rodadaAtual(l: LigaPublica, agora = Date.now()): number | null {
   return l.calendario.at(-1)?.rodada ?? null;
 }
 
+
+/**
+ * Forma recente: os últimos `n` jogos encerrados de cada Time (pelo relógio de quem vê, para
+ * não estragar o Ao Vivo), do mais antigo ao mais recente. Empate no tempo normal é E, mesmo
+ * que tenha ido para os pênaltis.
+ */
+export function formaDosTimes(l: LigaPublica, n = 5, agora = Date.now()): Map<TimeId, ('V' | 'E' | 'D')[]> {
+  const forma = new Map<TimeId, ('V' | 'E' | 'D')[]>();
+  for (const p of l.calendario) {
+    if (!p.placar || situacaoAgora(p, agora) !== 'ENCERRADA') continue;
+    const { mandante: gm, visitante: gv } = p.placar;
+    for (const [t, pro, contra] of [[p.mandante, gm, gv], [p.visitante, gv, gm]] as const) {
+      const lista = forma.get(t) ?? [];
+      lista.push(pro > contra ? 'V' : pro < contra ? 'D' : 'E');
+      forma.set(t, lista.slice(-n));
+    }
+  }
+  return forma;
+}

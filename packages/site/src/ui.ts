@@ -141,3 +141,43 @@ export function duelaDeForcas(m: ForcaDoTime, v: ForcaDoTime, nomes: [string, st
     )}</tbody>
   </table>`;
 }
+
+/** Forma recente: os últimos jogos do Time (mais antigo à esquerda), V/E/D. */
+export function formaHtml(forma: ('V' | 'E' | 'D')[]): Html {
+  if (!forma.length) return html`<span class="forma vazia">–</span>`;
+  const nome = { V: 'Vitória', E: 'Empate', D: 'Derrota' };
+  return html`<span class="forma" role="img" aria-label="Últimos jogos: ${forma.map((r) => nome[r]).join(', ')}">${forma.map((r) => html`<span class="forma-${r.toLowerCase()}" title="${nome[r]}">${r}</span>`)}</span>`;
+}
+
+export interface NoCampinho {
+  posicao: Posicao;
+  time: TimeId;
+  username: string | null;
+  apelido?: string | null;
+  ovr: number;
+  href?: string;
+}
+
+/**
+ * Escalação desenhada no campinho, na formação 1-2-2-2. `metade`: só um Time, de baixo para
+ * cima; sem ela, dois Times frente a frente (o de cima ataca para baixo).
+ */
+export function campinho(baixo: NoCampinho[], cima?: NoCampinho[]): Html {
+  const meia = !cima;
+  // Dois Times: cada um no seu campo, sem se encostar no meio. Um Time: o campo inteiro dele.
+  const linhas: Record<Posicao, number> = meia ? { GOL: 0.88, ZAG: 0.66, MEI: 0.44, ATA: 0.2 } : { GOL: 0.95, ZAG: 0.83, MEI: 0.71, ATA: 0.59 };
+  const lugar = (j: NoCampinho, k: number, topo: boolean) => {
+    const xs = j.posicao === 'GOL' ? [0.5] : j.posicao === 'ATA' ? [0.36, 0.64] : [0.28, 0.72];
+    let y = linhas[j.posicao];
+    if (topo) y = 1 - y;
+    const x = xs[k] ?? 0.5;
+    const nome = j.username ? j.apelido || `@${j.username}` : 'Base';
+    const corpo = html`${bonecoImg(j.time, j.posicao, j.username, meia ? 2 : 1.5)}<span class="nc-rotulo"><span class="nc-nome">${nome}</span><span class="nc-ovr">${j.ovr}</span></span>`;
+    return html`<li class="no-campinho" style="left:${(x * 100).toFixed(1)}%;top:${(y * 100).toFixed(1)}%">${j.href ? html`<a href="${j.href}">${corpo}</a>` : corpo}</li>`;
+  };
+  const time = (js: NoCampinho[], topo: boolean) => {
+    const vistos: Record<string, number> = {};
+    return js.map((j) => lugar(j, (vistos[j.posicao] = (vistos[j.posicao] ?? -1) + 1), topo));
+  };
+  return html`<div class="campinho ${meia ? 'meio-campo' : ''}"><ul aria-label="Escalação no campo">${time(baixo, false)}${cima ? time(cima, true) : ''}</ul></div>`;
+}

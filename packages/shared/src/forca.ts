@@ -28,10 +28,15 @@ export function forcaDaEscalacao(lugares: { posicao: Posicao; ovr: number | null
  * menos na Temporada (empate: quem se inscreveu antes); vaga sem inscrito é da Base.
  */
 export function forcaProvavel(elenco: { posicao: Posicao; ovr: number; jogos: number; inscritoEm: string }[]): ForcaDoTime {
-  const lugares: { posicao: Posicao; ovr: number | null }[] = [];
+  return forcaDaEscalacao(escalacaoProvavel(elenco).map((l) => ({ posicao: l.posicao, ovr: l.jogador?.ovr ?? null })));
+}
+
+/** Os 7 lugares da escalação provável (GOL, ZAG, ZAG, MEI, MEI, ATA, ATA); null = Base. */
+export function escalacaoProvavel<J extends { posicao: Posicao; ovr: number; jogos: number; inscritoEm: string }>(elenco: J[]): { posicao: Posicao; jogador: J | null }[] {
+  const lugares: { posicao: Posicao; jogador: J | null }[] = [];
   for (const posicao of Object.keys(VAGAS) as Posicao[]) {
     const fila = elenco.filter((j) => j.posicao === posicao).sort((a, b) => a.jogos - b.jogos || a.inscritoEm.localeCompare(b.inscritoEm));
-    for (let i = 0; i < VAGAS[posicao]; i++) lugares.push({ posicao, ovr: fila[i]?.ovr ?? null });
+    for (let i = 0; i < VAGAS[posicao]; i++) lugares.push({ posicao, jogador: fila[i] ?? null });
   }
-  return forcaDaEscalacao(lugares);
+  return lugares;
 }

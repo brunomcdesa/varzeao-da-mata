@@ -3061,3 +3061,231 @@ a.jogo:hover {
 .duelo-forca .lado-nome.v {
   text-align: left;
 }
+
+/* Linha do tempo do Replay. */
+.linha-do-tempo .ldt {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px 6px;
+  background: var(--giz);
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 3px var(--contorno);
+}
+.ldt-pressao {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 3px;
+  height: 34px;
+}
+.ldt-pressao.mandante {
+  align-items: end;
+}
+.ldt-pressao.visitante {
+  align-items: start;
+}
+.ldt-pressao span {
+  display: block;
+  min-height: 2px;
+  opacity: 0.75;
+  box-shadow: inset 0 0 0 1px var(--contorno);
+}
+.ldt-eixo {
+  position: relative;
+  height: 30px;
+  border-top: 2px solid var(--cal-fraca);
+  border-bottom: 2px solid var(--cal-fraca);
+  background: linear-gradient(90deg, transparent calc(50% - 1px), var(--cal-fraca) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px));
+}
+.ldt-cursor {
+  position: absolute;
+  top: -40px;
+  bottom: -40px;
+  left: 0;
+  width: 2px;
+  background: var(--amarelo);
+  pointer-events: none;
+}
+.marco {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  background: var(--cor);
+  box-shadow: 0 0 0 2px var(--contorno);
+}
+.marco.mandante {
+  top: 1px;
+}
+.marco.visitante {
+  bottom: 1px;
+}
+.marco-gol {
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fff 0 35%, var(--cor) 36%);
+}
+.marco-escanteio {
+  width: 12px;
+  margin-left: -6px;
+  clip-path: polygon(0 0, 100% 25%, 0 55%, 0 100%, 15% 100%, 15% 0);
+  box-shadow: none;
+}
+.marco-contra {
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  clip-path: polygon(0 0, 50% 50%, 0 100%, 40% 100%, 90% 50%, 40% 0);
+  box-shadow: none;
+}
+.marco-amarelo,
+.marco-vermelho {
+  width: 10px;
+  height: 14px;
+  margin-left: -5px;
+  background: var(--amarelo);
+}
+.marco-vermelho {
+  background: #d63c2f;
+}
+.marco.futuro {
+  opacity: 0.45;
+}
+.marco:focus-visible {
+  outline: 3px solid var(--amarelo);
+  outline-offset: 2px;
+}
+.ldt-minutos {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--cal-fraca);
+}
+
+/* Forma recente. */
+.forma {
+  display: inline-flex;
+  gap: 2px;
+  vertical-align: middle;
+}
+.forma span {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #fff;
+  box-shadow: inset 0 0 0 1px var(--contorno);
+}
+.forma-v {
+  background: #3d9a45;
+}
+.forma-e {
+  background: #8a8f86;
+}
+.forma-d {
+  background: #c2452f;
+}
+.forma-time {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+/* Escalação no campinho. */
+.campinho {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  max-width: 460px;
+  margin: 0 auto 12px;
+  background: repeating-linear-gradient(180deg, var(--grama) 0 12.5%, #458030 12.5% 25%);
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 3px var(--contorno);
+}
+.campinho::before {
+  content: '';
+  position: absolute;
+  inset: 4%;
+  border: 2px solid rgb(255 255 255 / 0.55);
+  background:
+    linear-gradient(rgb(255 255 255 / 0.55), rgb(255 255 255 / 0.55)) center / 100% 2px no-repeat,
+    radial-gradient(circle, transparent 13%, rgb(255 255 255 / 0.55) 13% calc(13% + 2px), transparent calc(13% + 2px)) center / 60% 45% no-repeat;
+}
+.campinho.meio-campo {
+  aspect-ratio: 4 / 3;
+}
+.campinho.meio-campo::before {
+  background: linear-gradient(rgb(255 255 255 / 0.55), rgb(255 255 255 / 0.55)) top / 100% 2px no-repeat;
+  inset: 0 4% 4%;
+  border-top: 0;
+}
+.campinho ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.no-campinho {
+  position: absolute;
+  display: grid;
+  justify-items: center;
+  width: 110px;
+  margin-left: -55px;
+  transform: translateY(-60%);
+  text-align: center;
+}
+.nc-rotulo {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 110px;
+}
+.no-campinho a,
+.no-campinho > * {
+  color: var(--cal);
+  text-decoration: none;
+}
+.no-campinho a {
+  display: grid;
+  justify-items: center;
+}
+.nc-nome {
+  max-width: 78px;
+  overflow: hidden;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-shadow: 1px 1px 0 var(--contorno);
+}
+.nc-ovr {
+  padding: 0 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--tinta);
+  background: var(--placa);
+  box-shadow: inset 0 0 0 1px var(--contorno);
+}
+
+/* No celular, a forma vai embaixo do nome do Time (a tabela não cabe com mais uma coluna). */
+.classificacao .time .forma {
+  display: none;
+}
+@media (max-width: 560px) {
+  .classificacao th.col-forma,
+  .classificacao td.col-forma {
+    display: none;
+  }
+  .classificacao .time .forma {
+    display: flex;
+    margin-top: 3px;
+  }
+  .classificacao .time .forma span {
+    width: 9px;
+    height: 9px;
+    font-size: 0;
+  }
+}

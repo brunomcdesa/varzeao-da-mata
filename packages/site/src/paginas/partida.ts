@@ -4,10 +4,39 @@ import type { Desempenho, Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { contagem, diaLongo, hora, jogadores, partida, situacaoAgora } from '../dados.js';
 import { DURACAO_JOGO, narradorDa, resultadoDaCobranca } from '@liga/renderer';
 import { montarTimeline, transmitir } from '../transmissao.js';
-import { bonecoImg, curto, duelaDeForcas, escudoImg, html, jogadorLink, nota, NOME_DA_POSICAO, rotuloClassico, type Html, comCamisa, comFaixa } from '../ui.js';
+import type { Timeline } from '@liga/renderer';
+import { bonecoImg, campinho, curto, duelaDeForcas, escudoImg, html, jogadorLink, nota, NOME_DA_POSICAO, rotuloClassico, type Html, comCamisa, comFaixa } from '../ui.js';
 import type { Pagina } from './tipos.js';
 
 const CORTE_MIN = 30;
+
+/**
+ * Linha do tempo do Replay: a pressão de cada Time a cada 10 minutos (quantos lances de ataque)
+ * e os marcos (gols, escanteios, contra-ataques e cartões). Clicar num marco pula o Replay.
+ */
+function linhaDoTempo(r: ResultadoPartida, timeline: Timeline): Html {
+  const cor = { mandante: IDENTIDADE[r.times.mandante].primaria, visitante: IDENTIDADE[r.times.visitante].primaria };
+  const faixas = Array.from({ length: 9 }, (_, k) => ({ mandante: 0, visitante: 0, k }));
+  for (const l of r.lances) faixas[Math.min(8, Math.floor((l.minuto - 1) / 10))]![l.ataque]++;
+  const maior = Math.max(1, ...faixas.flatMap((f) => [f.mandante, f.visitante]));
+  const marcos = r.lances.flatMap((l, i) => {
+    const tipo = l.tipo === 'GOL' ? 'gol' : l.falta?.cartao === 'VERMELHO' ? 'vermelho' : l.falta?.cartao === 'AMARELO' ? 'amarelo' : l.bolaParada === 'ESCANTEIO' ? 'escanteio' : l.contraAtaque ? 'contra' : null;
+    if (!tipo) return [];
+    const nome = { gol: 'Gol', vermelho: 'Cartão vermelho', amarelo: 'Cartão amarelo', escanteio: 'Escanteio', contra: 'Contra-ataque' }[tipo];
+    const x = Math.min(100, (timeline.instanteDoLance(i) / DURACAO_JOGO) * 100);
+    return [html`<button type="button" class="lance marco marco-${tipo} ${l.ataque}" data-indice="${i}" style="left:${x.toFixed(2)}%;--cor:${cor[l.ataque]}" title="${l.minuto}' ${nome} ${curto(r.times[l.ataque])}" aria-label="${l.minuto} minutos: ${nome} do ${curto(r.times[l.ataque])}"></button>`];
+  });
+  return html`<section class="linha-do-tempo" aria-labelledby="titulo-ldt">
+    <h2 id="titulo-ldt" class="secao">Linha do tempo</h2>
+    <div class="ldt">
+      <div class="ldt-pressao mandante" aria-hidden="true">${faixas.map((f) => html`<span style="height:${Math.round((f.mandante / maior) * 100)}%;background:${cor.mandante}"></span>`)}</div>
+      <div class="ldt-eixo"><span class="ldt-cursor" data-cursor></span>${marcos}</div>
+      <div class="ldt-pressao visitante" aria-hidden="true">${faixas.map((f) => html`<span style="height:${Math.round((f.visitante / maior) * 100)}%;background:${cor.visitante}"></span>`)}</div>
+      <div class="ldt-minutos" aria-hidden="true"><span>0'</span><span>45'</span><span>90'</span></div>
+    </div>
+    <p class="legenda">Barras: lances de ataque a cada 10 minutos (${curto(r.times.mandante)} em cima, ${curto(r.times.visitante)} embaixo). ● gol · ⚑ escanteio · » contra-ataque · ▮ cartão. Toque num marco para ver o lance.</p>
+  </section>`;
+}
 
 function escalacao(e: EscalacaoPublica, lado: Lado, r: ResultadoPartida | null, camisas: Map<string, number>): Html {
   const desempenho = (lugar: number): Desempenho | undefined => r?.desempenhos.find((d) => d.slot.lado === lado && d.slot.indice === lugar);
@@ -161,6 +190,7 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
             ${p.video ? html`<p><a class="botao secundario" href="${p.video}" rel="noopener">Melhores momentos (Reels)</a></p>` : ''}
           </section>`
         : ''}
+      ${mostrarFinal && timeline ? linhaDoTempo(r, timeline) : ''}
 
       ${p.escalacoes
         ? html`<section aria-labelledby="titulo-forca"><h2 id="titulo-forca" class="secao">Força em campo <small>OVR antes do jogo</small></h2>
@@ -169,6 +199,10 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
               forcaDaEscalacao(p.escalacoes.visitante.jogadores.map((j) => ({ posicao: j.posicao, ovr: j.jogadorId ? j.ovr : null }))),
               [curto(p.mandante), curto(p.visitante)],
             )}</section>
+            ${campinho(
+              p.escalacoes.mandante.jogadores.map((j) => ({ posicao: j.posicao, time: p.mandante, username: j.username, apelido: j.apelido ?? null, ovr: j.ovr, ...(j.jogadorId ? { href: `#/jogador/${j.jogadorId}` } : {}) })),
+              p.escalacoes.visitante.jogadores.map((j) => ({ posicao: j.posicao, time: p.visitante, username: j.username, apelido: j.apelido ?? null, ovr: j.ovr, ...(j.jogadorId ? { href: `#/jogador/${j.jogadorId}` } : {}) })),
+            )}
             <div class="escalacoes">${escalacao(p.escalacoes.mandante, 'mandante', mostrarFinal ? r : null, camisas)}${escalacao(p.escalacoes.visitante, 'visitante', mostrarFinal ? r : null, camisas)}</div>
             ${mostrarFinal ? html`<p class="legenda">● gol · ▲▼ OVR depois do jogo · Nota de 0 a 10, comparada ao que se espera do OVR.</p>` : html`<p class="legenda">OVR antes do jogo. Vaga sem inscrito é completada pela Base (OVR 55).</p>`}`
         : html`<section class="placa vazio"><p>A escalação sai no Corte, ${CORTE_MIN} minutos antes do apito: quem tem menos jogos entra primeiro.</p></section>`}
@@ -212,6 +246,7 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
   const elMinuto = main.querySelector('[data-minuto]');
   const elPen = main.querySelector<HTMLElement>('[data-penaltis]');
   const botoes = [...main.querySelectorAll<HTMLButtonElement>('.lance')];
+  const cursor = main.querySelector<HTMLElement>('[data-cursor]');
   const tx = transmitir(caixa, p, timeline, {
     aoVivo: s === 'AO_VIVO',
     aoMudar(t) {
@@ -227,6 +262,7 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
         if (e) elPen.textContent = `pênaltis ${e.placar.mandante}–${e.placar.visitante}`;
       }
       for (const b of botoes) b.classList.toggle('futuro', t < timeline.instanteDoLance(Number(b.dataset.indice)));
+      if (cursor) cursor.style.left = `${Math.min(100, (t / DURACAO_JOGO) * 100).toFixed(2)}%`;
     },
   });
   // No fim do Ao Vivo a página vira a da Partida encerrada (placar, Notas, lance a lance).

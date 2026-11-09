@@ -195,7 +195,7 @@ export async function partida(id: number, fresco = false): Promise<PartidaPublic
   return p;
 }
 
-export { rodadaAtual, situacaoAgora } from './calendario.js';
+export { formaDosTimes, rodadaAtual, situacaoAgora } from './calendario.js';
 import { situacaoAgora } from './calendario.js';
 
 export function partidasDaRodada(l: LigaPublica, rodada: number): PartidaNoCalendario[] {
