@@ -14,6 +14,8 @@ import {
   F_RESOLUCAO_DESARME,
   MEIO,
   montarPlano,
+  COBRANCAS_DE_FALTA,
+  pontoDaFalta,
   pontoDoEscanteio,
   pontoDoLateral,
   sentido,
@@ -26,6 +28,7 @@ import {
 } from './jogada.js';
 
 export type { Ponto, AcaoJogador, EstiloJogada } from './jogada.js';
+import { climaDaPartida, ehT2, quemUsaSegundoUniforme, type Clima } from './clima.js';
 import { F_RESOLUCAO_PENALTI, estadoDaDisputa, instanteDaCobranca, montarDisputa, quadroDaDisputa, resultadoDaCobranca, type Disputa, type EstadoPenaltis } from './penaltis.js';
 export type { Disputa, EstadoPenaltis, MarcaDePenalti } from './penaltis.js';
 
@@ -33,7 +36,7 @@ export const DURACAO_JOGO = 90 * 60;
 /** Velocidade do Ao Vivo: 90 minutos de jogo em 4 min 30 s (ADR-0005; era 15×, 6 min). */
 export const VELOCIDADE_AO_VIVO = 20;
 
-export type TipoDestaque = 'GOL' | 'DEFESA' | 'BLOQUEIO' | 'DESARME' | 'FORA';
+export type TipoDestaque = 'GOL' | 'DEFESA' | 'BLOQUEIO' | 'DESARME' | 'FORA' | 'FALTA';
 
 export interface Destaque {
   tipo: TipoDestaque;
@@ -44,6 +47,10 @@ export interface Destaque {
   progresso: number;
   /** Letreiro de cobrança de pênalti (menor que o de gol de jogo). */
   penalti?: boolean;
+  /** T2: cartão na falta (o letreiro vira "Cartão amarelo!" ou "Expulso!"). */
+  cartao?: 'AMARELO' | 'VERMELHO';
+  /** T2: o lance era uma cobrança de falta ou pênalti (muda o letreiro). */
+  bolaParada?: Lance['bolaParada'];
 }
 
 export interface JogadorNoQuadro {
@@ -73,6 +80,17 @@ export interface EstadoQuadro {
   encerrada: boolean;
   /** Durante e depois da disputa de pênaltis (só quando ela existe e já começou). */
   penaltis: EstadoPenaltis | null;
+  /** Temporada 2: Clima, segundo uniforme e Arquibancada (null nas Partidas da T1). */
+  t2: InfoT2 | null;
+}
+
+/** Temporada 2 (ADR-0019): o que só aparece nas Partidas com as regras da T2. */
+export interface InfoT2 {
+  clima: Clima;
+  /** Lado que joga com o segundo uniforme (as camisas se confundiam), ou null. */
+  segundoUniforme: Lado | null;
+  /** Tamanho de cada torcida na Arquibancada (cresce com o Elenco). */
+  torcida: Record<Lado, number>;
 }
 
 interface Janela {
@@ -84,7 +102,7 @@ interface Janela {
 }
 
 /** Por quantos segundos de jogo um destaque fica na tela. */
-const DURACAO_DESTAQUE: Record<TipoDestaque, number> = { GOL: 75, DEFESA: 40, BLOQUEIO: 35, DESARME: 25, FORA: 30 };
+const DURACAO_DESTAQUE: Record<TipoDestaque, number> = { GOL: 75, DEFESA: 40, BLOQUEIO: 35, DESARME: 25, FORA: 30, FALTA: 45 };
 /** Intervalo (s de jogo) usado para medir a velocidade de cada Jogador. */
 const DT_VEL = 0.6;
 
@@ -134,9 +152,15 @@ export class Timeline {
   /** Posições depois da física, a cada FISICA.dt (x, y intercalados), por slot. */
   private readonly corridas: Map<string, Float32Array>;
 
+  /** Temporada 2: Clima, uniformes e Arquibancada; null nas Partidas da T1. */
+  readonly t2: InfoT2 | null;
+  /** Temporada 2: instante (s de jogo) em que cada expulso deixa o campo. */
+  private readonly saidas: Map<string, number>;
+
   constructor(
     readonly resultado: ResultadoPartida,
     readonly escalacoes: Record<Lado, Escalacao>,
+    extras: { torcida?: Record<Lado, number> } = {},
   ) {
     this.bases = {
       mandante: posicoesBase(escalacoes.mandante, 'mandante'),
@@ -153,6 +177,7 @@ export class Timeline {
       if (!proximo || lances[i]!.tipo === 'GOL') return MEIO;
       if (proximo.bolaParada === 'ESCANTEIO') return pontoDoEscanteio(proximo);
       if (proximo.bolaParada === 'LATERAL') return pontoDoLateral(proximo, this.bases);
+      if (proximo.bolaParada && COBRANCAS_DE_FALTA.has(proximo.bolaParada)) return pontoDaFalta(proximo);
       return this.bases[proximo.criador.lado][proximo.criador.indice]!;
     };
     this.planos = lances.map((l, i) => {
@@ -166,6 +191,18 @@ export class Timeline {
     this.trilhas = this.planos.map((p) => new Map(p.atores.map((a) => [chave(a.slot), a.quadros])));
     this.disputa = montarDisputa(resultado, DURACAO_JOGO);
     this.corridas = this.simularCorridas();
+    const torcidaPadrao = (lado: Lado) => 4 + 2 * escalacoes[lado].jogadores.filter((j) => j.jogadorId !== null).length;
+    this.t2 = ehT2(resultado)
+      ? {
+          clima: climaDaPartida(resultado.seed),
+          segundoUniforme: quemUsaSegundoUniforme(resultado.times),
+          torcida: extras.torcida ?? { mandante: torcidaPadrao('mandante'), visitante: torcidaPadrao('visitante') },
+        }
+      : null;
+    // O expulso sai do campo depois que o cartão aparece.
+    this.saidas = new Map(
+      this.janelas.flatMap((j) => (j.lance.falta?.cartao === 'VERMELHO' ? [[chave(j.lance.falta.autor), j.resolucao + DURACAO_DESTAQUE.FALTA * 0.7] as [string, number]] : [])),
+    );
   }
 
   /** Integra as corridas do jogo todo (uma vez, na criação): alvo = coreografia, passo = física. */
@@ -256,13 +293,16 @@ export class Timeline {
     const plano = indice >= 0 ? this.planos[indice]! : null;
     const f = indice >= 0 ? this.fracao(indice, t) : 0;
 
-    const jogadores: JogadorNoQuadro[] = agora.map((j, k) => {
-      const a = antes[k]!.pos;
-      const vel = { x: (j.pos.x - a.x) / DT_VEL, y: (j.pos.y - a.y) / DT_VEL };
-      const especial = plano?.acoes.find((x) => x.slot.lado === j.slot.lado && x.slot.indice === j.slot.indice && f >= x.de && f < x.ate);
-      const correndo = Math.hypot(vel.x, vel.y) > 0.0016;
-      return { ...j, vel, olhar: bola, acao: especial?.acao ?? (correndo ? 'CORRENDO' : 'PARADO') };
-    });
+    const jogadores: JogadorNoQuadro[] = agora
+      .map((j, k) => {
+        const a = antes[k]!.pos;
+        const vel = { x: (j.pos.x - a.x) / DT_VEL, y: (j.pos.y - a.y) / DT_VEL };
+        const especial = plano?.acoes.find((x) => x.slot.lado === j.slot.lado && x.slot.indice === j.slot.indice && f >= x.de && f < x.ate);
+        const correndo = Math.hypot(vel.x, vel.y) > 0.0016;
+        return { ...j, vel, olhar: bola, acao: especial?.acao ?? (correndo ? 'CORRENDO' : 'PARADO') };
+      })
+      // T2: o expulso não volta mais ao campo.
+      .filter((j) => t < (this.saidas.get(chave(j.slot)) ?? Infinity));
 
     return {
       t,
@@ -276,6 +316,7 @@ export class Timeline {
       estilo: plano?.estilo ?? null,
       encerrada: t >= DURACAO_JOGO && !this.disputa,
       penaltis: null,
+      t2: this.t2,
     };
   }
 
@@ -317,6 +358,7 @@ export class Timeline {
       estilo: null,
       encerrada: t >= d.fim,
       penaltis: pen,
+      t2: this.t2,
     };
   }
 
@@ -433,7 +475,16 @@ export class Timeline {
         const protagonista =
           tipo === 'GOL' || tipo === 'FORA' ? (j.lance.finalizador ?? j.lance.criador) : j.lance.defensor;
         const lado = tipo === 'GOL' || tipo === 'FORA' ? j.lance.ataque : j.lance.defensor.lado;
-        return { tipo, lado, protagonista, progresso: (t - j.resolucao) / dur };
+        const cartao = j.lance.falta?.cartao;
+        const bp = j.lance.bolaParada;
+        return {
+          tipo,
+          lado,
+          protagonista,
+          progresso: (t - j.resolucao) / dur,
+          ...(cartao ? { cartao } : {}),
+          ...(bp && bp !== 'LATERAL' && bp !== 'ESCANTEIO' ? { bolaParada: bp } : {}),
+        };
       }
     }
     return null;
@@ -461,7 +512,7 @@ function montarJanelas(lances: readonly Lance[]): Janela[] {
     const alvoFim = Math.max(lance.minuto * 60 + 20, cursor + MINIMO);
     const fim = Math.min(alvoFim, DURACAO_JOGO - (restantes - 1) * MINIMO);
     const inicio = cursor;
-    const fResolucao = lance.tipo === 'DESARME' ? F_RESOLUCAO_DESARME : F_RESOLUCAO_CHUTE;
+    const fResolucao = lance.tipo === 'DESARME' || lance.tipo === 'FALTA' ? F_RESOLUCAO_DESARME : F_RESOLUCAO_CHUTE;
     janelas.push({ lance, inicio, fim, resolucao: inicio + (fim - inicio) * fResolucao });
     cursor = fim;
   });

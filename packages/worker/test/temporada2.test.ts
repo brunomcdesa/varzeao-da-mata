@@ -7,6 +7,7 @@ import { processarComentario, transferirJogador } from '../src/coletar.js';
 import { interpretar } from '../src/comandos.js';
 import { escalarPartida, ordemDoRodizio } from '../src/escalacao.js';
 import { rodarPartida } from '../src/partida.js';
+import { exportarSite } from '../src/site.js';
 import { aplicarEscolha, capitaoDaPartida, ordemDoCapitao, suspensos } from '../src/temporada2.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 
@@ -41,10 +42,27 @@ describe('Temporada 2 no worker', () => {
     expect(r).toEqual({ ok: false, mensagem: 'Isso chega na Temporada 2.' });
     expect(await processarComentario(banco, { igCommentId: 'conf1', igMediaId: 'm', igUserId: 'na_t1', username: 'na_t1', texto: 'CONFIRMO', comentadoEm: new Date('2026-11-06T13:00:00Z') }, { rodadaEmVotacao: null })).toBe('PRESENCA_RECUSADA');
     const p = await primeiraPartida(t1, 'CAP');
-    const res = (await rodarPartida(banco, p.id, { seed: 5 })).dados.resultado;
+    const job = await rodarPartida(banco, p.id, { seed: 5 });
+    const res = job.dados.resultado;
     expect(res.versaoSim).toBe(5);
+    expect(job.dados.torcida).toBeUndefined();
+    const site = await exportarSite(banco, new Date('2026-12-30T12:00:00Z'));
+    expect((site.arquivos.get(`partidas/${p.id}.json`) as { torcida?: unknown }).torcida).toBeUndefined();
     expect(res.postura).toBeUndefined();
     expect(res.desempenhos.every((d) => d.faltas === undefined)).toBe(true);
+  });
+
+  it('Partida da T2 leva o tamanho dos Elencos para a Arquibancada (vídeo e site)', async () => {
+    const t2 = await novaT2();
+    await inscrever('CAP', 'ATA');
+    await inscrever('CAP', 'MEI');
+    const p = await primeiraPartida(t2, 'CAP');
+    const job = await rodarPartida(banco, p.id, { seed: 5 });
+    expect(job.dados.resultado.versaoSim).toBe(6);
+    const lado = p.mandante_id === 'CAP' ? 'mandante' : 'visitante';
+    expect(job.dados.torcida?.[lado]).toBe(2);
+    const site = await exportarSite(banco, new Date('2026-12-30T12:00:00Z'));
+    expect((site.arquivos.get(`partidas/${p.id}.json`) as { torcida?: Record<string, number> }).torcida?.[lado]).toBe(2);
   });
 
   it('Especialização: só da própria Posição e uma troca por dia', async () => {

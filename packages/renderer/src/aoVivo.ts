@@ -48,6 +48,12 @@ export const estimarDuracao = (texto: string) => texto.length / LETRAS_POR_S + 0
 
 const aoVivo = (tJogo: number) => tJogo / VELOCIDADE_AO_VIVO;
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const FALA_DO_CLIMA_AO_VIVO = {
+  SOL: 'Sol forte no campinho hoje.',
+  NUBLADO: 'Tempo fechado, mas a bola rola.',
+  CHUVA: 'A chuva não para, e a bola escorrega.',
+  LAMA: 'Campo enlameado, difícil conduzir.',
+} as const;
 const POSICAO: Record<Posicao, string> = { GOL: 'goleiro', ZAG: 'zagueiro', MEI: 'meia', ATA: 'atacante' };
 const NUMERO = ['zero', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez'];
 const numero = (n: number) => NUMERO[n] ?? String(n);
@@ -178,8 +184,10 @@ function enchimento(
     `Que jogo movimentado na várzea!`,
     `Ritmo forte aqui no Varzeão.`,
     `Jogo aberto, as duas equipes querem.`,
-    `Sol forte no campinho hoje.`,
-    `A arquibancada de madeira treme!`,
+    // Na T2 o Clima e a Arquibancada aparecem na tela (ADR-0019); a fala acompanha o que se vê.
+    ...(tl.t2
+      ? [FALA_DO_CLIMA_AO_VIVO[tl.t2.clima], `A arquibancada de madeira treme!`, `A torcida ${de(o.posse)} empurra o time!`]
+      : [`Sol forte no campinho hoje.`, `A arquibancada de madeira treme!`]),
   ];
   if (o.depoisDeGol) {
     const marcou = o.depoisDeGol;
@@ -265,9 +273,11 @@ export function eventosAoVivo(tl: Timeline): EventoSonoro[] {
     const t = aoVivo(j.resolucao);
     const tipo = j.lance.tipo;
     if (tipo === 'DESARME') ev.push({ tipo: 'DESARME', t });
+    else if (tipo === 'FALTA') ev.push({ tipo: 'APITO_FALTA', t });
     else {
       ev.push({ tipo: 'CHUTE', t: t - 0.15 });
       if (tipo === 'GOL') ev.push({ tipo: 'GOL', t: t + 0.05 });
+      if (tipo === 'GOL' && tl.t2) ev.push({ tipo: 'CORO', t: t + 2.6 });
       else if (tipo === 'FORA') ev.push({ tipo: 'QUASE', t: t + 0.1 });
     }
   }

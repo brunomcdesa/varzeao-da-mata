@@ -44,7 +44,7 @@ export interface OpcoesGravacao {
 }
 
 /** Mesma montagem da página de Replay: Escalações sorteadas a partir do seed. */
-export function partidaDeTeste(seed: number, mandante: TimeId, visitante: TimeId, subtitulo?: string, fase: 'LIGA' | 'MATA_MATA' = 'LIGA'): PartidaParaVideo {
+export function partidaDeTeste(seed: number, mandante: TimeId, visitante: TimeId, subtitulo?: string, fase: 'LIGA' | 'MATA_MATA' = 'LIGA', t2 = false): PartidaParaVideo {
   for (const t of [mandante, visitante]) if (!TIMES.includes(t)) throw new Error(`Time desconhecido: ${t} (use ${TIMES.join(', ')})`);
   const ORDEM: Posicao[] = ['GOL', 'ZAG', 'ZAG', 'MEI', 'MEI', 'ATA', 'ATA'];
   const APELIDOS = ['rafa', 'bia', 'duda', 'leo', 'malu', 'gui', 'nanda', 'pedrinho', 'lari', 'thiago', 'carol', 'vini', 'ju', 'digo'];
@@ -66,7 +66,7 @@ export function partidaDeTeste(seed: number, mandante: TimeId, visitante: TimeId
   };
   const a = montar(mandante, seed * 7 + 1);
   const b = montar(visitante, seed * 7 + 2);
-  const resultado = simularPartida({ mandante: a.esc, visitante: b.esc, seed, fase });
+  const resultado = simularPartida({ mandante: a.esc, visitante: b.esc, seed, fase, ...(t2 ? { t2: { postura: { mandante: 'OFENSIVA', visitante: 'EQUILIBRADA' } } } : {}) });
   return {
     resultado,
     escalacoes: { mandante: a.esc, visitante: b.esc },
@@ -95,7 +95,7 @@ async function montarPagina(dir: string): Promise<string> {
  * Devolve o WAV e as opções do Roteiro esticado, que a página de gravação também usa.
  */
 async function montarAudio(partida: PartidaParaVideo, dir: string): Promise<{ arquivo: string; roteiro: OpcoesRoteiro }> {
-  const timeline = new Timeline(partida.resultado, partida.escalacoes);
+  const timeline = new Timeline(partida.resultado, partida.escalacoes, partida.torcida ? { torcida: partida.torcida } : {});
   const base = new Roteiro(timeline, partida.roteiro);
   const falasBase = montarNarracao(base, partida.apelidos);
   const narrador = narradorDa(partida.resultado.seed);
@@ -404,7 +404,7 @@ export async function gravarReels(partidaOriginal: PartidaParaVideo, o: OpcoesGr
     );
 
     if (o.previa) {
-      await gravarPrevia(pagina, o.previa, fps);
+      await gravarPrevia(pagina, o.previa, fps, o.instantes);
       return { duracao };
     }
 
@@ -423,7 +423,7 @@ export async function gravarReels(partidaOriginal: PartidaParaVideo, o: OpcoesGr
  */
 export async function gravarNarracaoAoVivo(partida: PartidaParaVideo, saida: string): Promise<{ duracao: number; falas: number }> {
   const inicio = performance.now();
-  const timeline = new Timeline(partida.resultado, partida.escalacoes);
+  const timeline = new Timeline(partida.resultado, partida.escalacoes, partida.torcida ? { torcida: partida.torcida } : {});
   const falas = roteiroAoVivo(timeline, partida.apelidos);
   // Em lotes: um pedido só com o jogo inteiro ficaria longo demais para recortar.
   const vozes = new Map<string, Float32Array>();
@@ -481,6 +481,7 @@ export type { VarzeaApi };
 async function gravarPrevia(pagina: import('playwright').Page, dir: string, fps: number, instantes: number[] = []): Promise<void> {
   await mkdir(dir, { recursive: true });
   const segs = await pagina.evaluate(() => window.varzea.segmentos());
+  if (process.env.SEGMENTOS) for (const s of segs) console.log(JSON.stringify(s));
   const momentos: [string, number][] = [];
   segs.forEach((s, i) => {
     const em = (f: number) => Math.floor((s.inicio + (s.fim - s.inicio) * f) * fps);

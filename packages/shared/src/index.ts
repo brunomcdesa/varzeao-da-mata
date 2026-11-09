@@ -196,6 +196,26 @@ export const DESCRICAO_DA_ESPECIALIZACAO: Readonly<Record<Especializacao, string
   PEGADOR_DE_PENALTI: 'Melhor nos pênaltis; um pouco pior no resto do jogo.',
 };
 
+/** Temporada 2 (ADR-0019): o Grito de guerra de cada Time, na faixa da Arquibancada depois do gol. */
+export const GRITO_DO_TIME: Readonly<Record<TimeId, string>> = {
+  CAP: 'Devagar e sempre, Capivara!',
+  ONC: 'É Onça, é garra, é raça!',
+  TAT: 'Cava, Tatu, cava!',
+  TAM: 'Tamanduá não larga!',
+  PRE: 'Sem pressa, com Preguiça!',
+  SAG: 'Pula, pula, Sagui!',
+  TUC: 'Bico pra frente, Tucano!',
+  ARA: 'Voa, Arara, voa!',
+  JAC: 'Abre a boca, Jacaré!',
+  SUC: 'Aperta, Sucuri!',
+  LOB: 'Uuuh, Lobo-guará!',
+  CDM: 'Late e morde, Cachorrão!',
+  BOT: 'Encanta, Boto!',
+  PIR: 'Ô Pirarucu, peso do rio!',
+  COR: 'Olho aberto, Coruja!',
+  MOR: 'A noite é do Morcego!',
+};
+
 /** Temporada 2: as regras que só valem a partir da Temporada 2 (ADRs 0020, 0021, 0023, 0024). */
 export const PRIMEIRA_TEMPORADA_COM_REGRAS_T2 = 2;
 export function temRegrasT2(numeroDaTemporada: number): boolean {

@@ -929,6 +929,16 @@ main:focus {
   background: var(--amarelo);
   color: var(--tinta);
 }
+/* Temporada 2: falta com cartão (a cor do chip é a do cartão). */
+.lance .chip.cartao-amarelo {
+  background: #f5d02a;
+  color: var(--tinta);
+  box-shadow: inset 3px 0 0 #c9a512;
+}
+.lance .chip.cartao-vermelho {
+  background: #d23a2a;
+  color: #fff;
+}
 .lance.tipo-gol .txt {
   font-weight: 600;
 }

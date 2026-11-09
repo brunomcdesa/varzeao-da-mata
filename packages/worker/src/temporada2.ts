@@ -218,3 +218,9 @@ export async function aplicarEscolha(b: Banco, jogadorId: string, e: Escolha, ag
     }
   }
 }
+
+/** Tamanho de cada Elenco (Jogadores não banidos), para a Arquibancada da T2 (ADR-0019). */
+export async function tamanhoDosElencos(b: Banco): Promise<Map<TimeId, number>> {
+  const r = await b.query<{ time_id: TimeId; n: string }>(`SELECT time_id, count(*) AS n FROM jogador WHERE NOT banido GROUP BY time_id`);
+  return new Map(r.rows.map((l) => [l.time_id, Number(l.n)]));
+}

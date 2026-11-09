@@ -26,7 +26,8 @@ export interface Fala {
   parte: 'antes' | 'depois';
 }
 
-export type TipoEvento = 'APITO_INICIAL' | 'APITO_FINAL' | 'CHUTE' | 'PASSE' | 'GOL' | 'QUASE' | 'DESARME';
+/** APITO_FALTA e CORO só aparecem nas Partidas da Temporada 2 (falta e Grito de guerra). */
+export type TipoEvento = 'APITO_INICIAL' | 'APITO_FINAL' | 'CHUTE' | 'PASSE' | 'GOL' | 'QUASE' | 'DESARME' | 'APITO_FALTA' | 'CORO';
 
 export interface EventoSonoro {
   tipo: TipoEvento;
@@ -95,7 +96,7 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
     id: 'abertura',
     texto: `${narrador.apresentacao} ${
       classico ? `É o ${classico}! ${curto('mandante')} contra ${curto('visitante')}!` : `Bola rolando no Varzeão da Mata! ${curto('mandante')} contra ${curto('visitante')}!`
-    }`,
+    }${tl.t2 ? ` ${FALA_DO_CLIMA[tl.t2.clima]}` : ''}`,
     inicio: 0.25,
     limite: segs[0]!.fim,
     tom: 'animado',
@@ -138,6 +139,13 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
         if (k !== 'ESCANTEIO') construcao[k] = [`Lateral ${doTime(time(atq))}, cobrança rápida...`, `Cobrou o lateral, ${pc} recebe...`, `Lateral cobrado, ${c} domina...`];
       }
     }
+    // Temporada 2: faltas e cobranças (ADR-0024).
+    construcao.FALTA = construcao.DESARME!;
+    if (lance.tipo === 'FALTA' && lance.finalizador) construcao.FALTA = [`${cap(f)} recebe e parte pra cima...`, `${cap(f)} vai no drible...`];
+    construcao.PENALTI = [`Pênalti ${doTime(time(atq))}! ${cap(pc)} ajeita a bola...`, `${cap(pc)} vai bater o pênalti...`, `Bola na marca. Cobra ${pc} ${doTime(time(atq))}...`];
+    construcao.FALTA_DIRETA = [`Falta perigosa! ${cap(pc)} na bola, barreira armada...`, `Falta na entrada da área. Vai bater ${pc} ${doTime(time(atq))}...`];
+    construcao.FALTA_CURTA = [`Falta ${doTime(time(atq))}, jogada ensaiada...`, `${cap(pc)} rola curto pra ${pf}...`];
+    if (lance.bolaParada === 'FALTA_CRUZADA') construcao.ESCANTEIO = [`Falta ${doTime(time(atq))}! ${cap(pc)} vai levantar na área...`, `Cobrança de falta, bola na área...`];
     // O finalizador foi no drible e perdeu a bola: a construção fala dele.
     if (lance.tipo === 'DESARME' && lance.drible && lance.finalizador) {
       construcao.DESARME = [`${cap(c)} acha ${f}... vai pra cima!`, `${cap(f)} recebe e tenta o drible...`, `${cap(f)} parte pra cima do marcador...`];
@@ -181,7 +189,31 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
         [`Roubou a bola ${def.replace(/^o /, 'o ')}!`, 'normal'],
       ],
     };
-    if (lance.bolaParada === 'ESCANTEIO') {
+    if (lance.tipo === 'FALTA') {
+      const carta = lance.falta?.cartao;
+      const naArea = lance.falta?.local === 'AREA';
+      resolucao.FALTA =
+        carta === 'VERMELHO'
+          ? [[`${naArea ? 'Pênalti! ' : 'Falta! '}E é vermelho! ${cap(def)} está expulso!`, 'grito'], [`Expulso! ${cap(def)} vai mais cedo pro chuveiro!`, 'grito']]
+          : carta === 'AMARELO'
+            ? [[`${naArea ? 'Pênalti! ' : 'Falta! '}Cartão amarelo para ${def}.`, 'animado'], [`${naArea ? 'Derrubou na área! Pênalti! ' : 'Falta dura! '}Amarelo para ${def}.`, 'animado']]
+            : naArea
+              ? [[`Derrubou na área! É pênalti!`, 'grito'], [`Pênalti! ${cap(def)} chegou atrasado!`, 'grito']]
+              : [[`Falta ${def.replace(/^o /, 'do ')}! O juiz marca.`, 'normal'], [`Apita o juiz, falta!`, 'normal']];
+    }
+    if (lance.bolaParada === 'PENALTI') {
+      resolucao.GOL = [[`Gol de pênalti ${doTime(time(atq))}!`, 'grito'], [`Bateu no canto! Gol ${doTime(time(atq))}!`, 'grito']];
+      resolucao.DEFESA = [[`Pegou o pênalti! ${cap(def)} acertou o canto!`, 'grito'], [`Defendeu! Que pênalti pegou ${def}!`, 'grito']];
+      resolucao.FORA = [[`Pra fora! Desperdiçou o pênalti!`, 'animado'], [`Isolou o pênalti!`, 'animado']];
+    }
+    if (lance.bolaParada === 'FALTA_DIRETA') {
+      resolucao.BLOQUEIO = [[`Na barreira! ${cap(def)} trava a cobrança!`, 'animado'], [`Bateu na barreira!`, 'animado']];
+      resolucao.GOL = [[`Gol de falta ${doTime(time(atq))}! Por cima da barreira!`, 'grito'], [`Que cobrança! Gol de falta!`, 'grito']];
+      resolucao.DEFESA = [[`Passou da barreira... e o goleiro pega!`, 'animado'], [`Cobrança forte, ${def} espalma!`, 'animado']];
+      resolucao.FORA = [[`Passou da barreira... e raspou a trave!`, 'animado'], [`Por cima do gol!`, 'animado']];
+    }
+    if (lance.bolaParada === 'FALTA_CURTA') resolucao.GOL = [[`Jogada ensaiada e gol ${doTime(time(atq))}!`, 'grito'], [`Ensaiou e marcou! Gooool!`, 'grito']];
+    if (lance.bolaParada === 'ESCANTEIO' || lance.bolaParada === 'FALTA_CRUZADA') {
       resolucao.DESARME = [[`A zaga afasta! ${cap(def)} sobe mais alto.`, 'normal'], [`Cortou de cabeça ${def}!`, 'normal'], [`Afastou o perigo!`, 'normal']];
       resolucao.DEFESA = [[`Cabeceou! E o goleiro pega!`, 'animado'], [`Testada firme... defendeu!`, 'animado']];
       resolucao.FORA = [[`Cabeceou pra fora!`, 'animado'], [`Subiu sozinho... por cima!`, 'animado']];
@@ -298,6 +330,14 @@ export function exigenciasDaNarracao(roteiro: Pick<Roteiro, 'segmentos'>, falas:
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Temporada 2: o Narrador comenta o Clima na abertura (o Clima aparece na tela). */
+const FALA_DO_CLIMA = {
+  SOL: 'Sol forte no Varzeão!',
+  NUBLADO: 'Céu fechado no Varzeão.',
+  CHUVA: 'Chove no Varzeão, campo pesado!',
+  LAMA: 'Muita lama no gramado hoje!',
+} as const;
 const artigoDe = (t: TimeId) => FALA_DO_TIME[t].artigo;
 
 export function montarEventos(roteiro: Roteiro): EventoSonoro[] {
@@ -318,7 +358,9 @@ export function montarEventos(roteiro: Roteiro): EventoSonoro[] {
       if (tv !== null) eventos.push({ tipo: b.chute ? 'CHUTE' : 'PASSE', t: tv });
     }
     const tipo = j.lance.tipo;
-    eventos.push({ tipo: tipo === 'GOL' ? 'GOL' : tipo === 'DESARME' ? 'DESARME' : 'QUASE', t: s.resolucao! });
+    eventos.push({ tipo: tipo === 'GOL' ? 'GOL' : tipo === 'DESARME' ? 'DESARME' : tipo === 'FALTA' ? 'APITO_FALTA' : 'QUASE', t: s.resolucao! });
+    // T2: depois do gol, a Arquibancada canta o Grito de guerra (coro sintetizado, sem voz).
+    if (tipo === 'GOL' && tl.t2) eventos.push({ tipo: 'CORO', t: s.resolucao! + 2.6 });
   }
   const iPen = segs.findIndex((s) => s.tipo === 'PENALTIS');
   if (iPen >= 0 && tl.disputa) {

@@ -17,7 +17,7 @@ export interface Ponto {
   y: number;
 }
 
-export type EstiloJogada = 'TABELA' | 'CHUTE_DE_LONGE' | 'LANCAMENTO' | 'CRUZAMENTO' | 'INDIVIDUAL' | 'DESARME' | 'ESCANTEIO';
+export type EstiloJogada = 'TABELA' | 'CHUTE_DE_LONGE' | 'LANCAMENTO' | 'CRUZAMENTO' | 'INDIVIDUAL' | 'DESARME' | 'ESCANTEIO' | 'FALTA' | 'PENALTI' | 'FALTA_DIRETA' | 'FALTA_CURTA';
 
 export type AcaoJogador = 'PARADO' | 'CORRENDO' | 'PASSE' | 'CHUTE' | 'CABECEIO' | 'MERGULHO' | 'CARRINHO' | 'COMEMORANDO' | 'ARREMESSO';
 
@@ -75,6 +75,22 @@ export function pontoDoEscanteio(lance: Lance): Ponto {
   return { x: lance.numero % 2 === 0 ? 0.015 : 0.985, y };
 }
 
+/** Bolas paradas de falta (Temporada 2, ADR-0024). */
+export const COBRANCAS_DE_FALTA: ReadonlySet<string> = new Set(['PENALTI', 'FALTA_DIRETA', 'FALTA_CRUZADA', 'FALTA_CURTA']);
+
+/**
+ * Onde a falta foi (e é cobrada), a partir do lance da cobrança: marca do pênalti, entrada da
+ * área ou mais longe. O lado sai do número do lance, então é sempre o mesmo.
+ */
+export function pontoDaFalta(cobranca: Lance): Ponto {
+  const alvo = golAlvo(cobranca.ataque);
+  const dir = sentido(cobranca.ataque);
+  const lado = cobranca.numero % 3 === 0 ? 0.5 : cobranca.numero % 2 === 0 ? 0.36 : 0.64;
+  if (cobranca.bolaParada === 'PENALTI') return { x: 0.5, y: alvo - dir * 0.11 };
+  if (cobranca.bolaParada === 'FALTA_DIRETA') return { x: lado, y: alvo - dir * 0.21 };
+  return { x: lado < 0.5 ? 0.24 : lado > 0.5 ? 0.76 : 0.3, y: alvo - dir * 0.33 };
+}
+
 /** Onde o lateral é cobrado: na linha lateral do lado do criador, na altura dele. */
 export function pontoDoLateral(lance: Lance, bases: Record<Lado, Ponto[]>): Ponto {
   const b = bases[lance.criador.lado][lance.criador.indice]!;
@@ -130,8 +146,13 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
   const C = lance.criador;
   const cx = bases[C.lado][C.indice]!.x;
 
-  if (lance.tipo === 'DESARME' && lance.bolaParada !== 'ESCANTEIO') {
+  if (lance.tipo === 'DESARME' && lance.bolaParada !== 'ESCANTEIO' && lance.bolaParada !== 'FALTA_CRUZADA') {
     return lance.drible && lance.finalizador ? planoDesarmeNoDrible(lance, P, cx, bases, rng.next()) : planoDesarme(lance, P, cx, rng.next());
+  }
+  // Temporada 2: a falta (a jogada para, a bola fica no lugar da cobrança) e as cobranças.
+  if (lance.tipo === 'FALTA') return planoFalta(lance, planoDoBote(lance, P, cx, bases, rng.next()), saida);
+  if (lance.bolaParada === 'PENALTI' || lance.bolaParada === 'FALTA_DIRETA' || lance.bolaParada === 'FALTA_CURTA') {
+    return planoCobranca(lance, bases, escalacoes, entrada, saida, rng.next(), cont);
   }
 
   const F = lance.finalizador!;
@@ -162,7 +183,8 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
     acao(a, de - 0.01, de + 0.025, 'PASSE');
   };
   const posse = (de: number, ate: number, s: SlotRef) => bola.push({ de, ate, tipo: 'POSSE', ator: s });
-  if (lance.bolaParada === 'ESCANTEIO') return planoEscanteio();
+  // A falta de longe cruzada é coreografada como o escanteio, só que do lugar da falta.
+  if (lance.bolaParada === 'ESCANTEIO' || lance.bolaParada === 'FALTA_CRUZADA') return planoEscanteio();
 
   // A bola chega ao criador de onde o lance anterior a deixou (do meio, só depois de gol).
   bola.push({ de: 0, ate: 0.08, tipo: 'VOO', origem: { ponto: entrada }, destino: { ator: C }, altura: 0 });
@@ -467,6 +489,45 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
     };
   }
 
+  /**
+   * O bote da falta (T2): acontece onde o simulador marcou a falta (na área, na entrada da
+   * área ou longe), para o pênalti e a cobrança saírem de onde o lance foi parado.
+   */
+  function planoDoBote(l: Lance, Pt: typeof P, x: number, b: Record<Lado, Ponto[]>, sorte: number): Plano {
+    const local = l.falta?.local ?? 'LONGE';
+    const prof = local === 'AREA' ? 0.12 : local === 'ENTRADA' ? 0.23 : 0.34;
+    const V = l.finalizador ?? l.criador;
+    const D = l.defensor;
+    const vx = b[V.lado][V.indice]!.x;
+    const bote = Pt(lerp(vx, 0.5, local === 'AREA' ? 0.55 : 0.3) + (sorte - 0.5) * 0.1, prof);
+    const lat = vx < 0.5 ? -1 : 1;
+    const passe = l.finalizador !== null && l.finalizador !== undefined;
+    const atores: Plano['atores'] = [
+      { slot: V, quadros: [[0, null], [passe ? 0.3 : 0.08, Pt(vx, passe ? prof + 0.12 : 0.5)], [F_RESOLUCAO_DESARME, Pt(bote.x - lat * 0.02, prof - 0.01)], [0.75, Pt(bote.x - lat * 0.03, prof)], [0.9, null]] },
+      { slot: D, quadros: [[0, null], [0.36, null], [F_RESOLUCAO_DESARME, bote], [0.75, Pt(bote.x + lat * 0.02, prof + 0.02)], [1, null]] },
+    ];
+    if (passe) atores.unshift({ slot: l.criador, quadros: [[0, null], [0.08, Pt(x, 0.5)], [0.3, Pt(x, 0.42)], [0.6, null]] });
+    return {
+      estilo: 'DESARME',
+      atores,
+      bola: passe
+        ? [
+            { de: 0, ate: 0.08, tipo: 'VOO', origem: { ponto: entrada }, destino: { ator: l.criador }, altura: 0 },
+            { de: 0.08, ate: 0.3, tipo: 'POSSE', ator: l.criador },
+            { de: 0.3, ate: 0.36, tipo: 'VOO', origem: { ator: l.criador }, destino: { ator: V }, altura: 0 },
+            { de: 0.36, ate: F_RESOLUCAO_DESARME, tipo: 'POSSE', ator: V },
+          ]
+        : [
+            { de: 0, ate: 0.08, tipo: 'VOO', origem: { ponto: entrada }, destino: { ator: V }, altura: 0 },
+            { de: 0.08, ate: F_RESOLUCAO_DESARME, tipo: 'POSSE', ator: V },
+          ],
+      acoes: [
+        ...(passe ? [{ slot: l.criador, de: 0.29, ate: 0.315, acao: 'PASSE' as const }] : []),
+        { slot: D, de: F_RESOLUCAO_DESARME - 0.05, ate: F_RESOLUCAO_DESARME + 0.04, acao: 'CARRINHO' },
+      ],
+    };
+  }
+
   function planoDesarme(l: Lance, Pt: typeof P, x: number, sorte: number): Plano {
     const D = l.defensor;
     const roubo = Pt(lerp(x, 0.5, 0.3) + (sorte - 0.5) * 0.12, 0.3);
@@ -508,4 +569,152 @@ function zagueiroMaisProximo(esc: Escalacao, bases: Ponto[], lado: Lado, x: numb
     }
   });
   return melhor;
+}
+
+
+/**
+ * Falta (T2): a jogada até o bote é a do desarme; no bote, quem tinha a bola cai, o juiz apita e
+ * a bola rola até o lugar da cobrança e para.
+ */
+function planoFalta(lance: Lance, desarme: Plano, saida: Ponto): Plano {
+  const vitima = lance.finalizador ?? lance.criador;
+  const R = F_RESOLUCAO_DESARME;
+  return {
+    estilo: 'FALTA',
+    atores: desarme.atores,
+    bola: [
+      ...desarme.bola.filter((b) => b.ate <= R + 1e-9),
+      { de: R, ate: 0.7, tipo: 'VOO', origem: { ator: vitima }, destino: { ponto: saida }, altura: 0 },
+      { de: 0.7, ate: 1, tipo: 'PARADA', ponto: saida },
+    ],
+    acoes: [
+      ...desarme.acoes.filter((a) => a.acao !== 'PASSE' || a.de < R),
+      { slot: vitima, de: R - 0.01, ate: 0.84, acao: 'MERGULHO' },
+    ],
+  };
+}
+
+/**
+ * Cobranças de falta da T2 (ADR-0024): pênalti (o Canto decide para onde vão a bola e o
+ * goleiro), chute direto por cima da Barreira e toque curto para o chute de longe.
+ */
+function planoCobranca(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Record<Lado, Escalacao>, ponto: Ponto, saida: Ponto, sorte: number, cont: Continuidade): Plano {
+  const atq = lance.ataque;
+  const def: Lado = atq === 'mandante' ? 'visitante' : 'mandante';
+  const alvo = golAlvo(atq);
+  const dir = sentido(atq);
+  const P = (x: number, prof: number): Ponto => ({ x: Math.min(0.96, Math.max(0.04, x)), y: alvo - dir * prof });
+  const C = lance.criador;
+  const F = lance.finalizador ?? C;
+  const G = goleiroDe(escalacoes[def], def);
+  const chave = (s: SlotRef) => `${s.lado}:${s.indice}`;
+  const atores = new Map<string, QuadroAtor[]>();
+  const acoes: Plano['acoes'] = [];
+  const bola: TrechoBola[] = [];
+  const ator = (s: SlotRef, q: QuadroAtor[]) => atores.set(chave(s), q);
+  const acao = (slot: SlotRef, de: number, ate: number, a: AcaoJogador) => acoes.push({ slot, de, ate, acao: a });
+  const R = F_RESOLUCAO_CHUTE;
+  const lado = ponto.x < 0.5 ? -1 : 1;
+
+  // Para onde vai o chute e para onde o goleiro pula.
+  const xCanto = (c?: string) => (c === 'ESQUERDA' ? 0.43 : c === 'DIREITA' ? 0.57 : 0.5);
+  let destino: Ponto;
+  if (lance.bolaParada === 'PENALTI') {
+    const x = xCanto(lance.canto?.cobrador);
+    destino = lance.tipo === 'FORA' ? P(x + (x === 0.5 ? 0.09 : (x - 0.5) * 1.8), -0.012) : P(x, lance.tipo === 'DEFESA' ? 0.02 : -0.012);
+  } else if (lance.tipo === 'GOL') destino = P(0.5 + (sorte < 0.5 ? -1 : 1) * (0.05 + sorte * 0.04), -0.012);
+  else if (lance.tipo === 'DEFESA') destino = P(0.5 + (sorte * 2 - 1) * 0.06, 0.03);
+  else destino = P(0.5 + (sorte < 0.5 ? -1 : 1) * 0.13, -0.01);
+  const linhaG = P(0.5, 0.025);
+  const mergulho: Ponto =
+    lance.bolaParada === 'PENALTI' ? P(xCanto(lance.canto?.goleiro), 0.03) : lance.tipo === 'DEFESA' ? destino : { x: lerp(linhaG.x, destino.x, 0.45), y: linhaG.y };
+
+  // Quem não cobra nem defende espera em volta da área e volta devagar no fim.
+  const ida = 0.05;
+  const pronto = 0.22;
+  const volta = 0.88;
+  const ocupados = new Set([chave(C), chave(F), chave(G), ...(lance.barreira ?? []).map(chave)]);
+  const espera = (lado2: Lado, i: number, k: number): Ponto =>
+    lance.bolaParada === 'PENALTI' ? P(0.32 + ((k * 0.09) % 0.36), 0.25 + (k % 2) * 0.03) : P(0.5 + (k % 2 ? 1 : -1) * (0.1 + (k % 3) * 0.06), lado2 === atq ? 0.12 + (k % 2) * 0.04 : 0.1 + (k % 3) * 0.02);
+  let k = 0;
+  for (const l of ['mandante', 'visitante'] as const) {
+    escalacoes[l].jogadores.forEach((j, i) => {
+      const s = { lado: l, indice: i };
+      if (ocupados.has(chave(s)) || j.posicao === 'GOL') return;
+      // Os zagueiros de quem cobra e os atacantes de quem defende ficam no meio do caminho.
+      if ((l === atq && j.posicao === 'ZAG') || (l === def && j.posicao === 'ATA')) return;
+      const e = espera(l, i, k++);
+      ator(s, [[0, null], [ida, null], [pronto, e], [volta - 0.06, e], [1, null]]);
+    });
+  }
+
+  const atras = { x: ponto.x - lado * 0.01, y: ponto.y + dir * 0.035 };
+  const linhaDoChute = (p: Ponto) => ({ x: p.x, y: p.y + dir * 0.012 });
+  if (lance.bolaParada === 'FALTA_CURTA') {
+    // Toque curto para o lado e chute de longe.
+    const chute = P(ponto.x - lado * 0.08, 0.3);
+    ator(C, [[0, null], [0.18, atras], [0.42, atras], [0.48, linhaDoChute(ponto)], [0.62, null]]);
+    ator(F, [[0, null], [0.2, P(chute.x, 0.36)], [0.5, P(chute.x, 0.34)], [0.6, chute], [R, chute], [0.92, P(chute.x, 0.28)], [1, null]]);
+    bola.push({ de: 0, ate: 0.48, tipo: 'PARADA', ponto });
+    bola.push({ de: 0.48, ate: 0.6, tipo: 'VOO', origem: { ponto }, destino: { ator: F }, altura: 0 });
+    acao(C, 0.46, 0.5, 'PASSE');
+    bola.push({ de: 0.6, ate: R, tipo: 'VOO', origem: { ator: F }, destino: { ponto: destino }, altura: lance.tipo === 'FORA' ? 0.6 : 0.25, chute: true });
+    acao(F, 0.58, 0.63, 'CHUTE');
+  } else {
+    // Pênalti e chute direto: o cobrador ajeita a bola, toma distância e bate.
+    ator(C, [[0, null], [0.2, atras], [0.52, atras], [0.6, linhaDoChute(ponto)], [R, linhaDoChute(ponto)], [0.9, linhaDoChute(ponto)], [1, null]]);
+    bola.push({ de: 0, ate: 0.6, tipo: 'PARADA', ponto });
+    const bloqueio = lance.tipo === 'BLOQUEIO' && lance.barreira?.length;
+    if (bloqueio) {
+      bola.push({ de: 0.6, ate: 0.68, tipo: 'VOO', origem: { ponto }, destino: { ator: lance.defensor }, altura: 0.15, chute: true });
+      bola.push({ de: 0.68, ate: 0.9, tipo: 'VOO', origem: { ator: lance.defensor }, destino: { ponto: saida }, altura: 0.5 });
+      bola.push({ de: 0.9, ate: 1, tipo: 'PARADA', ponto: saida });
+    } else {
+      bola.push({ de: 0.6, ate: R, tipo: 'VOO', origem: { ponto }, destino: { ponto: destino }, altura: lance.bolaParada === 'PENALTI' ? (lance.tipo === 'FORA' ? 0.3 : 0.05) : 0.55, chute: true });
+    }
+    acao(C, 0.58, 0.63, 'CHUTE');
+    // Barreira: os defensores em fila entre a bola e o gol; pulam na hora do chute.
+    (lance.barreira ?? []).forEach((b, i, todos) => {
+      const meio = (todos.length - 1) / 2;
+      const lugar = { x: lerp(ponto.x, 0.5, 0.35) + (i - meio) * 0.03, y: ponto.y - dir * 0.075 };
+      ator(b, [[0, null], [ida, null], [pronto, lugar], [0.7, lugar], [volta, lugar], [1, null]]);
+      acao(b, 0.6, 0.66, 'CABECEIO');
+    });
+    if (bloqueio) return fechar();
+  }
+
+  // Goleiro: no pênalti espera parado na linha e pula para o canto dele na batida.
+  ator(G, [[0, null], [pronto, linhaG], [0.6, linhaG], [R, mergulho], [0.9, lance.tipo === 'DEFESA' ? P(0.5, 0.06) : mergulho], [1, null]]);
+  if (lance.tipo !== 'FORA' || lance.bolaParada === 'PENALTI') acao(G, 0.62, R + 0.06, 'MERGULHO');
+  if (lance.tipo === 'GOL') {
+    bola.push({ de: R, ate: 0.9, tipo: 'PARADA', ponto: destino });
+    bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ponto: destino }, destino: { ponto: MEIO }, altura: 0.3 });
+    acao(F, R + 0.01, 0.97, 'COMEMORANDO');
+  } else if (lance.tipo === 'DEFESA' && cont.escanteio) {
+    bola.push({ de: R, ate: 0.9, tipo: 'VOO', origem: { ponto: destino }, destino: { ponto: cont.escanteio }, altura: 0.35 });
+    bola.push({ de: 0.9, ate: 1, tipo: 'PARADA', ponto: cont.escanteio });
+  } else if (lance.tipo === 'DEFESA') {
+    bola.push({ de: R, ate: 0.9, tipo: 'POSSE', ator: G });
+    bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ator: G }, destino: { ponto: saida }, altura: 0.6 });
+    acao(G, 0.88, 0.92, 'PASSE');
+  } else {
+    bola.push({ de: R, ate: 0.86, tipo: 'PARADA', ponto: destino });
+    bola.push({ de: 0.86, ate: 0.9, tipo: 'VOO', origem: { ponto: destino }, destino: { ator: G }, altura: 0 });
+    bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ator: G }, destino: { ponto: saida }, altura: 0.6 });
+    acao(G, 0.88, 0.92, 'PASSE');
+  }
+  return fechar();
+
+  function fechar(): Plano {
+    const estilo: EstiloJogada = lance.bolaParada === 'PENALTI' ? 'PENALTI' : lance.bolaParada === 'FALTA_DIRETA' ? 'FALTA_DIRETA' : 'FALTA_CURTA';
+    return {
+      estilo,
+      atores: [...atores].map(([kk, quadros]) => {
+        const [l, i] = kk.split(':');
+        return { slot: { lado: l as Lado, indice: Number(i) }, quadros };
+      }),
+      bola,
+      acoes,
+    };
+  }
 }

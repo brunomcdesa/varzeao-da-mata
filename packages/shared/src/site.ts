@@ -223,4 +223,6 @@ export interface PartidaPublica {
   video: string | null;
   /** Áudio da narração do Ao Vivo (o jogo inteiro, no tempo do Ao Vivo), depois do Apito. */
   narracao: string | null;
+  /** Temporada 2: tamanho de cada Elenco, para a Arquibancada. Ausente nas Partidas da T1. */
+  torcida?: Record<'mandante' | 'visitante', number>;
 }

@@ -11,7 +11,7 @@ import { simularPartida, type Lado, type ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { HORARIOS, FUSO_BRASILIA } from './calendario.js';
 import { escalarPartida, type PartidaEscalada } from './escalacao.js';
-import { partidaTemRegrasT2, posturasDaPartida } from './temporada2.js';
+import { partidaTemRegrasT2, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
 
 /** O que o renderer precisa para gravar o Reels (mesmo formato de PartidaParaVideo). */
 export interface DadosDoVideo {
@@ -23,6 +23,8 @@ export interface DadosDoVideo {
   subtitulo?: string;
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
+  /** Temporada 2: tamanho de cada Elenco, para a Arquibancada (ADR-0019). Nunca na T1. */
+  torcida?: Record<Lado, number>;
 }
 
 /** Grava o MP4 da Partida em `saida`. Injetado para os testes não dependerem do navegador. */
@@ -145,6 +147,10 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
     subtitulo: subtituloDaPartida(p.rodada, p.fase, new Date(p.apito_inicial)),
     aparencias: await aparenciasEscolhidas(banco),
   };
+  if (resultado.versaoSim >= 6) {
+    const elencos = await tamanhoDosElencos(banco);
+    dados.torcida = { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 };
+  }
 
   let video = p.video_url;
   let status = p.status;

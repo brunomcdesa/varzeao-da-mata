@@ -30,6 +30,8 @@ export interface PartidaParaVideo {
   roteiro?: OpcoesRoteiro;
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
+  /** Temporada 2: tamanho de cada Elenco, para a Arquibancada (ADR-0019). */
+  torcida?: Record<Lado, number>;
 }
 
 export function desenharQuadroVideo(ctx: CanvasRenderingContext2D, roteiro: Roteiro, tVideo: number, o: OpcoesVideo): QuadroRoteiro {

@@ -93,6 +93,8 @@ function textoDoLance(r: ResultadoPartida, i: number): string {
       return `Gol de ${n(l.finalizador)}, passe de ${n(l.criador)}`;
     case 'DEFESA':
       return `${n(l.defensor)} defende o chute de ${n(l.finalizador)}`;
+    case 'FALTA':
+      return `Falta de ${n(l.defensor)} em ${n(l.finalizador ?? l.criador)}${l.falta?.cartao === 'VERMELHO' ? ' (expulso)' : l.falta?.cartao === 'AMARELO' ? ' (amarelo)' : ''}`;
     case 'FORA':
       return `${n(l.finalizador)} chuta para fora`;
     case 'BLOQUEIO':

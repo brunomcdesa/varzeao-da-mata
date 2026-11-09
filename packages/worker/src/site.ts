@@ -13,6 +13,7 @@ import type { Banco } from './banco.js';
 import { seriesDaTemporada, type SeriesDaTemporada } from './series.js';
 import { classificar } from './tabela.js';
 import { habilidadesDe } from './regras.js';
+import { tamanhoDosElencos } from './temporada2.js';
 
 /** Duração do Ao Vivo de uma Partida (5 min; 7 no Mata-mata, por causa dos pênaltis). */
 export const DURACAO_AO_VIVO_MS = duracaoAoVivoMs('LIGA');
@@ -425,6 +426,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
   arquivos.set('liga.json', liga);
   arquivos.set('jogadores.json', [...porJogador.values()]);
 
+  const elencos = await tamanhoDosElencos(banco);
   // ---- uma página por Partida escalada (de todas as Temporadas: o histórico aponta para elas)
   for (const p of todas) {
     const linhas = escalacoesDe.get(p.id);
@@ -448,6 +450,10 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       resultado: revelada(p) ? p.resultado : null,
       video: encerrada(p) && p.video_url?.startsWith('http') ? p.video_url : null,
       narracao: revelada(p) && p.narracao_url?.startsWith('http') ? p.narracao_url : null,
+      // Arquibancada (T2): só nas Partidas simuladas com as regras da Temporada 2.
+      ...(revelada(p) && (p.resultado as { versaoSim?: number } | null)?.versaoSim! >= 6
+        ? { torcida: { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 } }
+        : {}),
     };
     arquivos.set(`partidas/${p.id}.json`, publica);
   }
