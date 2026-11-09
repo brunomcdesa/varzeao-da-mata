@@ -412,6 +412,13 @@ export function legendaDoResumo(d: DadosDoResumo): string {
     `📋 ${etapa === 'LIGA' ? `Resumo da Rodada ${d.rodada}` : etapa === 'SEMIFINAL' ? 'Resumo das Semifinais' : 'Resumo da Final'} da Temporada ${d.temporada}`,
     ...d.placares.map(placar),
     '',
+    // Anúncio do Craque da Rodada anterior: aqui o @ marca o eleito (é parabéns, não voto).
+    ...(d.craqueDaRodada
+      ? [
+          `⭐ Craque ${d.craqueDaRodada.fase === 'LIGA' ? `da Rodada ${d.craqueDaRodada.rodada}` : 'das Semifinais'}: ${d.craqueDaRodada.apelido ? `${d.craqueDaRodada.apelido} (@${d.craqueDaRodada.username})` : `@${d.craqueDaRodada.username}`}, ${FALA_DO_TIME[d.craqueDaRodada.time].curto}${d.craqueDaRodada.votos ? `, com ${d.craqueDaRodada.votos} ${d.craqueDaRodada.votos === 1 ? 'voto' : 'votos'}` : ''}. Parabéns!`,
+          '',
+        ]
+      : []),
     ...(campeao
       ? [`${IDENTIDADE[campeao].nome} é campeão da Temporada ${d.temporada}!`, 'Obrigado a todo mundo que jogou. A próxima Temporada vem aí.']
       : [

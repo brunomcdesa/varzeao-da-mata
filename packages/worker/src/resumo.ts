@@ -128,6 +128,7 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
 
   const max = o.maxNovos ?? 12;
   const final = etapaDa(r.fase, r.numero) === 'FINAL';
+  const craqueAnterior = await anuncioDoCraque(banco, r.temporada_id, r.numero);
   const campeao = final ? (await banco.query<{ campeao_id: TimeId | null }>(`SELECT campeao_id FROM temporada WHERE id = $1`, [r.temporada_id])).rows[0]?.campeao_id : null;
   return {
     ...(final ? { votacao: 'TEMPORADA' as const } : {}),
@@ -140,7 +141,35 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
     novosContratados: novos.slice(0, max).map((n) => ({ username: n.username, time: n.time_id, posicao: n.posicao })),
     totalNovos: novos.length,
     candidatos,
+    ...(craqueAnterior ? { craqueDaRodada: craqueAnterior } : {}),
   };
+}
+
+/**
+ * Craque da Rodada anterior, para o anúncio no Resumo (a votação fechou no Corte do primeiro
+ * jogo do dia, e o eleito já jogou com vaga garantida). Nota e gols são os daquela Rodada.
+ */
+async function anuncioDoCraque(banco: Banco, temporadaId: number, numero: number): Promise<DadosDoResumo['craqueDaRodada'] | null> {
+  const anterior = (await banco.query<{ id: number; numero: number; fase: 'LIGA' | 'MATA_MATA' }>(`SELECT id, numero, fase FROM rodada WHERE temporada_id = $1 AND numero = $2`, [temporadaId, numero - 1])).rows[0];
+  if (!anterior) return null;
+  const eleito = await craqueDaRodada(banco, anterior.id);
+  if (!eleito) return null;
+  const x = (
+    await banco.query<{ username: string; apelido: string | null; time_id: TimeId; posicao: Posicao; nota: string; votos: string; gols: string }>(
+      `SELECT j.username, j.apelido, j.time_id, j.posicao, c.nota,
+              (SELECT count(*) FROM voto_total v WHERE v.rodada_id = c.rodada_id AND v.jogador_id = c.jogador_id) AS votos,
+              (SELECT count(*) FROM partida p
+                 JOIN escalacao e ON e.partida_id = p.id
+                 CROSS JOIN LATERAL jsonb_array_elements(p.lances) l
+                WHERE p.rodada_id = c.rodada_id AND e.jogador_id = j.id AND l->>'tipo' = 'GOL'
+                  AND (l->'finalizador'->>'indice')::int = e.lugar
+                  AND ((l->'finalizador'->>'lado') = 'mandante') = (e.time_id = p.mandante_id)) AS gols
+       FROM candidato c JOIN jogador j ON j.id = c.jogador_id WHERE c.rodada_id = $1 AND c.jogador_id = $2`,
+      [anterior.id, eleito.id],
+    )
+  ).rows[0];
+  if (!x) return null;
+  return { rodada: anterior.numero, fase: anterior.fase, username: x.username, apelido: x.apelido ?? null, time: x.time_id, posicao: x.posicao, nota: Number(x.nota), gols: Number(x.gols), votos: Number(x.votos) };
 }
 
 /** Rodada com Candidatos cuja Rodada seguinte ainda não começou: é a que está em votação. */
