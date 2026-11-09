@@ -293,6 +293,12 @@ async function agendar(c: ContextoDoJob, o: { tipo: ItemDaAgenda['tipo']; ref: n
   return item;
 }
 
+/** O Craque da Rodada anterior da mesma Série, que tem a vaga garantida na Escalação (ADR-0015). */
+async function craqueDaVez(banco: Banco, p: LinhaJob): Promise<{ id: string } | null> {
+  const anterior = (await banco.query<{ id: number }>(`SELECT s.id FROM rodada s JOIN rodada r ON r.temporada_id = s.temporada_id AND s.numero = r.numero - 1 WHERE r.id = $1`, [p.rodada_id])).rows[0];
+  return anterior ? craqueDaRodada(banco, anterior.id, p.serie) : null;
+}
+
 export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; esperarCorte?: boolean } = {}): Promise<number[]> {
   const log = logDe(c);
   const dormir = c.dormir ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
@@ -320,11 +326,18 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
       if (votacao.rodadaEmVotacao !== null) await importarVotosDoSite(c.banco, c.agenda, votacao.rodadaEmVotacao);
       // Transferências pedidas pelo site até o Corte entram nesta Escalação.
       await processarPedidosDoSite(c.banco, c.agenda, agoraDe(c));
+      // Com duas Séries há outra Partida no mesmo horário: escala, simula e guarda agora, antes
+      // de gravar este Reels, para ela também estar pronta no Apito Inicial (ADR-0015).
+      for (const q of pendentes) {
+        if (q === p || q.status !== 'PENDENTE' || new Date(q.apito_inicial).getTime() !== apito.getTime()) continue;
+        await rodarPartida(c.banco, q.id, { craque: (await craqueDaVez(c.banco, q))?.id ?? null });
+        await guardarPartidaPrivada(c, q.id, apito);
+        q.status = 'SIMULADA';
+        log(`Partida ${q.id}: escalada e simulada junto com a ${p.id}.`);
+      }
     }
 
-    const anterior = (await c.banco.query<{ id: number }>(`SELECT s.id FROM rodada s JOIN rodada r ON r.temporada_id = s.temporada_id AND s.numero = r.numero - 1 WHERE r.id = $1`, [p.rodada_id])).rows[0];
-    // O Craque da Rodada anterior da mesma Série tem a vaga garantida (ADR-0015).
-    const craque = anterior ? await craqueDaRodada(c.banco, anterior.id, p.serie) : null;
+    const craque = await craqueDaVez(c.banco, p);
 
     // Vídeo: grava se ainda não tem um link público (num runner novo, o arquivo local some).
     let videoUrl = p.video_url?.startsWith('http') ? p.video_url : null;

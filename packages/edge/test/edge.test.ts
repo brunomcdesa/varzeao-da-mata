@@ -133,6 +133,17 @@ describe('voto pelo site', () => {
     expect(AGENDA.meta.get(`voto-site/3/${aparelho(1)}`)).toMatchObject({ numero: 2 });
   });
 
+  it('com duas Séries, o mesmo aparelho vota uma vez na A e uma na B (ADR-0015)', async () => {
+    const { env, AGENDA } = montar();
+    await AGENDA.put(CHAVE_VOTACAO, JSON.stringify({ rodada: 3, candidatos: 10 }));
+    expect(await (await votar(env, { rodada: 3, numero: 2, aparelho: aparelho(1) })).json()).toEqual({ ok: true, numero: 2 });
+    // B3 é o número 8 por dentro.
+    expect(await (await votar(env, { rodada: 3, numero: 8, aparelho: aparelho(1) })).json()).toEqual({ ok: true, numero: 8 });
+    expect(await (await votar(env, { rodada: 3, numero: 9, aparelho: aparelho(1) })).json()).toEqual({ ok: true, numero: 8, jaVotou: true });
+    expect(AGENDA.meta.get(`voto-site/3/${aparelho(1)}`)).toMatchObject({ numero: 2 });
+    expect(AGENDA.meta.get(`voto-site/3/${aparelho(1)}:B`)).toMatchObject({ numero: 8 });
+  });
+
   it('limita os aparelhos por rede', async () => {
     const { env, AGENDA } = montar();
     await AGENDA.put(CHAVE_VOTACAO, JSON.stringify({ rodada: 3, candidatos: 5 }));
