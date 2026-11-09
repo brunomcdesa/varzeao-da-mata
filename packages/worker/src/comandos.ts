@@ -37,6 +37,8 @@ export type Comando =
    * também: "sair da Onça e ir pra Preguiça"); vazio = só troca de posição.
    */
   | { tipo: 'TRANSFERENCIA'; times: TimeId[]; posicao?: Posicao }
+  /** Temporada 2 (ADR-0023): "CONFIRMO" (ou "CONFIRMADO", "TO DENTRO", "VOU JOGAR") para o próximo jogo do Time. */
+  | { tipo: 'PRESENCA' }
   | { tipo: 'INVALIDO'; prefixo: 'ENTRO' | 'CRAQUE' | 'TRANSFERIR'; motivo: MotivoInvalido }
   | { tipo: 'IGNORADO' };
 
@@ -74,6 +76,9 @@ export function interpretar(texto: string): Comando {
     if (!m) return { tipo: 'INVALIDO', prefixo: 'CRAQUE', motivo: 'SEM_CANDIDATO' };
     return { tipo: 'VOTO', numero: Number(m[2]), ...serieDoVoto(m[1]) };
   }
+
+  // Presença (T2): "CONFIRMO", "confirmado!", "tô dentro", "vou jogar" — sozinho no comentário.
+  if (/^(CONFIRMO|CONFIRMADO|CONFIRMADISSIMO|PRESENCA CONFIRMADA|PRESENTE|TO DENTRO|TO DENTRO DO JOGO|VOU JOGAR)$/.test(palavras.join(' '))) return { tipo: 'PRESENCA' };
 
   if (prefixo !== 'ENTRO') return transferencia(palavras) ?? semPrefixo(palavras);
 

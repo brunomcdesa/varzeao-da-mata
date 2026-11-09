@@ -3,9 +3,10 @@
  * rodízio do Elenco, Craque da Rodada anterior garantido e Jogadores da Base completando
  * as vagas. Só conta quem se inscreveu até o Corte (30 min antes do Apito Inicial).
  */
-import { habilidadesDoPerfil, type Escalacao, type Habilidades, type Posicao, type TimeId } from '@liga/shared';
+import { habilidadesDoPerfil, temRegrasT2, type Canto, type Escalacao, type Especializacao, type HabilidadeId, type Habilidades, type Posicao, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { FORMACAO, OVR_BASE, habilidadesDe } from './regras.js';
+import { confirmados, suspensos } from './temporada2.js';
 
 export const CORTE_MINUTOS = 30;
 
@@ -27,6 +28,16 @@ interface Disponivel {
   jogos: number;
   ultimo: Date | null;
   inscritoEm: Date;
+  /** T2: escolhas do site na hora da Escalação. */
+  especializacao?: Especializacao | null;
+  treino?: HabilidadeId | null;
+  canto?: Canto | null;
+}
+
+/** T2 (ADRs 0021 e 0023): quem está suspenso e quem confirmou Presença nesta Partida. */
+export interface RegrasDaEscalacao {
+  suspensos: ReadonlySet<string>;
+  confirmados: ReadonlySet<string>;
 }
 
 /**
@@ -34,10 +45,16 @@ interface Disponivel {
  * menos na Temporada; empate, quem jogou há mais tempo (ou nunca); depois quem se
  * inscreveu antes.
  */
-export function ordemDoRodizio(a: Disponivel, b: Disponivel, craque: string | null): number {
+export function ordemDoRodizio(a: Disponivel, b: Disponivel, craque: string | null, confirmados?: ReadonlySet<string>): number {
   if (craque) {
     if (a.id === craque && b.id !== craque) return -1;
     if (b.id === craque && a.id !== craque) return 1;
+  }
+  // T2: quem confirmou Presença vem logo depois do Craque (ADR-0023).
+  if (confirmados) {
+    const ca = confirmados.has(a.id);
+    const cb = confirmados.has(b.id);
+    if (ca !== cb) return ca ? -1 : 1;
   }
   if (a.jogos !== b.jogos) return a.jogos - b.jogos;
   const ua = a.ultimo?.getTime() ?? -Infinity;
@@ -49,11 +66,11 @@ export function ordemDoRodizio(a: Disponivel, b: Disponivel, craque: string | nu
 
 export async function montarEscalacao(
   banco: Banco,
-  o: { time: TimeId; temporadaId: number; corte: Date; craque?: string | null },
+  o: { time: TimeId; temporadaId: number; corte: Date; craque?: string | null; t2?: RegrasDaEscalacao },
 ): Promise<EscalacaoMontada> {
   const disponiveis = (
-    await banco.query<{ id: string; username: string; apelido: string | null; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; jogos: string; ultimo: string | Date | null; inscrito_em: string | Date }>(
-      `SELECT j.id::text AS id, j.username, j.apelido, j.posicao, j.ovr, j.habilidades, j.inscrito_em,
+    await banco.query<{ id: string; username: string; apelido: string | null; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; jogos: string; ultimo: string | Date | null; inscrito_em: string | Date; especializacao: Especializacao | null; treino: HabilidadeId | null; canto: Canto | null }>(
+      `SELECT j.id::text AS id, j.username, j.apelido, j.posicao, j.ovr, j.habilidades, j.inscrito_em, j.especializacao, j.treino, j.canto,
               count(p.id) AS jogos, max(p.apito_inicial) AS ultimo
        FROM jogador j
        LEFT JOIN escalacao e ON e.jogador_id = j.id
@@ -74,12 +91,13 @@ export async function montarEscalacao(
       jogos: Number(r.jogos),
       ultimo: r.ultimo ? new Date(r.ultimo) : null,
       inscritoEm: new Date(r.inscrito_em),
+      ...(o.t2 ? { especializacao: r.especializacao, treino: r.treino, canto: r.canto } : {}),
     }),
-  );
+  ).filter((d) => !o.t2?.suspensos.has(d.id));
 
   const porPosicao = new Map<Posicao, Disponivel[]>();
   for (const d of disponiveis) porPosicao.set(d.posicao, [...(porPosicao.get(d.posicao) ?? []), d]);
-  for (const lista of porPosicao.values()) lista.sort((a, b) => ordemDoRodizio(a, b, o.craque ?? null));
+  for (const lista of porPosicao.values()) lista.sort((a, b) => ordemDoRodizio(a, b, o.craque ?? null, o.t2?.confirmados));
 
   const jogadores: Escalacao['jogadores'][number][] = [];
   const nomes: (string | null)[] = [];
@@ -88,7 +106,15 @@ export async function montarEscalacao(
     const proximo = porPosicao.get(posicao)?.shift();
     jogadores.push(
       proximo
-        ? { jogadorId: proximo.id, posicao, ovr: proximo.ovr, habilidades: proximo.habilidades }
+        ? {
+            jogadorId: proximo.id,
+            posicao,
+            ovr: proximo.ovr,
+            habilidades: proximo.habilidades,
+            ...(proximo.especializacao ? { especializacao: proximo.especializacao } : {}),
+            ...(proximo.treino ? { treino: proximo.treino } : {}),
+            ...(proximo.canto ? { canto: proximo.canto } : {}),
+          }
         : { jogadorId: null, posicao, ovr: OVR_BASE, habilidades: habilidadesDoPerfil(posicao, OVR_BASE) },
     );
     nomes.push(proximo ? `@${proximo.username}` : null);
@@ -111,9 +137,9 @@ export interface PartidaEscalada {
 export async function escalarPartida(banco: Banco, partidaId: number, o: { craque?: string | null } = {}): Promise<PartidaEscalada> {
   return banco.transacao(async (b) => {
     const p = (
-      await b.query<{ mandante_id: TimeId; visitante_id: TimeId; apito_inicial: string | Date; status: string; temporada_id: number }>(
-        `SELECT p.mandante_id, p.visitante_id, p.apito_inicial, p.status, r.temporada_id
-         FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE p.id = $1 FOR UPDATE OF p`,
+      await b.query<{ mandante_id: TimeId; visitante_id: TimeId; apito_inicial: string | Date; status: string; temporada_id: number; numero: number }>(
+        `SELECT p.mandante_id, p.visitante_id, p.apito_inicial, p.status, r.temporada_id, t.numero
+         FROM partida p JOIN rodada r ON r.id = p.rodada_id JOIN temporada t ON t.id = r.temporada_id WHERE p.id = $1 FOR UPDATE OF p`,
         [partidaId],
       )
     ).rows[0];
@@ -122,13 +148,18 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
     if (p.status !== 'PENDENTE') return lerEscalacao(b, partidaId, p.mandante_id, p.visitante_id);
 
     const corte = new Date(new Date(p.apito_inicial).getTime() - CORTE_MINUTOS * 60_000);
-    const mandante = await montarEscalacao(b, { time: p.mandante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null });
-    const visitante = await montarEscalacao(b, { time: p.visitante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null });
+    // T2: Suspensão e Presença entram na Escalação (ADRs 0021 e 0023).
+    const regras = async (time: TimeId): Promise<RegrasDaEscalacao | undefined> =>
+      temRegrasT2(p.numero) ? { suspensos: await suspensos(b, time, partidaId), confirmados: await confirmados(b, partidaId) } : undefined;
+    const regrasM = await regras(p.mandante_id);
+    const regrasV = await regras(p.visitante_id);
+    const mandante = await montarEscalacao(b, { time: p.mandante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, ...(regrasM ? { t2: regrasM } : {}) });
+    const visitante = await montarEscalacao(b, { time: p.visitante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, ...(regrasV ? { t2: regrasV } : {}) });
     for (const m of [mandante, visitante]) {
       for (const [lugar, j] of m.escalacao.jogadores.entries()) {
         await b.query(
-          `INSERT INTO escalacao (partida_id, time_id, lugar, jogador_id, posicao, ovr_antes, habilidades_antes, apelido) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [partidaId, m.escalacao.time, lugar, j.jogadorId, j.posicao, j.ovr, JSON.stringify(j.habilidades), m.apelidos[lugar] ?? null],
+          `INSERT INTO escalacao (partida_id, time_id, lugar, jogador_id, posicao, ovr_antes, habilidades_antes, apelido, especializacao, treino, canto) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [partidaId, m.escalacao.time, lugar, j.jogadorId, j.posicao, j.ovr, JSON.stringify(j.habilidades), m.apelidos[lugar] ?? null, j.especializacao ?? null, j.treino ?? null, j.canto ?? null],
         );
       }
     }
@@ -144,8 +175,8 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
 
 async function lerEscalacao(b: Banco, partidaId: number, mandante: TimeId, visitante: TimeId): Promise<PartidaEscalada> {
   const linhas = (
-    await b.query<{ time_id: TimeId; jogador_id: string | null; posicao: Posicao; ovr_antes: number; habilidades_antes: Habilidades | string | null; username: string | null; apelido: string | null }>(
-      `SELECT e.time_id, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido
+    await b.query<{ time_id: TimeId; jogador_id: string | null; posicao: Posicao; ovr_antes: number; habilidades_antes: Habilidades | string | null; username: string | null; apelido: string | null; especializacao: Especializacao | null; treino: HabilidadeId | null; canto: Canto | null }>(
+      `SELECT e.time_id, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.especializacao, e.treino, e.canto
        FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id
        WHERE e.partida_id = $1 ORDER BY e.lugar`,
       [partidaId],
@@ -156,7 +187,15 @@ async function lerEscalacao(b: Banco, partidaId: number, mandante: TimeId, visit
     return {
       escalacao: {
         time,
-        jogadores: minhas.map((l) => ({ jogadorId: l.jogador_id, posicao: l.posicao, ovr: l.ovr_antes, habilidades: habilidadesDe(l.posicao, l.ovr_antes, l.habilidades_antes) })),
+        jogadores: minhas.map((l) => ({
+          jogadorId: l.jogador_id,
+          posicao: l.posicao,
+          ovr: l.ovr_antes,
+          habilidades: habilidadesDe(l.posicao, l.ovr_antes, l.habilidades_antes),
+          ...(l.especializacao ? { especializacao: l.especializacao } : {}),
+          ...(l.treino ? { treino: l.treino } : {}),
+          ...(l.canto ? { canto: l.canto } : {}),
+        })),
       } as Escalacao,
       nomes: minhas.map((l) => (l.username ? `@${l.username}` : null)),
       apelidos: minhas.map((l) => l.apelido ?? null),

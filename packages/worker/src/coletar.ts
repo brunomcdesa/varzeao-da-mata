@@ -4,10 +4,11 @@
  * não muda nada (idempotência pelo ig_comment_id).
  */
 import type { Habilidades, Posicao, TimeId } from '@liga/shared';
-import { CANDIDATOS_POR_SERIE, doTime, numeroDoCandidato, ovrDasHabilidades, type Serie } from '@liga/shared';
+import { CANDIDATOS_POR_SERIE, doTime, numeroDoCandidato, ovrDasHabilidades, temRegrasT2, type Serie } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { CONTA_DA_LIGA, citacoes, interpretar, type Comando } from './comandos.js';
 import { timesAtivos } from './series.js';
+import { aplicarEscolha } from './temporada2.js';
 import { FOLGA_DE_ELENCO, FORMACAO, REALOCAR_QUANDO_CHEIO, habilidadesDe, sortearHabilidadesIniciais } from './regras.js';
 import { normalizar } from './vocabulario.js';
 import { CORTE_MINUTOS } from './escalacao.js';
@@ -51,7 +52,11 @@ export type Resultado =
   | 'TRANSFERENCIA_USADA'
   | 'TRANSFERENCIA_FECHADA'
   | 'DESTINO_CHEIO'
-  | 'MESMO_LUGAR';
+  | 'MESMO_LUGAR'
+  /** Presença (T2, ADR-0023). */
+  | 'PRESENCA_CONFIRMADA'
+  | 'PRESENCA_RECUSADA'
+  | 'NAO_INSCRITO';
 
 export interface Contexto {
   /** Rodada cujos Candidatos a Craque estão em votação agora, ou null se não há votação aberta. */
@@ -128,6 +133,13 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
         resultado = await inscrever(b, c, comando.times[0]!, comando.posicao, ctx);
         comando = { tipo: 'INSCRICAO', time: comando.times[0]!, ...(comando.posicao ? { posicao: comando.posicao } : {}) };
       } else resultado = 'IGNORADO';
+    } else if (comando.tipo === 'PRESENCA') {
+      // Só vale na Temporada 2, para quem já joga (a regra é a mesma do botão do site).
+      if (!jogador) resultado = 'NAO_INSCRITO';
+      else {
+        const r = await aplicarEscolha(b, jogador.id, { tipo: 'PRESENCA' }, c.comentadoEm, async () => new Set());
+        resultado = r.ok ? 'PRESENCA_CONFIRMADA' : 'PRESENCA_RECUSADA';
+      }
     } else resultado = await votar(b, c, comando, ctx);
 
     const tipo = resultado === 'IGNORADO' || comando.tipo === 'IGNORADO' ? 'IGNORADO' : comando.tipo === 'INVALIDO' ? 'INVALIDO' : comando.tipo;
@@ -281,8 +293,14 @@ export async function transferirJogador(
   if (!temporada) {
     return { resultado: 'TRANSFERENCIA_FECHADA', mensagem: 'as transferências estão fechadas: só valem na Fase de Liga. Elas reabrem na próxima temporada. ⚽' };
   }
-  const usada = (await b.query(`SELECT 1 FROM transferencia WHERE jogador_id = $1 AND temporada_id = $2`, [jogadorId, temporada])).rows[0];
-  if (usada) return { resultado: 'TRANSFERENCIA_USADA', mensagem: 'você já usou a transferência desta temporada. Dá para transferir de novo na próxima. ⚽' };
+  // Janela de Transferências (T2, ADR-0022): na Pré-temporada, a troca não gasta a da Temporada.
+  const janela = await emJanela(b, temporada);
+  const usada = (await b.query(`SELECT 1 FROM transferencia WHERE jogador_id = $1 AND temporada_id = $2 AND janela = $3`, [jogadorId, temporada, janela])).rows[0];
+  if (usada) {
+    return janela
+      ? { resultado: 'TRANSFERENCIA_USADA', mensagem: 'você já trocou de time nesta Janela. Durante a temporada ainda vale uma transferência. ⚽' }
+      : { resultado: 'TRANSFERENCIA_USADA', mensagem: 'você já usou a transferência desta temporada. Dá para transferir de novo na próxima. ⚽' };
+  }
 
   if (destino !== j.time_id) {
     const ativos = await timesAtivos(b);
@@ -305,7 +323,7 @@ export async function transferirJogador(
   const perdeCamisa = camisa !== null && (await b.query(`SELECT 1 FROM jogador WHERE time_id = $1 AND numero = $2 AND id <> $3 AND NOT banido`, [destino, camisa, jogadorId])).rows.length > 0;
   await b.query(`UPDATE jogador SET time_id = $2, posicao = $3, ovr = $4, habilidades = $5${perdeCamisa ? ', numero = NULL' : ''} WHERE id = $1`, [jogadorId, destino, posicao, ovr, JSON.stringify(habilidades)]);
   await b.query(
-    `INSERT INTO transferencia (jogador_id, temporada_id, de_time, para_time, de_posicao, para_posicao, ig_comment_id, feita_em) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    `INSERT INTO transferencia (jogador_id, temporada_id, de_time, para_time, de_posicao, para_posicao, ig_comment_id, feita_em, janela) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, ${janela ? 'true' : 'false'})`,
     [jogadorId, temporada, j.time_id, destino, j.posicao, posicao, o.ref, o.quando.toISOString()],
   );
   const vaga = `${NOME_DA_POSICAO_FALADO[posicao]} ${doTime(destino)}, OVR ${ovr}`;
@@ -319,6 +337,12 @@ export async function transferirJogador(
  * Temporada em que a Transferência conta, ou null se estão fechadas: só antes do último
  * jogo da Fase de Liga (a partir dele, as Escalações que faltam são do Mata-mata).
  */
+/** A Temporada está na Pré-temporada e tem as regras da T2? Então é a Janela (ADR-0022). */
+async function emJanela(b: Banco, temporadaId: number): Promise<boolean> {
+  const t = (await b.query<{ numero: number; status: string }>(`SELECT numero, status FROM temporada WHERE id = $1`, [temporadaId])).rows[0];
+  return !!t && t.status === 'PRE_TEMPORADA' && temRegrasT2(t.numero);
+}
+
 async function temporadaDaTransferencia(b: Banco, agora: Date): Promise<number | null> {
   const t = (
     await b.query<{ id: number; ultimo_da_liga: Date | string | null }>(

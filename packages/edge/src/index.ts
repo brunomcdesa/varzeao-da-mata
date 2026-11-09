@@ -13,6 +13,7 @@
 import { serieDoCandidato, type Posicao, type TimeId } from '@liga/shared';
 import { transferirJogador } from '../../worker/src/coletar.js';
 import { aplicarPerfil } from '../../worker/src/perfil.js';
+import { aplicarEscolha, type Escolha } from '../../worker/src/temporada2.js';
 import { comBanco } from './banco.js';
 import { rotasDoVinculo, sessaoDe } from './vinculo.js';
 
@@ -153,6 +154,24 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
       if (!env.DATABASE_URL) return null;
       return comBanco(env.DATABASE_URL, (b) =>
         b.transacao(async (t) => {
+          if (p.tipo === 'ESCOLHA') {
+            // Postura: o Capitão é o primeiro da ordem com Vínculo; as sessões ficam no KV.
+            const comVinculo = async () => {
+              const ids = new Set<string>();
+              let cursor: string | undefined;
+              do {
+                const lista = await env.AGENDA.list({ prefix: 'vinculo/sessao/', ...(cursor ? { cursor } : {}) });
+                for (const k of lista.keys) {
+                  const sessao = await env.AGENDA.get<{ jogadorId?: string }>(k.name, 'json');
+                  if (sessao?.jogadorId) ids.add(sessao.jogadorId);
+                }
+                cursor = lista.list_complete ? undefined : lista.cursor;
+              } while (cursor);
+              return ids;
+            };
+            const r = await aplicarEscolha(t, p.jogadorId, p.escolha as Escolha, agora, comVinculo);
+            return { resultado: r.ok ? 'SALVO' : 'RECUSADO', mensagem: r.mensagem };
+          }
           if (p.tipo === 'PERFIL') {
             const r = await aplicarPerfil(t, p.jogadorId, { ...(p.visual !== undefined ? { visual: p.visual } : {}), ...(p.numero !== undefined ? { numero: p.numero } : {}), ...(p.apelido !== undefined ? { apelido: p.apelido } : {}) }, agora);
             return { resultado: r.ok ? 'SALVO' : 'RECUSADO', mensagem: r.mensagem };
