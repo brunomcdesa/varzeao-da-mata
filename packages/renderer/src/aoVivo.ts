@@ -39,11 +39,19 @@ export interface FalaAgendadaAoVivo {
   id: string;
   texto: string;
   inicio: number;
+  /** Corte: a fala para aqui (com fade), porque o lance seguinte chegou. */
+  fim?: number;
 }
 
 /** Caracteres por segundo da voz do Locutor (estimativa para escolher o enchimento). */
 const LETRAS_POR_S = 13;
 const RESPIRO = 0.25;
+/** Silêncio entre a fala cortada e a que corta (s). */
+const CORTE = 0.08;
+/** Menos que isso de fala não vale: some em vez de virar um pedacinho cortado (s). */
+const SOBRA_MINIMA = 0.9;
+/** Comentário pós-lance pode esperar no máximo isso (s); depois perde o sentido. */
+const ATRASO_MAXIMO_POS = 1.5;
 export const estimarDuracao = (texto: string) => texto.length / LETRAS_POR_S + 0.35;
 
 const aoVivo = (tJogo: number) => tJogo / VELOCIDADE_AO_VIVO;
@@ -98,7 +106,7 @@ export function roteiroAoVivo(tl: Timeline, apelidos?: Record<Lado, (string | nu
   let vao = 0;
   for (let i = 0; i <= estimadas.length; i++) {
     const antes = estimadas[i - 1];
-    const de = antes ? antes.inicio + estimarDuracao(antes.texto) + RESPIRO : 0;
+    const de = antes ? (antes.fim ?? antes.inicio + estimarDuracao(antes.texto)) + RESPIRO : 0;
     const ate = (estimadas[i]?.inicio ?? fim) - RESPIRO;
     if (ate - de < 1.6) continue;
     // Quem ataca no próximo lance tem a bola agora.
@@ -216,12 +224,39 @@ function enchimento(
 export function agendarAoVivo(falas: FalaAoVivo[], duracao: (id: string) => number): FalaAgendadaAoVivo[] {
   const ancoras = falas.filter((f) => f.tipo === 'ancora');
   const desejado = (f: FalaAoVivo) => (f.modo === 'ate' ? Math.max(f.naoAntes ?? 0, f.em! - duracao(f.id)) : f.em!);
+  // A narração nunca atrasa o jogo. Resolução do lance, intervalo, fim e pênaltis entram na
+  // hora certa e cortam o que estiver no ar; construção e comentário pós-lance esperam a vez,
+  // mas, se não couberem a tempo, saem.
+  const prioritaria = (f: FalaAoVivo) => f.modo !== 'ate' && !f.id.endsWith('-c');
+  const fimDe = (a: FalaAgendadaAoVivo) => a.fim ?? a.inicio + duracao(a.id);
   const agenda: FalaAgendadaAoVivo[] = [];
-  let livre = -Infinity;
-  for (const f of [...ancoras].sort((a, b) => desejado(a) - desejado(b))) {
-    const inicio = Math.max(desejado(f), livre + RESPIRO);
+  for (const f of [...ancoras].sort((x, y) => desejado(x) - desejado(y))) {
+    const quer = desejado(f);
+    const ultima = agenda[agenda.length - 1];
+    if (prioritaria(f)) {
+      if (ultima && fimDe(ultima) > quer - CORTE) {
+        // Corta quem está falando; se sobraria só um pedacinho, tira de vez.
+        if (quer - CORTE - ultima.inicio < SOBRA_MINIMA) agenda.pop();
+        else ultima.fim = quer - CORTE;
+      }
+      agenda.push({ id: f.id, texto: f.texto, inicio: quer });
+      continue;
+    }
+    const inicio = Math.max(quer, ultima ? fimDe(ultima) + RESPIRO : -Infinity);
+    // Construção: precisa começar com folga antes da resolução. Pós-lance: no máximo um pouco atrasado.
+    const limite = f.modo === 'ate' ? f.em! - SOBRA_MINIMA : quer + ATRASO_MAXIMO_POS;
+    if (inicio > limite) continue;
     agenda.push({ id: f.id, texto: f.texto, inicio });
-    livre = inicio + duracao(f.id);
+  }
+  // Construção que passaria da resolução é cortada nela (a resolução corta, como no rádio).
+  agenda.sort((a, b) => a.inicio - b.inicio);
+  for (let i = 0; i + 1 < agenda.length; i++) {
+    const a = agenda[i]!;
+    const b = agenda[i + 1]!;
+    if (fimDe(a) > b.inicio - CORTE) {
+      if (b.inicio - CORTE - a.inicio < SOBRA_MINIMA) agenda.splice(i--, 1);
+      else a.fim = b.inicio - CORTE;
+    }
   }
   const enche = falas.filter((f) => f.tipo === 'enchimento');
   if (!enche.length) return agenda;
@@ -231,7 +266,7 @@ export function agendarAoVivo(falas: FalaAoVivo[], duracao: (id: string) => numb
   const vaosReais: [number, number][] = [];
   for (let i = 0; i <= fixas.length; i++) {
     const a = fixas[i - 1];
-    const de = a ? a.inicio + duracao(a.id) + RESPIRO : 0;
+    const de = a ? fimDe(a) + RESPIRO : 0;
     const ate = (fixas[i]?.inicio ?? Infinity) - RESPIRO;
     if (ate - de >= 0.8) vaosReais.push([de, ate]);
   }
