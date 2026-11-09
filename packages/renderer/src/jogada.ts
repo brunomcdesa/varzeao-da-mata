@@ -648,8 +648,10 @@ function planoCobranca(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: R
     });
   }
 
-  const atras = { x: ponto.x - lado * 0.01, y: ponto.y + dir * 0.035 };
-  const linhaDoChute = (p: Ponto) => ({ x: p.x, y: p.y + dir * 0.012 });
+  // O cobrador fica do lado da bola oposto ao gol: abaixo dela quando o gol atacado está no
+  // alto da tela e acima quando está embaixo (P cresce para longe do gol: alvo - dir * prof).
+  const atras = { x: ponto.x - lado * 0.01, y: ponto.y - dir * 0.035 };
+  const linhaDoChute = (p: Ponto) => ({ x: p.x, y: p.y - dir * 0.014 });
   if (lance.bolaParada === 'FALTA_CURTA') {
     // Toque curto para o lado e chute de longe.
     const chute = P(ponto.x - lado * 0.08, 0.3);
