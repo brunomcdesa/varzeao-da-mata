@@ -244,3 +244,31 @@ describe('bolas paradas (VERSAO_SIM 3)', () => {
     expect(laterais / 300).toBeLessThan(6.5);
   });
 });
+
+describe('contra-ataque (VERSAO_SIM 4)', () => {
+  it('só logo depois de o rival perder a bola (desarme ou defesa); sem recompor, o 1º zagueiro some do lance', () => {
+    let contras = 0;
+    let naoRecompostos = 0;
+    for (let seed = 1; seed <= 300; seed++) {
+      const esc = { mandante: escalacao('CAP', 68), visitante: escalacao('TAT', 68) };
+      const r = simularPartida({ ...base, ...esc, seed });
+      r.lances.forEach((l, i) => {
+        if (!l.contraAtaque) return;
+        contras++;
+        const antes = r.lances[i - 1]!;
+        expect(['DESARME', 'DEFESA']).toContain(antes.tipo);
+        expect(antes.ataque).not.toBe(l.ataque);
+        expect(l.contraAtaque.adiantados).toBe(antes.bolaParada === 'ESCANTEIO' ? 6 : l.contraAtaque.adiantados);
+        if (!l.contraAtaque.recomposto) {
+          naoRecompostos++;
+          // O 1º zagueiro ficou para trás: não há desarme na criação.
+          expect(l.tipo === 'DESARME' && !l.finalizador).toBe(false);
+          if (l.contraAtaque.adiantados >= 5) expect(l.marcador).toBeUndefined();
+        }
+      });
+    }
+    expect(contras / 300).toBeGreaterThan(1.5);
+    expect(contras / 300).toBeLessThan(3.5);
+    expect(naoRecompostos).toBeGreaterThan(0);
+  });
+});

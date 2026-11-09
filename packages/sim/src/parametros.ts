@@ -2,7 +2,7 @@
  * Botões de calibração do motor. Mudar qualquer valor muda resultados de seeds
  * antigas, então exige subir VERSAO_SIM (ADR-0002).
  */
-export const VERSAO_SIM = 3;
+export const VERSAO_SIM = 4;
 
 export const PARAMETROS = {
   /** Lances de ataque disputados na Partida inteira. */
@@ -45,6 +45,17 @@ export const PARAMETROS = {
   baseCabeceio: 0.6,
   /** Chance de um lance começar com lateral (só o desenho). */
   chanceLateral: 0.35,
+  /**
+   * Contra-ataque: quando um time perde a bola (desarme ou defesa do goleiro) e o próximo ataque
+   * é do rival, chance de ser contra-ataque com 3 adiantados; cada adiantado a mais soma.
+   */
+  chanceContraAtaque: 0.35,
+  chanceContraPorAdiantado: 0.1,
+  /** Recomposição: 1º zagueiro (Defesa) contra o criador (Drible); cada adiantado a mais pesa. */
+  baseRecomposicao: 0.62,
+  recomposicaoPorAdiantado: 0.1,
+  /** Com tantos adiantados (escanteio), sem recompor o marcador também fica para trás. */
+  adiantadosSemMarcador: 5,
 } as const;
 
 /** Pesos que convertem ações em pontos de Nota da Partida. */

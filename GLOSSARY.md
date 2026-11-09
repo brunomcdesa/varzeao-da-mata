@@ -163,3 +163,7 @@ _Avoid_: narrador, comentarista, voz
 **Partida**:
 Um confronto simulado entre dois Times, com Apito Inicial marcado. Pode ser vista Ao Vivo ou em Replay no site e ganha um Reels próprio assim que termina.
 _Avoid_: jogo, match
+
+**Contra-ataque**:
+Lance logo depois de o rival perder a bola com gente adiantada. Se a defesa não recompõe, o 1º zagueiro (ou, depois de escanteio, também o marcador) fica fora do lance (ADR-0015).
+_Evite_: contragolpe

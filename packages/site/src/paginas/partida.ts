@@ -48,7 +48,7 @@ function textoDoLance(r: ResultadoPartida, nomes: Record<Lado, (string | null)[]
         return inicio(`escanteio: ${n(l.defensor)} afasta de cabeça`);
     }
   }
-  const doLateral = l.bolaParada === 'LATERAL' ? ' (começou num lateral)' : '';
+  const doLateral = l.bolaParada === 'LATERAL' ? ' (começou num lateral)' : l.contraAtaque ? (l.contraAtaque.recomposto ? ' (contra-ataque)' : ' (contra-ataque com a defesa aberta)') : '';
   switch (l.tipo) {
     case 'GOL':
       return (n(l.criador) !== n(l.finalizador) || n(l.criador) === 'a Base' ? `Gol ${de(l.finalizador)}, passe ${de(l.criador)}` : `Gol ${de(l.finalizador)}`) + driblou + doLateral;

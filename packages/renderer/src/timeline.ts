@@ -106,6 +106,24 @@ const trapezio = (f: number, a: number, b: number, c: number, d: number): number
   f <= a || f >= d ? 0 : f < b ? suave((f - a) / (b - a)) : f <= c ? 1 : suave((d - f) / (d - c));
 const chave = (s: SlotRef) => `${s.lado}:${s.indice}`;
 
+/**
+ * Corridas: a coreografia de cada lance diz para onde o boneco quer ir; a física decide como
+ * ele chega lá, com velocidade e aceleração máximas, contínua entre os lances (sem teleporte).
+ * Unidades: campo por segundo de jogo (no Ao Vivo, 1 s de jogo = 1/20 s de vídeo).
+ */
+export const FISICA = {
+  /** Passo da integração (s de jogo). */
+  dt: 0.25,
+  /** Disparada de quem está na jogada (coreografia). */
+  sprint: 0.016,
+  /** Trote de quem volta ou acompanha a formação. */
+  trote: 0.008,
+  /** Aceleração máxima (campo/s²). */
+  aceleracao: 0.004,
+  /** Tempo para "chegar" ao alvo: abaixo dessa distância/tempo, desacelera sem passar do ponto. */
+  chegada: 1.5,
+};
+
 export class Timeline {
   readonly janelas: Janela[];
   readonly planos: Plano[];
@@ -113,6 +131,8 @@ export class Timeline {
   readonly disputa: Disputa | null;
   private readonly bases: Record<Lado, Ponto[]>;
   private readonly trilhas: Map<string, QuadroAtor[]>[];
+  /** Posições depois da física, a cada FISICA.dt (x, y intercalados), por slot. */
+  private readonly corridas: Map<string, Float32Array>;
 
   constructor(
     readonly resultado: ResultadoPartida,
@@ -145,6 +165,60 @@ export class Timeline {
     });
     this.trilhas = this.planos.map((p) => new Map(p.atores.map((a) => [chave(a.slot), a.quadros])));
     this.disputa = montarDisputa(resultado, DURACAO_JOGO);
+    this.corridas = this.simularCorridas();
+  }
+
+  /** Integra as corridas do jogo todo (uma vez, na criação): alvo = coreografia, passo = física. */
+  private simularCorridas(): Map<string, Float32Array> {
+    const n = Math.ceil(DURACAO_JOGO / FISICA.dt) + 1;
+    const slots: SlotRef[] = (['mandante', 'visitante'] as const).flatMap((lado) => this.escalacoes[lado].jogadores.map((_, indice) => ({ lado, indice })));
+    const saida = new Map(slots.map((s) => [chave(s), new Float32Array(n * 2)]));
+    const pos = slots.map((s) => ({ ...this.alvoDe(s, 0, this.indiceEm(0), 0, MEIO).pos }));
+    const vel = slots.map(() => ({ x: 0, y: 0 }));
+    for (let k = 0; k < n; k++) {
+      const t = Math.min(k * FISICA.dt, DURACAO_JOGO);
+      const indice = this.indiceEm(t);
+      const f = indice >= 0 ? this.fracao(indice, t) : 0;
+      const bola = this.bolaEm(t, indice, true).pos;
+      slots.forEach((s, i) => {
+        const p = pos[i]!;
+        const v = vel[i]!;
+        if (k > 0) {
+          const alvo = this.alvoDe(s, t, indice, f, bola);
+          const dx = alvo.pos.x - p.x;
+          const dy = alvo.pos.y - p.y;
+          const dist = Math.hypot(dx, dy);
+          const teto = alvo.naJogada ? FISICA.sprint : FISICA.trote;
+          const rapidez = Math.min(teto, dist / FISICA.chegada);
+          const desejada = dist > 1e-6 ? { x: (dx / dist) * rapidez, y: (dy / dist) * rapidez } : { x: 0, y: 0 };
+          let ax = desejada.x - v.x;
+          let ay = desejada.y - v.y;
+          const a = Math.hypot(ax, ay);
+          const amax = FISICA.aceleracao * FISICA.dt;
+          if (a > amax) {
+            ax *= amax / a;
+            ay *= amax / a;
+          }
+          v.x += ax;
+          v.y += ay;
+          p.x += v.x * FISICA.dt;
+          p.y += v.y * FISICA.dt;
+        }
+        const arr = saida.get(chave(s))!;
+        arr[k * 2] = p.x;
+        arr[k * 2 + 1] = p.y;
+      });
+    }
+    return saida;
+  }
+
+  /** Posição depois da física (interpolada entre os passos). */
+  private corridaEm(slot: SlotRef, t: number): Ponto {
+    const arr = this.corridas.get(chave(slot))!;
+    const u = limitar(t, 0, DURACAO_JOGO) / FISICA.dt;
+    const k = Math.min(Math.floor(u), arr.length / 2 - 2);
+    const r = u - k;
+    return { x: lerp(arr[k * 2]!, arr[k * 2 + 2]!, r), y: lerp(arr[k * 2 + 1]!, arr[k * 2 + 3]!, r) };
   }
 
   /** Fim da Partida: 90 minutos, ou o fim da disputa de pênaltis. */
@@ -256,11 +330,19 @@ export class Timeline {
   }
 
   /** Posição normal na formação: bloco sobe ao atacar, recua ao defender, com leve balanço. */
-  private posicaoNormal(slot: SlotRef, t: number, lance: Lance | undefined, f: number, bola: Ponto | null): Ponto {
+  private posicaoNormal(slot: SlotRef, t: number, lance: Lance | undefined, f: number, bola: Ponto | null, proximo?: Lance): Ponto {
     const base = this.bases[slot.lado][slot.indice]!;
     const posicao = this.escalacoes[slot.lado].jogadores[slot.indice]!.posicao;
-    const avanco = lance ? trapezio(f, 0.05, 0.3, 0.8, 0.98) : 0;
-    const deslocamento = !lance ? 0 : lance.ataque === slot.lado ? 0.1 * avanco : -0.05 * avanco;
+    // Se o próximo lance é contra-ataque do rival, quem ataca não recua no fim: perde a bola
+    // lá na frente e o bloco precisa voltar correndo no lance seguinte.
+    const vemContra = Boolean(proximo?.contraAtaque && lance && proximo.ataque !== lance.ataque);
+    const avanco = !lance ? 0 : vemContra ? trapezio(f, 0.05, 0.3, 2, 3) : trapezio(f, 0.05, 0.3, 0.8, 0.98);
+    let deslocamento = !lance ? 0 : lance.ataque === slot.lado ? 0.1 * avanco : -0.05 * avanco;
+    // No contra-ataque, o time que perdeu a bola começa adiantado e volta trotando (o buraco).
+    if (lance?.contraAtaque && lance.ataque !== slot.lado && posicao !== 'GOL') {
+      const adiantado = lance.contraAtaque.adiantados >= 5 ? 0.16 : 0.1;
+      deslocamento = adiantado * (1 - suave(limitar(f / 0.6))) - 0.05 * trapezio(f, 0.4, 0.7, 0.8, 0.98);
+    }
     const balanco = Math.sin(t / 9 + slot.indice * 1.7 + (slot.lado === 'mandante' ? 0 : 3)) * 0.012;
     let pos: Ponto = {
       x: base.x + balanco,
@@ -274,22 +356,31 @@ export class Timeline {
     return pos;
   }
 
-  private posicaoDe(slot: SlotRef, t: number, indice: number, f: number, bola: Ponto | null): Ponto {
+  /**
+   * Para onde o boneco quer ir (a coreografia do lance ou a posição na formação) e se ele está
+   * na jogada (corre em disparada) ou só acompanhando (trota).
+   */
+  private alvoDe(slot: SlotRef, t: number, indice: number, f: number, bola: Ponto | null): { pos: Ponto; naJogada: boolean } {
     const lance = indice >= 0 ? this.janelas[indice]!.lance : undefined;
-    const normal = () => this.posicaoNormal(slot, t, lance, f, bola);
+    const normal = () => this.posicaoNormal(slot, t, lance, f, bola, indice >= 0 ? this.janelas[indice + 1]?.lance : undefined);
     const trilha = indice >= 0 ? this.trilhas[indice]!.get(chave(slot)) : undefined;
-    if (!trilha) return normal();
-    if (f <= trilha[0]![0] || f >= trilha[trilha.length - 1]![0]) return normal();
+    if (!trilha) return { pos: normal(), naJogada: false };
+    if (f <= trilha[0]![0] || f >= trilha[trilha.length - 1]![0]) return { pos: normal(), naJogada: false };
     for (let k = 1; k < trilha.length; k++) {
       const [fb, pb] = trilha[k]!;
       if (f <= fb) {
         const [fa, pa] = trilha[k - 1]!;
         const a = pa ?? normal();
         const b = pb ?? normal();
-        return lerpP(a, b, suave((f - fa) / (fb - fa)));
+        // Voltando para a formação (destino null) é trote; indo para um ponto marcado, disparada.
+        return { pos: lerpP(a, b, suave((f - fa) / (fb - fa))), naJogada: pb !== null };
       }
     }
-    return normal();
+    return { pos: normal(), naJogada: false };
+  }
+
+  private posicaoDe(slot: SlotRef, t: number, indice: number, f: number, bola: Ponto | null): Ponto {
+    return this.alvoDe(slot, t, indice, f, bola).pos;
   }
 
   private posicoesEm(t: number, indice: number, bola: Ponto): Omit<JogadorNoQuadro, 'vel' | 'olhar' | 'acao'>[] {
@@ -298,14 +389,15 @@ export class Timeline {
     for (const lado of ['mandante', 'visitante'] as const) {
       this.escalacoes[lado].jogadores.forEach((jogador, i) => {
         const slot = { lado, indice: i };
-        const p = this.posicaoDe(slot, t, indice, f, bola);
+        const p = this.corridaEm(slot, t);
         lista.push({ slot, posicao: jogador.posicao, pos: { x: limitar(p.x, 0.03, 0.97), y: limitar(p.y, 0.02, 0.98) } });
       });
     }
     return lista;
   }
 
-  private bolaEm(t: number, indice: number): { pos: Ponto; altura: number } {
+  /** `bruta`: sem a física (só na integração das corridas, que precisa da bola antes). */
+  private bolaEm(t: number, indice: number, bruta = false): { pos: Ponto; altura: number } {
     if (indice < 0) return { pos: MEIO, altura: 0 };
     const f = this.fracao(indice, t);
     const plano = this.planos[indice]!;
@@ -313,7 +405,10 @@ export class Timeline {
     const trecho = plano.bola.find((b) => f >= b.de && f < b.ate) ?? [...plano.bola].reverse().find((b) => f >= b.de) ?? plano.bola[0]!;
     const janela = this.janelas[indice]!;
     // Posição de um ator num instante f' da mesma janela (sem depender da bola, para não haver ciclo).
-    const ator = (s: SlotRef, fx: number) => this.posicaoDe(s, janela.inicio + fx * (janela.fim - janela.inicio), indice, fx, null);
+    const ator = (s: SlotRef, fx: number) => {
+      const tx = janela.inicio + fx * (janela.fim - janela.inicio);
+      return bruta ? this.posicaoDe(s, tx, indice, fx, null) : this.corridaEm(s, tx);
+    };
     const resolver = (a: Alvo, fx: number): Ponto => ('ponto' in a ? a.ponto : ator(a.ator, fx));
     const noChao = (p: Ponto) => ({ pos: { x: limitar(p.x), y: limitar(p.y) }, altura: 0 });
 

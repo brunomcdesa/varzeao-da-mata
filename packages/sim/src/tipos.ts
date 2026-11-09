@@ -48,6 +48,12 @@ export interface Lance {
   bolaParada?: 'ESCANTEIO' | 'LATERAL';
   /** No LATERAL: quem cobra (um companheiro do criador). */
   cobrador?: SlotRef;
+  /**
+   * Contra-ataque (VERSAO_SIM 4): o rival tinha acabado de perder a bola com gente adiantada.
+   * `recomposto`: a defesa voltou a tempo (lance normal); senão, o 1º zagueiro ficou para trás
+   * (criação garantida) e, se quase todos tinham subido (escanteio), também o marcador.
+   */
+  contraAtaque?: { recomposto: boolean; adiantados: number };
 }
 
 export interface Cobranca {

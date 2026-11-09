@@ -96,6 +96,10 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
   const mover = (b: TrechoBola): TrechoBola => ({ ...b, de: g(b.de), ate: g(b.ate) });
   // Quem já estava perto da linha espera ali; os outros esperam na posição normal.
   const perto: Ponto = { x: linha.x + (linha.x < 0.5 ? 0.015 : -0.015), y: linha.y };
+  // Se o cobrador também tem papel na jogada (tabela, por exemplo), ele cobra e depois segue o papel.
+  const papel = plano.atores.find((x) => x.slot.lado === L.lado && x.slot.indice === L.indice);
+  const depois = (papel?.quadros ?? []).map(([f, pos]): QuadroAtor => [f === 0 ? 0 : g(f), pos]).filter(([f]) => f > T + 0.04);
+  const quadrosL: QuadroAtor[] = [[0, null], [T * 0.7, perto], [T + 0.01, perto], ...(depois.length ? depois : [[T + 0.16, null] as QuadroAtor])];
   return {
     ...plano,
     bola: [
@@ -107,7 +111,7 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
       ...plano.atores
         .filter((x) => !(x.slot.lado === L.lado && x.slot.indice === L.indice))
         .map((x) => ({ ...x, quadros: x.quadros.map(([f, pos]): QuadroAtor => [f === 0 ? 0 : g(f), pos]) })),
-      { slot: L, quadros: [[0, null], [T * 0.7, perto], [T + 0.01, perto], [T + 0.16, null]] },
+      { slot: L, quadros: quadrosL },
     ],
     acoes: [...plano.acoes.map((x) => ({ ...x, de: g(x.de), ate: g(x.ate) })), { slot: L, de: T * 0.72, ate: T + 0.005, acao: 'ARREMESSO' }],
   };

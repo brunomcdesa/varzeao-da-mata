@@ -124,6 +124,13 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
       INDIVIDUAL: [`${cap(f)} parte pra cima do zagueiro...`, `${cap(f)} limpa a marcação...`, `${cap(f)} vai no drible...`],
       DESARME: [`${cap(c)} conduz ${doTime(time(atq))}...`, `Vem ${doTime(time(atq))} pelo meio...`, `${cap(c)} tenta a jogada...`],
     };
+    // Contra-ataque: o rival perdeu a bola com gente na frente.
+    if (lance.contraAtaque) {
+      const linhas = lance.contraAtaque.recomposto
+        ? [`Contra-ataque ${doTime(time(atq))}! A defesa volta correndo...`, `Puxou o contra-ataque! ${cap(pc)} sai em velocidade...`]
+        : [`Contra-ataque ${doTime(time(atq))}! A defesa ficou lá na frente!`, `Olha o buraco na defesa! ${cap(pc)} sai sozinho...`, `Contra-ataque mortal! Ninguém voltou!`];
+      for (const k of Object.keys(construcao)) construcao[k] = linhas;
+    }
     // Bola parada: o escanteio e o lateral aparecem na tela, então o narrador fala deles.
     construcao.ESCANTEIO = [`Escanteio ${doTime(time(atq))}! ${cap(pc)} vai cobrar...`, `Bola na bandeirinha. Cobra ${pc} ${doTime(time(atq))}...`, `Escanteio! ${cap(c)} levanta na área...`];
     if (lance.bolaParada === 'LATERAL') {
