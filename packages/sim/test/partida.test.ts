@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  ehGoleada,
   HABILIDADES,
   HABILIDADE_MAX,
   LIMITE_DELTA_HABILIDADE,
@@ -148,8 +149,8 @@ describe('Habilidades (ADR-0010)', () => {
   });
 
   it('quem finaliza melhor chuta pra fora menos; quem dribla melhor tenta mais o drible', () => {
-    expect(chanceDeFora(90)).toBeCloseTo(0.22);
-    expect(chanceDeFora(50)).toBeCloseTo(0.35);
+    expect(chanceDeFora(90)).toBeCloseTo(0.25);
+    expect(chanceDeFora(50)).toBeCloseTo(0.38);
     expect(chanceDeDriblar(80, 60)).toBeGreaterThan(0.5);
   });
 
@@ -192,24 +193,33 @@ describe('calibração', () => {
     return vitorias / N;
   };
 
-  it('gols por jogo ficam perto de 3,8 (3,5 dos lances + os de escanteio)', () => {
+  it('gols por jogo ficam perto de 3,1 (ADR-0027)', () => {
     let gols = 0;
     for (let seed = 1; seed <= N; seed++) {
       const r = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('TAT', 70), seed });
       gols += r.gols.mandante + r.gols.visitante;
     }
-    expect(gols / N).toBeGreaterThan(3.5);
-    expect(gols / N).toBeLessThan(4.1);
+    expect(gols / N).toBeGreaterThan(2.8);
+    expect(gols / N).toBeLessThan(3.4);
   });
 
-  it('time bem mais forte (+15 de OVR) vence por volta de 60–65% das vezes', () => {
+  it('time bem mais forte (+15 de OVR) vence por volta de 68–72% das vezes', () => {
     const taxa = taxaDoForte(80, 65);
-    expect(taxa).toBeGreaterThan(0.58);
-    expect(taxa).toBeLessThan(0.7);
+    expect(taxa).toBeGreaterThan(0.64);
+    expect(taxa).toBeLessThan(0.76);
   });
 
   it('zebra existe: mesmo +25 de OVR perde de vez em quando', () => {
-    expect(taxaDoForte(85, 60)).toBeLessThan(0.85);
+    expect(taxaDoForte(85, 60)).toBeLessThan(0.9);
+  });
+
+  it('Goleada entre times iguais é rara (~9%)', () => {
+    let goleadas = 0;
+    for (let seed = 1; seed <= N; seed++) {
+      const r = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('TAT', 70), seed });
+      if (ehGoleada(Math.max(r.gols.mandante, r.gols.visitante), Math.min(r.gols.mandante, r.gols.visitante))) goleadas++;
+    }
+    expect(goleadas / N).toBeLessThan(0.13);
   });
 });
 
@@ -308,26 +318,26 @@ describe('Ritmo da Partida (ADR-0016)', () => {
 });
 
 describe('trava da Temporada 1', () => {
-  it('sem as regras da T2, a simulação dá exatamente os resultados da VERSAO_SIM 5', async () => {
+  it('sem as regras da T2, a simulação dá exatamente os resultados da VERSAO_SIM 7', async () => {
     const { CASOS, impressao } = await import('./regressao-t1.js');
     const esperado = JSON.parse(readFileSync(new URL('./regressao-t1.json', import.meta.url), 'utf8')) as string[];
     expect(CASOS.map(impressao)).toEqual(esperado);
   });
 });
 
-describe('regras da Temporada 2 (VERSAO_SIM 6)', () => {
+describe('regras da Temporada 2 (VERSAO_SIM 8)', () => {
   const neutra = { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const;
   /** `t2`: null joga com as regras da T1. */
   const jogo = (seed: number, t2: Parameters<typeof simularPartida>[0]['t2'] | null = neutra, a = escalacao('CAP', 70), b = escalacao('ONC', 70, 'R')) =>
     simularPartida({ mandante: a, visitante: b, seed, fase: 'LIGA', ...(t2 ? { t2 } : {}) });
 
-  it('com as regras da T2 a Partida é da versão 6, guarda Postura e Ritmo e é determinística', () => {
+  it('com as regras da T2 a Partida é da versão 8, guarda Postura e Ritmo e é determinística', () => {
     const r = jogo(11);
-    expect(r.versaoSim).toBe(6);
+    expect(r.versaoSim).toBe(8);
     expect(r.postura).toEqual(neutra.postura);
     expect(r.ritmo).toBeGreaterThanOrEqual(6);
     expect(jogo(11)).toEqual(r);
-    expect(jogo(11, null).versaoSim).toBe(5);
+    expect(jogo(11, null).versaoSim).toBe(7);
   });
 
   it('na T1, Especialização, Treino e Canto não mudam nada', () => {

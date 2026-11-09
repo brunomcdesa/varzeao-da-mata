@@ -2,7 +2,7 @@
  * Botões de calibração do motor. Mudar qualquer valor muda resultados de seeds
  * antigas, então exige subir VERSAO_SIM (ADR-0002).
  */
-export const VERSAO_SIM = 6;
+export const VERSAO_SIM = 8;
 
 export const PARAMETROS = {
   /** Lances de ataque de referência: a média das retas de EXPECTATIVA da Nota (ADR-0004). */
@@ -17,7 +17,7 @@ export const PARAMETROS = {
   /** Quantos pontos de Habilidade de diferença equivalem a "1 unidade" na curva logística. */
   escalaDuelo: 12,
   /** Peso da Habilidade contra a sorte em cada Duelo (0 = moeda). */
-  forcaHabilidade: 0.15,
+  forcaHabilidade: 0.2,
   /** Chance de um meia (em vez de atacante) finalizar a jogada. */
   chanceMeiaFinaliza: 0.3,
   /** Base da posse: o meia com a bola (Passe) contra o meia rival (Defesa). */
@@ -31,11 +31,11 @@ export const PARAMETROS = {
   /** Quanto a diferença Drible − Finalização puxa a escolha entre driblar e chutar marcado. */
   escalaEscolha: 20,
   /** Base do chute contra o goleiro depois de driblar (livre) e depois de chutar marcado. */
-  baseChuteLivre: 0.78,
-  baseChuteApertado: 0.66,
-  /** Chance de a bola que passou do goleiro ir pra fora: 35% com Finalização 50, 22% com 90. */
-  foraMaximo: 0.35,
-  foraMinimo: 0.22,
+  baseChuteLivre: 0.62,
+  baseChuteApertado: 0.5,
+  /** Chance de a bola que passou do goleiro ir pra fora: 38% com Finalização 50, 25% com 90. */
+  foraMaximo: 0.38,
+  foraMinimo: 0.25,
   /** Chance de converter um pênalti quando cobrador (Finalização) e goleiro (Goleiro) se igualam. */
   penaltiBase: 0.75,
   /** Quanto a vantagem no Duelo cobrador × goleiro desloca a chance de gol no pênalti. */
@@ -49,7 +49,7 @@ export const PARAMETROS = {
   /** Escanteio: cruzamento do cobrador (Passe) contra o zagueiro (Defesa) que tenta afastar. */
   baseCruzamento: 0.55,
   /** Escanteio: cabeceio (Finalização) contra o goleiro (Goleiro). */
-  baseCabeceio: 0.6,
+  baseCabeceio: 0.48,
   /** Chance de um lance começar com lateral (só o desenho). */
   chanceLateral: 0.35,
   /**
@@ -66,10 +66,10 @@ export const PARAMETROS = {
 } as const;
 
 /**
- * Regras da Temporada 2 (VERSAO_SIM 6). Só valem com `entrada.t2`; sem elas, a Partida sai
- * igual à VERSAO_SIM 5 (VERSAO_SIM_T1).
+ * Regras da Temporada 2 (VERSAO_SIM 8; eram a 6 antes do ADR-0027). Só valem com `entrada.t2`;
+ * sem elas, a Partida sai com as regras da Temporada 1 (VERSAO_SIM_T1, a 7).
  */
-export const VERSAO_SIM_T1 = 5;
+export const VERSAO_SIM_T1 = 7;
 
 export const PARAMETROS_T2 = {
   /**

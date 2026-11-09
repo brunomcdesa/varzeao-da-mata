@@ -80,7 +80,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
 
   const hab = (s: SlotRef, h: HabilidadeId): number => escalacoes[s.lado].jogadores[s.indice]!.habilidades[h];
 
-  // Regras da Temporada 2 (VERSAO_SIM 6). Sem `entrada.t2`, nada daqui muda a Partida: os
+  // Regras da Temporada 2 (VERSAO_SIM 8). Sem `entrada.t2`, nada daqui muda a Partida: os
   // sorteios da T2 são próprios e os ajustes valem zero, então a T1 sai igual à versão 5.
   const t2 = entrada.t2;
   const rngT2 = criarRng(((entrada.seed >>> 0) ^ 0x68e31da4) >>> 0);

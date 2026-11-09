@@ -149,7 +149,7 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
     subtitulo: subtituloDaPartida(p.rodada, p.fase, new Date(p.apito_inicial)),
     aparencias: await aparenciasEscolhidas(banco),
   };
-  if (resultado.versaoSim >= 6) {
+  if (resultado.postura != null) {
     const elencos = await tamanhoDosElencos(banco);
     dados.torcida = { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 };
   }

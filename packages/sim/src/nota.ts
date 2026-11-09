@@ -41,10 +41,10 @@ export function contribuicao(a: Acoes): number {
  * que, em média, ninguém suba só por já ser forte (ADR-0004).
  */
 export const EXPECTATIVA: Readonly<Record<Posicao, { intercepto: number; inclinacao: number }>> = {
-  GOL: { intercepto: -0.441, inclinacao: 0.0085 },
-  ZAG: { intercepto: 0.8, inclinacao: 0.011 },
-  MEI: { intercepto: 1.025, inclinacao: 0.0164 },
-  ATA: { intercepto: 0.865, inclinacao: 0.0105 },
+  GOL: { intercepto: 0.04, inclinacao: 0.0164 },
+  ZAG: { intercepto: 0.891, inclinacao: 0.0153 },
+  MEI: { intercepto: 0.903, inclinacao: 0.0178 },
+  ATA: { intercepto: 0.819, inclinacao: 0.0138 },
 };
 
 /** OVR de referência das retas de expectativa. */

@@ -475,7 +475,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       video: encerrada(p) && p.video_url?.startsWith('http') ? p.video_url : null,
       narracao: revelada(p) && p.narracao_url?.startsWith('http') ? p.narracao_url : null,
       // Arquibancada (T2): só nas Partidas simuladas com as regras da Temporada 2.
-      ...(revelada(p) && (p.resultado as { versaoSim?: number } | null)?.versaoSim! >= 6
+      ...(revelada(p) && (p.resultado as { postura?: unknown } | null)?.postura != null
         ? { torcida: { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 } }
         : {}),
     };

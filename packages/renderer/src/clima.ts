@@ -1,14 +1,17 @@
 /**
  * Temporada 2 (ADR-0019): Clima da Partida e segundo uniforme. Só visual: nenhum dos dois
- * decide lance. Valem só para Partidas com as regras da T2 (VERSAO_SIM 6 em diante).
+ * decide lance. Valem só para Partidas com as regras da T2 (as que guardam a Postura).
  */
 import { IDENTIDADE, type TimeId } from '@liga/shared';
 import type { Lado, ResultadoPartida } from '@liga/sim';
 
 export type Clima = 'SOL' | 'NUBLADO' | 'CHUVA' | 'LAMA';
 
-/** A Partida segue as regras da Temporada 2? (VERSAO_SIM 6 em diante) */
-export const ehT2 = (r: Pick<ResultadoPartida, 'versaoSim'>): boolean => r.versaoSim >= 6;
+/**
+ * A Partida segue as regras da Temporada 2? Só elas guardam a Postura no resultado. O número
+ * da versão não serve: as regras da T1 também sobem de versão (ADR-0027).
+ */
+export const ehT2 = (r: Pick<ResultadoPartida, 'postura'>): boolean => r.postura != null;
 
 /** Clima sorteado pela semente da Partida (sorteio próprio, não mexe em nada do jogo). */
 export function climaDaPartida(seed: number): Clima {
