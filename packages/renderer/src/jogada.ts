@@ -83,21 +83,33 @@ export function pontoDoLateral(lance: Lance, bases: Record<Lado, Ponto[]>): Pont
 
 export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Record<Lado, Escalacao>, seed: number, cont: Continuidade = {}): Plano {
   const plano = montarJogada(lance, bases, escalacoes, seed, cont);
-  // Lateral: um companheiro vai até a linha lateral e cobra com as duas mãos para o criador.
+  // Lateral: um companheiro vai até a linha lateral, com calma, e cobra com as duas mãos para o
+  // criador. A jogada toda é empurrada para depois da cobrança (a resolução fica onde estava).
   if (lance.bolaParada !== 'LATERAL' || !lance.cobrador) return plano;
   const linha = cont.entrada ?? MEIO;
   const L = lance.cobrador;
+  const T = 0.16;
+  const R = lance.tipo === 'DESARME' ? F_RESOLUCAO_DESARME : F_RESOLUCAO_CHUTE;
+  const g = (f: number) => (f <= R ? T + (f * (R - T)) / R : f);
   const [primeiro, ...resto] = plano.bola;
-  const fimEntrada = primeiro?.ate ?? 0.08;
+  const chegada = g(primeiro?.ate ?? 0.08);
+  const mover = (b: TrechoBola): TrechoBola => ({ ...b, de: g(b.de), ate: g(b.ate) });
+  // Quem já estava perto da linha espera ali; os outros esperam na posição normal.
+  const perto: Ponto = { x: linha.x + (linha.x < 0.5 ? 0.015 : -0.015), y: linha.y };
   return {
     ...plano,
     bola: [
-      { de: 0, ate: fimEntrada * 0.6, tipo: 'PARADA', ponto: linha },
-      { de: fimEntrada * 0.6, ate: fimEntrada, tipo: 'VOO', origem: { ponto: linha }, destino: { ator: lance.criador }, altura: 0.3 },
-      ...resto,
+      { de: 0, ate: T, tipo: 'PARADA', ponto: linha },
+      { de: T, ate: chegada, tipo: 'VOO', origem: { ponto: perto }, destino: { ator: lance.criador }, altura: 0.3 },
+      ...resto.map(mover),
     ],
-    atores: [...plano.atores.filter((a) => !(a.slot.lado === L.lado && a.slot.indice === L.indice)), { slot: L, quadros: [[0, null], [fimEntrada * 0.35, linha], [fimEntrada * 0.62, linha], [0.24, null]] }],
-    acoes: [...plano.acoes, { slot: L, de: fimEntrada * 0.35, ate: fimEntrada * 0.62, acao: 'ARREMESSO' }],
+    atores: [
+      ...plano.atores
+        .filter((x) => !(x.slot.lado === L.lado && x.slot.indice === L.indice))
+        .map((x) => ({ ...x, quadros: x.quadros.map(([f, pos]): QuadroAtor => [f === 0 ? 0 : g(f), pos]) })),
+      { slot: L, quadros: [[0, null], [T * 0.7, perto], [T + 0.01, perto], [T + 0.16, null]] },
+    ],
+    acoes: [...plano.acoes.map((x) => ({ ...x, de: g(x.de), ate: g(x.ate) })), { slot: L, de: T * 0.72, ate: T + 0.005, acao: 'ARREMESSO' }],
   };
 }
 
@@ -361,6 +373,37 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
     const cabeca = P(0.5 + lado * (0.05 + rng.next() * 0.06), 0.09);
     const fx0 = bases[Fe.lado][Fe.indice]!.x;
     ator(C, [[0, null], [0.18, cobranca], [0.32, cobranca], [0.5, null]]);
+    // Todo mundo vai para a área enquanto a bola espera na bandeirinha: os atacantes, um
+    // zagueiro que sobe e um meia na entrada da área; quem defende marca de perto e os
+    // atacantes do outro time ficam na meia-lua. Depois voltam devagar às posições.
+    const usados = new Set([C, Fe, Z, Ge].map((x) => `${x.lado}:${x.indice}`));
+    const ida = 0.06;
+    const pronto = 0.24;
+    const volta = 0.86;
+    const vagas = [0.36, 0.64, 0.46, 0.56, 0.3, 0.7];
+    let k = 0;
+    let zagueiroQueSobe = escalacoes[atq].jogadores.some((j, i) => j.posicao === 'ZAG' && Fe.indice === i) ? 1 : 0;
+    const marcas: Ponto[] = [];
+    escalacoes[atq].jogadores.forEach((j, i) => {
+      if (usados.has(`${atq}:${i}`) || j.posicao === 'GOL') return;
+      if (j.posicao === 'ZAG' && zagueiroQueSobe++ > 0) return; // um zagueiro fica atrás
+      const ponto = j.posicao === 'MEI' ? P(0.5 - lado * 0.08, 0.24) : P(vagas[k++ % vagas.length]!, 0.11 + (k % 2) * 0.03);
+      if (j.posicao !== 'MEI') marcas.push(ponto);
+      ator({ lado: atq, indice: i }, [[0, null], [ida, null], [pronto, ponto], [volta - 0.08, ponto], [1, null]]);
+    });
+    marcas.push(cabeca);
+    let m = 0;
+    escalacoes[def].jogadores.forEach((j, i) => {
+      if (usados.has(`${def}:${i}`) || j.posicao === 'GOL') return;
+      const ponto =
+        j.posicao === 'ATA'
+          ? P(0.5 + (m++ % 2 === 0 ? -0.1 : 0.1), 0.27)
+          : (() => {
+              const alvoM = marcas.shift() ?? P(0.5, 0.08);
+              return { x: alvoM.x + lado * 0.015, y: alvoM.y + dir * 0.022 };
+            })();
+      ator({ lado: def, indice: i }, [[0, null], [ida, null], [pronto, ponto], [volta - 0.08, ponto], [1, null]]);
+    });
     ator(Fe, [[0, null], [0.2, P(lerp(fx0, 0.5, 0.5), 0.17)], [0.45, P(cabeca.x - lado * 0.05, 0.15)], [0.68, cabeca], [0.82, cabeca], [0.95, P(cabeca.x, 0.13)], [1, null]]);
     acao(C, 0.29, 0.33, 'PASSE');
     bola.push({ de: 0, ate: 0.3, tipo: 'PARADA', ponto: canto });
