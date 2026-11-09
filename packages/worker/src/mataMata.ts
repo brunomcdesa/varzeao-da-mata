@@ -2,7 +2,7 @@
  * Mata-mata: depois da 7ª Rodada, os 4 melhores da Fase de Liga jogam as Semifinais no dia
  * seguinte (1º × 4º às 14h, 2º × 3º às 16h) e a Final no
  * outro dia, às 18h. Empate em qualquer jogo do Mata-mata vai para os pênaltis. O melhor colocado é o mandante.
- * Com duas Séries, cada uma tem o seu Mata-mata, nos mesmos horários (ADR-0015).
+ * Com duas Séries, cada uma tem o seu Mata-mata, nos mesmos horários (ADR-0017).
  *
  * `avancarMataMata` é idempotente: o job `resumo` chama todo dia e ela só faz o próximo passo
  * quando ele está pronto.

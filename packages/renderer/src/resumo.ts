@@ -17,7 +17,7 @@ export interface DadosDoResumo {
   temporada: number;
   rodada: number;
   fase: 'LIGA' | 'MATA_MATA';
-  /** `serie`: em Temporadas com Série B, de qual Série é o placar (ADR-0015). */
+  /** `serie`: em Temporadas com Série B, de qual Série é o placar (ADR-0017). */
   placares: { mandante: TimeId; visitante: TimeId; golsMandante: number; golsVisitante: number; penaltis: { mandante: number; visitante: number } | null; hora: number; serie?: Serie }[];
   /** Tabela da Série A (ou da Liga inteira, antes das Séries). */
   tabela: { time: TimeId; jogos: number; pontos: number; vitorias: number; saldo: number }[];
@@ -27,7 +27,7 @@ export interface DadosDoResumo {
   totalNovos: number;
   /**
    * `numero`: o número interno do Candidato (ADR-0011); `rotulo`: o que se comenta para votar
-   * ("3", ou "A3" e "B3" com duas Séries); `serie`: a Série do Candidato (ADR-0015).
+   * ("3", ou "A3" e "B3" com duas Séries); `serie`: a Série do Candidato (ADR-0017).
    */
   candidatos: { numero?: number; rotulo?: string; serie?: Serie; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number; gols: number }[];
   /** Resumo da Final: o Time campeão ganha uma cartela própria. */
@@ -47,11 +47,11 @@ export interface DadosDoResumo {
   };
   /** Anúncio do Craque da Temporada (o dia seguinte à Final): só essa cartela e a chamada. */
   craqueDaTemporada?: { username: string; apelido?: string | null; time: TimeId; posicao: Posicao; notaMedia: number; gols: number; jogos: number; votos: number };
-  /** Craque da Temporada da Série B, quando há (ADR-0015): ganha a sua cartela depois do da A. */
+  /** Craque da Temporada da Série B, quando há (ADR-0017): ganha a sua cartela depois do da A. */
   craqueDaTemporadaB?: { username: string; apelido?: string | null; time: TimeId; posicao: Posicao; notaMedia: number; gols: number; jogos: number; votos: number };
   /** Craque da Rodada anterior: a votação fechou no Corte do primeiro jogo e o anúncio abre o Resumo. */
   craqueDaRodada?: { rodada: number; fase: 'LIGA' | 'MATA_MATA'; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number; gols: number; votos: number };
-  /** Craque da Rodada anterior na Série B, quando há (ADR-0015). */
+  /** Craque da Rodada anterior na Série B, quando há (ADR-0017). */
   craqueDaRodadaB?: { rodada: number; fase: 'LIGA' | 'MATA_MATA'; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number; gols: number; votos: number };
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
@@ -61,7 +61,7 @@ export type Cartela = 'ABERTURA' | 'PLACARES' | 'CAMPEAO' | 'TABELA' | 'NOVOS' |
 
 /**
  * Segmento do Roteiro com a cartela que ele mostra (tipo 'ABERTURA' = trilha cheia na mixagem).
- * `serie`: com Série B, placares, tabela e Candidatos ganham uma cartela por Série (ADR-0015).
+ * `serie`: com Série B, placares, tabela e Candidatos ganham uma cartela por Série (ADR-0017).
  */
 export type SegmentoResumo = Segmento & { cartela: Cartela; serie?: Serie };
 
@@ -308,7 +308,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
   const titulo = (t: string) => {
     pin.tabua(COLUNAS / 2 - 90, 34, 180, 34);
     pin.texto(t, COLUNAS / 2, 51, pin.caber(t, 160, 24, display), display, COR.amarelo, { contorno: COR.contorno });
-    // Plaquinha da Série pendurada embaixo do título (ADR-0015).
+    // Plaquinha da Série pendurada embaixo do título (ADR-0017).
     if (serie) {
       pin.placa(COLUNAS / 2 - 34, 64, 68, 20, { fundo: serie === 'A' ? COR.amarelo : COR.placa, sombra: COR.contorno, degrau: 2 });
       pin.texto(`Série ${serie}`, COLUNAS / 2, 74, 15, display, COR.tinta);
@@ -362,7 +362,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
         const y = 112 + k * 40;
         pin.ctx.globalAlpha = a;
         const lider = k === 0;
-        // Série A: os 2 últimos estão na zona de Rebaixamento (ADR-0015).
+        // Série A: os 2 últimos estão na zona de Rebaixamento (ADR-0017).
         const caindo = serie === 'A' && k >= ds.tabela.length - TIMES_QUE_TROCAM_DE_SERIE;
         pin.placa(x + 6, y, w - 12, 34, { fundo: lider ? COR.amarelo : caindo ? '#7A2A22' : COR.madeiraEscura, sombra: lider ? '#C99500' : COR.contorno, degrau: 2 });
         const cor = lider ? COR.tinta : COR.placa;

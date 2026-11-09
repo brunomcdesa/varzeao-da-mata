@@ -47,7 +47,7 @@ describe('Voto', () => {
     expect(interpretar('3x1 foi pouco')).toEqual({ tipo: 'IGNORADO' });
   });
 
-  it('com duas Séries, a letra diz a Série: "B3", "A3", "CRAQUE B3" (ADR-0015)', () => {
+  it('com duas Séries, a letra diz a Série: "B3", "A3", "CRAQUE B3" (ADR-0017)', () => {
     expect(interpretar('B3')).toEqual({ tipo: 'VOTO', numero: 3, serie: 'B', solto: true });
     expect(interpretar('a2')).toEqual({ tipo: 'VOTO', numero: 2, serie: 'A', solto: true });
     expect(interpretar('B 4 🔥')).toEqual({ tipo: 'VOTO', numero: 4, serie: 'B', solto: true });

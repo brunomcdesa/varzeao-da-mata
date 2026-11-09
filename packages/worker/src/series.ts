@@ -1,5 +1,5 @@
 /**
- * Série A e Série B (ADR-0015, GLOSSARY: Série, Acesso, Rebaixamento).
+ * Série A e Série B (ADR-0017, GLOSSARY: Série, Acesso, Rebaixamento).
  *
  * A Série de cada Time é um dado da Temporada (tabela serie_do_time), porque muda com o
  * Acesso e o Rebaixamento. Uma Temporada sem essas linhas (a Temporada 1) tem uma Série só,
@@ -59,7 +59,7 @@ export async function gravarSeries(banco: Banco, temporadaId: number, s: SeriesD
 }
 
 /**
- * As Séries da Temporada seguinte à `anteriorId` (ADR-0015):
+ * As Séries da Temporada seguinte à `anteriorId` (ADR-0017):
  * - depois de uma Temporada sem Séries, os fundadores ficam na A e os Times novos formam a B;
  * - depois de uma Temporada com Séries, os 2 últimos da Fase de Liga da A descem e os 2
  *   finalistas do Mata-mata da B sobem.

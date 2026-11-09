@@ -58,7 +58,7 @@ export async function importarVotosVinculados(banco: Banco, agenda: Agenda, roda
   let novos = 0;
   for (const { nome, metadados } of await agenda.listarComMetadados<MetadadosDoVoto>(prefixo)) {
     if (!metadados) continue;
-    // A borda guarda um voto por Série: "<jogador>" na A e "<jogador>:B" na B (ADR-0015).
+    // A borda guarda um voto por Série: "<jogador>" na A e "<jogador>:B" na B (ADR-0017).
     const jogadorId = nome.slice(prefixo.length).split(':')[0]!;
     const r = await banco.query(
       `INSERT INTO voto (rodada_id, ig_user_id, jogador_id, votado_em, serie)

@@ -39,7 +39,7 @@ describe('Resumo da Rodada', () => {
     expect(falas.join(' ')).not.toContain('@');
   });
 
-  it('com Série B, anuncia o Craque da Rodada de cada Série (ADR-0015)', () => {
+  it('com Série B, anuncia o Craque da Rodada de cada Série (ADR-0017)', () => {
     const c = { rodada: 2, fase: 'LIGA' as const, username: 'eofamoso__2k', apelido: null, time: 'TUC' as const, posicao: 'MEI' as const, nota: 8.4, gols: 1, votos: 12 };
     const r = new RoteiroResumo({ ...base, tabelaB: [], craqueDaRodada: c, craqueDaRodadaB: { ...c, time: 'COR', votos: 3 } });
     expect(r.segmentos.filter((s) => s.cartela === 'CRAQUE').map((s) => s.serie)).toEqual(['A', 'B']);

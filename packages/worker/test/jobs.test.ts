@@ -149,7 +149,7 @@ describe('jobs', () => {
     expect(await status(id!)).toBe('PUBLICADA');
   });
 
-  it('partida: com duas Séries, simula as duas do horário antes de gravar o primeiro Reels (ADR-0015)', async () => {
+  it('partida: com duas Séries, simula as duas do horário antes de gravar o primeiro Reels (ADR-0017)', async () => {
     const t2 = await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-20', seed: 4, series: { A: TIMES, B: TIMES_NOVOS } });
     // Só as Partidas da Temporada 2 estão pendentes.
     await banco.query(`UPDATE partida SET status = 'PUBLICADA' WHERE rodada_id IN (SELECT id FROM rodada WHERE temporada_id <> $1)`, [t2]);

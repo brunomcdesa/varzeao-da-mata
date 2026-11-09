@@ -19,7 +19,7 @@ Motivo: a ideia veio de um seguidor. As séries dão peso aos jogos do meio e do
 
 - **Adiar até haver Jogadores suficientes:** rejeitada. Com 16 Times, os Elencos ficam menores e mais vagas viram Jogador da Base.
 - **8 Times em duas séries de 4:** rejeitada. Daria só 3 Rodadas por série.
-- **Série B só no site e no Resumo:** rejeitada. A B ficaria sem visibilidade, e a cota do Gemini é tratada pelo cache de falas (ADR-0016).
+- **Série B só no site e no Resumo:** rejeitada. A B ficaria sem visibilidade, e a cota do Gemini é tratada pelo cache de falas (ADR-0018).
 - **Formação inicial pela classificação da T1, ou por sorteio:** rejeitadas. Rebaixariam Jogadores da T1 sem que tivessem jogado a T2.
 
 ## Consequences

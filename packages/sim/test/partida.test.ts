@@ -7,7 +7,7 @@ import {
   ovrDasHabilidades,
   habilidadesDoPerfil,
 } from '@liga/shared';
-import { simularPartida, chanceDeFora, chanceDeDriblar } from '../src/partida.js';
+import { simularPartida, chanceDeFora, chanceDeDriblar, ritmoDaPartida } from '../src/partida.js';
 import { notaDaPartida } from '../src/nota.js';
 import { evoluir, fatorDeGanho, fatorDePerda, zeradas } from '../src/evolucao.js';
 import { escalacao } from './fabricas.js';
@@ -242,5 +242,65 @@ describe('bolas paradas (VERSAO_SIM 3)', () => {
     expect(escanteios / 300).toBeGreaterThan(1);
     expect(laterais / 300).toBeGreaterThan(3.5);
     expect(laterais / 300).toBeLessThan(6.5);
+  });
+});
+
+describe('contra-ataque (VERSAO_SIM 4)', () => {
+  it('só logo depois de o rival perder a bola (desarme ou defesa); sem recompor, o 1º zagueiro some do lance', () => {
+    let contras = 0;
+    let naoRecompostos = 0;
+    for (let seed = 1; seed <= 300; seed++) {
+      const esc = { mandante: escalacao('CAP', 68), visitante: escalacao('TAT', 68) };
+      const r = simularPartida({ ...base, ...esc, seed });
+      r.lances.forEach((l, i) => {
+        if (!l.contraAtaque) return;
+        contras++;
+        const antes = r.lances[i - 1]!;
+        expect(['DESARME', 'DEFESA']).toContain(antes.tipo);
+        expect(antes.ataque).not.toBe(l.ataque);
+        expect(l.contraAtaque.adiantados).toBe(antes.bolaParada === 'ESCANTEIO' ? 6 : l.contraAtaque.adiantados);
+        if (!l.contraAtaque.recomposto) {
+          naoRecompostos++;
+          // O 1º zagueiro ficou para trás: não há desarme na criação.
+          expect(l.tipo === 'DESARME' && !l.finalizador).toBe(false);
+          if (l.contraAtaque.adiantados >= 5) expect(l.marcador).toBeUndefined();
+        }
+      });
+    }
+    expect(contras / 300).toBeGreaterThan(1.5);
+    expect(contras / 300).toBeLessThan(3.5);
+    expect(naoRecompostos).toBeGreaterThan(0);
+  });
+});
+
+describe('Ritmo da Partida (ADR-0016)', () => {
+  it('fica entre 6 e 34 lances, em sino com média perto de 20, e é o mesmo para o mesmo seed', () => {
+    const ritmos = Array.from({ length: 5000 }, (_, i) => ritmoDaPartida(i + 1));
+    expect(Math.min(...ritmos)).toBeGreaterThanOrEqual(6);
+    expect(Math.max(...ritmos)).toBeLessThanOrEqual(34);
+    const media = ritmos.reduce((s, n) => s + n, 0) / ritmos.length;
+    expect(media).toBeGreaterThan(19);
+    expect(media).toBeLessThan(21);
+    // Os extremos são raros: mais jogos perto do meio que nas pontas.
+    expect(ritmos.filter((n) => n >= 16 && n <= 24).length).toBeGreaterThan(ritmos.filter((n) => n <= 10 || n >= 30).length * 2);
+    expect(ritmoDaPartida(42)).toBe(ritmoDaPartida(42));
+  });
+
+  it('a Partida tem tantos lances de ataque quanto o Ritmo, distribuídos nos 90 minutos', () => {
+    for (const seed of [1, 7, 99, 1234]) {
+      const r = simularPartida({ mandante: escalacao('CAP', 70), visitante: escalacao('ONC', 70), seed, fase: 'LIGA' });
+      const ataques = r.lances.filter((l) => l.bolaParada !== 'ESCANTEIO');
+      expect(ataques).toHaveLength(ritmoDaPartida(seed));
+      expect(Math.max(...r.lances.map((l) => l.minuto))).toBeLessThanOrEqual(90);
+    }
+  });
+
+  it('a expectativa da Nota acompanha o Ritmo: as mesmas ações valem mais num jogo travado', () => {
+    const acoes = { posicao: 'ATA' as const, gols: 1, assistencias: 0, desarmes: 0, defesas: 0, golsSofridos: 0, dribles: 1, bloqueios: 0, resultado: 'EMPATE' as const };
+    const travado = notaDaPartida(acoes as never, 70, 8 / 20);
+    const normal = notaDaPartida(acoes as never, 70, 1);
+    const aberto = notaDaPartida(acoes as never, 70, 32 / 20);
+    expect(travado).toBeGreaterThan(normal);
+    expect(normal).toBeGreaterThan(aberto);
   });
 });

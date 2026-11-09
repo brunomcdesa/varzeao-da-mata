@@ -25,7 +25,7 @@ Motivo: dar a quem acompanha a Liga decisões de verdade, sem que a sorte ou o O
 
 ## Consequences
 
-- Especialização e Pênalti com canto mudam a simulação e entram na `VERSAO_SIM` 4, junto com a Postura do Capitão (ADR-0018) e os cartões (ADR-0019). Treino muda só a evolução das Habilidades. Presença muda só a Escalação.
+- Especialização e Pênalti com canto mudam a simulação e entram na `VERSAO_SIM` 6, junto com a Postura do Capitão (ADR-0020) e os cartões (ADR-0021). Treino muda só a evolução das Habilidades. Presença muda só a Escalação.
 - Os valores dos bônus e custos saem da calibração, mantendo a média de cerca de 3,75 gols por jogo.
 - A Escalação passa a guardar a Especialização e o canto de cada lugar, para o Replay mostrar a mesma Partida.
 - "CONFIRMO" é um Comando novo e precisa de frases e testes em `worker/src/comandos.ts`.

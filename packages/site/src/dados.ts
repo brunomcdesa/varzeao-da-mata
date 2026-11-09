@@ -52,7 +52,7 @@ async function completarLiga(l: LigaPublica): Promise<LigaPublica> {
   if (!atrasadas.length) return l;
   const resultados = await Promise.all(atrasadas.map((p) => partida(p.id).catch(() => null)));
   const calendario = [...l.calendario];
-  // Com Série B, as duas tabelas (ADR-0015); cada Time está numa só.
+  // Com Série B, as duas tabelas (ADR-0017); cada Time está numa só.
   const tabela = new Map([...l.tabela, ...(l.tabelaB ?? [])].map((t) => [t.time, { ...t }]));
   let mudouTabela = false;
   atrasadas.forEach((p, k) => {
@@ -91,7 +91,7 @@ async function completarLiga(l: LigaPublica): Promise<LigaPublica> {
   };
 }
 
-/** A Temporada atual tem Série B (ADR-0015)? */
+/** A Temporada atual tem Série B (ADR-0017)? */
 export const temSeries = (l: LigaPublica): boolean => Boolean(l.series?.B.length);
 
 /** A Série de um Time na Temporada atual (sem Séries, todos são da A). */

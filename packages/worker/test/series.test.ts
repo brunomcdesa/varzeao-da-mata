@@ -34,7 +34,7 @@ async function jogarTemporada(temporadaId: number) {
 
 const ordenados = (xs: readonly TimeId[]) => [...xs].sort();
 
-describe('Série A e Série B (ADR-0015)', () => {
+describe('Série A e Série B (ADR-0017)', () => {
   it('a Temporada 1 tem uma Série só, com os fundadores', async () => {
     const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
     const s = await seriesDaTemporada(banco, t1);

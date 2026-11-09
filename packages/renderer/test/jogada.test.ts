@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { habilidadesDoPerfil, type Escalacao, type Posicao, type TimeId } from '@liga/shared';
 import { simularPartida } from '@liga/sim';
-import { DURACAO_JOGO, Timeline } from '../src/timeline.js';
+import { DURACAO_JOGO, FISICA, Timeline } from '../src/timeline.js';
 
 const ORDEM: Posicao[] = ['GOL', 'ZAG', 'ZAG', 'MEI', 'MEI', 'ATA', 'ATA'];
 const esc = (time: TimeId, ovr: number): Escalacao => ({
@@ -19,6 +19,18 @@ describe('Jogadas', () => {
     const vistos = new Set<string>();
     for (let seed = 1; seed <= 20; seed++) for (const p of timeline(seed).planos) vistos.add(p.estilo);
     expect([...vistos].sort()).toEqual(['CHUTE_DE_LONGE', 'CRUZAMENTO', 'DESARME', 'ESCANTEIO', 'INDIVIDUAL', 'LANCAMENTO', 'TABELA']);
+  });
+
+  it('ninguém teleporta: nenhum boneco passa da velocidade de disparada, nem na troca de lance', () => {
+    for (let seed = 1; seed <= 4; seed++) {
+      const tl = timeline(seed);
+      let antes = tl.estado(0).jogadores;
+      for (let t = 0.5; t < 90 * 60; t += 0.5) {
+        const agora = tl.estado(t).jogadores;
+        agora.forEach((j, k) => expect(dist(j.pos, antes[k]!.pos) / 0.5, `seed ${seed} t ${t}`).toBeLessThanOrEqual(FISICA.sprint * 1.05));
+        antes = agora;
+      }
+    }
   });
 
   it('são as mesmas para a mesma Partida', () => {

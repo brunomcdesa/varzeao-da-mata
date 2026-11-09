@@ -31,7 +31,7 @@ export function linhaDePartida(p: PartidaNoCalendario, o: { comDia?: boolean; de
 
 /**
  * Tabela da Fase de Liga. `serie`: com Série B, a A marca os 2 últimos (Rebaixamento) e a
- * legenda diz a regra de cada Série (ADR-0015).
+ * legenda diz a regra de cada Série (ADR-0017).
  */
 export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compacta?: boolean; destaque?: string; semLegenda?: boolean; serie?: Serie } = {}): Html {
   const caem = o.serie === 'A' ? linhas.length - TIMES_QUE_TROCAM_DE_SERIE : Infinity;
@@ -78,7 +78,7 @@ export function comoEntrar(l: LigaPublica): Html {
   </section>`;
 }
 
-/** O que se comenta para votar: o número (ADR-0011), ou "A3"/"B3" com duas Séries (ADR-0015). */
+/** O que se comenta para votar: o número (ADR-0011), ou "A3"/"B3" com duas Séries (ADR-0017). */
 export function chamadaDeVoto(rotulo: string | number): Html {
   return html`<span class="comando pequeno">${rotulo}</span>`;
 }

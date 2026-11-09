@@ -3,7 +3,7 @@
 export const POSICOES = ['GOL', 'ZAG', 'MEI', 'ATA'] as const;
 export type Posicao = (typeof POSICOES)[number];
 
-/** Os 16 Times da Liga: os 8 fundadores (Temporada 1) e os 8 que chegaram com a Série B (ADR-0015). */
+/** Os 16 Times da Liga: os 8 fundadores (Temporada 1) e os 8 que chegaram com a Série B (ADR-0017). */
 export const TIMES = ['CAP', 'ONC', 'TAT', 'TAM', 'PRE', 'SAG', 'TUC', 'ARA', 'JAC', 'SUC', 'LOB', 'CDM', 'BOT', 'PIR', 'COR', 'MOR'] as const;
 export type TimeId = (typeof TIMES)[number];
 
@@ -17,12 +17,12 @@ export const SERIES = ['A', 'B'] as const;
 export type Serie = (typeof SERIES)[number];
 /** Times por Série. */
 export const TIMES_POR_SERIE = 8;
-/** Quantos Times descem da A e sobem da B a cada Temporada (ADR-0015). */
+/** Quantos Times descem da A e sobem da B a cada Temporada (ADR-0017). */
 export const TIMES_QUE_TROCAM_DE_SERIE = 2;
 
 /**
  * Candidatos a Craque por Série. Por dentro, o número do Candidato é único na Rodada: A de 1
- * a 5 e B de 6 a 10. O público vê e vota "A3" ou "B3" (ADR-0015).
+ * a 5 e B de 6 a 10. O público vê e vota "A3" ou "B3" (ADR-0017).
  */
 export const CANDIDATOS_POR_SERIE = 5;
 /** O número interno de "A3" (3) ou "B3" (8). */

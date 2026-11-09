@@ -2647,7 +2647,7 @@ a.jogo:hover {
   border: 1px solid var(--contorno);
 }
 
-/* ------------------------------------------------------------- Séries (ADR-0015) */
+/* ------------------------------------------------------------- Séries (ADR-0017) */
 
 /* Selo "Série A" (amarelo) / "Série B" (madeira), no mesmo estilo das plaquinhas. */
 .selo-serie {

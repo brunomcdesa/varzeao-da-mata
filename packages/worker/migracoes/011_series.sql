@@ -1,4 +1,4 @@
--- Série A e Série B (ADR-0015): 16 Times, a Série de cada Time em cada Temporada e a Série
+-- Série A e Série B (ADR-0017): 16 Times, a Série de cada Time em cada Temporada e a Série
 -- de cada Partida, Candidato e voto. Temporadas sem linhas em serie_do_time (a Temporada 1)
 -- são de uma Série só, a A.
 

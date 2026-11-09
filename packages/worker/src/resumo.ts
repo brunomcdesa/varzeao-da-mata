@@ -147,7 +147,7 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
     : undefined;
   const campeao = campeoes?.campeao_id;
   const campeaoB = campeoes?.campeao_b_id;
-  // Anúncio do Craque da Rodada anterior, um por Série (ADR-0015).
+  // Anúncio do Craque da Rodada anterior, um por Série (ADR-0017).
   const craqueAnterior = await anuncioDoCraque(banco, r.temporada_id, r.numero, 'A');
   const craqueAnteriorB = comSeries ? await anuncioDoCraque(banco, r.temporada_id, r.numero, 'B') : null;
   return {

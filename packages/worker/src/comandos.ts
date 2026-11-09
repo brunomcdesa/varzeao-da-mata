@@ -6,7 +6,7 @@
  *                                                 um Time, uma posição e palavras de ligação
  *   "ENTRO ARARA" / "eu sou da arara"           → Inscrição sem posição: entra na mais vazia do Time
  *   "CRAQUE 3" (ou "VOTO 3")                    → voto no Candidato número 3 (da Série A)
- *   "CRAQUE B3" / "CRAQUE A3"                   → voto no Candidato 3 da Série B / A (ADR-0015)
+ *   "CRAQUE B3" / "CRAQUE A3"                   → voto no Candidato 3 da Série B / A (ADR-0017)
  *   "3", "A3" ou "B3" sozinho                   → o mesmo, mas só vale no post do Resumo
  *   "TRANSFERIR PREGUIÇA [posição]"             → Transferência (ADR-0012); também "quero ir pra
  *                                                 Preguiça", "posso ir pro time da Preguiça",

@@ -1,6 +1,6 @@
 # Times do Varzeão da Mata
 
-Dezesseis clubes fictícios, todos com bichos brasileiros como tema e em oito pares de rivais: os oito fundadores (Temporada 1) e os oito que chegaram com a Série B (ADR-0015). A personalidade de cada um é só visual e narrativa e não afeta a simulação. Nenhum dos bichos é mascote conhecido de clube brasileiro real.
+Dezesseis clubes fictícios, todos com bichos brasileiros como tema e em oito pares de rivais: os oito fundadores (Temporada 1) e os oito que chegaram com a Série B (ADR-0017). A personalidade de cada um é só visual e narrativa e não afeta a simulação. Nenhum dos bichos é mascote conhecido de clube brasileiro real.
 
 | Sigla | Nome | Cores | Personalidade | Bordão |
 |---|---|---|---|---|

@@ -1,7 +1,7 @@
 /**
  * Calendário da Temporada (GLOSSARY: Fase de Liga, Rodada, Apito Inicial, Série).
  * Turno único entre os 8 Times de cada Série em 7 Rodadas, uma por dia, com Partidas às 12h,
- * 14h, 16h e 18h; com duas Séries, cada horário tem uma Partida da A e uma da B (ADR-0015).
+ * 14h, 16h e 18h; com duas Séries, cada horário tem uma Partida da A e uma da B (ADR-0017).
  * O Mata-mata é criado depois, quando a Fase de Liga termina.
  */
 import { TIMES_FUNDADORES, type Serie, type TimeId } from '@liga/shared';
@@ -94,7 +94,7 @@ function seedDaSerie(seed: number, serie: Serie): number {
  * Cria a Temporada com as 7 Rodadas da Fase de Liga a partir de `primeiraRodada`.
  *
  * As Séries vêm de `o.series` ou, se não vierem, da Temporada anterior (Acesso e
- * Rebaixamento, ADR-0015). A Temporada 1 não tem Séries: só os fundadores, na A.
+ * Rebaixamento, ADR-0017). A Temporada 1 não tem Séries: só os fundadores, na A.
  */
 export async function criarTemporada(banco: Banco, o: { numero: number; primeiraRodada: string; seed: number; series?: SeriesDaTemporada }): Promise<number> {
   return banco.transacao(async (b) => {

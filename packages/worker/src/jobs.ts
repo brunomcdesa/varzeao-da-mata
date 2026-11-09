@@ -293,7 +293,7 @@ async function agendar(c: ContextoDoJob, o: { tipo: ItemDaAgenda['tipo']; ref: n
   return item;
 }
 
-/** O Craque da Rodada anterior da mesma Série, que tem a vaga garantida na Escalação (ADR-0015). */
+/** O Craque da Rodada anterior da mesma Série, que tem a vaga garantida na Escalação (ADR-0017). */
 async function craqueDaVez(banco: Banco, p: LinhaJob): Promise<{ id: string } | null> {
   const anterior = (await banco.query<{ id: number }>(`SELECT s.id FROM rodada s JOIN rodada r ON r.temporada_id = s.temporada_id AND s.numero = r.numero - 1 WHERE r.id = $1`, [p.rodada_id])).rows[0];
   return anterior ? craqueDaRodada(banco, anterior.id, p.serie) : null;
@@ -327,7 +327,7 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
       // Transferências pedidas pelo site até o Corte entram nesta Escalação.
       await processarPedidosDoSite(c.banco, c.agenda, agoraDe(c));
       // Com duas Séries há outra Partida no mesmo horário: escala, simula e guarda agora, antes
-      // de gravar este Reels, para ela também estar pronta no Apito Inicial (ADR-0015).
+      // de gravar este Reels, para ela também estar pronta no Apito Inicial (ADR-0017).
       for (const q of pendentes) {
         if (q === p || q.status !== 'PENDENTE' || new Date(q.apito_inicial).getTime() !== apito.getTime()) continue;
         await rodarPartida(c.banco, q.id, { craque: (await craqueDaVez(c.banco, q))?.id ?? null });
@@ -492,7 +492,7 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
   // A próxima Temporada já nasce aqui: Rodada 1 dois dias depois deste anúncio.
   const proxima = await garantirProximaTemporada(c.banco, t.numero, somarDias(dia, 3));
   await importarVotosDoSite(c.banco, c.agenda, t.final_id);
-  // Com duas Séries, a B também elege o seu Craque da Temporada (ADR-0015).
+  // Com duas Séries, a B também elege o seu Craque da Temporada (ADR-0017).
   const craqueB = (await seriesDaTemporada(c.banco, t.id)).B.length ? await eleitoDaSerieB(c.banco, t.id, t.final_id) : null;
   let craqueId = t.craque_jogador_id;
   if (!craqueId) {

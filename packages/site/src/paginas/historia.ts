@@ -27,7 +27,7 @@ function linhaDaTemporada(t: TemporadaNaHistoria): Html {
   if (t.goleiro) {
     fatos.push(html`<div><dt>Melhor goleiro</dt><dd><a class="fato-jogador" href="#/jogador/${t.goleiro.jogadorId}">${bonecoImg(t.goleiro.time, t.goleiro.posicao, t.goleiro.username, 1.5)} ${t.goleiro.apelido || `@${t.goleiro.username}`}</a><small>nota média ${nota(t.goleiro.notaMedia)} · ${t.goleiro.defesas} defesas · ${t.goleiro.golsSofridos} gols sofridos</small></dd></div>`);
   }
-  // Série B (ADR-0015): campeão, Final e Craque da B.
+  // Série B (ADR-0017): campeão, Final e Craque da B.
   const b = t.serieB;
   if (b?.campeao) {
     fatos.push(html`<div><dt>Campeão da Série B</dt><dd><a class="time-link" href="#/time/${b.campeao}">${escudoImg(b.campeao, 0.75)} ${curto(b.campeao)}</a>${

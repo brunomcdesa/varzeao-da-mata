@@ -3,7 +3,7 @@
  *
  *   pnpm --filter @liga/renderer exec tsx scripts/previa-resumo.ts <pasta> [--series]
  *
- * Com --series, a Rodada tem Série A e Série B (ADR-0015). Com --fim, mostra o anúncio do fim
+ * Com --series, a Rodada tem Série A e Série B (ADR-0017). Com --fim, mostra o anúncio do fim
  * da Temporada (campeão e Craque, e os da Série B com --series).
  */
 import { resolve } from 'node:path';

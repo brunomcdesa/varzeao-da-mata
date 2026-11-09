@@ -46,7 +46,7 @@ export interface PartidaNoCalendario {
   vantagemDoEmpate?: boolean;
   /** Mata-mata encerrado: quem avançou (ou foi campeão). */
   classificado?: TimeId;
-  /** A Série da Partida (ADR-0015). Sem o campo, é a A. */
+  /** A Série da Partida (ADR-0017). Sem o campo, é a A. */
   serie?: Serie;
 }
 
@@ -58,7 +58,7 @@ export interface RodadaPublica {
   data: string;
   /**
    * `numero`: o número interno, que o site manda para a borda ao votar. `rotulo`: o que se
-   * comenta ("3", ou "A3" e "B3" com duas Séries). `serie`: a Série do Candidato (ADR-0015).
+   * comenta ("3", ou "A3" e "B3" com duas Séries). `serie`: a Série do Candidato (ADR-0017).
    */
   candidatos: { numero: number; rotulo?: string; serie?: Serie; jogadorId: string; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number }[];
   /** RODADA: Craque da Rodada. TEMPORADA: na Final, os Candidatos são a Craque da Temporada (nota = média). */
@@ -75,7 +75,7 @@ export interface LigaPublica {
   times: TimePublico[];
   /** Tabela da Série A (ou da Liga inteira, antes das Séries). */
   tabela: LinhaTabelaPublica[];
-  /** Tabela da Série B, quando a Temporada tem Séries (ADR-0015). */
+  /** Tabela da Série B, quando a Temporada tem Séries (ADR-0017). */
   tabelaB?: LinhaTabelaPublica[];
   /** Os Times de cada Série na Temporada atual, quando ela tem Séries. */
   series?: Record<Serie, TimeId[]> | null;
@@ -115,7 +115,7 @@ export interface TemporadaNaHistoria {
   goleiro: (JogadorResumido & { notaMedia: number; jogos: number; defesas: number; golsSofridos: number }) | null;
   /** Tabela da Fase de Liga (parcial enquanto a Temporada corre). Com duas Séries, a da A. */
   tabela: LinhaTabelaPublica[];
-  /** Série B (ADR-0015): campeão, vice, Final, Craque e tabela. */
+  /** Série B (ADR-0017): campeão, vice, Final, Craque e tabela. */
   serieB?: {
     campeao: TimeId | null;
     vice: TimeId | null;
@@ -151,7 +151,7 @@ export interface Trofeu {
   fase?: 'LIGA' | 'MATA_MATA';
   time: TimeId;
   partidaId?: number;
-  /** Título e Craques da Série B (ADR-0015). Sem o campo, é da A. */
+  /** Título e Craques da Série B (ADR-0017). Sem o campo, é da A. */
   serie?: Serie;
 }
 

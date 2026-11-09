@@ -21,7 +21,7 @@ describe('Fase de Liga', () => {
     for (const n of emCasa.values()) expect([3, 4]).toContain(n);
   });
 
-  it('a Série B tem o seu turno único entre os Times novos (ADR-0015)', () => {
+  it('a Série B tem o seu turno único entre os Times novos (ADR-0017)', () => {
     const rodadas = faseDeLiga(11, TIMES_NOVOS);
     expect(rodadas).toHaveLength(7);
     const pares = new Set(rodadas.flatMap((jogos) => jogos.map((j) => [j.mandante, j.visitante].sort().join('-'))));

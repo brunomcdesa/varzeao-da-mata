@@ -205,7 +205,7 @@ async function resumo(texto: string): Promise<string> {
   return [...h.slice(0, 12)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/** Com duas Séries, o voto da B fica numa chave à parte, para valer um voto em cada (ADR-0015). */
+/** Com duas Séries, o voto da B fica numa chave à parte, para valer um voto em cada (ADR-0017). */
 function sufixoDaSerie(numero: number): string {
   return serieDoCandidato(numero) === 'B' ? ':B' : '';
 }

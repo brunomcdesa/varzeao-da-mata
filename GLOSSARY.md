@@ -153,15 +153,15 @@ O confronto entre Jogadores envolvidos num lance, decidido pelas Habilidades de 
 _Avoid_: disputa, embate, lance
 
 **Falta**:
-Desarme feito de forma irregular, que dá bola parada ao Time que atacava: pênalti dentro da área, chute direto com Barreira na entrada da área, jogada ensaiada mais longe. Pode dar Cartão. ADR-0022.
+Desarme feito de forma irregular, que dá bola parada ao Time que atacava: pênalti dentro da área, chute direto com Barreira na entrada da área, jogada ensaiada mais longe. Pode dar Cartão. ADR-0024.
 _Avoid_: infração
 
 **Barreira**:
-Os jogadores do Time que defende enfileirados na frente do chute direto de Falta. O chute pode bater nela antes de chegar ao goleiro. ADR-0022.
+Os jogadores do Time que defende enfileirados na frente do chute direto de Falta. O chute pode bater nela antes de chegar ao goleiro. ADR-0024.
 _Avoid_: muralha
 
 **Ritmo**:
-Quantos lances de ataque uma Partida tem, sorteado pela semente e puxado um pouco pela Postura dos dois Times: jogo travado tem poucos, jogo aberto tem muitos. ADR-0022.
+Quantos lances de ataque uma Partida tem, sorteado para cada Partida e, a partir da Temporada 2, puxado um pouco pela Postura dos dois Times: jogo travado tem poucos, jogo aberto tem muitos. ADR-0016.
 _Avoid_: intensidade, velocidade
 
 **Nota da Partida**:
@@ -201,19 +201,19 @@ Uma Partida em que o Jogador fica fora da Escalação por causa de Cartões.
 _Avoid_: gancho, punição
 
 **Presença**:
-A confirmação, feita pelo site ou comentando CONFIRMO até o Corte, de que o Jogador quer jogar o próximo jogo do Time. Quem confirmou passa na frente no rodízio da Escalação. ADR-0021.
+A confirmação, feita pelo site ou comentando CONFIRMO até o Corte, de que o Jogador quer jogar o próximo jogo do Time. Quem confirmou passa na frente no rodízio da Escalação. ADR-0023.
 _Avoid_: check-in, convocação
 
 **Especialização**:
-A função que o Jogador escolhe dentro da sua Posição (por exemplo Artilheiro, Volante, Xerife ou Paredão), que dá um bônus num Duelo e um custo pequeno em outro. São 3 por Posição, no máximo uma valendo em cada jogo, trocada uma vez por Rodada. ADR-0021.
+A função que o Jogador escolhe dentro da sua Posição (por exemplo Artilheiro, Volante, Xerife ou Paredão), que dá um bônus num Duelo e um custo pequeno em outro. São 3 por Posição, no máximo uma valendo em cada jogo, trocada uma vez por Rodada. ADR-0023.
 _Avoid_: estilo, classe, perfil, função
 
 **Treino**:
-A Habilidade de foco que o Jogador escolhe pelo site; os ganhos dela sobem mais rápido. ADR-0021.
+A Habilidade de foco que o Jogador escolhe pelo site; os ganhos dela sobem mais rápido. ADR-0023.
 _Avoid_: foco, upgrade, boost
 
 **Canto**:
-O lado escolhido por batedor e goleiro na Disputa de pênaltis; quem não escolhe tem o canto sorteado. ADR-0021.
+O lado escolhido por batedor e goleiro na Disputa de pênaltis; quem não escolhe tem o canto sorteado. ADR-0023.
 _Avoid_: lado, direção
 
 **Janela de Transferências**:
@@ -223,6 +223,10 @@ _Avoid_: mercado, janela de inverno
 **Partida**:
 Um confronto simulado entre dois Times, com Apito Inicial marcado. Pode ser vista Ao Vivo ou em Replay no site e ganha um Reels próprio assim que termina.
 _Avoid_: jogo, match
+
+**Contra-ataque**:
+Lance logo depois de o rival perder a bola com gente adiantada. Se a defesa não recompõe, o 1º zagueiro (ou, depois de escanteio, também o marcador) fica fora do lance (ADR-0015).
+_Evite_: contragolpe
 
 ### Espetáculo
 

@@ -331,7 +331,7 @@ async function temporadaDaTransferencia(b: Banco, agora: Date): Promise<number |
   return t.id;
 }
 
-/** Voto no Craque: "3" e "A3" são o 3 da Série A; "B3" é o 3 da Série B (ADR-0015). */
+/** Voto no Craque: "3" e "A3" são o 3 da Série A; "B3" é o 3 da Série B (ADR-0017). */
 async function votar(b: Banco, c: Comentario, voto: { numero: number; serie?: Serie }, ctx: Contexto): Promise<Resultado> {
   if (ctx.rodadaEmVotacao === null) return 'VOTACAO_FECHADA';
   if (voto.numero > CANDIDATOS_POR_SERIE) return 'NAO_CANDIDATO';

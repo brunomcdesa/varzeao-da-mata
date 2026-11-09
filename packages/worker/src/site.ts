@@ -76,7 +76,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       `SELECT id, numero, status, inicio, campeao_id, craque_jogador_id::text AS craque_jogador_id, craque_b_jogador_id::text AS craque_b_jogador_id, craque_revelado_em FROM temporada ORDER BY numero`,
     )
   ).rows;
-  // As Séries de cada Temporada (ADR-0015); Temporada sem Série B mostra tudo como antes.
+  // As Séries de cada Temporada (ADR-0017); Temporada sem Série B mostra tudo como antes.
   const seriesDe = new Map<number, SeriesDaTemporada>();
   for (const t of temporadas) seriesDe.set(t.id, await seriesDaTemporada(banco, t.id));
   const comSeries = (temporadaId: number) => (seriesDe.get(temporadaId)?.B.length ?? 0) > 0;

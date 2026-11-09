@@ -6,7 +6,7 @@
 import { serieDoCandidato, type Serie } from '@liga/shared';
 import { BASE_API, TURNSTILE } from './dados.js';
 
-/** Com duas Séries, o aparelho vota uma vez em cada (ADR-0015): a B fica numa chave à parte. */
+/** Com duas Séries, o aparelho vota uma vez em cada (ADR-0017): a B fica numa chave à parte. */
 const chaveDoVoto = (rodada: number, serie: Serie) => `varzeao:voto:${rodada}${serie === 'B' ? ':B' : ''}`;
 
 const guardar = (k: string, v: string) => {

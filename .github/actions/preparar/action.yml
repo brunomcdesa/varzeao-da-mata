@@ -20,7 +20,7 @@ runs:
         sudo apt-get install -y -qq ffmpeg
         pnpm --filter @liga/renderer exec playwright install --with-deps chromium
       shell: bash
-    # Cache de falas do Narrador (ADR-0016): as falas do Gemini TTS ficam guardadas entre as
+    # Cache de falas do Narrador (ADR-0018): as falas do Gemini TTS ficam guardadas entre as
     # execuções e são reaproveitadas, para caber na cota com 8 Partidas por dia. Cada execução
     # restaura o cache mais recente e, no fim, salva uma versão nova com as falas que ganhou.
     - if: inputs.video == 'true'

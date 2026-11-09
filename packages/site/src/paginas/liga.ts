@@ -11,7 +11,7 @@ function titulosDo(l: LigaPublica, t: TimeId): number[] {
   return l.temporadas.filter((x) => x.campeao === t).map((x) => x.numero).sort((a, b) => a - b);
 }
 
-/** Lista de Partidas de uma Rodada, separada por Série quando há Série B (ADR-0015). */
+/** Lista de Partidas de uma Rodada, separada por Série quando há Série B (ADR-0017). */
 function partidasPorSerie(l: LigaPublica, jogos: PartidaNoCalendario[], linha: (p: PartidaNoCalendario) => ReturnType<typeof html>): ReturnType<typeof html> {
   if (!temSeries(l)) return html`<ul class="lista-partidas">${jogos.map(linha)}</ul>`;
   return html`${seriesDaLiga(l).map((s) => {

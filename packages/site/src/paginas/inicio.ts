@@ -35,7 +35,7 @@ function destaque(l: LigaPublica, p: PartidaNoCalendario | null): Html {
   }
   const s = situacaoAgora(p);
   const classico = rotuloClassico(p.mandante, p.visitante);
-  // Com Série B, há outra Partida no mesmo horário (ADR-0015): fica um atalho para ela.
+  // Com Série B, há outra Partida no mesmo horário (ADR-0017): fica um atalho para ela.
   const outra = temSeries(l) ? l.calendario.find((x) => x.id !== p.id && x.apito === p.apito) : undefined;
   return html`<div class="destaque ${s === 'AO_VIVO' ? 'rolando' : ''}">
     <p class="destaque-rotulo">${s === 'AO_VIVO' ? 'Rolando agora' : `Próximo jogo ${contagem(p.apito)}`}${temSeries(l) ? ` · Série ${serieDaPartida(p)}` : ''}</p>
@@ -142,7 +142,7 @@ function ligarVotacao(main: HTMLElement): void {
   const aviso = secao.querySelector<HTMLElement>('.voto-aviso');
   const desafio = secao.querySelector<HTMLElement>('.voto-desafio');
   const todos = [...secao.querySelectorAll<HTMLButtonElement>('.botao-voto')];
-  // Cada Série é um voto à parte (ADR-0015): votar na A não mexe nos botões da B.
+  // Cada Série é um voto à parte (ADR-0017): votar na A não mexe nos botões da B.
   for (const lista of secao.querySelectorAll<HTMLElement>('.candidatos')) {
     const botoes = [...lista.querySelectorAll<HTMLButtonElement>('.botao-voto')];
     for (const b of botoes) {

@@ -1,5 +1,5 @@
 /**
- * Dados de mentira com Série A e Série B (ADR-0015), para desenvolver o site: a Temporada 1
+ * Dados de mentira com Série A e Série B (ADR-0017), para desenvolver o site: a Temporada 1
  * inteira, a Temporada 2 com Jogadores nas duas Séries, 2 Rodadas jogadas e "agora" durante
  * os jogos das 16h da Rodada 3 (dois Ao Vivo ao mesmo tempo).
  *
