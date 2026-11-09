@@ -94,8 +94,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
 
   // Todas as Partidas de todas as Temporadas: a carreira dos Jogadores atravessa Temporadas.
   const todas = (
-    await banco.query<LinhaPartida & { temporada_id: number }>(
-      `SELECT p.id, p.rodada_id, r.temporada_id, r.numero AS rodada, r.fase, r.data, p.apito_inicial, p.mandante_id, p.visitante_id, p.status, p.resultado, p.video_url, p.narracao_url, p.vantagem_do_empate, p.serie
+    await banco.query<LinhaPartida & { temporada_id: number; resumo_status: string }>(
+      `SELECT p.id, p.rodada_id, r.temporada_id, r.numero AS rodada, r.fase, r.data, r.resumo_status, p.apito_inicial, p.mandante_id, p.visitante_id, p.status, p.resultado, p.video_url, p.narracao_url, p.vantagem_do_empate, p.serie
        FROM partida p JOIN rodada r ON r.id = p.rodada_id ORDER BY p.apito_inicial, p.serie`,
     )
   ).rows;
@@ -186,6 +186,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       numero: base.rodada,
       fase: base.fase,
       data: diaTexto(base.data),
+      resumoPublicado: base.resumo_status === 'PUBLICADO',
       votacao: ehAFinal ? 'TEMPORADA' : 'RODADA',
       candidatos: candidatos.map((c, i) => ({
         numero: c.numero ?? i + 1,

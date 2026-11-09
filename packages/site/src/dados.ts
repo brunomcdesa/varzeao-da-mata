@@ -195,26 +195,8 @@ export async function partida(id: number, fresco = false): Promise<PartidaPublic
   return p;
 }
 
-/** Situação calculada pelo relógio de quem está vendo (o JSON pode ter até 1 h). */
-export function situacaoAgora(p: { apito: string; fase: 'LIGA' | 'MATA_MATA' }, agora = Date.now()): SituacaoPartida {
-  const t = Date.parse(p.apito);
-  if (agora < t) return 'AGENDADA';
-  return agora < t + duracaoAoVivoMs(p.fase) ? 'AO_VIVO' : 'ENCERRADA';
-}
-
-/** Rodada "da vez": a que tem Partida ao vivo ou a próxima a jogar; senão a última. */
-export function rodadaAtual(l: LigaPublica, agora = Date.now()): number | null {
-  const viva = l.calendario.find((p) => situacaoAgora(p, agora) === 'AO_VIVO');
-  if (viva) return viva.rodada;
-  const proxima = l.calendario.find((p) => situacaoAgora(p, agora) === 'AGENDADA');
-  if (proxima) {
-    // Se a Rodada anterior terminou hoje, ela ainda é a "da vez" até a meia-noite.
-    const anterior = l.calendario.filter((p) => p.rodada === proxima.rodada - 1).at(-1);
-    if (anterior && mesmoDia(anterior.apito, new Date(agora).toISOString())) return anterior.rodada;
-    return proxima.rodada;
-  }
-  return l.calendario.at(-1)?.rodada ?? null;
-}
+export { rodadaAtual, situacaoAgora } from './calendario.js';
+import { situacaoAgora } from './calendario.js';
 
 export function partidasDaRodada(l: LigaPublica, rodada: number): PartidaNoCalendario[] {
   return l.calendario.filter((p) => p.rodada === rodada);

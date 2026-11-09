@@ -56,6 +56,8 @@ export interface RodadaPublica {
   numero: number;
   fase: 'LIGA' | 'MATA_MATA';
   data: string;
+  /** O Resumo da Rodada já saiu no Instagram: a partir daí o site mostra a próxima Rodada. */
+  resumoPublicado?: boolean;
   /**
    * `numero`: o número interno, que o site manda para a borda ao votar. `rotulo`: o que se
    * comenta ("3", ou "A3" e "B3" com duas Séries). `serie`: a Série do Candidato (ADR-0017).
