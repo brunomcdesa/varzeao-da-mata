@@ -110,6 +110,17 @@ export async function capitaoDaPartida(b: Banco, partidaId: number, time: TimeId
   return aptos.find((id) => comVinculo.has(id)) ?? aptos[0] ?? null;
 }
 
+/**
+ * Capitão entre os escalados: o Capitão da Partida se ele entrou; senão o primeiro da ordem
+ * que entrou, preferindo quem tem Vínculo. null quando só a Base joga.
+ */
+export async function capitaoEmCampo(b: Banco, partidaId: number, time: TimeId, emCampo: ReadonlySet<string>, comVinculo: ReadonlySet<string>): Promise<string | null> {
+  const c = await capitaoDaPartida(b, partidaId, time, comVinculo);
+  if (c && emCampo.has(c)) return c;
+  const ordem = (await ordemDoCapitao(b, time)).filter((id) => emCampo.has(id));
+  return ordem.find((id) => comVinculo.has(id)) ?? ordem[0] ?? null;
+}
+
 /** Postura de cada Time na Partida (sem escolha, Equilibrada). */
 export async function posturasDaPartida(b: Banco, partidaId: number, mandante: TimeId, visitante: TimeId): Promise<{ mandante: Postura; visitante: Postura }> {
   const linhas = (await b.query<{ time_id: TimeId; postura: Postura }>(`SELECT time_id, postura FROM postura WHERE partida_id = $1`, [partidaId])).rows;
@@ -133,6 +144,32 @@ export async function proximaPartidaDoTime(b: Banco, time: TimeId, agora: Date):
     )
   ).rows[0];
   return p ? { id: p.id, apito: new Date(p.apito_inicial) } : null;
+}
+
+/** Quem é o Capitão do próximo jogo do Time de um Jogador, para o painel do site. */
+export interface Capitania {
+  /** Este Jogador é o Capitão: só ele vê a escolha de Postura. */
+  eu: boolean;
+  /** @ do Capitão (null quando o Time não tem ninguém apto). */
+  capitao: string | null;
+  postura: Postura;
+}
+
+/**
+ * Capitania do próximo jogo aberto do Time do Jogador; null fora da T2 ou sem jogo aberto.
+ * Mesma regra de `aplicarEscolha`: o primeiro da ordem, não suspenso, com Vínculo.
+ */
+export async function capitaniaDoJogador(b: Banco, jogadorId: string, agora: Date, comVinculo: () => Promise<ReadonlySet<string>>): Promise<Capitania | null> {
+  const t = await temporadaAtual(b);
+  if (!t || !temRegrasT2(t.numero)) return null;
+  const j = (await b.query<{ time_id: TimeId }>(`SELECT time_id FROM jogador WHERE id = $1 AND NOT banido`, [jogadorId])).rows[0];
+  if (!j) return null;
+  const p = await proximaPartidaDoTime(b, j.time_id, agora);
+  if (!p) return null;
+  const id = await capitaoDaPartida(b, p.id, j.time_id, await comVinculo());
+  const capitao = id ? ((await b.query<{ username: string }>(`SELECT username FROM jogador WHERE id = $1`, [id])).rows[0]?.username ?? null) : null;
+  const postura = (await b.query<{ postura: Postura }>(`SELECT postura FROM postura WHERE partida_id = $1 AND time_id = $2`, [p.id, j.time_id])).rows[0]?.postura ?? 'EQUILIBRADA';
+  return { eu: id === jogadorId, capitao, postura };
 }
 
 /** Os Jogadores com Vínculo (sessões do site guardadas na Agenda pela borda, ADR-0013). */

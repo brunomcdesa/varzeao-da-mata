@@ -123,7 +123,18 @@ export async function sessaoDe(env: EnvVinculo, sessao: string): Promise<SessaoV
   return env.AGENDA.get<SessaoVinculada>(`vinculo/sessao/${await hash(sessao)}`, 'json');
 }
 
-export async function rotasDoVinculo(req: Request, env: EnvVinculo, agora: Date, graph: Graph, disparar: Disparar, aplicar: AplicarAgora = async () => null): Promise<Response | null> {
+/** Capitão do próximo jogo do Time do Jogador (T2); null fora da T2, sem jogo ou sem banco. */
+export type ConsultarCapitania = (jogadorId: string) => Promise<{ eu: boolean; capitao: string | null; postura: string } | null>;
+
+export async function rotasDoVinculo(
+  req: Request,
+  env: EnvVinculo,
+  agora: Date,
+  graph: Graph,
+  disparar: Disparar,
+  aplicar: AplicarAgora = async () => null,
+  capitania: ConsultarCapitania = async () => null,
+): Promise<Response | null> {
   const { pathname } = new URL(req.url);
   if (req.method !== 'POST') return null;
 
@@ -230,6 +241,8 @@ export async function rotasDoVinculo(req: Request, env: EnvVinculo, agora: Date,
     if (pathname === '/escolha/estado') {
       const estado: Record<string, unknown> = {};
       for (const t of TIPOS_DE_ESCOLHA) estado[t] = (await env.AGENDA.get(`escolha-site/${s.jogadorId}/${t}`, 'json')) ?? null;
+      // A Postura só aparece para o Capitão (os outros veem quem ele é).
+      estado.capitania = await capitania(s.jogadorId).catch(() => null);
       return json(estado);
     }
     const tipo = String(c.tipo ?? '') as (typeof TIPOS_DE_ESCOLHA)[number];

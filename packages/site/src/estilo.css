@@ -2902,3 +2902,33 @@ a.jogo:hover {
   padding: 3px 8px 1px;
   clip-path: var(--canto);
 }
+
+/* Faixa de Capitão (T2, ADR-0020) */
+.com-faixa {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+.com-faixa > :first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.com-faixa .faixa-capitao {
+  flex: none;
+}
+.faixa-capitao {
+  display: inline-block;
+  margin-left: 6px;
+  min-width: 1.25em;
+  padding: 1px 3px 0;
+  font: 400 0.9em/1.1 var(--display);
+  text-align: center;
+  text-decoration: none;
+  color: var(--tinta);
+  background: var(--amarelo);
+  border: 2px solid var(--contorno);
+  vertical-align: 1px;
+  cursor: help;
+}

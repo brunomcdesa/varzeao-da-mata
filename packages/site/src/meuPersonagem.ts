@@ -246,18 +246,13 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
     const radio = (nome: string, valor: string, atual: boolean, rotulo: string, ajuda = '') =>
       html`<label class="opcao-t2"><input type="radio" name="${nome}" value="${valor}" ${atual ? 'checked' : ''} /><span><strong>${rotulo}</strong>${ajuda ? html`<small>${ajuda}</small>` : ''}</span></label>`;
     return html`<details class="dobra" data-dobra="jogo" ${abertas.has('jogo') ? 'open' : ''}>
-      <summary>Próximo jogo <small>presença e Postura</small></summary>
+      <summary>Próximo jogo <small data-resumo-jogo>presença</small></summary>
       <div class="escolha-t2" data-tipo="PRESENCA">
         <p>Confirme que vai jogar: quem confirma entra antes no rodízio, logo depois do Craque. Vale até o Corte do próximo jogo do seu Time. Também dá para comentar <strong>CONFIRMO</strong> no post.</p>
         <p><button type="button" class="botao" data-enviar="PRESENCA">Confirmar presença</button></p>
         <p class="estado-escolha" role="status" aria-live="polite"></p>
       </div>
-      <form class="escolha-t2" data-tipo="POSTURA">
-        <p>Se você é o Capitão do ${curto(j.time)} (quem tem mais jogos pelo Time entre os vinculados ao site), escolha como o Time joga até o Corte.</p>
-        <fieldset class="opcoes-t2">${POSTURAS.map((p) => radio('valor', p, p === 'EQUILIBRADA', NOME_DA_POSTURA[p], DESCRICAO_DA_POSTURA[p]))}</fieldset>
-        <p><button type="submit" class="botao">Escolher a Postura</button></p>
-        <p class="estado-escolha" role="status" aria-live="polite"></p>
-      </form>
+      <div data-capitania></div>
     </details>
     <details class="dobra" data-dobra="especializacao" ${abertas.has('especializacao') ? 'open' : ''}>
       <summary>Especialização <small>${especializacao ? NOME_DA_ESPECIALIZACAO[especializacao] : 'nenhuma'}</small></summary>
@@ -297,10 +292,35 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
     </details>`;
   }
 
+  /** Só o Capitão vê a escolha de Postura; os outros veem quem ele é (ADR-0020). */
+  function blocoCapitania(c: { eu: boolean; capitao: string | null; postura: string } | null) {
+    if (!c) return html``;
+    const atual = (POSTURAS as readonly string[]).includes(c.postura) ? (c.postura as Postura) : 'EQUILIBRADA';
+    if (!c.eu) {
+      return html`<p class="legenda capitania">${c.capitao ? html`Capitão do ${curto(j.time)} no próximo jogo: <strong>@${c.capitao}</strong>. Só ele escolhe a Postura (agora: ${NOME_DA_POSTURA[atual]}).` : html`Postura do ${curto(j.time)} no próximo jogo: ${NOME_DA_POSTURA[atual]}.`}</p>`;
+    }
+    const radio = (valor: Postura) =>
+      html`<label class="opcao-t2"><input type="radio" name="valor" value="${valor}" ${valor === atual ? 'checked' : ''} /><span><strong>${NOME_DA_POSTURA[valor]}</strong><small>${DESCRICAO_DA_POSTURA[valor]}</small></span></label>`;
+    return html`<form class="escolha-t2" data-tipo="POSTURA">
+      <p><strong>Você é o Capitão do ${curto(j.time)}</strong> no próximo jogo. Escolha como o Time joga; dá para mudar até o Corte.</p>
+      <fieldset class="opcoes-t2">${POSTURAS.map(radio)}</fieldset>
+      <p><button type="submit" class="botao">Escolher a Postura</button></p>
+      <p class="estado-escolha" role="status" aria-live="polite"></p>
+    </form>`;
+  }
+
   function ligarEscolhas(g: Guardado) {
     // O canto não é público: vem do último pedido deste navegador (borda).
-    void api<Record<string, { escolha?: { valor?: Canto | null }; resultado?: string } | null>>('escolha/estado', { sessao: g.sessao })
+    void api<Record<string, { escolha?: { valor?: Canto | null }; resultado?: string } | null> & { capitania?: { eu: boolean; capitao: string | null; postura: string } | null }>('escolha/estado', { sessao: g.sessao })
       .then((r) => {
+        const lugar = caixa.querySelector<HTMLElement>('[data-capitania]');
+        if (lugar) {
+          lugar.innerHTML = blocoCapitania(r.dados.capitania ?? null).s;
+          const form = lugar.querySelector<HTMLFormElement>('form.escolha-t2');
+          if (form) ligarBloco(form);
+          const resumo = caixa.querySelector('[data-resumo-jogo]');
+          if (resumo && r.dados.capitania?.eu) resumo.textContent = 'presença e Postura';
+        }
         const c = r.dados.CANTO;
         if (c && c.resultado !== 'RECUSADO' && c.escolha) {
           canto = c.escolha.valor ?? null;
@@ -341,7 +361,7 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
       if (resumo && tipo === 'TREINO') resumo.textContent = treino ? NOME_DA_HABILIDADE[treino] : 'sem foco';
       if (resumo && tipo === 'CANTO') resumo.textContent = canto ? NOME_DO_CANTO[canto] : 'sorteado';
     };
-    for (const bloco of caixa.querySelectorAll<HTMLElement>('.escolha-t2')) {
+    function ligarBloco(bloco: HTMLElement) {
       const tipo = bloco.dataset.tipo!;
       const estado = bloco.querySelector<HTMLElement>('.estado-escolha')!;
       if (bloco instanceof HTMLFormElement) {
@@ -352,6 +372,7 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
         });
       } else bloco.querySelector('[data-enviar]')?.addEventListener('click', () => void enviar(tipo, null, estado));
     }
+    for (const bloco of caixa.querySelectorAll<HTMLElement>('.escolha-t2')) ligarBloco(bloco);
   }
 
   // ---- apelido (ADR-0014): o nome que aparece no jogo, na narração e no site

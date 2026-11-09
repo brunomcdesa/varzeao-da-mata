@@ -210,6 +210,8 @@ export interface JogadorPublico {
     amarelos?: number;
     expulso?: boolean;
   }[];
+  /** Temporada 2 (ADR-0020): é o Capitão atual do Time. Ausente na T1 e para os outros. */
+  capitao?: true;
   /** Temporada 2 (ADR-0023): Especialização e Treino escolhidos. Ausentes na T1. */
   especializacao?: Especializacao | null;
   treino?: HabilidadeId | null;
@@ -217,7 +219,8 @@ export interface JogadorPublico {
 
 export interface EscalacaoPublica {
   time: TimeId;
-  jogadores: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; ovr: number; habilidades: Habilidades }[];
+  /** `capitao`: faixa de Capitão nesta Partida (só na T2, ADR-0020). */
+  jogadores: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; ovr: number; habilidades: Habilidades; capitao?: true }[];
 }
 
 export interface PartidaPublica {

@@ -8,6 +8,9 @@ Motivo: dá aos Jogadores uma decisão de verdade antes do jogo, sem precisar de
 
 - **Quem é:** o Jogador com mais Partidas pelo Time. Se o Capitão não tem Vínculo ou está suspenso, a faixa passa para o próximo da lista que tenha Vínculo. Se ninguém tiver Vínculo, a Postura fica Equilibrada.
 - **Por que pelo site:** a escolha é privada. Um Comando nos comentários entregaria a tática ao rival antes do jogo.
+- **Quem vê a escolha:** só o Capitão vê as opções de Postura no painel do personagem. Os outros donos do Time veem quem é o Capitão e a Postura atual.
+- **Faixa "C":** o Capitão é público. O site mostra um "C" ao lado do nome dele no card do Jogador, no Elenco e na Escalação da Partida.
+- **Capitão em campo:** na Escalação, a faixa fica com o Capitão se ele entrou. Se o rodízio o deixou de fora, ela passa para o primeiro da lista que entrou, de preferência com Vínculo.
 - **Simulação:** a Postura entra na simulação e sobe a `VERSAO_SIM` para 6, junto com a Especialização e o Pênalti com canto (ADR-0023), as faltas (ADR-0024) e os cartões (ADR-0021). A Postura dos dois Times também puxa um pouco o Ritmo da Partida (ADR-0016): dois Times Ofensivos deixam o jogo mais aberto, dois Defensivos o deixam mais travado. Só vale para Partidas escaladas depois da subida.
 
 ## Considered Options

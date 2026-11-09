@@ -6,7 +6,7 @@
 import { habilidadesDoPerfil, temRegrasT2, type Canto, type Escalacao, type Especializacao, type HabilidadeId, type Habilidades, type Posicao, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { FORMACAO, OVR_BASE, habilidadesDe } from './regras.js';
-import { confirmados, suspensos } from './temporada2.js';
+import { capitaoEmCampo, confirmados, suspensos } from './temporada2.js';
 
 export const CORTE_MINUTOS = 30;
 
@@ -134,7 +134,7 @@ export interface PartidaEscalada {
  * Escala as duas equipes de uma Partida e grava em `escalacao` (status → ESCALADA).
  * Se a Partida já foi escalada, devolve a Escalação gravada: reexecutar retoma de onde parou.
  */
-export async function escalarPartida(banco: Banco, partidaId: number, o: { craque?: string | null } = {}): Promise<PartidaEscalada> {
+export async function escalarPartida(banco: Banco, partidaId: number, o: { craque?: string | null; vinculos?: ReadonlySet<string> } = {}): Promise<PartidaEscalada> {
   return banco.transacao(async (b) => {
     const p = (
       await b.query<{ mandante_id: TimeId; visitante_id: TimeId; apito_inicial: string | Date; status: string; temporada_id: number; numero: number }>(
@@ -161,6 +161,15 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
           `INSERT INTO escalacao (partida_id, time_id, lugar, jogador_id, posicao, ovr_antes, habilidades_antes, apelido, especializacao, treino, canto) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
           [partidaId, m.escalacao.time, lugar, j.jogadorId, j.posicao, j.ovr, JSON.stringify(j.habilidades), m.apelidos[lugar] ?? null, j.especializacao ?? null, j.treino ?? null, j.canto ?? null],
         );
+      }
+    }
+    // T2: a faixa de Capitão fica com quem está em campo (ADR-0020).
+    if (temRegrasT2(p.numero)) {
+      for (const m of [mandante, visitante]) {
+        const time = m.escalacao.time;
+        const emCampo = new Set(m.escalacao.jogadores.map((j) => j.jogadorId).filter((id): id is string => id !== null));
+        const c = await capitaoEmCampo(b, partidaId, time, emCampo, o.vinculos ?? new Set());
+        if (c) await b.query(`UPDATE escalacao SET capitao = true WHERE partida_id = $1 AND time_id = $2 AND jogador_id = $3`, [partidaId, time, c]);
       }
     }
     await b.query(`UPDATE partida SET status = 'ESCALADA' WHERE id = $1`, [partidaId]);

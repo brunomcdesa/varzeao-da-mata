@@ -13,7 +13,7 @@
 import { serieDoCandidato, type Posicao, type TimeId } from '@liga/shared';
 import { transferirJogador } from '../../worker/src/coletar.js';
 import { aplicarPerfil } from '../../worker/src/perfil.js';
-import { aplicarEscolha, type Escolha } from '../../worker/src/temporada2.js';
+import { aplicarEscolha, capitaniaDoJogador, type Escolha } from '../../worker/src/temporada2.js';
 import { comBanco } from './banco.js';
 import { rotasDoVinculo, sessaoDe } from './vinculo.js';
 
@@ -131,6 +131,21 @@ async function publicarDaLista(env: Env, agora: Date, f: Fetch): Promise<string[
   return feitas;
 }
 
+/** Postura (T2): o Capitão é o primeiro da ordem com Vínculo; as sessões ficam no KV. */
+async function comVinculo(env: Env): Promise<Set<string>> {
+  const ids = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const lista = await env.AGENDA.list({ prefix: 'vinculo/sessao/', ...(cursor ? { cursor } : {}) });
+    for (const k of lista.keys) {
+      const sessao = await env.AGENDA.get<{ jogadorId?: string }>(k.name, 'json');
+      if (sessao?.jogadorId) ids.add(sessao.jogadorId);
+    }
+    cursor = lista.list_complete ? undefined : lista.cursor;
+  } while (cursor);
+  return ids;
+}
+
 // ------------------------------------------------------------------ leitura
 
 /** Igual a duracaoAoVivoMs do @liga/shared: 5 min, 7 no Mata-mata (pênaltis). */
@@ -156,20 +171,7 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
         b.transacao(async (t) => {
           if (p.tipo === 'ESCOLHA') {
             // Postura: o Capitão é o primeiro da ordem com Vínculo; as sessões ficam no KV.
-            const comVinculo = async () => {
-              const ids = new Set<string>();
-              let cursor: string | undefined;
-              do {
-                const lista = await env.AGENDA.list({ prefix: 'vinculo/sessao/', ...(cursor ? { cursor } : {}) });
-                for (const k of lista.keys) {
-                  const sessao = await env.AGENDA.get<{ jogadorId?: string }>(k.name, 'json');
-                  if (sessao?.jogadorId) ids.add(sessao.jogadorId);
-                }
-                cursor = lista.list_complete ? undefined : lista.cursor;
-              } while (cursor);
-              return ids;
-            };
-            const r = await aplicarEscolha(t, p.jogadorId, p.escolha as Escolha, agora, comVinculo);
+            const r = await aplicarEscolha(t, p.jogadorId, p.escolha as Escolha, agora, () => comVinculo(env));
             return { resultado: r.ok ? 'SALVO' : 'RECUSADO', mensagem: r.mensagem };
           }
           if (p.tipo === 'PERFIL') {
@@ -182,6 +184,7 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
         }),
       );
     },
+    async (jogadorId) => (env.DATABASE_URL ? comBanco(env.DATABASE_URL, (b) => capitaniaDoJogador(b, jogadorId, agora, () => comVinculo(env))) : null),
   ).catch((e: Error) => json({ erro: `Não deu agora: ${e.message.slice(0, 200)}` }, 502));
   if (vinculo) return vinculo;
   if (req.method !== 'GET' && req.method !== 'HEAD') return json({ erro: 'método não permitido' }, 405);

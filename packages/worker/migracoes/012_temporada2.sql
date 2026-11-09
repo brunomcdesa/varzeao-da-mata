@@ -14,6 +14,8 @@ ALTER TABLE escalacao ADD COLUMN IF NOT EXISTS canto text;
 ALTER TABLE escalacao ADD COLUMN IF NOT EXISTS faltas integer;
 ALTER TABLE escalacao ADD COLUMN IF NOT EXISTS amarelos integer;
 ALTER TABLE escalacao ADD COLUMN IF NOT EXISTS expulso boolean NOT NULL DEFAULT false;
+-- Capitão em campo (ADR-0020): a faixa "C" no site.
+ALTER TABLE escalacao ADD COLUMN IF NOT EXISTS capitao boolean NOT NULL DEFAULT false;
 
 -- Presença (ADR-0023): quem confirmou que quer jogar o próximo jogo do Time.
 CREATE TABLE IF NOT EXISTS presenca (

@@ -24,6 +24,7 @@ import { seriesDaTemporada } from './series.js';
 import { rodarPartida, type DadosDoVideo } from './partida.js';
 import { craqueDaRodada, dadosDoResumo, fecharRodada, HORA_DO_RESUMO, type DadosDoResumo } from './resumo.js';
 import { exportarSite } from './site.js';
+import { jogadoresComVinculo } from './temporada2.js';
 import { contextoDaVotacao, importarVotosDoSite, sincronizarVotacao } from './votoSite.js';
 import { processarPedidosDoSite } from './pedidosSite.js';
 import { aparenciasEscolhidas } from './perfil.js';
@@ -173,7 +174,7 @@ export async function coletarComentarios(c: ContextoDoJob, o: { dias?: number } 
 }
 
 export async function publicarSite(c: ContextoDoJob): Promise<number> {
-  const { arquivos } = await exportarSite(c.banco, agoraDe(c));
+  const { arquivos } = await exportarSite(c.banco, agoraDe(c), { vinculos: await jogadoresComVinculo(c.agenda) });
   for (const [caminho, conteudo] of arquivos) {
     await c.armazenamento.enviar('publico', `dados/${caminho}`, JSON.stringify(conteudo), { tipo: 'application/json', cache: 'public, max-age=60' });
   }
@@ -330,7 +331,7 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
       // de gravar este Reels, para ela também estar pronta no Apito Inicial (ADR-0017).
       for (const q of pendentes) {
         if (q === p || q.status !== 'PENDENTE' || new Date(q.apito_inicial).getTime() !== apito.getTime()) continue;
-        await rodarPartida(c.banco, q.id, { craque: (await craqueDaVez(c.banco, q))?.id ?? null });
+        await rodarPartida(c.banco, q.id, { craque: (await craqueDaVez(c.banco, q))?.id ?? null, vinculos: await jogadoresComVinculo(c.agenda) });
         await guardarPartidaPrivada(c, q.id, apito);
         q.status = 'SIMULADA';
         log(`Partida ${q.id}: escalada e simulada junto com a ${p.id}.`);
@@ -349,6 +350,7 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
       }
       const r = await rodarPartida(c.banco, p.id, {
         craque: craque?.id ?? null,
+        vinculos: await jogadoresComVinculo(c.agenda),
         ...(c.gravarReels && !videoUrl ? { gravar: { gravador: c.gravarReels, saida } } : {}),
       });
       await guardarPartidaPrivada(c, p.id, apito);

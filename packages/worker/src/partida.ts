@@ -120,6 +120,8 @@ export function subtituloDaPartida(rodada: number, fase: 'LIGA' | 'MATA_MATA', a
 export interface OpcoesDoJob {
   /** Craque da Rodada anterior (id do Jogador), com lugar garantido na Escalação. */
   craque?: string | null;
+  /** Jogadores com Vínculo (T2): a faixa de Capitão prefere quem tem (ADR-0020). */
+  vinculos?: ReadonlySet<string>;
   /** Seed fixo (testes); em produção é sorteado e salvo. */
   seed?: number;
   /** Se informado, grava o Reels (status → RENDERIZADA). */
@@ -136,7 +138,7 @@ export interface ResultadoDoJob {
 
 /** Roda as etapas que faltam de uma Partida, na ordem, e devolve onde ela parou. */
 export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJob = {}): Promise<ResultadoDoJob> {
-  const escalada = await escalarPartida(banco, partidaId, { craque: o.craque ?? null });
+  const escalada = await escalarPartida(banco, partidaId, { craque: o.craque ?? null, ...(o.vinculos ? { vinculos: o.vinculos } : {}) });
   const resultado = await simular(banco, partidaId, escalada, o.seed !== undefined ? { seed: o.seed } : {});
   const p = await lerPartida(banco, partidaId);
   const dados: DadosDoVideo = {

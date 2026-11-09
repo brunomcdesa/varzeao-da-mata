@@ -13,7 +13,7 @@ import type { Banco } from './banco.js';
 import { seriesDaTemporada, type SeriesDaTemporada } from './series.js';
 import { classificar } from './tabela.js';
 import { habilidadesDe } from './regras.js';
-import { tamanhoDosElencos } from './temporada2.js';
+import { capitaoDaPartida, proximaPartidaDoTime, tamanhoDosElencos } from './temporada2.js';
 
 /** Duração do Ao Vivo de uma Partida (5 min; 7 no Mata-mata, por causa dos pênaltis). */
 export const DURACAO_AO_VIVO_MS = duracaoAoVivoMs('LIGA');
@@ -46,6 +46,8 @@ interface LinhaEscalacao {
   username: string | null;
   /** Apelido na hora da Escalação (ADR-0014). */
   apelido: string | null;
+  /** Capitão em campo (T2, ADR-0020). */
+  capitao: boolean;
 }
 
 export interface ExportacaoDoSite {
@@ -70,7 +72,7 @@ function estatisticasVazias(): Estatisticas {
   return { jogos: 0, gols: 0, assistencias: 0, desarmes: 0, defesas: 0, golsSofridos: 0, dribles: 0, bloqueios: 0, notaMedia: null, melhorNota: null, vitorias: 0, empates: 0, derrotas: 0 };
 }
 
-export async function exportarSite(banco: Banco, agora = new Date()): Promise<ExportacaoDoSite> {
+export async function exportarSite(banco: Banco, agora = new Date(), o: { vinculos?: ReadonlySet<string> } = {}): Promise<ExportacaoDoSite> {
   const arquivos = new Map<string, unknown>();
   const temporadas = (
     await banco.query<LinhaTemporada>(
@@ -108,7 +110,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
 
   const escalacoes = (
     await banco.query<LinhaEscalacao>(
-      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido
+      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.capitao
        FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id ORDER BY e.partida_id, e.lugar`,
     )
   ).rows;
@@ -297,6 +299,20 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       }
     }
   }
+  // T2: o Capitão atual de cada Time (o do próximo jogo aberto; sem jogo aberto, o da última
+  // Escalação), com a faixa "C" no site para todo mundo (ADR-0020).
+  if (comRegrasT2 && temporada) {
+    for (const time of TIMES) {
+      const proxima = await proximaPartidaDoTime(banco, time, agora);
+      let id = proxima ? await capitaoDaPartida(banco, proxima.id, time, o.vinculos ?? new Set()) : null;
+      if (!proxima) {
+        const ultima = [...escalacoes].reverse().find((e) => e.time_id === time && e.capitao && partidas.some((p) => p.id === e.partida_id));
+        id = ultima?.jogador_id ?? null;
+      }
+      const j = id ? porJogador.get(id) : undefined;
+      if (j && j.time === time) j.capitao = true;
+    }
+  }
   const media = (ns: number[]) => (ns.length ? Math.round((ns.reduce((s, n) => s + n, 0) / ns.length) * 100) / 100 : null);
   for (const j of porJogador.values()) {
     j.notaMedia = media(j.historico.map((h) => h.nota));
@@ -442,7 +458,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       time,
       jogadores: (linhas ?? [])
         .filter((e) => e.time_id === time)
-        .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes) })),
+        .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes), ...(e.capitao ? { capitao: true as const } : {}) })),
     });
     if (!linhas && !revelada(p)) continue;
     const publica: PartidaPublica = {

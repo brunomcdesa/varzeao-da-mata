@@ -94,6 +94,11 @@ export function camisaNum(numero: number | null | undefined): Html {
 }
 
 /** O @ com a camisa ao lado, sempre na mesma linha. */
+/** Faixa de Capitão (T2, ADR-0020): um "C" ao lado do nome. */
+export const faixaC = (capitao: boolean | undefined): Html => (capitao ? html`<abbr class="faixa-capitao" title="Capitão">C</abbr>` : html``);
+/** O nome com a faixa "C" na mesma linha (dentro de listas em grade). */
+export const comFaixa = (conteudo: Html, capitao: boolean | undefined): Html => (capitao ? html`<span class="com-faixa">${conteudo}${faixaC(true)}</span>` : conteudo);
+
 export function comCamisa(conteudo: Html | string, numero: number | null | undefined): Html {
   return numero ? html`<span class="com-camisa"><span class="com-camisa-nome">${conteudo}</span>${camisaNum(numero)}</span>` : html`${conteudo}`;
 }

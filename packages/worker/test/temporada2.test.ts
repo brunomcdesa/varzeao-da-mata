@@ -8,7 +8,7 @@ import { interpretar } from '../src/comandos.js';
 import { escalarPartida, ordemDoRodizio } from '../src/escalacao.js';
 import { rodarPartida } from '../src/partida.js';
 import { exportarSite } from '../src/site.js';
-import { aplicarEscolha, capitaoDaPartida, ordemDoCapitao, suspensos } from '../src/temporada2.js';
+import { aplicarEscolha, capitaniaDoJogador, capitaoDaPartida, ordemDoCapitao, suspensos } from '../src/temporada2.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 
 let banco: Banco;
@@ -40,6 +40,7 @@ describe('Temporada 2 no worker', () => {
     const id = await inscrever('CAP', 'ATA', 'na_t1', '2026-11-06T12:00:00Z');
     const r = await aplicarEscolha(banco, id, { tipo: 'ESPECIALIZACAO', valor: 'ARTILHEIRO' }, new Date('2026-11-06T13:00:00Z'), ninguem);
     expect(r).toEqual({ ok: false, mensagem: 'Isso chega na Temporada 2.' });
+    expect(await capitaniaDoJogador(banco, id, new Date('2026-11-06T13:00:00Z'), ninguem)).toBeNull();
     expect(await processarComentario(banco, { igCommentId: 'conf1', igMediaId: 'm', igUserId: 'na_t1', username: 'na_t1', texto: 'CONFIRMO', comentadoEm: new Date('2026-11-06T13:00:00Z') }, { rodadaEmVotacao: null })).toBe('PRESENCA_RECUSADA');
     const p = await primeiraPartida(t1, 'CAP');
     const job = await rodarPartida(banco, p.id, { seed: 5 });
@@ -50,6 +51,8 @@ describe('Temporada 2 no worker', () => {
     expect((site.arquivos.get(`partidas/${p.id}.json`) as { torcida?: unknown }).torcida).toBeUndefined();
     // Nada da T2 nos Jogadores do site da T1 (Especialização, Treino, cartões).
     const doSite = site.arquivos.get('jogadores.json') as { especializacao?: unknown; treino?: unknown; historico: { amarelos?: unknown; expulso?: unknown }[] }[];
+    expect((await banco.query(`SELECT 1 FROM escalacao WHERE capitao`)).rows).toHaveLength(0);
+    expect(JSON.stringify([...site.arquivos.values()])).not.toContain('"capitao"');
     expect(doSite.every((j) => !('especializacao' in j) && !('treino' in j) && j.historico.every((h) => !('amarelos' in h) && !('expulso' in h)))).toBe(true);
     expect(res.postura).toBeUndefined();
     expect(res.desempenhos.every((d) => d.faltas === undefined)).toBe(true);
@@ -92,7 +95,18 @@ describe('Temporada 2 no worker', () => {
     const antes = new Date('2026-11-18T12:00:00Z');
     expect((await aplicarEscolha(banco, veterano, { tipo: 'POSTURA', valor: 'OFENSIVA' }, antes, async () => new Set([novato]))).ok).toBe(false);
     expect((await aplicarEscolha(banco, novato, { tipo: 'POSTURA', valor: 'OFENSIVA' }, antes, async () => new Set([novato]))).ok).toBe(true);
-    const res = (await rodarPartida(banco, p.id, { seed: 9 })).dados.resultado;
+    // O painel do site: só o Capitão vê a escolha; o outro vê quem é o Capitão e a Postura.
+    expect(await capitaniaDoJogador(banco, novato, antes, async () => new Set([novato]))).toEqual({ eu: true, capitao: 'novato', postura: 'OFENSIVA' });
+    expect(await capitaniaDoJogador(banco, veterano, antes, async () => new Set([novato]))).toEqual({ eu: false, capitao: 'novato', postura: 'OFENSIVA' });
+    // O site mostra a faixa "C" para todos: no Capitão atual e, depois, na Escalação.
+    const antesDoJogo = await exportarSite(banco, antes, { vinculos: new Set([novato]) });
+    const doSite = antesDoJogo.arquivos.get('jogadores.json') as { id: string; capitao?: true }[];
+    expect(doSite.filter((j) => j.capitao).map((j) => j.id)).toContain(novato);
+    expect(doSite.find((j) => j.id === veterano)?.capitao).toBeUndefined();
+    const res = (await rodarPartida(banco, p.id, { seed: 9, vinculos: new Set([novato]) })).dados.resultado;
+    const faixa = (await banco.query<{ id: string }>(`SELECT jogador_id::text AS id FROM escalacao WHERE partida_id = $1 AND time_id = 'ONC' AND capitao`, [p.id])).rows;
+    expect(faixa).toEqual([{ id: novato }]);
+    expect((await banco.query(`SELECT 1 FROM escalacao WHERE partida_id = $1 AND capitao`, [p.id])).rows.length).toBeLessThanOrEqual(2);
     expect(res.versaoSim).toBe(6);
     const lado = p.mandante_id === 'ONC' ? 'mandante' : 'visitante';
     expect(res.postura![lado]).toBe('OFENSIVA');
