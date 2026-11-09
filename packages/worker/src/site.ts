@@ -41,6 +41,8 @@ interface LinhaEscalacao {
   ovr_antes: number;
   habilidades_antes: Habilidades | string | null;
   username: string | null;
+  /** Apelido na hora da Escalação (ADR-0014). */
+  apelido: string | null;
 }
 
 export interface ExportacaoDoSite {
@@ -98,7 +100,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
 
   const escalacoes = (
     await banco.query<LinhaEscalacao>(
-      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username
+      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido
        FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id ORDER BY e.partida_id, e.lugar`,
     )
   ).rows;
@@ -146,11 +148,11 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
     const votacaoFechada = !ehAFinal && (proximaRodada ? apito(proximaRodada).getTime() <= agora.getTime() : false);
     const candidatos = doDia.every(encerrada)
       ? (
-          await banco.query<{ jogador_id: string; username: string; time_id: TimeId; posicao: Posicao; nota: string; numero: number | null; votos: string }>(
-            `SELECT c.jogador_id::text AS jogador_id, j.username, j.time_id, j.posicao, c.nota, c.numero, count(v.eleitor) AS votos
+          await banco.query<{ jogador_id: string; username: string; apelido: string | null; time_id: TimeId; posicao: Posicao; nota: string; numero: number | null; votos: string }>(
+            `SELECT c.jogador_id::text AS jogador_id, j.username, j.apelido, j.time_id, j.posicao, c.nota, c.numero, count(v.eleitor) AS votos
              FROM candidato c JOIN jogador j ON j.id = c.jogador_id
              LEFT JOIN voto_total v ON v.rodada_id = c.rodada_id AND v.jogador_id = c.jogador_id
-             WHERE c.rodada_id = $1 GROUP BY c.jogador_id, j.username, j.time_id, j.posicao, c.nota, c.numero, j.id
+             WHERE c.rodada_id = $1 GROUP BY c.jogador_id, j.username, j.apelido, j.time_id, j.posicao, c.nota, c.numero, j.id
              ORDER BY c.numero NULLS LAST, c.nota DESC, j.id`,
             [base.rodada_id],
           )
@@ -164,16 +166,16 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       fase: base.fase,
       data: diaTexto(base.data),
       votacao: ehAFinal ? 'TEMPORADA' : 'RODADA',
-      candidatos: candidatos.map((c, i) => ({ numero: c.numero ?? i + 1, jogadorId: c.jogador_id, username: c.username, time: c.time_id, posicao: c.posicao, nota: Number(c.nota) })),
-      craque: vencedor ? { jogadorId: vencedor.jogador_id, username: vencedor.username, time: vencedor.time_id } : null,
+      candidatos: candidatos.map((c, i) => ({ numero: c.numero ?? i + 1, jogadorId: c.jogador_id, username: c.username, apelido: c.apelido ?? null, time: c.time_id, posicao: c.posicao, nota: Number(c.nota) })),
+      craque: vencedor ? { jogadorId: vencedor.jogador_id, username: vencedor.username, apelido: vencedor.apelido ?? null, time: vencedor.time_id } : null,
     });
     rodadasPorTemporada.set(base.temporada_id, lista);
   }
 
   // ---- jogadores
   const jogadores = (
-    await banco.query<{ id: string; username: string; time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; inscrito_em: string | Date; visual: Aparencia | string | null; numero: number | null }>(
-      `SELECT id::text AS id, username, time_id, posicao, ovr, habilidades, inscrito_em, visual, numero FROM jogador WHERE NOT banido ORDER BY id`,
+    await banco.query<{ id: string; username: string; time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; inscrito_em: string | Date; visual: Aparencia | string | null; numero: number | null; apelido: string | null; apelido_em: string | Date | null }>(
+      `SELECT id::text AS id, username, time_id, posicao, ovr, habilidades, inscrito_em, visual, numero, apelido, apelido_em FROM jogador WHERE NOT banido ORDER BY id`,
     )
   ).rows;
   const transferiram = new Set(
@@ -186,7 +188,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
   const porJogador = new Map<string, JogadorPublico>();
   const resumido = (id: string): JogadorResumido | null => {
     const j = porJogador.get(id);
-    return j ? { jogadorId: j.id, username: j.username, time: j.time, posicao: j.posicao } : null;
+    return j ? { jogadorId: j.id, username: j.username, apelido: j.apelido ?? null, time: j.time, posicao: j.posicao } : null;
   };
   for (const j of jogadores) {
     const minhas = escalacoes.filter((e) => e.jogador_id === j.id && apitoDaPartida.has(e.partida_id)).sort((a, b) => apitoDaPartida.get(a.partida_id)!.getTime() - apitoDaPartida.get(b.partida_id)!.getTime());
@@ -194,6 +196,8 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
     porJogador.set(j.id, {
       id: j.id,
       username: j.username,
+      apelido: j.apelido ?? null,
+      apelidoTrocadoEm: j.apelido_em ? new Date(j.apelido_em).toISOString() : null,
       time: j.time_id,
       posicao: j.posicao,
       // OVR antes da primeira Partida ainda não encerrada; senão o atual.
@@ -380,7 +384,7 @@ export async function exportarSite(banco: Banco, agora = new Date()): Promise<Ex
       time,
       jogadores: (linhas ?? [])
         .filter((e) => e.time_id === time)
-        .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes) })),
+        .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes) })),
     });
     if (!linhas && !revelada(p)) continue;
     const publica: PartidaPublica = {

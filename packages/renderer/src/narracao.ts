@@ -45,7 +45,22 @@ function videoDoJogo(s: Segmento, tJogo: number): number | null {
   return tJogo <= jr ? s.inicio + ((tJogo - ji) / (jr - ji)) * (r - s.inicio) : r + ((tJogo - jr) / (jf - jr)) * (s.fim - r);
 }
 
-export function montarNarracao(roteiro: Roteiro): Fala[] {
+/**
+ * O narrador só fala o apelido (ADR-0014) se der para ler em voz alta: precisa de vogal e de
+ * mais letras que números/símbolos. Senão, continua pela posição e pelo Time.
+ */
+export function apelidoFalavel(a: string | null | undefined): string | null {
+  if (!a) return null;
+  const letras = (a.match(/\p{L}/gu) ?? []).length;
+  if (letras < 2 || !/[aeiouáéíóúâêôãõà]/i.test(a) || letras < a.replace(/\s/g, '').length / 2) return null;
+  return a.replace(/[_.]+/g, ' ').trim();
+}
+
+/**
+ * `apelidos`: o apelido de cada lugar na Escalação (ADR-0014). O narrador fala o nome só nos
+ * gols; no resto, pela posição e pelo Time.
+ */
+export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string | null)[]>): Fala[] {
   const tl = roteiro.timeline;
   const r = tl.resultado;
   const esc = tl.escalacoes;
@@ -109,6 +124,13 @@ export function montarNarracao(roteiro: Roteiro): Fala[] {
       INDIVIDUAL: [`${cap(f)} parte pra cima do zagueiro...`, `${cap(f)} limpa a marcação...`, `${cap(f)} vai no drible...`],
       DESARME: [`${cap(c)} conduz ${doTime(time(atq))}...`, `Vem ${doTime(time(atq))} pelo meio...`, `${cap(c)} tenta a jogada...`],
     };
+    // Bola parada: o escanteio e o lateral aparecem na tela, então o narrador fala deles.
+    construcao.ESCANTEIO = [`Escanteio ${doTime(time(atq))}! ${cap(pc)} vai cobrar...`, `Bola na bandeirinha. Cobra ${pc} ${doTime(time(atq))}...`, `Escanteio! ${cap(c)} levanta na área...`];
+    if (lance.bolaParada === 'LATERAL') {
+      for (const k of Object.keys(construcao)) {
+        if (k !== 'ESCANTEIO') construcao[k] = [`Lateral ${doTime(time(atq))}, cobrança rápida...`, `Cobrou o lateral, ${pc} recebe...`, `Lateral cobrado, ${c} domina...`];
+      }
+    }
     // O finalizador foi no drible e perdeu a bola: a construção fala dele.
     if (lance.tipo === 'DESARME' && lance.drible && lance.finalizador) {
       construcao.DESARME = [`${cap(c)} acha ${f}... vai pra cima!`, `${cap(f)} recebe e tenta o drible...`, `${cap(f)} parte pra cima do marcador...`];
@@ -152,12 +174,19 @@ export function montarNarracao(roteiro: Roteiro): Fala[] {
         [`Roubou a bola ${def.replace(/^o /, 'o ')}!`, 'normal'],
       ],
     };
+    if (lance.bolaParada === 'ESCANTEIO') {
+      resolucao.DESARME = [[`A zaga afasta! ${cap(def)} sobe mais alto.`, 'normal'], [`Cortou de cabeça ${def}!`, 'normal'], [`Afastou o perigo!`, 'normal']];
+      resolucao.DEFESA = [[`Cabeceou! E o goleiro pega!`, 'animado'], [`Testada firme... defendeu!`, 'animado']];
+      resolucao.FORA = [[`Cabeceou pra fora!`, 'animado'], [`Subiu sozinho... por cima!`, 'animado']];
+      resolucao.GOL = [[`Gol de cabeça ${doTime(time(atq))}!`, 'grito'], [`Subiu e marcou! Gooool ${doTime(time(atq))}!`, 'grito']];
+    }
     const [texto, tom] = escolher(rng, resolucao[lance.tipo]!);
     falas.push({ id: `lance-${s.lance}-b`, texto, inicio: s.resolucao! - 0.1, limite: s.fim - 0.1, tom, segmento: indice, parte: 'depois' });
 
     if (lance.tipo === 'GOL') {
       const placar = tl.placarEm(tl.janelas[s.lance!]!.resolucao + 1);
-      const extras = [
+      const nome = lance.finalizador ? apelidoFalavel(apelidos?.[lance.finalizador.lado]?.[lance.finalizador.indice]) : null;
+      const extras = nome ? [`${nome} não perdoa!`, `É dele! ${nome}!`, `${nome} balança a rede!`] : [
         FALA_DO_TIME[time(atq)].bordao,
         `${cap(f)} não perdoa!`,
         `${curto('mandante')} ${placar.mandante}, ${curto('visitante')} ${placar.visitante}.`,

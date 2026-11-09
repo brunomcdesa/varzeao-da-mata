@@ -5,7 +5,7 @@
 import { IDENTIDADE, type Aparencia, type Escalacao } from '@liga/shared';
 import type { Lado, ResultadoPartida } from '@liga/sim';
 import { CAMPO, cenario } from './cenario.js';
-import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, faixaDeTorcida, plaquinha, type OpcoesDesenho } from './desenho.js';
+import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, faixaDeTorcida, plaquinha, rotulo, type OpcoesDesenho } from './desenho.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
 import type { OpcoesRoteiro, QuadroRoteiro, Roteiro } from './roteiro.js';
 import { aparencia, sprite } from './sprites.js';
@@ -24,6 +24,8 @@ export interface PartidaParaVideo {
   escalacoes: Record<Lado, Escalacao>;
   /** @ de cada lugar da Escalação; null = Jogador da Base. */
   nomes: Record<Lado, (string | null)[]>;
+  /** Apelidos (ADR-0014); o que aparece escrito. Sem ele, o @. */
+  apelidos?: Record<Lado, (string | null)[]>;
   subtitulo?: string;
   roteiro?: OpcoesRoteiro;
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
@@ -181,14 +183,15 @@ function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number
     pin.tabua(x, y, w, h);
     pin.texto('Melhor em campo', COLUNAS / 2, y + 16, 20, display, COR.amarelo, { contorno: COR.contorno });
     const id = IDENTIDADE[r.times[melhor.slot.lado]];
-    const nome = o.nomes[melhor.slot.lado][melhor.slot.indice] ?? 'Jogador da Base';
+    const arroba = o.nomes[melhor.slot.lado][melhor.slot.indice] ?? 'Jogador da Base';
+    const nome = rotulo(o, melhor.slot.lado, melhor.slot.indice) ?? 'Jogador da Base';
     const goleiro = melhor.posicao === 'GOL';
     const visual = {
       camisa: goleiro ? id.secundaria : id.primaria,
       detalhe: goleiro ? id.primaria : id.secundaria,
       calcao: goleiro ? '#2B2B2B' : id.secundaria,
       meiao: goleiro ? id.secundaria : id.primaria,
-      ...aparencia(nome),
+      ...aparencia(arroba),
     };
     const escala = 5;
     const pulo = Math.floor(tVideo * 4) % 2 === 0 ? 0 : 2;

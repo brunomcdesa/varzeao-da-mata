@@ -9,7 +9,7 @@
  *   POST /vinculo/sair           {sessao}                 → {ok}
  *   POST /transferencia          {sessao, time?, posicao?} → {ok}
  *   POST /transferencia/estado   {sessao}                 → o pedido com o resultado da coleta
- *   POST /perfil                 {sessao, visual?, numero?} → {ok} (visual do boneco, camisa)
+ *   POST /perfil                 {sessao, visual?, numero?, apelido?} → {ok} (visual, camisa, apelido)
  *   POST /perfil/estado          {sessao}                 → o pedido com o resultado da coleta
  *   (o voto do Craque vinculado vai pelo /votos, com a sessão)
  *
@@ -27,7 +27,7 @@ export interface EnvVinculo {
 
 /** Aplica no banco agora (Transferência ou perfil); null quando a borda não tem o banco. */
 export type AplicarAgora = (
-  pedido: { tipo: 'TRANSFERENCIA'; jogadorId: string; time?: string; posicao?: string } | { tipo: 'PERFIL'; jogadorId: string; visual?: unknown; numero?: number },
+  pedido: { tipo: 'TRANSFERENCIA'; jogadorId: string; time?: string; posicao?: string } | { tipo: 'PERFIL'; jogadorId: string; visual?: unknown; numero?: number; apelido?: string },
 ) => Promise<{ resultado: string; mensagem: string } | null>;
 
 type Graph = <T>(metodo: 'GET' | 'POST', caminho: string, params: Record<string, string>) => Promise<T>;
@@ -187,7 +187,7 @@ export async function rotasDoVinculo(req: Request, env: EnvVinculo, agora: Date,
   }
 
   if (pathname === '/perfil' || pathname === '/perfil/estado') {
-    const c = await corpo<{ sessao: string; visual: { pele: string; cabelo: string; penteado: string }; numero: number }>(req);
+    const c = await corpo<{ sessao: string; visual: { pele: string; cabelo: string; penteado: string }; numero: number; apelido: string }>(req);
     if (!sessaoValida(c?.sessao)) return json({ erro: 'Sessão inválida' }, 400);
     const s = await sessaoDe(env, c.sessao);
     if (!s) return json({ erro: 'Não vinculado' }, 401);
@@ -197,9 +197,10 @@ export async function rotasDoVinculo(req: Request, env: EnvVinculo, agora: Date,
     const visual = v && typeof v === 'object' ? { pele: String(v.pele).slice(0, 9), cabelo: String(v.cabelo).slice(0, 9), penteado: String(v.penteado).slice(0, 12) } : undefined;
     const numero = c.numero !== undefined && c.numero !== null ? Number(c.numero) : undefined;
     if (numero !== undefined && (!Number.isInteger(numero) || numero < 1 || numero > 99)) return json({ erro: 'O número da camisa vai de 1 a 99.' }, 400);
-    if (!visual && numero === undefined) return json({ erro: 'Nada para salvar' }, 400);
+    const apelido = typeof c.apelido === 'string' ? c.apelido.slice(0, 40) : undefined;
+    if (!visual && numero === undefined && apelido === undefined) return json({ erro: 'Nada para salvar' }, 400);
     // A coleta valida as cores e o número (sem repetir no Time) e devolve a mensagem.
-    const pedido = { jogadorId: s.jogadorId, ...(visual ? { visual } : {}), ...(numero !== undefined ? { numero } : {}), pedidoEm: agora.toISOString() };
+    const pedido = { jogadorId: s.jogadorId, ...(visual ? { visual } : {}), ...(numero !== undefined ? { numero } : {}), ...(apelido !== undefined ? { apelido } : {}), pedidoEm: agora.toISOString() };
     // Na hora, se a borda tem o banco; a coleta só republica o site.
     const feito = await aplicar({ tipo: 'PERFIL', ...pedido }).catch(() => null);
     const registro = feito ? { ...pedido, resultado: feito.resultado, mensagem: feito.mensagem, processadoEm: agora.toISOString() } : pedido;

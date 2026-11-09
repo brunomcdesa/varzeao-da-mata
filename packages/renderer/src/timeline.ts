@@ -14,6 +14,8 @@ import {
   F_RESOLUCAO_DESARME,
   MEIO,
   montarPlano,
+  pontoDoEscanteio,
+  pontoDoLateral,
   sentido,
   type AcaoJogador,
   type Alvo,
@@ -124,14 +126,23 @@ export class Timeline {
     // Jogo contínuo: a bola só volta ao meio depois de gol. Nos outros lances ela termina
     // com quem começa o próximo ataque (passe ou chutão recuperado) e o próximo sai dali.
     const lances = resultado.lances;
+    // Bola parada: antes de um escanteio a bola sai pela linha de fundo; antes de um lateral,
+    // pela linha lateral, onde o próximo lance é cobrado.
     const saida = (i: number): Ponto => {
       const proximo = lances[i + 1];
       if (!proximo || lances[i]!.tipo === 'GOL') return MEIO;
+      if (proximo.bolaParada === 'ESCANTEIO') return pontoDoEscanteio(proximo);
+      if (proximo.bolaParada === 'LATERAL') return pontoDoLateral(proximo, this.bases);
       return this.bases[proximo.criador.lado][proximo.criador.indice]!;
     };
-    this.planos = lances.map((l, i) =>
-      montarPlano(l, this.bases, escalacoes, resultado.seed, { entrada: i === 0 ? MEIO : saida(i - 1), saida: saida(i) }),
-    );
+    this.planos = lances.map((l, i) => {
+      const proximo = lances[i + 1];
+      return montarPlano(l, this.bases, escalacoes, resultado.seed, {
+        entrada: i === 0 ? MEIO : saida(i - 1),
+        saida: saida(i),
+        ...(proximo?.bolaParada === 'ESCANTEIO' ? { escanteio: pontoDoEscanteio(proximo) } : {}),
+      });
+    });
     this.trilhas = this.planos.map((p) => new Map(p.atores.map((a) => [chave(a.slot), a.quadros])));
     this.disputa = montarDisputa(resultado, DURACAO_JOGO);
   }

@@ -34,6 +34,8 @@ import {
   processarComentario,
   rodadaEmVotacao,
   rodarPartida,
+  tokenGuardado,
+  Instagram,
   tabela,
   type Banco,
   type DadosDoVideo,
@@ -220,6 +222,27 @@ async function main(): Promise<void> {
         const pasta = join(raizRepo, 'packages/site/public/dados');
         const escritos = await escreverSite(await exportarSite(banco, agora), pasta);
         console.log(`${escritos.length} arquivos em ${pasta} (situação em ${agora.toISOString()})`);
+        break;
+      }
+
+      case 'inscrever': {
+        // Inscrição pedida pela DM (não por comentário): mesmas regras do ENTRO. Time cheio
+        // realoca no mais vazio, na mesma posição. Sem resposta automática (é DM).
+        const usuario = (process.env.USUARIO ?? '').replace(/^@/, '').trim();
+        const pedido = `ENTRO ${process.env.TIME ?? ''} ${process.env.POSICAO ?? ''}`.trim();
+        if (!usuario || !process.env.TIME) throw new Error('Use: USUARIO=fulano TIME=onca POSICAO=atacante pnpm liga inscrever');
+        const token = (await tokenGuardado(banco))?.token ?? process.env.IG_ACCESS_TOKEN;
+        const ig = process.env.IG_USER_ID && token ? new Instagram({ userId: process.env.IG_USER_ID, token }) : null;
+        const id = (await ig?.idNaDm(usuario).catch(() => null)) ?? null;
+        console.log(id ? `@${usuario} achado na DM (id ${id}).` : `@${usuario} não achado na DM: inscrevendo com id provisório.`);
+        const r = await processarComentario(
+          banco,
+          { igCommentId: `dm-${randomUUID()}`, igMediaId: 'dm', igUserId: id ?? `dm-${usuario.toLowerCase()}`, username: usuario, texto: pedido, comentadoEm: new Date() },
+          { rodadaEmVotacao: null, realocar: true },
+        );
+        const j = (await banco.query<{ time_id: string; posicao: string; ovr: number }>(`SELECT time_id, posicao, ovr FROM jogador WHERE lower(username) = lower($1)`, [usuario])).rows[0];
+        console.log(`Resultado: ${r}${j ? ` → ${j.posicao} do ${j.time_id}, OVR ${j.ovr}` : ''}`);
+        if (r !== 'INSCRITO' && r !== 'REALOCADO') process.exitCode = 1;
         break;
       }
 

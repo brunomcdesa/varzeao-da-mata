@@ -111,8 +111,8 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
   ).rows;
 
   const candidatos = (
-    await banco.query<{ username: string; time_id: TimeId; posicao: Posicao; nota: string; gols: string; numero: number | null }>(
-      `SELECT j.username, j.time_id, j.posicao, c.nota, c.numero,
+    await banco.query<{ username: string; apelido: string | null; time_id: TimeId; posicao: Posicao; nota: string; gols: string; numero: number | null }>(
+      `SELECT j.username, j.apelido, j.time_id, j.posicao, c.nota, c.numero,
               (SELECT count(*) FROM partida p
                  JOIN escalacao e ON e.partida_id = p.id
                  CROSS JOIN LATERAL jsonb_array_elements(p.lances) l
@@ -124,7 +124,7 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
        WHERE c.rodada_id = $1 ORDER BY c.numero NULLS LAST, c.nota DESC, j.id`,
       [rodadaId, etapaDa(r.fase, r.numero) === 'FINAL', r.temporada_id],
     )
-  ).rows.map((c, i) => ({ numero: c.numero ?? i + 1, username: c.username, time: c.time_id, posicao: c.posicao, nota: Number(c.nota), gols: Number(c.gols) }));
+  ).rows.map((c, i) => ({ numero: c.numero ?? i + 1, username: c.username, apelido: c.apelido ?? null, time: c.time_id, posicao: c.posicao, nota: Number(c.nota), gols: Number(c.gols) }));
 
   const max = o.maxNovos ?? 12;
   const final = etapaDa(r.fase, r.numero) === 'FINAL';

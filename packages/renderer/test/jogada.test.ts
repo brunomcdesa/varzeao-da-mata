@@ -18,7 +18,7 @@ describe('Jogadas', () => {
   it('usam todos os estilos ao longo de várias Partidas', () => {
     const vistos = new Set<string>();
     for (let seed = 1; seed <= 20; seed++) for (const p of timeline(seed).planos) vistos.add(p.estilo);
-    expect([...vistos].sort()).toEqual(['CHUTE_DE_LONGE', 'CRUZAMENTO', 'DESARME', 'INDIVIDUAL', 'LANCAMENTO', 'TABELA']);
+    expect([...vistos].sort()).toEqual(['CHUTE_DE_LONGE', 'CRUZAMENTO', 'DESARME', 'ESCANTEIO', 'INDIVIDUAL', 'LANCAMENTO', 'TABELA']);
   });
 
   it('são as mesmas para a mesma Partida', () => {

@@ -150,6 +150,21 @@ export class Instagram {
     return r.data;
   }
 
+  /** O id de quem mandou DM para a Liga, pelo @ (para inscrever à mão quem pediu pela DM). */
+  async idNaDm(username: string): Promise<string | null> {
+    const alvo = username.replace(/^@/, '').toLowerCase();
+    let pagina = await this.chamar<Pagina<{ participants?: { data: { id: string; username?: string }[] } }>>('GET', `${this.o.userId}/conversations`, { platform: 'instagram', fields: 'participants', limit: '50' });
+    for (let i = 0; i < 10; i++) {
+      for (const c of pagina.data) {
+        const p = c.participants?.data.find((x) => (x.username ?? '').toLowerCase() === alvo);
+        if (p) return p.id;
+      }
+      if (!pagina.paging?.next) return null;
+      pagina = await this.chamar('GET', pagina.paging.next);
+    }
+    return null;
+  }
+
   /** Mídias publicadas desde `desde` (as mais novas primeiro). */
   async midiasDesde(desde: Date, limite = 100): Promise<Midia[]> {
     const lista: Midia[] = [];

@@ -10,3 +10,4 @@ export { sprite, definirAparencias, aparencia, LARGURA_SPRITE, ALTURA_SPRITE, ty
 export { COR } from './pixel.js';
 export * from './penaltis.js';
 export { NARRADORES, narradorDa, type Narrador } from './narradores.js';
+export { apelidoFalavel } from './narracao.js';

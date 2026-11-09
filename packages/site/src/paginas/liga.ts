@@ -23,7 +23,7 @@ function salaDoTime(l: LigaPublica, t: TimeId): ReturnType<typeof html> {
   if (vices.length) itens.push({ tipo: 'vice', nome: 'Vice-campeão', icone: 'estrela', quando: vices.map(final) });
   if (lideres.length) itens.push({ tipo: 'lider', nome: 'Melhor da Fase de Liga', icone: 'estrela', quando: lideres.map((x) => html`<span>Temporada ${x.numero}</span>`) });
   if (craques.length) {
-    itens.push({ tipo: 'craque_temporada', nome: 'Craque da Temporada no elenco', icone: 'estrela', quando: craques.map((x) => html`<a href="#/jogador/${x.craque!.jogadorId}">@${x.craque!.username}, T${x.numero}</a>`) });
+    itens.push({ tipo: 'craque_temporada', nome: 'Craque da Temporada no elenco', icone: 'estrela', quando: craques.map((x) => html`<a href="#/jogador/${x.craque!.jogadorId}">${x.craque!.apelido || `@${x.craque!.username}`}, T${x.numero}</a>`) });
   }
   if (!itens.length) return html``;
   const contagem = (i: (typeof itens)[number]) => i.quando.length;
@@ -85,7 +85,7 @@ export const paginaTimes: Pagina = async (main) => {
 function linhaDoElenco(j: JogadorPublico): ReturnType<typeof html> {
   return html`<li><a href="#/jogador/${j.id}" class="elenco-linha">
     ${bonecoImg(j.time, j.posicao, j.username, 2)}
-    <span class="quem">${comCamisa(`@${j.username}`, j.numero)}</span>
+    <span class="quem">${comCamisa(j.apelido || `@${j.username}`, j.numero)}</span>
     <span class="dado" title="Jogos">${j.jogos} j</span>
     <span class="dado" title="Gols">${j.gols} g</span>
     <span class="dado" title="Nota média">${nota(j.notaMedia)}</span>

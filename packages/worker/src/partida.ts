@@ -17,6 +17,8 @@ export interface DadosDoVideo {
   resultado: ResultadoPartida;
   escalacoes: Record<Lado, Escalacao>;
   nomes: Record<Lado, (string | null)[]>;
+  /** Apelidos na hora da Escalação (ADR-0014). */
+  apelidos?: Record<Lado, (string | null)[]>;
   subtitulo?: string;
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
@@ -135,6 +137,7 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
     resultado,
     escalacoes: escalada.escalacoes,
     nomes: escalada.nomes,
+    apelidos: escalada.apelidos,
     subtitulo: subtituloDaPartida(p.rodada, p.fase, new Date(p.apito_inicial)),
     aparencias: await aparenciasEscolhidas(banco),
   };

@@ -1340,6 +1340,18 @@ input[type='checkbox'] {
 .card.pequeno .card-nome {
   font-size: 1.5rem;
 }
+/* Com apelido, o @ fica pequeno embaixo (ADR-0014). */
+.card-arroba {
+  margin: 2px 0 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  opacity: 0.8;
+  overflow-wrap: anywhere;
+}
+.jogador-celula .sub-arroba {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
 
 .pagina-jogador {
   display: grid;
@@ -2439,6 +2451,30 @@ a.jogo:hover {
   color: var(--tinta);
   text-decoration: underline;
   cursor: pointer;
+}
+.form-apelido {
+  display: grid;
+  gap: 10px;
+  max-width: 420px;
+  margin-top: 8px;
+}
+.form-apelido p {
+  margin: 0;
+}
+.form-apelido label {
+  display: grid;
+  gap: 4px;
+  font-weight: 600;
+}
+.form-apelido input {
+  font: inherit;
+  padding: 8px;
+  border: 2px solid var(--contorno);
+  background: #fffaf0;
+  color: var(--tinta);
+}
+.form-apelido input:disabled {
+  opacity: 0.6;
 }
 .form-transferencia {
   display: grid;

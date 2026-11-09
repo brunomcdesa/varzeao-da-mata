@@ -17,9 +17,9 @@ export interface Ponto {
   y: number;
 }
 
-export type EstiloJogada = 'TABELA' | 'CHUTE_DE_LONGE' | 'LANCAMENTO' | 'CRUZAMENTO' | 'INDIVIDUAL' | 'DESARME';
+export type EstiloJogada = 'TABELA' | 'CHUTE_DE_LONGE' | 'LANCAMENTO' | 'CRUZAMENTO' | 'INDIVIDUAL' | 'DESARME' | 'ESCANTEIO';
 
-export type AcaoJogador = 'PARADO' | 'CORRENDO' | 'PASSE' | 'CHUTE' | 'CABECEIO' | 'MERGULHO' | 'CARRINHO' | 'COMEMORANDO';
+export type AcaoJogador = 'PARADO' | 'CORRENDO' | 'PASSE' | 'CHUTE' | 'CABECEIO' | 'MERGULHO' | 'CARRINHO' | 'COMEMORANDO' | 'ARREMESSO';
 
 /** Onde a bola sai ou chega: um ponto fixo ou um Jogador (na posição dele naquele instante). */
 export type Alvo = { ponto: Ponto } | { ator: SlotRef };
@@ -65,9 +65,55 @@ const PESOS: [EstiloJogada, number][] = [
 export interface Continuidade {
   entrada?: Ponto;
   saida?: Ponto;
+  /** O próximo lance é escanteio: a defesa ou o bloqueio manda a bola para a linha de fundo, aqui. */
+  escanteio?: Ponto;
+}
+
+/** Bandeirinha do escanteio do lance (o lado sai do número do lance: sempre o mesmo). */
+export function pontoDoEscanteio(lance: Lance): Ponto {
+  const y = lance.ataque === 'mandante' ? 0.012 : 0.988;
+  return { x: lance.numero % 2 === 0 ? 0.015 : 0.985, y };
+}
+
+/** Onde o lateral é cobrado: na linha lateral do lado do criador, na altura dele. */
+export function pontoDoLateral(lance: Lance, bases: Record<Lado, Ponto[]>): Ponto {
+  const b = bases[lance.criador.lado][lance.criador.indice]!;
+  return { x: b.x < 0.5 ? 0.012 : 0.988, y: Math.min(0.85, Math.max(0.15, b.y)) };
 }
 
 export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Record<Lado, Escalacao>, seed: number, cont: Continuidade = {}): Plano {
+  const plano = montarJogada(lance, bases, escalacoes, seed, cont);
+  // Lateral: um companheiro vai até a linha lateral, com calma, e cobra com as duas mãos para o
+  // criador. A jogada toda é empurrada para depois da cobrança (a resolução fica onde estava).
+  if (lance.bolaParada !== 'LATERAL' || !lance.cobrador) return plano;
+  const linha = cont.entrada ?? MEIO;
+  const L = lance.cobrador;
+  const T = 0.16;
+  const R = lance.tipo === 'DESARME' ? F_RESOLUCAO_DESARME : F_RESOLUCAO_CHUTE;
+  const g = (f: number) => (f <= R ? T + (f * (R - T)) / R : f);
+  const [primeiro, ...resto] = plano.bola;
+  const chegada = g(primeiro?.ate ?? 0.08);
+  const mover = (b: TrechoBola): TrechoBola => ({ ...b, de: g(b.de), ate: g(b.ate) });
+  // Quem já estava perto da linha espera ali; os outros esperam na posição normal.
+  const perto: Ponto = { x: linha.x + (linha.x < 0.5 ? 0.015 : -0.015), y: linha.y };
+  return {
+    ...plano,
+    bola: [
+      { de: 0, ate: T, tipo: 'PARADA', ponto: linha },
+      { de: T, ate: chegada, tipo: 'VOO', origem: { ponto: perto }, destino: { ator: lance.criador }, altura: 0.3 },
+      ...resto.map(mover),
+    ],
+    atores: [
+      ...plano.atores
+        .filter((x) => !(x.slot.lado === L.lado && x.slot.indice === L.indice))
+        .map((x) => ({ ...x, quadros: x.quadros.map(([f, pos]): QuadroAtor => [f === 0 ? 0 : g(f), pos]) })),
+      { slot: L, quadros: [[0, null], [T * 0.7, perto], [T + 0.01, perto], [T + 0.16, null]] },
+    ],
+    acoes: [...plano.acoes.map((x) => ({ ...x, de: g(x.de), ate: g(x.ate) })), { slot: L, de: T * 0.72, ate: T + 0.005, acao: 'ARREMESSO' }],
+  };
+}
+
+function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Record<Lado, Escalacao>, seed: number, cont: Continuidade): Plano {
   const entrada = cont.entrada ?? MEIO;
   const saida = cont.saida ?? MEIO;
   const rng = criarRng(((seed >>> 0) * 31 + lance.numero * 7919) >>> 0);
@@ -80,7 +126,7 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
   const C = lance.criador;
   const cx = bases[C.lado][C.indice]!.x;
 
-  if (lance.tipo === 'DESARME') {
+  if (lance.tipo === 'DESARME' && lance.bolaParada !== 'ESCANTEIO') {
     return lance.drible && lance.finalizador ? planoDesarmeNoDrible(lance, P, cx, bases, rng.next()) : planoDesarme(lance, P, cx, rng.next());
   }
 
@@ -112,6 +158,7 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
     acao(a, de - 0.01, de + 0.025, 'PASSE');
   };
   const posse = (de: number, ate: number, s: SlotRef) => bola.push({ de, ate, tipo: 'POSSE', ator: s });
+  if (lance.bolaParada === 'ESCANTEIO') return planoEscanteio();
 
   // A bola chega ao criador de onde o lance anterior a deixou (do meio, só depois de gol).
   bola.push({ de: 0, ate: 0.08, tipo: 'VOO', origem: { ponto: entrada }, destino: { ator: C }, altura: 0 });
@@ -215,6 +262,12 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
       bola.push({ de: chute, ate: F_RESOLUCAO_CHUTE, tipo: 'VOO', origem: { ator: F }, destino: { ator: M }, altura: 0.05, chute: true });
       acao(F, chute - 0.015, chute + 0.03, 'CHUTE');
       acao(M, chute - 0.01, F_RESOLUCAO_CHUTE + 0.05, 'CARRINHO');
+      if (cont.escanteio) {
+        // Desviou para a linha de fundo: escanteio.
+        bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.9, tipo: 'VOO', origem: { ator: M }, destino: { ponto: cont.escanteio }, altura: 0.3 });
+        bola.push({ de: 0.9, ate: 1, tipo: 'PARADA', ponto: cont.escanteio });
+        return fechar();
+      }
       const sobra: Ponto = { x: frente.x - lateral * 0.04, y: frente.y - dir * 0.05 };
       bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.83, tipo: 'VOO', origem: { ator: M }, destino: { ponto: sobra }, altura: 0.25 });
       bola.push({ de: 0.83, ate: 0.88, tipo: 'VOO', origem: { ponto: sobra }, destino: { ator: M }, altura: 0 });
@@ -227,7 +280,7 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
 
   // O chute.
   bola.push({ de: inicioChute, ate: F_RESOLUCAO_CHUTE, tipo: 'VOO', origem: { ator: F }, destino: { ponto: destino }, altura: alturaChute, chute: true });
-  acao(F, inicioChute - 0.015, inicioChute + 0.03, estilo === 'CRUZAMENTO' ? 'CABECEIO' : 'CHUTE');
+  acao(F, inicioChute - 0.015, inicioChute + 0.03, estilo === 'CRUZAMENTO' || estilo === 'ESCANTEIO' ? 'CABECEIO' : 'CHUTE');
 
   // O goleiro: acompanha a bola (posição normal) e, no chute, mergulha.
   const linha = P(0.5, 0.03);
@@ -246,6 +299,10 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
     bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ponto: destino }, destino: { ponto: MEIO }, altura: 0.3 });
     acao(F, F_RESOLUCAO_CHUTE + 0.01, 0.97, 'COMEMORANDO');
     acao(C, F_RESOLUCAO_CHUTE + 0.04, 0.95, 'COMEMORANDO');
+  } else if (lance.tipo === 'DEFESA' && cont.escanteio) {
+    // Espalmou para a linha de fundo: escanteio.
+    bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.9, tipo: 'VOO', origem: { ponto: destino }, destino: { ponto: cont.escanteio }, altura: 0.35 });
+    bola.push({ de: 0.9, ate: 1, tipo: 'PARADA', ponto: cont.escanteio });
   } else if (lance.tipo === 'DEFESA') {
     bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.9, tipo: 'POSSE', ator: G });
     bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ator: G }, destino: { ponto: saida }, altura: 0.6 });
@@ -299,6 +356,110 @@ export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalaco
         { slot: D, de: F_RESOLUCAO_DESARME - 0.05, ate: F_RESOLUCAO_DESARME + 0.04, acao: 'CARRINHO' },
         { slot: D, de: 0.74, ate: 0.77, acao: 'PASSE' },
       ],
+    };
+  }
+
+  /**
+   * Escanteio: o criador vai até a bandeirinha e cruza; o finalizador (atacante ou zagueiro que
+   * subiu) cabeceia contra o goleiro, ou o zagueiro marcador chega antes e afasta (DESARME).
+   */
+  function planoEscanteio(): Plano {
+    const canto = entrada;
+    const lado = canto.x < 0.5 ? -1 : 1;
+    const Fe = lance.finalizador!;
+    const Z = lance.marcador ?? lance.defensor;
+    const Ge = goleiroDe(escalacoes[def], def);
+    const cobranca: Ponto = { x: canto.x - lado * 0.01, y: canto.y + dir * 0.008 };
+    const cabeca = P(0.5 + lado * (0.05 + rng.next() * 0.06), 0.09);
+    const fx0 = bases[Fe.lado][Fe.indice]!.x;
+    ator(C, [[0, null], [0.18, cobranca], [0.32, cobranca], [0.5, null]]);
+    // Todo mundo vai para a área enquanto a bola espera na bandeirinha: os atacantes, um
+    // zagueiro que sobe e um meia na entrada da área; quem defende marca de perto e os
+    // atacantes do outro time ficam na meia-lua. Depois voltam devagar às posições.
+    const usados = new Set([C, Fe, Z, Ge].map((x) => `${x.lado}:${x.indice}`));
+    const ida = 0.06;
+    const pronto = 0.24;
+    const volta = 0.86;
+    const vagas = [0.36, 0.64, 0.46, 0.56, 0.3, 0.7];
+    let k = 0;
+    let zagueiroQueSobe = escalacoes[atq].jogadores.some((j, i) => j.posicao === 'ZAG' && Fe.indice === i) ? 1 : 0;
+    const marcas: Ponto[] = [];
+    escalacoes[atq].jogadores.forEach((j, i) => {
+      if (usados.has(`${atq}:${i}`) || j.posicao === 'GOL') return;
+      if (j.posicao === 'ZAG' && zagueiroQueSobe++ > 0) return; // um zagueiro fica atrás
+      const ponto = j.posicao === 'MEI' ? P(0.5 - lado * 0.08, 0.24) : P(vagas[k++ % vagas.length]!, 0.11 + (k % 2) * 0.03);
+      if (j.posicao !== 'MEI') marcas.push(ponto);
+      ator({ lado: atq, indice: i }, [[0, null], [ida, null], [pronto, ponto], [volta - 0.08, ponto], [1, null]]);
+    });
+    marcas.push(cabeca);
+    let m = 0;
+    escalacoes[def].jogadores.forEach((j, i) => {
+      if (usados.has(`${def}:${i}`) || j.posicao === 'GOL') return;
+      const ponto =
+        j.posicao === 'ATA'
+          ? P(0.5 + (m++ % 2 === 0 ? -0.1 : 0.1), 0.27)
+          : (() => {
+              const alvoM = marcas.shift() ?? P(0.5, 0.08);
+              return { x: alvoM.x + lado * 0.015, y: alvoM.y + dir * 0.022 };
+            })();
+      ator({ lado: def, indice: i }, [[0, null], [ida, null], [pronto, ponto], [volta - 0.08, ponto], [1, null]]);
+    });
+    ator(Fe, [[0, null], [0.2, P(lerp(fx0, 0.5, 0.5), 0.17)], [0.45, P(cabeca.x - lado * 0.05, 0.15)], [0.68, cabeca], [0.82, cabeca], [0.95, P(cabeca.x, 0.13)], [1, null]]);
+    acao(C, 0.29, 0.33, 'PASSE');
+    bola.push({ de: 0, ate: 0.3, tipo: 'PARADA', ponto: canto });
+    if (lance.tipo === 'DESARME') {
+      // A zaga chega antes e afasta de cabeça.
+      const corte: Ponto = { x: cabeca.x, y: cabeca.y + dir * 0.025 };
+      ator(Z, [[0, null], [0.2, P(cabeca.x + lado * 0.03, 0.12)], [F_RESOLUCAO_DESARME, corte], [0.8, corte], [1, null]]);
+      bola.push({ de: 0.3, ate: F_RESOLUCAO_DESARME, tipo: 'VOO', origem: { ponto: canto }, destino: { ator: Z }, altura: 0.55 });
+      bola.push({ de: F_RESOLUCAO_DESARME, ate: 0.85, tipo: 'VOO', origem: { ator: Z }, destino: { ponto: saida }, altura: 0.6 });
+      bola.push({ de: 0.85, ate: 1, tipo: 'PARADA', ponto: saida });
+      acao(Z, F_RESOLUCAO_DESARME - 0.03, F_RESOLUCAO_DESARME + 0.03, 'CABECEIO');
+      acao(Fe, F_RESOLUCAO_DESARME - 0.03, F_RESOLUCAO_DESARME + 0.02, 'CABECEIO');
+      estilo = 'ESCANTEIO';
+      return fecharEscanteio();
+    }
+    // O cruzamento chega na cabeça do finalizador; o marcador sobe junto, sem alcançar.
+    ator(Z, [[0, null], [0.2, P(cabeca.x + lado * 0.03, 0.12)], [0.68, { x: cabeca.x + lado * 0.015, y: cabeca.y + dir * 0.02 }], [0.85, P(cabeca.x, 0.12)], [1, null]]);
+    acao(Z, 0.66, 0.71, 'CABECEIO');
+    bola.push({ de: 0.3, ate: 0.7, tipo: 'VOO', origem: { ponto: canto }, destino: { ator: Fe }, altura: 0.55 });
+    const r2 = rng.next();
+    const alvoCabeceio: Ponto =
+      lance.tipo === 'GOL' ? P(0.5 + (r2 * 2 - 1) * 0.08, -0.012) : lance.tipo === 'DEFESA' ? P(0.5 + (r2 * 2 - 1) * 0.07, 0.035) : P(0.5 + (r2 < 0.5 ? -1 : 1) * 0.12, -0.01);
+    bola.push({ de: 0.7, ate: F_RESOLUCAO_CHUTE, tipo: 'VOO', origem: { ator: Fe }, destino: { ponto: alvoCabeceio }, altura: lance.tipo === 'FORA' ? 0.35 : 0.08, chute: true });
+    acao(Fe, 0.68, 0.74, 'CABECEIO');
+    const linhaG = P(0.5, 0.03);
+    const mergulho: Ponto = lance.tipo === 'DEFESA' ? alvoCabeceio : { x: lerp(linhaG.x, alvoCabeceio.x, lance.tipo === 'GOL' ? 0.5 : 0.35), y: linhaG.y };
+    ator(Ge, [[0, null], [0.68, null], [F_RESOLUCAO_CHUTE, mergulho], [0.9, lance.tipo === 'DEFESA' ? P(0.5, 0.06) : mergulho], [1, null]]);
+    acao(Ge, 0.72, F_RESOLUCAO_CHUTE + 0.06, 'MERGULHO');
+    if (lance.tipo === 'GOL') {
+      bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.9, tipo: 'PARADA', ponto: alvoCabeceio });
+      bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ponto: alvoCabeceio }, destino: { ponto: MEIO }, altura: 0.3 });
+      acao(Fe, F_RESOLUCAO_CHUTE + 0.01, 0.97, 'COMEMORANDO');
+      acao(C, F_RESOLUCAO_CHUTE + 0.04, 0.95, 'COMEMORANDO');
+    } else if (lance.tipo === 'DEFESA') {
+      bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.9, tipo: 'POSSE', ator: Ge });
+      bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ator: Ge }, destino: { ponto: saida }, altura: 0.6 });
+      acao(Ge, 0.88, 0.92, 'PASSE');
+    } else {
+      bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.86, tipo: 'PARADA', ponto: alvoCabeceio });
+      bola.push({ de: 0.86, ate: 0.9, tipo: 'VOO', origem: { ponto: alvoCabeceio }, destino: { ator: Ge }, altura: 0 });
+      bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ator: Ge }, destino: { ponto: saida }, altura: 0.6 });
+      acao(Ge, 0.88, 0.92, 'PASSE');
+    }
+    estilo = 'ESCANTEIO';
+    return fecharEscanteio();
+  }
+
+  function fecharEscanteio(): Plano {
+    return {
+      estilo: 'ESCANTEIO',
+      atores: [...atores].map(([k, quadros]) => {
+        const [lado, i] = k.split(':');
+        return { slot: { lado: lado as Lado, indice: Number(i) }, quadros };
+      }),
+      bola,
+      acoes,
     };
   }
 

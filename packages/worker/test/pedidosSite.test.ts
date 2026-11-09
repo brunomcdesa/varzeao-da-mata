@@ -111,3 +111,34 @@ describe('Pedidos do site (ADR-0013)', () => {
     expect((await banco.query<{ numero: number | null }>(`SELECT numero FROM jogador WHERE id = $1`, [c])).rows[0]!.numero).toBeNull();
   });
 });
+
+describe('Apelido (ADR-0014)', () => {
+  const pedir = async (id: string, apelido: string, quando: Date) => {
+    const agenda = new AgendaNaMemoria();
+    await agenda.gravar(`perfil-site/${id}`, { jogadorId: id, apelido, pedidoEm: quando.toISOString() } satisfies PerfilDoSite);
+    await processarPedidosDoSite(banco, agenda, quando);
+    return (await agenda.ler<PerfilDoSite>(`perfil-site/${id}`))!;
+  };
+  const apelidoDe = async (id: string) => (await banco.query<{ apelido: string | null }>(`SELECT apelido FROM jogador WHERE id = $1`, [id])).rows[0]!.apelido;
+
+  it('salva, recusa palavrão, repetido e @ de outro; uma troca por rodada com 10 min para corrigir', async () => {
+    const id = await inscrever();
+    await processarComentario(banco, { igCommentId: 'c2', igMediaId: 'm', igUserId: 'u2', username: 'ciclano', texto: 'ENTRO ONCA ZAG', comentadoEm: new Date('2026-11-08T12:01:00Z') }, { rodadaEmVotacao: null });
+    const outro = (await banco.query<{ id: string }>(`SELECT id::text AS id FROM jogador WHERE username = 'ciclano'`)).rows[0]!.id;
+
+    expect((await pedir(id, 'P0rr4 loka', agora)).resultado).toBe('RECUSADO');
+    expect((await pedir(id, 'Ciclano', agora)).mensagem).toMatch(/@ de outro jogador/);
+    expect((await pedir(id, 'Bruninho', agora)).resultado).toBe('SALVO');
+    expect(await apelidoDe(id)).toBe('Bruninho');
+    // Outro jogador não pode repetir (nem com acento/espaço diferente).
+    expect((await pedir(outro, 'brúninho', agora)).mensagem).toMatch(/já é de outro jogador/);
+    // Correção nos primeiros 10 minutos.
+    expect((await pedir(id, 'Bruninho 10', new Date(agora.getTime() + 5 * 60_000))).resultado).toBe('SALVO');
+    // Depois disso, só na próxima rodada (meia-noite de Brasília).
+    expect((await pedir(id, 'Outro', new Date(agora.getTime() + 30 * 60_000))).mensagem).toMatch(/já trocou o apelido nesta rodada/);
+    expect((await pedir(id, 'Outro', new Date('2026-11-09T03:05:00Z'))).resultado).toBe('SALVO');
+    // Vazio volta ao @.
+    expect((await pedir(id, '', new Date('2026-11-10T03:05:00Z'))).resultado).toBe('SALVO');
+    expect(await apelidoDe(id)).toBeNull();
+  });
+});

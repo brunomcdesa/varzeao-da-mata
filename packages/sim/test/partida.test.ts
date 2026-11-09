@@ -190,14 +190,14 @@ describe('calibração', () => {
     return vitorias / N;
   };
 
-  it('gols por jogo ficam perto de 3,5', () => {
+  it('gols por jogo ficam perto de 3,8 (3,5 dos lances + os de escanteio)', () => {
     let gols = 0;
     for (let seed = 1; seed <= N; seed++) {
       const r = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('TAT', 70), seed });
       gols += r.gols.mandante + r.gols.visitante;
     }
-    expect(gols / N).toBeGreaterThan(3.2);
-    expect(gols / N).toBeLessThan(3.8);
+    expect(gols / N).toBeGreaterThan(3.5);
+    expect(gols / N).toBeLessThan(4.1);
   });
 
   it('time bem mais forte (+15 de OVR) vence por volta de 60–65% das vezes', () => {
@@ -208,5 +208,39 @@ describe('calibração', () => {
 
   it('zebra existe: mesmo +25 de OVR perde de vez em quando', () => {
     expect(taxaDoForte(85, 60)).toBeLessThan(0.85);
+  });
+});
+
+describe('bolas paradas (VERSAO_SIM 3)', () => {
+  it('escanteio só depois de defesa ou bloqueio, do mesmo time; lateral nunca no primeiro lance nem depois de gol', () => {
+    let escanteios = 0;
+    let laterais = 0;
+    for (let seed = 1; seed <= 300; seed++) {
+      const esc = { mandante: escalacao('CAP', 68), visitante: escalacao('TAT', 68) };
+      const r = simularPartida({ ...base, ...esc, seed });
+      r.lances.forEach((l, i) => {
+        expect(l.numero).toBe(i + 1);
+        if (l.bolaParada === 'ESCANTEIO') {
+          escanteios++;
+          const antes = r.lances[i - 1]!;
+          expect(['DEFESA', 'BLOQUEIO']).toContain(antes.tipo);
+          expect(antes.ataque).toBe(l.ataque);
+          expect(['ATA', 'ZAG']).toContain(esc[l.finalizador!.lado].jogadores[l.finalizador!.indice]!.posicao);
+          expect(esc[l.criador.lado].jogadores[l.criador.indice]!.posicao).toBe('MEI');
+        }
+        if (l.bolaParada === 'LATERAL') {
+          laterais++;
+          expect(i).toBeGreaterThan(0);
+          expect(r.lances[i - 1]!.tipo).not.toBe('GOL');
+          expect(l.cobrador).toBeDefined();
+        }
+      });
+      // Os gols do placar batem com os lances de GOL (inclusive os de escanteio).
+      const golsNosLances = r.lances.filter((l) => l.tipo === 'GOL').length;
+      expect(golsNosLances).toBe(r.gols.mandante + r.gols.visitante);
+    }
+    expect(escanteios / 300).toBeGreaterThan(1);
+    expect(laterais / 300).toBeGreaterThan(3.5);
+    expect(laterais / 300).toBeLessThan(6.5);
   });
 });

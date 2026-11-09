@@ -21,7 +21,7 @@ function escalacao(e: EscalacaoPublica, lado: Lado, r: ResultadoPartida | null, 
         return html`<li>
           ${bonecoImg(e.time, j.posicao, j.username, 2)}
           <span class="pos" title="${NOME_DA_POSICAO[j.posicao]}">${j.posicao}</span>
-          <span class="quem">${comCamisa(jogadorLink(j.jogadorId, j.username), j.jogadorId ? camisas.get(j.jogadorId) : null)}</span>
+          <span class="quem">${comCamisa(jogadorLink(j.jogadorId, j.username, j.apelido), j.jogadorId ? camisas.get(j.jogadorId) : null)}</span>
           ${d && (d.gols || d.assistencias) ? html`<span class="feitos">${'●'.repeat(d.gols)}${d.assistencias ? html`<small>+${d.assistencias} assist.</small>` : ''}</span>` : html`<span class="feitos"></span>`}
           <span class="ovr" title="OVR antes do jogo">${j.ovr}${d && delta ? html`<small class="${delta > 0 ? 'sobe' : 'desce'}">${delta > 0 ? '▲' : '▼'}${Math.abs(delta)}</small>` : ''}</span>
           ${d ? html`<span class="nota-chip" title="Nota da Partida">${nota(d.nota)}</span>` : ''}
@@ -36,9 +36,22 @@ function textoDoLance(r: ResultadoPartida, nomes: Record<Lado, (string | null)[]
   const de = (s: SlotRef | undefined) => (n(s) === 'a Base' ? 'da Base' : `de ${n(s)}`);
   const inicio = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
   const driblou = l.drible && l.marcador ? `, depois de driblar ${n(l.marcador) === 'a Base' ? 'o zagueiro da Base' : n(l.marcador)}` : '';
+  if (l.bolaParada === 'ESCANTEIO') {
+    switch (l.tipo) {
+      case 'GOL':
+        return `Gol de cabeça ${de(l.finalizador)}, escanteio cobrado ${n(l.criador) === 'a Base' ? 'pela Base' : `por ${n(l.criador)}`}`;
+      case 'DEFESA':
+        return inicio(`escanteio: ${n(l.defensor)} defende a cabeçada ${de(l.finalizador)}`);
+      case 'FORA':
+        return inicio(`escanteio: ${n(l.finalizador)} cabeceia para fora`);
+      default:
+        return inicio(`escanteio: ${n(l.defensor)} afasta de cabeça`);
+    }
+  }
+  const doLateral = l.bolaParada === 'LATERAL' ? ' (começou num lateral)' : '';
   switch (l.tipo) {
     case 'GOL':
-      return (n(l.criador) !== n(l.finalizador) || n(l.criador) === 'a Base' ? `Gol ${de(l.finalizador)}, passe ${de(l.criador)}` : `Gol ${de(l.finalizador)}`) + driblou;
+      return (n(l.criador) !== n(l.finalizador) || n(l.criador) === 'a Base' ? `Gol ${de(l.finalizador)}, passe ${de(l.criador)}` : `Gol ${de(l.finalizador)}`) + driblou + doLateral;
     case 'DEFESA':
       return inicio(`${n(l.defensor)} defende o chute ${de(l.finalizador)}`) + driblou;
     case 'FORA':
@@ -69,8 +82,8 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
   const timeline = montarTimeline(p);
   const classico = rotuloClassico(p.mandante, p.visitante);
   const nomes: Record<Lado, (string | null)[]> = {
-    mandante: [...(p.escalacoes?.mandante.jogadores ?? [])].sort((a, b) => a.lugar - b.lugar).map((j) => (j.username ? `@${j.username}` : null)),
-    visitante: [...(p.escalacoes?.visitante.jogadores ?? [])].sort((a, b) => a.lugar - b.lugar).map((j) => (j.username ? `@${j.username}` : null)),
+    mandante: [...(p.escalacoes?.mandante.jogadores ?? [])].sort((a, b) => a.lugar - b.lugar).map((j) => (j.username ? j.apelido || `@${j.username}` : null)),
+    visitante: [...(p.escalacoes?.visitante.jogadores ?? [])].sort((a, b) => a.lugar - b.lugar).map((j) => (j.username ? j.apelido || `@${j.username}` : null)),
   };
   const mostrarFinal = s === 'ENCERRADA' && r;
   const placar = mostrarFinal
