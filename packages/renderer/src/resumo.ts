@@ -4,7 +4,7 @@
  * narrada pelo Locutor da Liga; cada cartela estica até a sua fala caber inteira.
  */
 import { desenharCompartilhe } from './anuncio.js';
-import { FALA_DO_TIME, IDENTIDADE, doTime, nomeDaRodada, type Posicao, type TimeId, type Aparencia } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, doTime, nomeDaRodada, type Posicao, type Serie, type TimeId, type Aparencia } from '@liga/shared';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, plaquinha } from './desenho.js';
 import { apelidoFalavel, type Fala } from './narracao.js';
@@ -17,14 +17,23 @@ export interface DadosDoResumo {
   temporada: number;
   rodada: number;
   fase: 'LIGA' | 'MATA_MATA';
-  placares: { mandante: TimeId; visitante: TimeId; golsMandante: number; golsVisitante: number; penaltis: { mandante: number; visitante: number } | null; hora: number }[];
+  /** `serie`: em Temporadas com Série B, de qual Série é o placar (ADR-0015). */
+  placares: { mandante: TimeId; visitante: TimeId; golsMandante: number; golsVisitante: number; penaltis: { mandante: number; visitante: number } | null; hora: number; serie?: Serie }[];
+  /** Tabela da Série A (ou da Liga inteira, antes das Séries). */
   tabela: { time: TimeId; jogos: number; pontos: number; vitorias: number; saldo: number }[];
+  /** Tabela da Série B, quando existe. */
+  tabelaB?: { time: TimeId; jogos: number; pontos: number; vitorias: number; saldo: number }[];
   novosContratados: { username: string; time: TimeId; posicao: Posicao }[];
   totalNovos: number;
-  /** `numero`: o que se comenta para votar (ADR-0011). */
-  candidatos: { numero?: number; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number; gols: number }[];
+  /**
+   * `numero`: o número interno do Candidato (ADR-0011); `rotulo`: o que se comenta para votar
+   * ("3", ou "A3" e "B3" com duas Séries); `serie`: a Série do Candidato (ADR-0015).
+   */
+  candidatos: { numero?: number; rotulo?: string; serie?: Serie; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number; gols: number }[];
   /** Resumo da Final: o Time campeão ganha uma cartela própria. */
   campeao?: TimeId;
+  /** Campeão da Série B, quando existe. */
+  campeaoB?: TimeId;
   /** Na Final os Candidatos são da Temporada inteira (nota = nota média). */
   votacao?: 'RODADA' | 'TEMPORADA';
   /**

@@ -47,6 +47,25 @@ describe('Voto', () => {
     expect(interpretar('3x1 foi pouco')).toEqual({ tipo: 'IGNORADO' });
   });
 
+  it('com duas Séries, a letra diz a Série: "B3", "A3", "CRAQUE B3" (ADR-0015)', () => {
+    expect(interpretar('B3')).toEqual({ tipo: 'VOTO', numero: 3, serie: 'B', solto: true });
+    expect(interpretar('a2')).toEqual({ tipo: 'VOTO', numero: 2, serie: 'A', solto: true });
+    expect(interpretar('B 4 🔥')).toEqual({ tipo: 'VOTO', numero: 4, serie: 'B', solto: true });
+    expect(interpretar('CRAQUE B3')).toEqual({ tipo: 'VOTO', numero: 3, serie: 'B' });
+    expect(interpretar('craque série b 1')).toEqual({ tipo: 'VOTO', numero: 1, serie: 'B' });
+    expect(interpretar('voto A5')).toEqual({ tipo: 'VOTO', numero: 5, serie: 'A' });
+    // Sem letra continua sendo a A.
+    expect(interpretar('CRAQUE 3')).toEqual({ tipo: 'VOTO', numero: 3 });
+  });
+
+  it('a Série B tem os Times novos: "ENTRO Jacaré atacante", "quero o lobo guará goleiro"', () => {
+    expect(interpretar('ENTRO Jacaré atacante')).toEqual({ tipo: 'INSCRICAO', time: 'JAC', posicao: 'ATA' });
+    expect(interpretar('ENTRO lobo guará goleiro')).toEqual({ tipo: 'INSCRICAO', time: 'LOB', posicao: 'GOL' });
+    expect(interpretar('ENTRO cachorro do mato zagueiro')).toEqual({ tipo: 'INSCRICAO', time: 'CDM', posicao: 'ZAG' });
+    expect(interpretar('ENTRO boto rosa meia')).toEqual({ tipo: 'INSCRICAO', time: 'BOT', posicao: 'MEI' });
+    expect(interpretar('ENTRO Coruja atacante')).toEqual({ tipo: 'INSCRICAO', time: 'COR', posicao: 'ATA' });
+  });
+
   it('com @ e sem número é inválido: o voto agora é por número', () => {
     expect(interpretar('CRAQUE @rafa')).toEqual({ tipo: 'INVALIDO', prefixo: 'CRAQUE', motivo: 'SEM_CANDIDATO' });
     expect(interpretar('CRAQUE 12')).toEqual({ tipo: 'INVALIDO', prefixo: 'CRAQUE', motivo: 'SEM_CANDIDATO' });

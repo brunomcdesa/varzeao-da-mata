@@ -3,7 +3,7 @@
  * Regra: nada que revele o resultado de uma Partida antes do seu Apito Inicial.
  */
 import type { Aparencia } from './aparencia.js';
-import type { Posicao, TimeId } from './index.js';
+import type { Posicao, Serie, TimeId } from './index.js';
 import type { Habilidades } from './habilidades.js';
 
 export interface TimePublico {
@@ -46,6 +46,8 @@ export interface PartidaNoCalendario {
   vantagemDoEmpate?: boolean;
   /** Mata-mata encerrado: quem avançou (ou foi campeão). */
   classificado?: TimeId;
+  /** A Série da Partida (ADR-0015). Sem o campo, é a A. */
+  serie?: Serie;
 }
 
 export interface RodadaPublica {
@@ -54,25 +56,37 @@ export interface RodadaPublica {
   numero: number;
   fase: 'LIGA' | 'MATA_MATA';
   data: string;
-  /** `numero`: o que se comenta (ou clica no site) para votar. */
-  candidatos: { numero: number; jogadorId: string; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number }[];
+  /**
+   * `numero`: o número interno, que o site manda para a borda ao votar. `rotulo`: o que se
+   * comenta ("3", ou "A3" e "B3" com duas Séries). `serie`: a Série do Candidato (ADR-0015).
+   */
+  candidatos: { numero: number; rotulo?: string; serie?: Serie; jogadorId: string; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number }[];
   /** RODADA: Craque da Rodada. TEMPORADA: na Final, os Candidatos são a Craque da Temporada (nota = média). */
   votacao: 'RODADA' | 'TEMPORADA';
-  /** Definido quando a votação fecha. */
+  /** Definido quando a votação fecha. Com duas Séries, é o da A. */
   craque: { jogadorId: string; username: string; apelido?: string | null; time: TimeId } | null;
+  /** Craque da Série B, quando a Rodada tem Série B. */
+  craqueB?: { jogadorId: string; username: string; apelido?: string | null; time: TimeId } | null;
 }
 
 export interface LigaPublica {
   atualizadoEm: string;
   temporada: { numero: number; status: string } | null;
   times: TimePublico[];
+  /** Tabela da Série A (ou da Liga inteira, antes das Séries). */
   tabela: LinhaTabelaPublica[];
+  /** Tabela da Série B, quando a Temporada tem Séries (ADR-0015). */
+  tabelaB?: LinhaTabelaPublica[];
+  /** Os Times de cada Série na Temporada atual, quando ela tem Séries. */
+  series?: Record<Serie, TimeId[]> | null;
   calendario: PartidaNoCalendario[];
   rodadas: RodadaPublica[];
-  /** Só depois que o Ao Vivo da Final termina. */
+  /** Só depois que o Ao Vivo da Final termina. Com duas Séries, é o campeão da A. */
   campeao: TimeId | null;
+  campeaoB?: TimeId | null;
   /** Craque da Temporada atual, depois do anúncio (dia seguinte à Final, 19h). */
   craqueDaTemporada: JogadorResumido | null;
+  craqueDaTemporadaB?: JogadorResumido | null;
   /** Todas as Temporadas, da mais recente para a mais antiga. */
   temporadas: TemporadaNaHistoria[];
   /** Temporada já criada que ainda não começou (o site a anuncia). */
@@ -99,8 +113,16 @@ export interface TemporadaNaHistoria {
   artilheiro: (JogadorResumido & { gols: number }) | null;
   /** Maior nota média entre os goleiros com pelo menos 3 jogos (desempate: menos gols sofridos por jogo). */
   goleiro: (JogadorResumido & { notaMedia: number; jogos: number; defesas: number; golsSofridos: number }) | null;
-  /** Tabela da Fase de Liga (parcial enquanto a Temporada corre). */
+  /** Tabela da Fase de Liga (parcial enquanto a Temporada corre). Com duas Séries, a da A. */
   tabela: LinhaTabelaPublica[];
+  /** Série B (ADR-0015): campeão, vice, Final, Craque e tabela. */
+  serieB?: {
+    campeao: TimeId | null;
+    vice: TimeId | null;
+    final: { partidaId: number; mandante: TimeId; visitante: TimeId; placar: { mandante: number; visitante: number; penaltis?: { mandante: number; visitante: number } } } | null;
+    craque: JogadorResumido | null;
+    tabela: LinhaTabelaPublica[];
+  };
 }
 
 export interface Estatisticas {
@@ -129,6 +151,8 @@ export interface Trofeu {
   fase?: 'LIGA' | 'MATA_MATA';
   time: TimeId;
   partidaId?: number;
+  /** Título e Craques da Série B (ADR-0015). Sem o campo, é da A. */
+  serie?: Serie;
 }
 
 export interface JogadorPublico {

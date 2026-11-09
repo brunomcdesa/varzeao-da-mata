@@ -3,8 +3,42 @@
 export const POSICOES = ['GOL', 'ZAG', 'MEI', 'ATA'] as const;
 export type Posicao = (typeof POSICOES)[number];
 
-export const TIMES = ['CAP', 'ONC', 'TAT', 'TAM', 'PRE', 'SAG', 'TUC', 'ARA'] as const;
+/** Os 16 Times da Liga: os 8 fundadores (Temporada 1) e os 8 que chegaram com a Série B (ADR-0015). */
+export const TIMES = ['CAP', 'ONC', 'TAT', 'TAM', 'PRE', 'SAG', 'TUC', 'ARA', 'JAC', 'SUC', 'LOB', 'CDM', 'BOT', 'PIR', 'COR', 'MOR'] as const;
 export type TimeId = (typeof TIMES)[number];
+
+/** Os Times da Temporada 1, que formam a Série A na primeira Temporada com Séries. */
+export const TIMES_FUNDADORES: readonly TimeId[] = ['CAP', 'ONC', 'TAT', 'TAM', 'PRE', 'SAG', 'TUC', 'ARA'];
+/** Os Times que chegaram com a Série B. */
+export const TIMES_NOVOS: readonly TimeId[] = ['JAC', 'SUC', 'LOB', 'CDM', 'BOT', 'PIR', 'COR', 'MOR'];
+
+/** As duas Séries da Liga (GLOSSARY: Série). */
+export const SERIES = ['A', 'B'] as const;
+export type Serie = (typeof SERIES)[number];
+/** Times por Série. */
+export const TIMES_POR_SERIE = 8;
+/** Quantos Times descem da A e sobem da B a cada Temporada (ADR-0015). */
+export const TIMES_QUE_TROCAM_DE_SERIE = 2;
+
+/**
+ * Candidatos a Craque por Série. Por dentro, o número do Candidato é único na Rodada: A de 1
+ * a 5 e B de 6 a 10. O público vê e vota "A3" ou "B3" (ADR-0015).
+ */
+export const CANDIDATOS_POR_SERIE = 5;
+/** O número interno de "A3" (3) ou "B3" (8). */
+export function numeroDoCandidato(serie: Serie, n: number): number {
+  return serie === 'B' ? n + CANDIDATOS_POR_SERIE : n;
+}
+/** A Série de um número interno de Candidato. */
+export function serieDoCandidato(numero: number): Serie {
+  return numero > CANDIDATOS_POR_SERIE ? 'B' : 'A';
+}
+/** Como o Candidato aparece para o público: "3" numa Temporada de uma Série só; "A3" ou "B3" com duas. */
+export function rotuloDoCandidato(numero: number, comSeries: boolean): string {
+  if (!comSeries) return String(numero);
+  const serie = serieDoCandidato(numero);
+  return `${serie}${serie === 'B' ? numero - CANDIDATOS_POR_SERIE : numero}`;
+}
 
 /** Identidade visual dos Times (docs/times.md). */
 export const IDENTIDADE: Readonly<Record<TimeId, { nome: string; sigla: string; bicho: string; primaria: string; secundaria: string }>> = {
@@ -16,6 +50,14 @@ export const IDENTIDADE: Readonly<Record<TimeId, { nome: string; sigla: string; 
   SAG: { nome: 'Sagui Futebol Clube', sigla: 'SAG', bicho: 'sagui', primaria: '#6B3FA0', secundaria: '#FFFFFF' },
   TUC: { nome: 'Tucano Esporte Clube', sigla: 'TUC', bicho: 'tucano', primaria: '#161616', secundaria: '#F28C1C' },
   ARA: { nome: 'Arara Azul Futebol Clube', sigla: 'ARA', bicho: 'arara', primaria: '#1F4FD1', secundaria: '#FFD23F' },
+  JAC: { nome: 'Jacaré Atlético Clube', sigla: 'JAC', bicho: 'jacare', primaria: '#2E8B57', secundaria: '#F2E6A6' },
+  SUC: { nome: 'Sucuri Esporte Clube', sigla: 'SUC', bicho: 'sucuri', primaria: '#556B2F', secundaria: '#E9C46A' },
+  LOB: { nome: 'Lobo-Guará Futebol Clube', sigla: 'LOB', bicho: 'lobo-guara', primaria: '#E07B24', secundaria: '#3B2A20' },
+  CDM: { nome: 'Cachorro-do-Mato Sport Club', sigla: 'CÃO', bicho: 'cachorro-do-mato', primaria: '#8A8D91', secundaria: '#D9A441' },
+  BOT: { nome: 'Boto Futebol Clube', sigla: 'BOT', bicho: 'boto', primaria: '#E58FA8', secundaria: '#1C2E5A' },
+  PIR: { nome: 'Associação Pirarucu', sigla: 'PIR', bicho: 'pirarucu', primaria: '#B3202A', secundaria: '#2E4A3F' },
+  COR: { nome: 'Coruja Esporte Clube', sigla: 'COR', bicho: 'coruja', primaria: '#8B6B4A', secundaria: '#F2C14E' },
+  MOR: { nome: 'Morcego Futebol Clube', sigla: 'MOR', bicho: 'morcego', primaria: '#1E2235', secundaria: '#8FD3FF' },
 };
 
 /** Pares de rivais fixos (docs/times.md). */
@@ -24,6 +66,10 @@ export const CLASSICOS: ReadonlyArray<readonly [TimeId, TimeId]> = [
   ['TAT', 'TAM'],
   ['PRE', 'SAG'],
   ['TUC', 'ARA'],
+  ['JAC', 'SUC'],
+  ['LOB', 'CDM'],
+  ['BOT', 'PIR'],
+  ['COR', 'MOR'],
 ];
 
 export function ehClassico(a: TimeId, b: TimeId): boolean {
@@ -35,6 +81,10 @@ const NOMES_CLASSICOS: Readonly<Record<string, string>> = {
   'TAM-TAT': 'Clássico do Cupinzeiro',
   'PRE-SAG': 'Clássico do Galho',
   'ARA-TUC': 'Clássico das Penas',
+  'JAC-SUC': 'Clássico do Brejo',
+  'CDM-LOB': 'Clássico da Matilha',
+  'BOT-PIR': 'Clássico do Rio',
+  'COR-MOR': 'Clássico da Madrugada',
 };
 
 /** Nome do Clássico entre dois Times, ou null se não forem rivais (docs/times.md). */
@@ -42,7 +92,7 @@ export function nomeDoClassico(a: TimeId, b: TimeId): string | null {
   return NOMES_CLASSICOS[[a, b].sort().join('-')] ?? null;
 }
 
-/** Como o Locutor da Liga fala de cada Time: nome curto, artigo e bordão (docs/times.md). */
+/** Como o Narrador fala de cada Time: nome curto, artigo e bordão (docs/times.md). */
 export const FALA_DO_TIME: Readonly<Record<TimeId, { curto: string; artigo: 'o' | 'a'; bordao: string }>> = {
   CAP: { curto: 'Capivara', artigo: 'a', bordao: 'Calma que dá.' },
   ONC: { curto: 'Onça', artigo: 'a', bordao: 'Quem tem medo não entra no mato.' },
@@ -52,6 +102,14 @@ export const FALA_DO_TIME: Readonly<Record<TimeId, { curto: string; artigo: 'o' 
   SAG: { curto: 'Sagui', artigo: 'o', bordao: 'Tamanho não joga.' },
   TUC: { curto: 'Tucano', artigo: 'o', bordao: 'Falo e faço.' },
   ARA: { curto: 'Arara', artigo: 'a', bordao: 'Ganhar é bom, ganhar bonito é melhor.' },
+  JAC: { curto: 'Jacaré', artigo: 'o', bordao: 'Paciência e bote certo.' },
+  SUC: { curto: 'Sucuri', artigo: 'a', bordao: 'Abraço que não solta.' },
+  LOB: { curto: 'Lobo-guará', artigo: 'o', bordao: 'Perna comprida, cabeça erguida.' },
+  CDM: { curto: 'Cachorro-do-mato', artigo: 'o', bordao: 'Late pouco, morde muito.' },
+  BOT: { curto: 'Boto', artigo: 'o', bordao: 'Encanta e some.' },
+  PIR: { curto: 'Pirarucu', artigo: 'o', bordao: 'Peso pesado do rio.' },
+  COR: { curto: 'Coruja', artigo: 'a', bordao: 'A gente vê tudo.' },
+  MOR: { curto: 'Morcego', artigo: 'o', bordao: 'A noite é nossa.' },
 };
 
 /** "da Capivara", "do Tatu". */

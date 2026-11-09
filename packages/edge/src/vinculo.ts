@@ -16,6 +16,7 @@
  * A sessão é um segredo aleatório que só o navegador guarda; no KV fica só o hash dela.
  * Só a própria conta consegue mandar DM com o próprio @, então o código prova o dono.
  */
+import { TIMES } from '@liga/shared';
 
 export interface EnvVinculo {
   AGENDA: KVNamespace;
@@ -33,7 +34,6 @@ export type AplicarAgora = (
 type Graph = <T>(metodo: 'GET' | 'POST', caminho: string, params: Record<string, string>) => Promise<T>;
 type Disparar = (job: string) => Promise<boolean>;
 
-const TIMES = ['ONC', 'ARA', 'CAP', 'TUC', 'SAG', 'PRE', 'TAM', 'TAT'] as const;
 const POSICOES = ['GOL', 'ZAG', 'MEI', 'ATA'] as const;
 /** O código vale 15 minutos. */
 export const VALIDADE_CODIGO_S = 15 * 60;

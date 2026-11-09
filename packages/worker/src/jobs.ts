@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, IDENTIDADE, doTime, RODADA_DA_FINAL, type LigaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, doTime, RODADA_DA_FINAL, type LigaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA, criarTemporada, somarDias } from './calendario.js';
 import { processarComentario, type Comentario, type Resultado } from './coletar.js';
@@ -20,6 +20,7 @@ import { CORTE_MINUTOS } from './escalacao.js';
 import { Instagram, ErroInstagram } from './instagram.js';
 import { CHAVE_TOKEN, gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
 import { avancarMataMata } from './mataMata.js';
+import { seriesDaTemporada } from './series.js';
 import { rodarPartida, type DadosDoVideo } from './partida.js';
 import { craqueDaRodada, dadosDoResumo, fecharRodada, HORA_DO_RESUMO, type DadosDoResumo } from './resumo.js';
 import { exportarSite } from './site.js';
@@ -241,16 +242,17 @@ interface LinhaJob {
   video_url: string | null;
   ig_container_id: string | null;
   fase: 'LIGA' | 'MATA_MATA';
+  serie: Serie;
 }
 
 /** Partidas que o job `partida` deve tocar agora: apito nas próximas `janelaMin`, ainda não agendadas. */
 export async function partidasPendentes(banco: Banco, agora: Date, janelaMin = 60): Promise<LinhaJob[]> {
   return (
     await banco.query<LinhaJob>(
-      `SELECT p.id, p.rodada_id, r.numero AS rodada, r.fase, p.apito_inicial, p.status, p.video_url, p.ig_container_id
+      `SELECT p.id, p.rodada_id, r.numero AS rodada, r.fase, p.apito_inicial, p.status, p.video_url, p.ig_container_id, p.serie
        FROM partida p JOIN rodada r ON r.id = p.rodada_id
        WHERE p.status NOT IN ('AGENDADA', 'PUBLICADA') AND p.apito_inicial <= $1
-       ORDER BY p.apito_inicial`,
+       ORDER BY p.apito_inicial, p.serie`,
       [new Date(agora.getTime() + janelaMin * 60_000).toISOString()],
     )
   ).rows;
@@ -321,7 +323,8 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
     }
 
     const anterior = (await c.banco.query<{ id: number }>(`SELECT s.id FROM rodada s JOIN rodada r ON r.temporada_id = s.temporada_id AND s.numero = r.numero - 1 WHERE r.id = $1`, [p.rodada_id])).rows[0];
-    const craque = anterior ? await craqueDaRodada(c.banco, anterior.id) : null;
+    // O Craque da Rodada anterior da mesma Série tem a vaga garantida (ADR-0015).
+    const craque = anterior ? await craqueDaRodada(c.banco, anterior.id, p.serie) : null;
 
     // Vídeo: grava se ainda não tem um link público (num runner novo, o arquivo local some).
     let videoUrl = p.video_url?.startsWith('http') ? p.video_url : null;
@@ -400,25 +403,39 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
 
 export function legendaDoResumo(d: DadosDoResumo): string {
   const etapa = etapaDa(d.fase, d.rodada);
+  const comSeries = !!d.tabelaB;
   const placar = (p: DadosDoResumo['placares'][number]) =>
     `${p.hora}h  ${FALA_DO_TIME[p.mandante].curto} ${p.golsMandante} × ${p.golsVisitante} ${FALA_DO_TIME[p.visitante].curto}${p.penaltis ? ` (pênaltis ${p.penaltis.mandante}–${p.penaltis.visitante})` : ''}`;
-  const final = etapa === 'FINAL' ? d.placares[0] : undefined;
-  const campeao = final
-    ? final.penaltis
-      ? final.penaltis.mandante > final.penaltis.visitante ? final.mandante : final.visitante
-      : final.golsMandante > final.golsVisitante ? final.mandante : final.visitante
-    : null;
+  const vencedor = (p: DadosDoResumo['placares'][number]) =>
+    p.penaltis ? (p.penaltis.mandante > p.penaltis.visitante ? p.mandante : p.visitante) : p.golsMandante > p.golsVisitante ? p.mandante : p.visitante;
+  const daSerie = <T extends { serie?: Serie }>(xs: T[], serie: Serie) => xs.filter((x) => (x.serie ?? 'A') === serie);
+  const series: Serie[] = comSeries ? ['A', 'B'] : ['A'];
+  // Na Final, o campeão de cada Série (com duas Séries, a Final da B também está nos placares).
+  const campeoes = etapa === 'FINAL' ? series.flatMap((serie) => daSerie(d.placares, serie).slice(0, 1).map((p) => ({ serie, time: vencedor(p) }))) : [];
+  const placares = comSeries ? series.flatMap((serie) => [`Série ${serie}`, ...daSerie(d.placares, serie).map(placar)]) : d.placares.map(placar);
+  // Sem @: a lista não marca ninguém (ADR-0011).
+  const candidato = (c: DadosDoResumo['candidatos'][number], i: number) => `${c.rotulo ?? c.numero ?? i + 1} · ${c.username} (${FALA_DO_TIME[c.time].curto})`;
+  const candidatos = comSeries
+    ? series.flatMap((serie) => {
+        const lista = daSerie(d.candidatos, serie);
+        return lista.length ? [`Série ${serie}`, ...lista.map(candidato)] : [];
+      })
+    : d.candidatos.map(candidato);
   const linhas = [
     `📋 ${etapa === 'LIGA' ? `Resumo da Rodada ${d.rodada}` : etapa === 'SEMIFINAL' ? 'Resumo das Semifinais' : 'Resumo da Final'} da Temporada ${d.temporada}`,
-    ...d.placares.map(placar),
+    ...placares,
     '',
-    ...(campeao
-      ? [`${IDENTIDADE[campeao].nome} é campeão da Temporada ${d.temporada}!`, 'Obrigado a todo mundo que jogou. A próxima Temporada vem aí.']
+    ...(campeoes.length
+      ? [
+          ...campeoes.map((c) => `${IDENTIDADE[c.time].nome} é campeão ${comSeries ? `da Série ${c.serie} ` : ''}da Temporada ${d.temporada}!`),
+          'Obrigado a todo mundo que jogou. A próxima Temporada vem aí.',
+        ]
       : [
-          `Quem é o Craque ${etapa === 'FINAL' ? 'da Temporada' : 'da Rodada'}? Comente só o número do seu escolhido, ou vote no site (link na bio):`,
-          // Sem @: a lista não marca ninguém (ADR-0011).
-          ...d.candidatos.map((c, i) => `${c.numero ?? i + 1} · ${c.username} (${FALA_DO_TIME[c.time].curto})`),
-          'Um voto por perfil (vale o último) e um por aparelho no site.',
+          comSeries
+            ? `Quem é o Craque ${etapa === 'FINAL' ? 'da Temporada' : 'da Rodada'} em cada Série? Comente a letra e o número (A3, B3), ou vote no site (link na bio):`
+            : `Quem é o Craque ${etapa === 'FINAL' ? 'da Temporada' : 'da Rodada'}? Comente só o número do seu escolhido, ou vote no site (link na bio):`,
+          ...candidatos,
+          comSeries ? 'Um voto por perfil em cada Série (vale o último) e um por aparelho no site.' : 'Um voto por perfil (vale o último) e um por aparelho no site.',
         ]),
     '',
     O_QUE_E,
@@ -452,9 +469,11 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
 
   // A próxima Temporada já nasce aqui: Rodada 1 dois dias depois deste anúncio.
   const proxima = await garantirProximaTemporada(c.banco, t.numero, somarDias(dia, 3));
+  await importarVotosDoSite(c.banco, c.agenda, t.final_id);
+  // Com duas Séries, a B também elege o seu Craque da Temporada (ADR-0015).
+  const craqueB = (await seriesDaTemporada(c.banco, t.id)).B.length ? await eleitoDaSerieB(c.banco, t.id, t.final_id) : null;
   let craqueId = t.craque_jogador_id;
   if (!craqueId) {
-    await importarVotosDoSite(c.banco, c.agenda, t.final_id);
     const eleito = await craqueDaRodada(c.banco, t.final_id);
     if (!eleito) {
       // Sem Candidatos (ninguém com jogos suficientes): encerra sem Craque.
@@ -512,7 +531,7 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
         tipo: 'CRAQUE',
         ref: t.id,
         videoUrl: c.armazenamento.urlPublica(chave),
-        legenda: legendaDoFimDaTemporada(t.numero, historia, { username: s.username, time: s.time_id, jogos: Number(s.jogos), gols, media: Number(s.media), votos: Number(s.votos) }, proxima),
+        legenda: legendaDoFimDaTemporada(t.numero, historia, { username: s.username, time: s.time_id, jogos: Number(s.jogos), gols, media: Number(s.media), votos: Number(s.votos) }, proxima, craqueB),
         containerAtual: null,
         publicarEm,
         salvarContainer: async () => {},
@@ -525,6 +544,17 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
   log(`Craque da Temporada ${t.numero}: @${s.username}${item ? `, anúncio agendado para ${item.publicarEm}` : ''}.`);
   await publicarSite(c);
   return t.id;
+}
+
+/** Elege (uma vez só) o Craque da Temporada da Série B: o Candidato da B mais votado na Final. */
+async function eleitoDaSerieB(banco: Banco, temporadaId: number, finalId: number): Promise<{ username: string; time: TimeId } | null> {
+  let id = (await banco.query<{ id: string | null }>(`SELECT craque_b_jogador_id::text AS id FROM temporada WHERE id = $1`, [temporadaId])).rows[0]?.id ?? null;
+  if (!id) {
+    id = (await craqueDaRodada(banco, finalId, 'B'))?.id ?? null;
+    if (!id) return null;
+    await banco.query(`UPDATE temporada SET craque_b_jogador_id = $2 WHERE id = $1`, [temporadaId, id]);
+  }
+  return (await banco.query<{ username: string; time: TimeId }>(`SELECT username, time_id AS time FROM jogador WHERE id = $1`, [id])).rows[0] ?? null;
 }
 
 /** Cria a Temporada seguinte (se ainda não existe) e devolve número e dia da Rodada 1. */
@@ -541,6 +571,7 @@ export function legendaDoFimDaTemporada(
   h: LigaPublica['temporadas'][number] | undefined,
   craque: { username: string; time: TimeId; jogos: number; gols: number; media: number; votos: number },
   proxima: { numero: number; inicio: string },
+  craqueB: { username: string; time: TimeId } | null = null,
 ): string {
   const nome = (t: TimeId) => FALA_DO_TIME[t].curto;
   const [, mes, dia] = proxima.inicio.split('-');
@@ -548,7 +579,8 @@ export function legendaDoFimDaTemporada(
     `🏆 Resumo da Temporada ${numero} do Varzeão da Mata`,
     '',
     h?.campeao ? `Campeão: ${IDENTIDADE[h.campeao].nome}${h.vice ? ` (vice: ${nome(h.vice)})` : ''}` : '',
-    `Craque da Temporada: @${craque.username} (${nome(craque.time)}), ${craque.jogos} jogos, ${craque.gols} ${craque.gols === 1 ? 'gol' : 'gols'}, nota média ${craque.media.toFixed(1).replace('.', ',')} e ${craque.votos} votos da torcida`,
+    `Craque da Temporada${craqueB ? ' (Série A)' : ''}: @${craque.username} (${nome(craque.time)}), ${craque.jogos} jogos, ${craque.gols} ${craque.gols === 1 ? 'gol' : 'gols'}, nota média ${craque.media.toFixed(1).replace('.', ',')} e ${craque.votos} votos da torcida`,
+    craqueB ? `Craque da Temporada (Série B): @${craqueB.username} (${nome(craqueB.time)})` : '',
     h?.artilheiro ? `Artilheiro: ${h.artilheiro.username} (${nome(h.artilheiro.time)}), ${h.artilheiro.gols} ${h.artilheiro.gols === 1 ? 'gol' : 'gols'}` : '',
     h?.goleiro ? `Melhor goleiro: ${h.goleiro.username} (${nome(h.goleiro.time)}), nota média ${h.goleiro.notaMedia.toFixed(1).replace('.', ',')}` : '',
     '',

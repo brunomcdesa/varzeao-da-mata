@@ -10,7 +10,7 @@
  *   os votos do KV para o banco e mantém `votacao-aberta` em dia.
  */
 
-import type { Posicao, TimeId } from '@liga/shared';
+import { serieDoCandidato, type Posicao, type TimeId } from '@liga/shared';
 import { transferirJogador } from '../../worker/src/coletar.js';
 import { aplicarPerfil } from '../../worker/src/perfil.js';
 import { comBanco } from './banco.js';
@@ -205,6 +205,11 @@ async function resumo(texto: string): Promise<string> {
   return [...h.slice(0, 12)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** Com duas Séries, o voto da B fica numa chave à parte, para valer um voto em cada (ADR-0015). */
+function sufixoDaSerie(numero: number): string {
+  return serieDoCandidato(numero) === 'B' ? ':B' : '';
+}
+
 async function votar(req: Request, env: Env, agora: Date, f: Fetch): Promise<Response> {
   let corpo: { rodada?: unknown; numero?: unknown; aparelho?: unknown; turnstile?: unknown; sessao?: unknown };
   try {
@@ -236,17 +241,17 @@ async function votar(req: Request, env: Env, agora: Date, f: Fetch): Promise<Res
   if (typeof corpo.sessao === 'string' && corpo.sessao) {
     const s = await sessaoDe(env, corpo.sessao);
     if (s) {
-      await env.AGENDA.put(`voto-vinculado/${rodada}/${s.jogadorId}`, '', { metadata: { numero, em: agora.toISOString() }, expirationTtl: 14 * 86400 });
+      await env.AGENDA.put(`voto-vinculado/${rodada}/${s.jogadorId}${sufixoDaSerie(numero)}`, '', { metadata: { numero, em: agora.toISOString() }, expirationTtl: 14 * 86400 });
       return json({ ok: true, numero, comoArroba: s.username });
     }
   }
 
-  // Um voto por aparelho: o primeiro vale.
-  const chave = `voto-site/${rodada}/${aparelho}`;
+  // Um voto por aparelho em cada Série: o primeiro vale.
+  const chave = `voto-site/${rodada}/${aparelho}${sufixoDaSerie(numero)}`;
   const ja = await env.AGENDA.getWithMetadata<{ numero: number }>(chave);
   if (ja.metadata) return json({ ok: true, numero: ja.metadata.numero, jaVotou: true });
 
-  const chaveIp = `voto-ip/${rodada}/${await resumo(ip)}`;
+  const chaveIp = `voto-ip/${rodada}${sufixoDaSerie(numero)}/${await resumo(ip)}`;
   const daRede = Number((await env.AGENDA.get(chaveIp)) ?? 0);
   if (daRede >= VOTOS_POR_IP) return json({ erro: 'Muitos votos saindo dessa rede. Vote pelo Instagram, comentando o número.' }, 429);
 
