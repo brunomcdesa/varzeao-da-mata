@@ -32,11 +32,11 @@ function valor(j: JogadorPublico, c: Criterio, p: Periodo): number | null {
 const filtros = { busca: '', time: '' as TimeId | '', posicao: '' as Posicao | '', criterio: 'ovr' as Criterio, periodo: 'temporada' as Periodo, marcados: [] as string[] };
 
 export const paginaJogadores: Pagina = async (main) => {
-  const todos = await jogadores();
+  const [todos, l] = await Promise.all([jogadores(), liga()]);
   main.innerHTML = html`<h1 class="titulo-pagina">Jogadores <small>${todos.length} inscritos</small></h1>
     <form class="filtros" role="search">
       <label class="busca"><span class="sr">Buscar pelo @</span><input type="search" name="busca" placeholder="Buscar @" autocomplete="off" value="${filtros.busca}" /></label>
-      <label><span>Time</span><select name="time"><option value="">Todos</option>${TIMES.map((t) => html`<option value="${t}" ${filtros.time === t ? 'selected' : ''}>${curto(t)}</option>`)}</select></label>
+      <label><span>Time</span><select name="time"><option value="">Todos</option>${timesAtivos(l).map((t) => html`<option value="${t}" ${filtros.time === t ? 'selected' : ''}>${curto(t)}</option>`)}</select></label>
       <label><span>Posição</span><select name="posicao"><option value="">Todas</option>${POSICOES_EM_ORDEM.map((p) => html`<option value="${p}" ${filtros.posicao === p ? 'selected' : ''}>${NOME_DA_POSICAO[p]}</option>`)}</select></label>
       <label><span>Período</span><select name="periodo"><option value="temporada" ${filtros.periodo === 'temporada' ? 'selected' : ''}>Esta Temporada</option><option value="carreira" ${filtros.periodo === 'carreira' ? 'selected' : ''}>Carreira</option></select></label>
       <label><span>Ordenar por</span><select name="criterio">${(Object.keys(CRITERIOS) as Criterio[]).map((c) => html`<option value="${c}" ${filtros.criterio === c ? 'selected' : ''}>${CRITERIOS[c]}</option>`)}</select></label>

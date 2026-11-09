@@ -41,6 +41,11 @@ describe('Série A e Série B (ADR-0015)', () => {
     expect(ordenados(s.A)).toEqual(ordenados(TIMES_FUNDADORES));
     expect(s.B).toEqual([]);
     expect(ordenados(await timesAtivos(banco))).toEqual(ordenados(TIMES_FUNDADORES));
+    // O site da Temporada 1 continua igual: sem Séries, sem tabela da B.
+    const liga = (await exportarSite(banco, new Date('2026-11-08T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
+    expect(liga.series).toBeUndefined();
+    expect(liga.tabelaB).toBeUndefined();
+    expect(liga.calendario.every((p) => p.serie === undefined)).toBe(true);
   });
 
   it('depois da Temporada 1, os fundadores ficam na A e os Times novos formam a B, com A e B no mesmo horário', async () => {
