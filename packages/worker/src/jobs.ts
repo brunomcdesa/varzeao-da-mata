@@ -438,6 +438,15 @@ export function legendaDoResumo(d: DadosDoResumo): string {
     `📋 ${etapa === 'LIGA' ? `Resumo da Rodada ${d.rodada}` : etapa === 'SEMIFINAL' ? 'Resumo das Semifinais' : 'Resumo da Final'} da Temporada ${d.temporada}`,
     ...placares,
     '',
+    // Anúncio do Craque da Rodada anterior: aqui o @ marca o eleito (é parabéns, não voto).
+    ...[d.craqueDaRodada ? ['A', d.craqueDaRodada] : null, d.craqueDaRodadaB ? ['B', d.craqueDaRodadaB] : null].flatMap((x) => {
+      if (!x) return [];
+      const [serie, c] = x as [Serie, NonNullable<DadosDoResumo['craqueDaRodada']>];
+      return [
+        `⭐ Craque ${c.fase === 'LIGA' ? `da Rodada ${c.rodada}` : 'das Semifinais'}${comSeries ? ` da Série ${serie}` : ''}: ${c.apelido ? `${c.apelido} (@${c.username})` : `@${c.username}`}, ${FALA_DO_TIME[c.time].curto}${c.votos ? `, com ${c.votos} ${c.votos === 1 ? 'voto' : 'votos'}` : ''}. Parabéns!`,
+      ];
+    }),
+    ...(d.craqueDaRodada || d.craqueDaRodadaB ? [''] : []),
     ...(campeoes.length
       ? [
           ...campeoes.map((c) => `${IDENTIDADE[c.time].nome} é campeão ${comSeries ? `da Série ${c.serie} ` : ''}da Temporada ${d.temporada}!`),

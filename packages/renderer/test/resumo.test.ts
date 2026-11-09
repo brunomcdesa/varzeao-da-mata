@@ -28,6 +28,25 @@ describe('Resumo da Rodada', () => {
     expect(semNovos.segmentos.map((s) => s.cartela)).toEqual(['ABERTURA', 'PLACARES', 'TABELA', 'CHAMADA', 'COMPARTILHE']);
   });
 
+  it('abre com o anúncio do Craque da Rodada anterior, narrado sem @', () => {
+    const craqueDaRodada = { rodada: 2, fase: 'LIGA' as const, username: 'eofamoso__2k', apelido: 'Famoso', time: 'TUC' as const, posicao: 'MEI' as const, nota: 8.4, gols: 1, votos: 12 };
+    const r = new RoteiroResumo({ ...base, craqueDaRodada });
+    expect(r.segmentos.map((s) => s.cartela).slice(0, 3)).toEqual(['ABERTURA', 'CRAQUE', 'PLACARES']);
+    const falas = narracaoDoResumo(r).map((f) => f.texto);
+    expect(falas[1]).toBe('O Craque da Rodada 2, eleito pela torcida com 12 votos, é Famoso, meia do Tucano!');
+    const semApelido = narracaoDoResumo(new RoteiroResumo({ ...base, craqueDaRodada: { ...craqueDaRodada, apelido: null, votos: 0 } })).map((f) => f.texto);
+    expect(semApelido[1]).toBe('Ninguém votou, então o Craque da Rodada 2 ficou com a maior nota: o meia do Tucano!');
+    expect(falas.join(' ')).not.toContain('@');
+  });
+
+  it('com Série B, anuncia o Craque da Rodada de cada Série (ADR-0015)', () => {
+    const c = { rodada: 2, fase: 'LIGA' as const, username: 'eofamoso__2k', apelido: null, time: 'TUC' as const, posicao: 'MEI' as const, nota: 8.4, gols: 1, votos: 12 };
+    const r = new RoteiroResumo({ ...base, tabelaB: [], craqueDaRodada: c, craqueDaRodadaB: { ...c, time: 'COR', votos: 3 } });
+    expect(r.segmentos.filter((s) => s.cartela === 'CRAQUE').map((s) => s.serie)).toEqual(['A', 'B']);
+    const falas = narracaoDoResumo(r).map((f) => f.texto);
+    expect(falas[2]).toBe('Na Série B: O Craque da Rodada 2, eleito pela torcida com 3 votos, é o meia da Coruja!');
+  });
+
   it('narra placares e a ponta da tabela, sem falar @', () => {
     const falas = narracaoDoResumo(new RoteiroResumo(base)).map((f) => f.texto);
     expect(falas[1]).toBe('Tamanduá venceu o Tatu por 2 a 0. Preguiça e Capivara empataram em 2 a 2.');
