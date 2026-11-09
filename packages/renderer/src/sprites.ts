@@ -233,6 +233,9 @@ export function escolherPose(acao: AcaoJogador, vel: { x: number; y: number }, o
   switch (acao) {
     case 'COMEMORANDO':
       return { pose: 'FRENTE_COMEMORA', espelhar: false, pulo: fase % 2 === 0 ? 3 : 0 };
+    case 'ARREMESSO':
+      // Lateral: as duas mãos para cima, segurando a bola.
+      return { pose: 'FRENTE_COMEMORA', espelhar: false, pulo: 0 };
     case 'MERGULHO':
     case 'CARRINHO':
       return { pose: 'MERGULHO', espelhar, pulo: acao === 'MERGULHO' ? 2 : 0 };

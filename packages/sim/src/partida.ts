@@ -85,6 +85,55 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
   const gols: Record<Lado, number> = { mandante: 0, visitante: 0 };
   const lances: Lance[] = [];
   const golsEmOrdem: { lado: Lado; autor: SlotRef }[] = [];
+  // Bolas paradas têm sorteio próprio: os 20 lances de ataque saem iguais aos da versão 2.
+  const rngBP = criarRng(((entrada.seed >>> 0) ^ 0x5bd1e995) >>> 0);
+
+  /**
+   * Escanteio (VERSAO_SIM 3): depois de uma defesa ou bloqueio, às vezes a bola sai pela linha
+   * de fundo. Um meia cobra (Passe) contra um zagueiro (Defesa); passando, um atacante (ou um
+   * zagueiro que subiu) cabeceia (Finalização) contra o goleiro (Goleiro).
+   */
+  const talvezEscanteio = (numero: number, minuto: number, ataque: Lado): void => {
+    if (!rngBP.chance(PARAMETROS.chanceEscanteio)) return;
+    const defesa = outro(ataque);
+    const min = Math.min(90, minuto + 1);
+    const cobrador = rngBP.pick(slotsDa(ataque, 'MEI'));
+    const finalizador = rngBP.chance(PARAMETROS.chanceZagueiroCabeceia) ? rngBP.pick(slotsDa(ataque, 'ZAG')) : rngBP.pick(slotsDa(ataque, 'ATA'));
+    const zagueiro = rngBP.pick(slotsDa(defesa, 'ZAG'));
+    const goleiro = rngBP.pick(slotsDa(defesa, 'GOL'));
+    const base = { numero, minuto: min, ataque, criador: cobrador, finalizador, marcador: zagueiro, bolaParada: 'ESCANTEIO' as const };
+    if (!duelo(rngBP, hab(cobrador, 'PAS'), hab(zagueiro, 'DEF'), PARAMETROS.baseCruzamento)) {
+      // A zaga afasta: vale desarme para o zagueiro.
+      conta(zagueiro).desarmes++;
+      acao(zagueiro, 'desarme');
+      acao(cobrador, 'desarmadoNaCriacao');
+      lances.push({ ...base, tipo: 'DESARME', defensor: zagueiro });
+      return;
+    }
+    acao(zagueiro, 'superadoNaCriacao');
+    if (!duelo(rngBP, hab(finalizador, 'FIN'), hab(goleiro, 'GOL'), PARAMETROS.baseCabeceio)) {
+      conta(goleiro).defesas++;
+      acao(goleiro, 'defesa');
+      acao(finalizador, 'chuteDefendido');
+      lances.push({ ...base, tipo: 'DEFESA', defensor: goleiro });
+      return;
+    }
+    if (rngBP.chance(chanceDeFora(hab(finalizador, 'FIN')))) {
+      acao(finalizador, 'chuteFora');
+      lances.push({ ...base, tipo: 'FORA', defensor: goleiro });
+      return;
+    }
+    gols[ataque]++;
+    conta(finalizador).gols++;
+    conta(cobrador).assistencias++;
+    acao(finalizador, 'gol');
+    acao(cobrador, 'assistencia');
+    acao(goleiro, 'golSofridoGoleiro');
+    for (const z of slotsDa(defesa, 'ZAG')) acao(z, 'golSofridoZagueiro');
+    for (const s of [goleiro, ...slotsDa(defesa, 'ZAG')]) conta(s).golsSofridos++;
+    golsEmOrdem.push({ lado: ataque, autor: finalizador });
+    lances.push({ ...base, tipo: 'GOL', defensor: goleiro });
+  };
 
   for (let numero = 1; numero <= PARAMETROS.lances; numero++) {
     const minuto = Math.min(90, Math.floor(((numero - 1) * 90) / PARAMETROS.lances) + 1 + rng.int(3));
@@ -144,6 +193,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
         acao(marcador, 'bloqueio');
         acao(finalizador, 'chuteBloqueado');
         lances.push({ numero, minuto, ataque, tipo: 'BLOQUEIO', criador, finalizador, defensor: marcador, marcador, drible: false });
+        talvezEscanteio(numero, minuto, ataque);
         continue;
       }
       acao(finalizador, 'venceuChuteMarcado');
@@ -157,6 +207,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
       acao(goleiro, 'defesa');
       acao(finalizador, 'chuteDefendido');
       lances.push({ ...base, tipo: 'DEFESA' });
+      talvezEscanteio(numero, minuto, ataque);
       continue;
     }
     if (rng.chance(chanceDeFora(hab(finalizador, 'FIN')))) {
@@ -176,6 +227,19 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     golsEmOrdem.push({ lado: ataque, autor: finalizador });
     lances.push({ ...base, tipo: 'GOL' });
   }
+
+  // Numeração final (com os escanteios no meio) e laterais: alguns lances começam com a
+  // cobrança de um lateral (nunca o primeiro, nem depois de gol ou logo depois de escanteio).
+  lances.forEach((l, i) => {
+    l.numero = i + 1;
+    const antes = lances[i - 1];
+    if (!antes || antes.tipo === 'GOL' || l.bolaParada || lances[i + 1]?.bolaParada === 'ESCANTEIO' || antes.bolaParada === 'ESCANTEIO') return;
+    if (!rngBP.chance(PARAMETROS.chanceLateral)) return;
+    const companheiros = escalacoes[l.criador.lado].jogadores.flatMap((j, indice) => ((j.posicao === 'MEI' || j.posicao === 'ZAG') && indice !== l.criador.indice ? [{ lado: l.criador.lado, indice }] : []));
+    if (!companheiros.length) return;
+    l.bolaParada = 'LATERAL';
+    l.cobrador = rngBP.pick(companheiros);
+  });
 
   for (const lado of LADOS) {
     for (const g of slotsDa(lado, 'GOL')) if (conta(g).golsSofridos === 0) acao(g, 'semSofrerGol');

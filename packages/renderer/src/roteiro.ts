@@ -45,6 +45,8 @@ export interface OpcoesRoteiro {
   duracaoLance?: Partial<Record<TipoLance, number>>;
   duracaoAbertura?: number;
   duracaoFim?: number;
+  /** Mostra todos os escanteios (Ao Vivo). No Reels, só os que viraram gol. */
+  bolasParadas?: boolean;
   /** Teto do vídeo. Se passar, os lances menos importantes saem primeiro. */
   duracaoMaxima?: number;
   /** Duração do escurecimento em cada corte (s de vídeo, metade para cada lado). */
@@ -57,7 +59,7 @@ export interface OpcoesRoteiro {
   minimos?: Record<number, { antes?: number; depois?: number }>;
 }
 
-const PADRAO: Required<Omit<OpcoesRoteiro, 'duracaoLance' | 'minimos'>> & { duracaoLance: Record<TipoLance, number> } = {
+const PADRAO: Required<Omit<OpcoesRoteiro, 'duracaoLance' | 'minimos' | 'bolasParadas'>> & { duracaoLance: Record<TipoLance, number> } = {
   duracaoLance: { GOL: 8, DEFESA: 5, BLOQUEIO: 5, FORA: 4, DESARME: 0 },
   duracaoAbertura: 3,
   duracaoFim: 4,
@@ -100,7 +102,10 @@ export class Roteiro {
     this.corte = o.corte;
 
     const lances = timeline.resultado.lances;
-    let escolhidos = lances.map((l, i) => i).filter((i) => o.duracaoLance[lances[i]!.tipo] > 0);
+    // Escanteio que não virou gol fica só no Ao Vivo (bolasParadas); o de gol entra sempre.
+    let escolhidos = lances
+      .map((l, i) => i)
+      .filter((i) => o.duracaoLance[lances[i]!.tipo] > 0 && (o.bolasParadas || lances[i]!.bolaParada !== 'ESCANTEIO' || lances[i]!.tipo === 'GOL'));
     const total = (lista: number[]) =>
       o.duracaoAbertura + o.duracaoFim + lista.reduce((s, i) => s + o.duracaoLance[lances[i]!.tipo], 0);
 
@@ -122,7 +127,9 @@ export class Roteiro {
       const lance = lances[i]!;
       const janela = timeline.janelas[i]!;
       const recorte = RECORTE[lance.tipo];
-      const jogoInicio = janela.inicio + (janela.fim - janela.inicio) * recorte.de;
+      // Gol de bola parada: o Reels mostra desde a cobrança (lateral ou escanteio).
+      const de = lance.bolaParada === 'LATERAL' ? 0 : lance.bolaParada === 'ESCANTEIO' ? 0.2 : recorte.de;
+      const jogoInicio = janela.inicio + (janela.fim - janela.inicio) * de;
       const jogoFim = Math.min(DURACAO_JOGO, janela.resolucao + recorte.extraDepois);
       const base = o.duracaoLance[lance.tipo];
       const m = minimo(segmentos.length);

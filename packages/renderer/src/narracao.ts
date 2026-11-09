@@ -122,6 +122,13 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
       INDIVIDUAL: [`${cap(f)} parte pra cima do zagueiro...`, `${cap(f)} limpa a marcação...`, `${cap(f)} vai no drible...`],
       DESARME: [`${cap(c)} conduz ${doTime(time(atq))}...`, `Vem ${doTime(time(atq))} pelo meio...`, `${cap(c)} tenta a jogada...`],
     };
+    // Bola parada: o escanteio e o lateral aparecem na tela, então o narrador fala deles.
+    construcao.ESCANTEIO = [`Escanteio ${doTime(time(atq))}! ${cap(pc)} vai cobrar...`, `Bola na bandeirinha. Cobra ${pc} ${doTime(time(atq))}...`, `Escanteio! ${cap(c)} levanta na área...`];
+    if (lance.bolaParada === 'LATERAL') {
+      for (const k of Object.keys(construcao)) {
+        if (k !== 'ESCANTEIO') construcao[k] = [`Lateral ${doTime(time(atq))}, cobrança rápida...`, `Cobrou o lateral, ${pc} recebe...`, `Lateral cobrado, ${c} domina...`];
+      }
+    }
     // O finalizador foi no drible e perdeu a bola: a construção fala dele.
     if (lance.tipo === 'DESARME' && lance.drible && lance.finalizador) {
       construcao.DESARME = [`${cap(c)} acha ${f}... vai pra cima!`, `${cap(f)} recebe e tenta o drible...`, `${cap(f)} parte pra cima do marcador...`];
@@ -164,6 +171,12 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
         [`Roubou a bola ${def.replace(/^o /, 'o ')}!`, 'normal'],
       ],
     };
+    if (lance.bolaParada === 'ESCANTEIO') {
+      resolucao.DESARME = [[`A zaga afasta! ${cap(def)} sobe mais alto.`, 'normal'], [`Cortou de cabeça ${def}!`, 'normal'], [`Afastou o perigo!`, 'normal']];
+      resolucao.DEFESA = [[`Cabeceou! E o goleiro pega!`, 'animado'], [`Testada firme... defendeu!`, 'animado']];
+      resolucao.FORA = [[`Cabeceou pra fora!`, 'animado'], [`Subiu sozinho... por cima!`, 'animado']];
+      resolucao.GOL = [[`Gol de cabeça ${doTime(time(atq))}!`, 'grito'], [`Subiu e marcou! Gooool ${doTime(time(atq))}!`, 'grito']];
+    }
     const [texto, tom] = escolher(rng, resolucao[lance.tipo]!);
     falas.push({ id: `lance-${s.lance}-b`, texto, inicio: s.resolucao! - 0.1, limite: s.fim - 0.1, tom, segmento: indice, parte: 'depois' });
 

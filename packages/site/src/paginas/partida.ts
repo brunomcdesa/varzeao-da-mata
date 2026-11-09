@@ -36,9 +36,22 @@ function textoDoLance(r: ResultadoPartida, nomes: Record<Lado, (string | null)[]
   const de = (s: SlotRef | undefined) => (n(s) === 'a Base' ? 'da Base' : `de ${n(s)}`);
   const inicio = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
   const driblou = l.drible && l.marcador ? `, depois de driblar ${n(l.marcador) === 'a Base' ? 'o zagueiro da Base' : n(l.marcador)}` : '';
+  if (l.bolaParada === 'ESCANTEIO') {
+    switch (l.tipo) {
+      case 'GOL':
+        return `Gol de cabeça ${de(l.finalizador)}, escanteio cobrado ${n(l.criador) === 'a Base' ? 'pela Base' : `por ${n(l.criador)}`}`;
+      case 'DEFESA':
+        return inicio(`escanteio: ${n(l.defensor)} defende a cabeçada ${de(l.finalizador)}`);
+      case 'FORA':
+        return inicio(`escanteio: ${n(l.finalizador)} cabeceia para fora`);
+      default:
+        return inicio(`escanteio: ${n(l.defensor)} afasta de cabeça`);
+    }
+  }
+  const doLateral = l.bolaParada === 'LATERAL' ? ' (começou num lateral)' : '';
   switch (l.tipo) {
     case 'GOL':
-      return (n(l.criador) !== n(l.finalizador) || n(l.criador) === 'a Base' ? `Gol ${de(l.finalizador)}, passe ${de(l.criador)}` : `Gol ${de(l.finalizador)}`) + driblou;
+      return (n(l.criador) !== n(l.finalizador) || n(l.criador) === 'a Base' ? `Gol ${de(l.finalizador)}, passe ${de(l.criador)}` : `Gol ${de(l.finalizador)}`) + driblou + doLateral;
     case 'DEFESA':
       return inicio(`${n(l.defensor)} defende o chute ${de(l.finalizador)}`) + driblou;
     case 'FORA':

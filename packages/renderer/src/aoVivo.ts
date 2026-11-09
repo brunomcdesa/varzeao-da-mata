@@ -66,7 +66,7 @@ export const duracaoAoVivo = (tl: Timeline) => aoVivo(tl.duracao);
 
 export function roteiroAoVivo(tl: Timeline, apelidos?: Record<Lado, (string | null)[]>): FalaAoVivo[] {
   // Roteiro com todos os lances (inclusive desarmes), sem teto: uma fala por lance como no Reels.
-  const roteiro = new Roteiro(tl, { duracaoLance: { DESARME: 4 }, duracaoMaxima: 1e9 });
+  const roteiro = new Roteiro(tl, { duracaoLance: { DESARME: 4 }, duracaoMaxima: 1e9, bolasParadas: true });
   const segs = roteiro.segmentos;
   const falas: FalaAoVivo[] = [];
 

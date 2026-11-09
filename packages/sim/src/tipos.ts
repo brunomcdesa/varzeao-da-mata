@@ -40,6 +40,14 @@ export interface Lance {
   marcador?: SlotRef;
   /** O finalizador tentou driblar o marcador (em vez de chutar marcado). */
   drible?: boolean;
+  /**
+   * Bola parada (VERSAO_SIM 3). ESCANTEIO: lance extra depois de uma defesa ou bloqueio; o
+   * criador cobra, o finalizador cabeceia e o defensor é o zagueiro que afasta (DESARME) ou o
+   * goleiro. LATERAL: a jogada começa com a cobrança de um lateral (só muda o desenho).
+   */
+  bolaParada?: 'ESCANTEIO' | 'LATERAL';
+  /** No LATERAL: quem cobra (um companheiro do criador). */
+  cobrador?: SlotRef;
 }
 
 export interface Cobranca {

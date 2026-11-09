@@ -2,7 +2,7 @@
  * Botões de calibração do motor. Mudar qualquer valor muda resultados de seeds
  * antigas, então exige subir VERSAO_SIM (ADR-0002).
  */
-export const VERSAO_SIM = 2;
+export const VERSAO_SIM = 3;
 
 export const PARAMETROS = {
   /** Lances de ataque disputados na Partida inteira. */
@@ -35,6 +35,16 @@ export const PARAMETROS = {
   pesoPenalti: 0.5,
   /** Pênalti perdido: chance de ter sido defesa (o resto vai pra fora). */
   penaltiDefendido: 0.65,
+  /** Chance de uma defesa ou bloqueio virar escanteio (lance extra). */
+  chanceEscanteio: 0.45,
+  /** Escanteio: chance de quem cabeceia ser um zagueiro que subiu (senão, um atacante). */
+  chanceZagueiroCabeceia: 0.25,
+  /** Escanteio: cruzamento do cobrador (Passe) contra o zagueiro (Defesa) que tenta afastar. */
+  baseCruzamento: 0.55,
+  /** Escanteio: cabeceio (Finalização) contra o goleiro (Goleiro). */
+  baseCabeceio: 0.6,
+  /** Chance de um lance começar com lateral (só o desenho). */
+  chanceLateral: 0.35,
 } as const;
 
 /** Pesos que convertem ações em pontos de Nota da Partida. */
