@@ -1,10 +1,10 @@
 /** Partida: escalações a partir do Corte, transmissão ao vivo ou replay, lances e Notas. */
-import { IDENTIDADE, duracaoAoVivoMs, nomeDaEtapa, type EscalacaoPublica, type PartidaPublica } from '@liga/shared';
+import { IDENTIDADE, duracaoAoVivoMs, forcaDaEscalacao, nomeDaEtapa, type EscalacaoPublica, type PartidaPublica } from '@liga/shared';
 import type { Desempenho, Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { contagem, diaLongo, hora, jogadores, partida, situacaoAgora } from '../dados.js';
 import { DURACAO_JOGO, narradorDa, resultadoDaCobranca } from '@liga/renderer';
 import { montarTimeline, transmitir } from '../transmissao.js';
-import { bonecoImg, curto, escudoImg, html, jogadorLink, nota, NOME_DA_POSICAO, rotuloClassico, type Html, comCamisa, comFaixa } from '../ui.js';
+import { bonecoImg, curto, duelaDeForcas, escudoImg, html, jogadorLink, nota, NOME_DA_POSICAO, rotuloClassico, type Html, comCamisa, comFaixa } from '../ui.js';
 import type { Pagina } from './tipos.js';
 
 const CORTE_MIN = 30;
@@ -163,7 +163,13 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
         : ''}
 
       ${p.escalacoes
-        ? html`<div class="escalacoes">${escalacao(p.escalacoes.mandante, 'mandante', mostrarFinal ? r : null, camisas)}${escalacao(p.escalacoes.visitante, 'visitante', mostrarFinal ? r : null, camisas)}</div>
+        ? html`<section aria-labelledby="titulo-forca"><h2 id="titulo-forca" class="secao">Força em campo <small>OVR antes do jogo</small></h2>
+            ${duelaDeForcas(
+              forcaDaEscalacao(p.escalacoes.mandante.jogadores.map((j) => ({ posicao: j.posicao, ovr: j.jogadorId ? j.ovr : null }))),
+              forcaDaEscalacao(p.escalacoes.visitante.jogadores.map((j) => ({ posicao: j.posicao, ovr: j.jogadorId ? j.ovr : null }))),
+              [curto(p.mandante), curto(p.visitante)],
+            )}</section>
+            <div class="escalacoes">${escalacao(p.escalacoes.mandante, 'mandante', mostrarFinal ? r : null, camisas)}${escalacao(p.escalacoes.visitante, 'visitante', mostrarFinal ? r : null, camisas)}</div>
             ${mostrarFinal ? html`<p class="legenda">● gol · ▲▼ OVR depois do jogo · Nota de 0 a 10, comparada ao que se espera do OVR.</p>` : html`<p class="legenda">OVR antes do jogo. Vaga sem inscrito é completada pela Base (OVR 55).</p>`}`
         : html`<section class="placa vazio"><p>A escalação sai no Corte, ${CORTE_MIN} minutos antes do apito: quem tem menos jogos entra primeiro.</p></section>`}
 

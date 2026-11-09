@@ -1,6 +1,6 @@
 /** Peças pequenas de interface: HTML seguro, escudos e bonecos em pixel art, rótulos. */
 import { ALTURA_ESCUDO, ALTURA_SPRITE, LARGURA_ESCUDO, LARGURA_SPRITE, escudo, sprite, visualDoJogador, type Pose } from '@liga/renderer';
-import { FALA_DO_TIME, IDENTIDADE, nomeDoClassico, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, nomeDoClassico, type ForcaDoTime, type Posicao, type TimeId } from '@liga/shared';
 
 /** Trecho de HTML já escapado. */
 export class Html {
@@ -101,4 +101,43 @@ export const comFaixa = (conteudo: Html, capitao: boolean | undefined): Html => 
 
 export function comCamisa(conteudo: Html | string, numero: number | null | undefined): Html {
   return numero ? html`<span class="com-camisa"><span class="com-camisa-nome">${conteudo}</span>${camisaNum(numero)}</span>` : html`${conteudo}`;
+}
+
+/** Barra de 40 a 99 (a faixa de OVR da Liga), em %. */
+const nivel = (v: number) => Math.round(Math.max(0, Math.min(1, (v - 40) / 59)) * 100);
+
+/** Força do Time (ADR-0028): OVR grande e barras de Ataque, Meio e Defesa. */
+export function forcaHtml(f: ForcaDoTime, rotulo = 'OVR do Time'): Html {
+  const setores: [string, string, number][] = [
+    ['ATA', 'Ataque', f.ataque],
+    ['MEI', 'Meio', f.meio],
+    ['DEF', 'Defesa', f.defesa],
+  ];
+  return html`<div class="forca" role="group" aria-label="${rotulo}: ${f.ovr}">
+    <span class="forca-ovr"><b>${f.ovr}</b><small>OVR</small></span>
+    <dl class="forca-setores">${setores.map(
+      ([sigla, nome, v]) => html`<div><dt title="${nome}">${sigla}</dt><dd><span class="forca-barra" aria-hidden="true"><span style="width:${nivel(v)}%"></span></span><b>${v}</b></dd></div>`,
+    )}</dl>
+  </div>`;
+}
+
+/** Duas forças frente a frente (Partida): mandante à esquerda, visitante à direita. */
+export function duelaDeForcas(m: ForcaDoTime, v: ForcaDoTime, nomes: [string, string]): Html {
+  const linhas: [string, number, number][] = [
+    ['OVR', m.ovr, v.ovr],
+    ['Ataque', m.ataque, v.ataque],
+    ['Meio', m.meio, v.meio],
+    ['Defesa', m.defesa, v.defesa],
+  ];
+  return html`<table class="duelo-forca">
+    <caption class="sr">Força em campo: ${nomes[0]} contra ${nomes[1]}</caption>
+    <thead><tr><th scope="col" class="lado-nome m">${nomes[0]}</th><th></th><th scope="col" class="lado-nome v">${nomes[1]}</th></tr></thead>
+    <tbody>${linhas.map(
+      ([nome, a, b]) => html`<tr class="${nome === 'OVR' ? 'geral' : ''}">
+        <td class="lado m ${a > b ? 'melhor' : ''}"><b>${a}</b><span class="forca-barra" aria-hidden="true"><span style="width:${nivel(a)}%"></span></span></td>
+        <th scope="row">${nome}</th>
+        <td class="lado v ${b > a ? 'melhor' : ''}"><span class="forca-barra" aria-hidden="true"><span style="width:${nivel(b)}%"></span></span><b>${b}</b></td>
+      </tr>`,
+    )}</tbody>
+  </table>`;
 }

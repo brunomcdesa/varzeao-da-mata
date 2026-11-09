@@ -2936,3 +2936,128 @@ a.jogo:hover {
   vertical-align: 1px;
   cursor: help;
 }
+
+/* Força do Time (ADR-0028): OVR e barras de Ataque, Meio e Defesa. */
+.forca {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 300px;
+  padding: 8px 10px;
+  background: var(--placa);
+  color: var(--tinta);
+  clip-path: var(--canto);
+  box-shadow: inset 0 0 0 2px var(--contorno);
+}
+.forca-ovr {
+  display: grid;
+  justify-items: center;
+  min-width: 48px;
+  padding-right: 10px;
+  border-right: 2px dashed var(--placa-sombra);
+}
+.forca-ovr b {
+  font: 400 1.75rem/1 var(--display);
+}
+.forca-ovr small {
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+.forca-setores {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+  margin: 0;
+}
+.forca-setores div {
+  display: grid;
+  grid-template-columns: 2.4em 1fr 1.6em;
+  align-items: center;
+  gap: 6px;
+}
+.forca-setores dt {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.forca-setores dd {
+  display: contents;
+}
+.forca-setores b {
+  font-size: 0.875rem;
+  text-align: right;
+}
+.forca-barra {
+  display: block;
+  height: 8px;
+  background: rgb(0 0 0 / 0.28);
+  box-shadow: inset 0 0 0 1px var(--contorno);
+}
+.forca-barra > span {
+  display: block;
+  height: 100%;
+  background: var(--amarelo);
+  box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.25);
+}
+.faixa-time .forca {
+  margin-top: 10px;
+}
+.forca .forca-barra {
+  background: var(--placa-sombra);
+}
+.forca .forca-barra > span {
+  background: var(--folha);
+}
+.legenda-forca {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+.duelo-forca {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto 8px;
+  border-collapse: separate;
+  border-spacing: 0 6px;
+}
+.duelo-forca th {
+  width: 5.5em;
+  font-size: 0.8125rem;
+  text-align: center;
+}
+.duelo-forca .lado {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.duelo-forca .lado.m {
+  flex-direction: row-reverse;
+}
+.duelo-forca .lado .forca-barra {
+  flex: 1;
+}
+.duelo-forca .lado.m .forca-barra > span {
+  margin-left: auto;
+}
+.duelo-forca .lado b {
+  min-width: 1.6em;
+  font-size: 1rem;
+  text-align: center;
+}
+.duelo-forca .lado.melhor b {
+  color: var(--amarelo);
+}
+.duelo-forca .lado:not(.melhor) .forca-barra > span {
+  background: var(--cal-fraca);
+}
+.duelo-forca tr.geral b {
+  font: 400 1.5rem/1 var(--display);
+}
+.duelo-forca .lado-nome {
+  font-weight: 700;
+}
+.duelo-forca .lado-nome.m {
+  text-align: right;
+}
+.duelo-forca .lado-nome.v {
+  text-align: left;
+}

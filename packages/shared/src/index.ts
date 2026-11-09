@@ -240,3 +240,4 @@ export * from './habilidades.js';
 import type { HabilidadeId, Habilidades } from './habilidades.js';
 export * from './aparencia.js';
 export * from './apelido.js';
+export * from './forca.js';

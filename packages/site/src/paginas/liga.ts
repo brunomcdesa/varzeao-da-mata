@@ -1,7 +1,7 @@
 /** Jogos (calendário), Tabela, Times e a página de cada Time. */
-import { FALA_DO_TIME, IDENTIDADE, TIMES, nomeDaRodada, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, TIMES, forcaProvavel, nomeDaRodada, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
 import { diaLongo, jogadores, liga, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos } from '../dados.js';
-import { bonecoImg, curto, escudoImg, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa } from '../ui.js';
+import { bonecoImg, curto, escudoImg, forcaHtml, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa } from '../ui.js';
 import { chaveamento } from './chave.js';
 import { linhaDePartida, tabelaDeClassificacao } from './comum.js';
 import type { Pagina } from './tipos.js';
@@ -100,6 +100,7 @@ export const paginaTimes: Pagina = async (main) => {
         <span class="nome">${id.nome}</span>
         <span class="bordao">“${FALA_DO_TIME[t].bordao}”</span>
         ${titulosDo(l, t).length ? html`<span class="tacas">${titulosDo(l, t).map(() => taca(16, 'trofeu'))}</span>` : ''}
+        ${forcaHtml(forcaProvavel(elenco))}
         <span class="numeros"><span>${pos ? `${pos}º` : 'estreante'}</span><span>${elenco.length} ${elenco.length === 1 ? 'jogador' : 'jogadores'}</span></span>
       </a></li>`;
     })}</ul>`;
@@ -145,6 +146,8 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
           ? html`<p class="titulos-time">${titulosDo(l, t).map(() => taca(20, 'trofeu'))}<span>${titulosDo(l, t).length === 1 ? 'Campeão' : `${titulosDo(l, t).length} vezes campeão`}: ${titulosDo(l, t).map((n) => `Temporada ${n}`).join(', ')}</span></p>`
           : ''}
         ${linha ? html`<p class="campanha">${temSeries(l) ? `Série ${serie} · ` : ''}${pos}º lugar · ${linha.pontos} pontos · ${linha.vitorias}V ${linha.empates}E ${linha.derrotas}D · saldo ${linha.saldo > 0 ? '+' : ''}${linha.saldo}</p>` : ''}
+        ${forcaHtml(forcaProvavel(elenco))}
+        <p class="legenda-forca">Força da escalação provável do próximo jogo (rodízio: entra quem jogou menos).</p>
         ${estreante ? html`<p class="campanha">Estreia na próxima Temporada, na Série B. Quem comentar ENTRO ${curto(t).toUpperCase()} já entra quando ela começar.</p>` : ''}
       </div>
     </header>
