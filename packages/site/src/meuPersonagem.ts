@@ -5,7 +5,7 @@
  *
  * A sessão é um segredo que só este navegador guarda (localStorage); a borda guarda o hash.
  */
-import { CABELOS, NOME_DO_PENTEADO, PELES, PENTEADOS, TIMES, type Aparencia, type JogadorPublico, type Penteado, type Posicao, type TimeId } from '@liga/shared';
+import { APELIDO_MAX, apelidoLiberaEm, podeTrocarApelido, CABELOS, NOME_DO_PENTEADO, validarApelido, PELES, PENTEADOS, TIMES, type Aparencia, type JogadorPublico, type Penteado, type Posicao, type TimeId } from '@liga/shared';
 import { ALTURA_SPRITE, LARGURA_SPRITE, aparencia, sprite, visualDoJogador, type Pose } from '@liga/renderer';
 import { BASE_API, INSTAGRAM, ajustarLocalmente } from './dados.js';
 import { curto, html, NOME_DA_POSICAO, POSICOES_EM_ORDEM } from './ui.js';
@@ -187,6 +187,8 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
             </form>`}
       </details>`);
 
+    caixa.insertAdjacentHTML('beforeend', blocoApelido().s);
+    ligarApelido(g);
     caixa.insertAdjacentHTML('beforeend', blocoVisual().s);
     ligarVisual(g);
     for (const d of caixa.querySelectorAll<HTMLDetailsElement>('details[data-dobra]')) {
@@ -216,6 +218,64 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
       if (!r?.dados.ok) return painel(g, estado, r?.dados.erro ?? 'Não deu para enviar agora. Tente de novo.');
       void seguir();
     });
+  }
+
+  // ---- apelido (ADR-0014): o nome que aparece no jogo, na narração e no site
+  let apelido: string | null = j.apelido ?? null;
+  let trocadoEm: string | null = j.apelidoTrocadoEm ?? null;
+  const travado = () => !podeTrocarApelido(trocadoEm ? new Date(trocadoEm) : null, new Date());
+  const liberaEm = () => apelidoLiberaEm(new Date(trocadoEm!)).toISOString();
+  const horaDe = (iso: string) => new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', hour: '2-digit', minute: '2-digit' });
+
+  function blocoApelido() {
+    return html`<details class="dobra" data-dobra="apelido" ${abertas.has('apelido') ? 'open' : ''}>
+      <summary>Apelido <small>${apelido ?? 'nome no jogo'}</small></summary>
+      <form class="form-apelido">
+        <p>O nome que aparece no jogo, nos Reels, na narração e no site. O @${j.username} continua aparecendo pequeno no site.</p>
+        <label><span>Apelido</span><input type="text" name="apelido" maxlength="${APELIDO_MAX}" autocomplete="off" spellcheck="false" value="${apelido ?? ''}" placeholder="Até ${APELIDO_MAX} letras" ${travado() ? 'disabled' : ''} /></label>
+        <p class="legenda">${travado() ? `Você já trocou o apelido nesta rodada. Dá para trocar de novo ${horaDe(liberaEm())}.` : trocadoEm && Date.now() - Date.parse(trocadoEm) < 10 * 60_000 ? 'Errou alguma letra? Dá para corrigir nos próximos minutos; depois, só na próxima rodada.' : 'Uma troca por rodada. Não pode repetir o apelido de outro jogador nem usar palavrão.'}</p>
+        <p><button type="submit" class="botao" ${travado() ? 'disabled' : ''}>Salvar apelido</button>${apelido && !travado() ? html` <button type="button" class="link" data-acao="tirar-apelido">Voltar a usar o @</button>` : ''}</p>
+        <p class="estado-apelido" role="status" aria-live="polite"></p>
+      </form>
+    </details>`;
+  }
+
+  function ligarApelido(g: Guardado) {
+    const form = caixa.querySelector<HTMLFormElement>('.form-apelido');
+    if (!form) return;
+    const estado = form.querySelector<HTMLElement>('.estado-apelido')!;
+    const enviar = async (novo: string) => {
+      if (novo) {
+        const v = validarApelido(novo);
+        if (!v.ok) {
+          estado.textContent = v.erro;
+          estado.className = 'estado-apelido erro';
+          return;
+        }
+        novo = v.apelido;
+      }
+      estado.textContent = 'Salvando...';
+      estado.className = 'estado-apelido';
+      const r = await api<{ ok?: boolean; erro?: string; pedido?: { resultado?: string; mensagem?: string } }>('perfil', { sessao: g.sessao, apelido: novo }).catch(() => null);
+      const p = r?.dados.pedido;
+      if (!r?.dados.ok || (p?.resultado && p.resultado !== 'SALVO')) {
+        estado.textContent = p?.mensagem ?? r?.dados.erro ?? 'Não deu para salvar agora. Tente de novo.';
+        estado.className = 'estado-apelido erro';
+        return;
+      }
+      apelido = novo || null;
+      // Nos 10 minutos seguintes ainda dá para corrigir; o painel mostra quando trava.
+      trocadoEm = new Date().toISOString();
+      ajustarLocalmente(j.id, { apelido, apelidoTrocadoEm: trocadoEm });
+      estado.textContent = p?.mensagem ?? 'Pronto!';
+      estado.className = 'estado-apelido sucesso';
+      window.setTimeout(() => window.dispatchEvent(new HashChangeEvent('hashchange')), 1500);
+    };
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      void enviar((form.elements.namedItem('apelido') as HTMLInputElement).value);
+    });
+    form.querySelector('[data-acao="tirar-apelido"]')?.addEventListener('click', () => void enviar(''));
   }
 
   // ---- visual do boneco e número da camisa

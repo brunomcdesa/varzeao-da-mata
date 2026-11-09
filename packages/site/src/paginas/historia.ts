@@ -17,15 +17,15 @@ function linhaDaTemporada(t: TemporadaNaHistoria): Html {
   }
   if (t.vice) fatos.push(html`<div><dt>Vice</dt><dd><a class="time-link" href="#/time/${t.vice}">${escudoImg(t.vice, 0.75)} ${curto(t.vice)}</a></dd></div>`);
   if (t.craque) {
-    fatos.push(html`<div><dt>Craque da Temporada</dt><dd><a class="fato-jogador" href="#/jogador/${t.craque.jogadorId}">${bonecoImg(t.craque.time, t.craque.posicao, t.craque.username, 1.5)} @${t.craque.username}</a><small>${curto(t.craque.time)}</small></dd></div>`);
+    fatos.push(html`<div><dt>Craque da Temporada</dt><dd><a class="fato-jogador" href="#/jogador/${t.craque.jogadorId}">${bonecoImg(t.craque.time, t.craque.posicao, t.craque.username, 1.5)} ${t.craque.apelido || `@${t.craque.username}`}</a><small>${curto(t.craque.time)}</small></dd></div>`);
   } else if (!andamento) {
     fatos.push(html`<div><dt>Craque da Temporada</dt><dd class="espera">votação aberta</dd></div>`);
   }
   if (t.artilheiro) {
-    fatos.push(html`<div><dt>Artilheiro</dt><dd><a class="fato-jogador" href="#/jogador/${t.artilheiro.jogadorId}">${bonecoImg(t.artilheiro.time, t.artilheiro.posicao, t.artilheiro.username, 1.5)} @${t.artilheiro.username}</a><small>${t.artilheiro.gols} gols</small></dd></div>`);
+    fatos.push(html`<div><dt>Artilheiro</dt><dd><a class="fato-jogador" href="#/jogador/${t.artilheiro.jogadorId}">${bonecoImg(t.artilheiro.time, t.artilheiro.posicao, t.artilheiro.username, 1.5)} ${t.artilheiro.apelido || `@${t.artilheiro.username}`}</a><small>${t.artilheiro.gols} gols</small></dd></div>`);
   }
   if (t.goleiro) {
-    fatos.push(html`<div><dt>Melhor goleiro</dt><dd><a class="fato-jogador" href="#/jogador/${t.goleiro.jogadorId}">${bonecoImg(t.goleiro.time, t.goleiro.posicao, t.goleiro.username, 1.5)} @${t.goleiro.username}</a><small>nota média ${nota(t.goleiro.notaMedia)} · ${t.goleiro.defesas} defesas · ${t.goleiro.golsSofridos} gols sofridos</small></dd></div>`);
+    fatos.push(html`<div><dt>Melhor goleiro</dt><dd><a class="fato-jogador" href="#/jogador/${t.goleiro.jogadorId}">${bonecoImg(t.goleiro.time, t.goleiro.posicao, t.goleiro.username, 1.5)} ${t.goleiro.apelido || `@${t.goleiro.username}`}</a><small>nota média ${nota(t.goleiro.notaMedia)} · ${t.goleiro.defesas} defesas · ${t.goleiro.golsSofridos} gols sofridos</small></dd></div>`);
   }
   if (lider) fatos.push(html`<div><dt>${andamento ? 'Líder agora' : 'Melhor da Fase de Liga'}</dt><dd><a class="time-link" href="#/time/${lider}">${escudoImg(lider, 0.75)} ${curto(lider)}</a><small>${t.tabela[0]!.pontos} pontos</small></dd></div>`);
 

@@ -13,11 +13,14 @@ export interface EscalacaoMontada {
   escalacao: Escalacao;
   /** @ de cada lugar; null = Jogador da Base. */
   nomes: (string | null)[];
+  /** Apelido de cada lugar na hora da Escalação (ADR-0014); null = sem apelido. */
+  apelidos: (string | null)[];
 }
 
 interface Disponivel {
   id: string;
   username: string;
+  apelido?: string | null;
   posicao: Posicao;
   ovr: number;
   habilidades: Habilidades;
@@ -49,8 +52,8 @@ export async function montarEscalacao(
   o: { time: TimeId; temporadaId: number; corte: Date; craque?: string | null },
 ): Promise<EscalacaoMontada> {
   const disponiveis = (
-    await banco.query<{ id: string; username: string; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; jogos: string; ultimo: string | Date | null; inscrito_em: string | Date }>(
-      `SELECT j.id::text AS id, j.username, j.posicao, j.ovr, j.habilidades, j.inscrito_em,
+    await banco.query<{ id: string; username: string; apelido: string | null; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; jogos: string; ultimo: string | Date | null; inscrito_em: string | Date }>(
+      `SELECT j.id::text AS id, j.username, j.apelido, j.posicao, j.ovr, j.habilidades, j.inscrito_em,
               count(p.id) AS jogos, max(p.apito_inicial) AS ultimo
        FROM jogador j
        LEFT JOIN escalacao e ON e.jogador_id = j.id
@@ -64,6 +67,7 @@ export async function montarEscalacao(
     (r): Disponivel => ({
       id: r.id,
       username: r.username,
+      apelido: r.apelido,
       posicao: r.posicao,
       ovr: r.ovr,
       habilidades: habilidadesDe(r.posicao, r.ovr, r.habilidades),
@@ -79,6 +83,7 @@ export async function montarEscalacao(
 
   const jogadores: Escalacao['jogadores'][number][] = [];
   const nomes: (string | null)[] = [];
+  const apelidos: (string | null)[] = [];
   for (const posicao of FORMACAO) {
     const proximo = porPosicao.get(posicao)?.shift();
     jogadores.push(
@@ -87,14 +92,16 @@ export async function montarEscalacao(
         : { jogadorId: null, posicao, ovr: OVR_BASE, habilidades: habilidadesDoPerfil(posicao, OVR_BASE) },
     );
     nomes.push(proximo ? `@${proximo.username}` : null);
+    apelidos.push(proximo?.apelido ?? null);
   }
-  return { escalacao: { time: o.time, jogadores }, nomes };
+  return { escalacao: { time: o.time, jogadores }, nomes, apelidos };
 }
 
 export interface PartidaEscalada {
   partidaId: number;
   escalacoes: { mandante: Escalacao; visitante: Escalacao };
   nomes: { mandante: (string | null)[]; visitante: (string | null)[] };
+  apelidos: { mandante: (string | null)[]; visitante: (string | null)[] };
 }
 
 /**
@@ -120,8 +127,8 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
     for (const m of [mandante, visitante]) {
       for (const [lugar, j] of m.escalacao.jogadores.entries()) {
         await b.query(
-          `INSERT INTO escalacao (partida_id, time_id, lugar, jogador_id, posicao, ovr_antes, habilidades_antes) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [partidaId, m.escalacao.time, lugar, j.jogadorId, j.posicao, j.ovr, JSON.stringify(j.habilidades)],
+          `INSERT INTO escalacao (partida_id, time_id, lugar, jogador_id, posicao, ovr_antes, habilidades_antes, apelido) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [partidaId, m.escalacao.time, lugar, j.jogadorId, j.posicao, j.ovr, JSON.stringify(j.habilidades), m.apelidos[lugar] ?? null],
         );
       }
     }
@@ -130,14 +137,15 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
       partidaId,
       escalacoes: { mandante: mandante.escalacao, visitante: visitante.escalacao },
       nomes: { mandante: mandante.nomes, visitante: visitante.nomes },
+      apelidos: { mandante: mandante.apelidos, visitante: visitante.apelidos },
     };
   });
 }
 
 async function lerEscalacao(b: Banco, partidaId: number, mandante: TimeId, visitante: TimeId): Promise<PartidaEscalada> {
   const linhas = (
-    await b.query<{ time_id: TimeId; jogador_id: string | null; posicao: Posicao; ovr_antes: number; habilidades_antes: Habilidades | string | null; username: string | null }>(
-      `SELECT e.time_id, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username
+    await b.query<{ time_id: TimeId; jogador_id: string | null; posicao: Posicao; ovr_antes: number; habilidades_antes: Habilidades | string | null; username: string | null; apelido: string | null }>(
+      `SELECT e.time_id, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido
        FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id
        WHERE e.partida_id = $1 ORDER BY e.lugar`,
       [partidaId],
@@ -151,9 +159,10 @@ async function lerEscalacao(b: Banco, partidaId: number, mandante: TimeId, visit
         jogadores: minhas.map((l) => ({ jogadorId: l.jogador_id, posicao: l.posicao, ovr: l.ovr_antes, habilidades: habilidadesDe(l.posicao, l.ovr_antes, l.habilidades_antes) })),
       } as Escalacao,
       nomes: minhas.map((l) => (l.username ? `@${l.username}` : null)),
+      apelidos: minhas.map((l) => l.apelido ?? null),
     };
   };
   const m = de(mandante);
   const v = de(visitante);
-  return { partidaId, escalacoes: { mandante: m.escalacao, visitante: v.escalacao }, nomes: { mandante: m.nomes, visitante: v.nomes } };
+  return { partidaId, escalacoes: { mandante: m.escalacao, visitante: v.escalacao }, nomes: { mandante: m.nomes, visitante: v.nomes }, apelidos: { mandante: m.apelidos, visitante: v.apelidos } };
 }

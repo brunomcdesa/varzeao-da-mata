@@ -1,5 +1,5 @@
 /** Jogadores: busca e ranking, o Card de cada um e a comparação lado a lado. */
-import { IDENTIDADE, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId } from '@liga/shared';
+import { IDENTIDADE, nomeVisivel, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId } from '@liga/shared';
 import { jogadores, liga } from '../dados.js';
 import { bonecoImg, comCamisa, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html } from '../ui.js';
 import type { Pagina } from './tipos.js';
@@ -58,7 +58,7 @@ export const paginaJogadores: Pagina = async (main) => {
     const termo = filtros.busca.trim().replace(/^@/, '').toLowerCase();
     const c = filtros.criterio;
     const lista = todos
-      .filter((j) => (!termo || j.username.toLowerCase().includes(termo)) && (!filtros.time || j.time === filtros.time) && (!filtros.posicao || j.posicao === filtros.posicao))
+      .filter((j) => (!termo || j.username.toLowerCase().includes(termo) || (j.apelido ?? '').toLowerCase().includes(termo)) && (!filtros.time || j.time === filtros.time) && (!filtros.posicao || j.posicao === filtros.posicao))
       .sort((a, b) => (valor(b, c, filtros.periodo) ?? -1) - (valor(a, c, filtros.periodo) ?? -1) || b.ovr - a.ovr || a.username.localeCompare(b.username));
     const e = (j: JogadorPublico) => (filtros.periodo === 'temporada' ? j.nestaTemporada : j);
     nada.hidden = lista.length > 0;
@@ -70,7 +70,7 @@ export const paginaJogadores: Pagina = async (main) => {
         (j, i) => html`<tr>
           <td><input type="checkbox" data-id="${j.id}" aria-label="Comparar @${j.username}" ${filtros.marcados.includes(j.id) ? 'checked' : ''} /></td>
           <td class="num">${i + 1}</td>
-          <th scope="row"><a class="jogador-celula" href="#/jogador/${j.id}">${bonecoImg(j.time, j.posicao, j.username, 2)}<span><span class="arroba">${comCamisa(`@${j.username}`, j.numero)}</span><small>${escudoImg(j.time, 0.75)} ${curto(j.time)} · ${j.posicao}</small></span></a></th>
+          <th scope="row"><a class="jogador-celula" href="#/jogador/${j.id}">${bonecoImg(j.time, j.posicao, j.username, 2)}<span><span class="arroba">${comCamisa(nomeVisivel(j), j.numero)}</span>${j.apelido ? html`<small class="sub-arroba">@${j.username}</small>` : ''}<small>${escudoImg(j.time, 0.75)} ${curto(j.time)} · ${j.posicao}</small></span></a></th>
           <td class="ovr ${c === 'ovr' ? 'ordem' : ''}">${j.ovr}</td>
           <td class="${c === 'jogos' ? 'ordem' : ''}">${e(j).jogos}</td>
           <td class="${c === 'gols' ? 'ordem' : ''}">${e(j).gols}</td>
@@ -174,7 +174,8 @@ export function card(j: JogadorPublico, o: { pequeno?: boolean } = {}): Html {
       ${escudoImg(j.time, o.pequeno ? 1 : 1.5, 'card-escudo')}
     </div>
     <div class="card-boneco">${bonecoImg(j.time, j.posicao, j.username, o.pequeno ? 6 : 9)}</div>
-    <p class="card-nome">${comCamisa(`@${j.username}`, j.numero)}</p>
+    <p class="card-nome">${comCamisa(nomeVisivel(j), j.numero)}</p>
+    ${j.apelido ? html`<p class="card-arroba">@${j.username}</p>` : ''}
     <p class="card-time">${curto(j.time)} · ${NOME_DA_POSICAO[j.posicao]}</p>
     ${barrasDeHabilidade(j.posicao, j.habilidades, o.pequeno ? undefined : j.habilidadesIniciais)}
     <dl class="card-numeros">
@@ -226,7 +227,7 @@ export const paginaJogador: Pagina = async (main, [id]) => {
   main.innerHTML = html`<article class="pagina-jogador">
     ${card(j)}
     <div class="jogador-detalhes">
-      <h1 class="sr">@${j.username}</h1>
+      <h1 class="sr">${j.apelido ? `${j.apelido} (@${j.username})` : `@${j.username}`}</h1>
       <p class="ranking-frase">${rankOvr}º maior OVR da Liga · ${rankPos}º entre ${daPosicao.length} ${NOME_DA_POSICAO[j.posicao].toLowerCase()}s</p>
       ${salaDeTrofeus(j)}
       ${blocoDoDono()}

@@ -9,3 +9,4 @@ export { escudo, LARGURA_ESCUDO, ALTURA_ESCUDO } from './escudos.js';
 export { sprite, definirAparencias, aparencia, LARGURA_SPRITE, ALTURA_SPRITE, type Pose, type Visual } from './sprites.js';
 export { COR } from './pixel.js';
 export * from './penaltis.js';
+export { apelidoFalavel } from './narracao.js';

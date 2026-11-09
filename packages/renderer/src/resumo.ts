@@ -7,7 +7,7 @@ import { desenharCompartilhe } from './anuncio.js';
 import { FALA_DO_TIME, IDENTIDADE, doTime, nomeDaRodada, type Posicao, type TimeId, type Aparencia } from '@liga/shared';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, plaquinha } from './desenho.js';
-import type { Fala } from './narracao.js';
+import { apelidoFalavel, type Fala } from './narracao.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
 import type { Segmento } from './roteiro.js';
 import { aparencia, sprite } from './sprites.js';
@@ -22,7 +22,7 @@ export interface DadosDoResumo {
   novosContratados: { username: string; time: TimeId; posicao: Posicao }[];
   totalNovos: number;
   /** `numero`: o que se comenta para votar (ADR-0011). */
-  candidatos: { numero?: number; username: string; time: TimeId; posicao: Posicao; nota: number; gols: number }[];
+  candidatos: { numero?: number; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number; gols: number }[];
   /** Resumo da Final: o Time campeão ganha uma cartela própria. */
   campeao?: TimeId;
   /** Na Final os Candidatos são da Temporada inteira (nota = nota média). */
@@ -32,12 +32,12 @@ export interface DadosDoResumo {
    * goleiro e quando começa a próxima. Junto com `craqueDaTemporada`.
    */
   fimDaTemporada?: {
-    artilheiro?: { username: string; time: TimeId; posicao: Posicao; gols: number };
+    artilheiro?: { username: string; apelido?: string | null; time: TimeId; posicao: Posicao; gols: number };
     goleiro?: { username: string; time: TimeId; notaMedia: number };
     proxima?: { numero: number; inicio: string };
   };
   /** Anúncio do Craque da Temporada (o dia seguinte à Final): só essa cartela e a chamada. */
-  craqueDaTemporada?: { username: string; time: TimeId; posicao: Posicao; notaMedia: number; gols: number; jogos: number; votos: number };
+  craqueDaTemporada?: { username: string; apelido?: string | null; time: TimeId; posicao: Posicao; notaMedia: number; gols: number; jogos: number; votos: number };
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
 }
@@ -126,13 +126,13 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
         break;
       case 'CRAQUE': {
         const c = d.craqueDaTemporada!;
-        texto = `Com ${c.votos} ${c.votos === 1 ? 'voto' : 'votos'} da torcida, o Craque da Temporada é o ${POSICAO_FALADA[c.posicao]} ${doTime(c.time)}! Nota média ${c.notaMedia.toFixed(1).replace('.', ',')}.`;
+        texto = `Com ${c.votos} ${c.votos === 1 ? 'voto' : 'votos'} da torcida, o Craque da Temporada é ${apelidoFalavel(c.apelido) ? `${apelidoFalavel(c.apelido)}, ${POSICAO_FALADA[c.posicao]} ${doTime(c.time)}` : `o ${POSICAO_FALADA[c.posicao]} ${doTime(c.time)}`}! Nota média ${c.notaMedia.toFixed(1).replace('.', ',')}.`;
         break;
       }
       case 'DESTAQUES': {
         const f = d.fimDaTemporada!;
         const partes: string[] = [];
-        if (f.artilheiro) partes.push(`O artilheiro foi o ${POSICAO_FALADA[f.artilheiro.posicao]} ${doTime(f.artilheiro.time)}, com ${f.artilheiro.gols} ${f.artilheiro.gols === 1 ? 'gol' : 'gols'}.`);
+        if (f.artilheiro) partes.push(`O artilheiro foi ${apelidoFalavel(f.artilheiro.apelido) ?? `o ${POSICAO_FALADA[f.artilheiro.posicao]} ${doTime(f.artilheiro.time)}`}, com ${f.artilheiro.gols} ${f.artilheiro.gols === 1 ? 'gol' : 'gols'}.`);
         if (f.goleiro) partes.push(`E o melhor goleiro foi o ${doTime(f.goleiro.time)}, nota média ${f.goleiro.notaMedia.toFixed(1).replace('.', ',')}.`);
         texto = partes.join(' ');
         break;
@@ -164,7 +164,7 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
         break;
       case 'CANDIDATOS': {
         const [melhor] = d.candidatos;
-        texto = `Esses são os candidatos a Craque ${d.votacao === 'TEMPORADA' ? 'da Temporada, os melhores do campeonato' : 'da Rodada'}.${melhor ? ` A maior nota foi do ${POSICAO_FALADA[melhor.posicao]} ${doTime(melhor.time)}.` : ''}`;
+        texto = `Esses são os candidatos a Craque ${d.votacao === 'TEMPORADA' ? 'da Temporada, os melhores do campeonato' : 'da Rodada'}.${melhor ? ` A maior nota foi ${apelidoFalavel(melhor.apelido) ? `de ${apelidoFalavel(melhor.apelido)}` : `do ${POSICAO_FALADA[melhor.posicao]} ${doTime(melhor.time)}`}.` : ''}`;
         break;
       }
       case 'CHAMADA':
@@ -341,7 +341,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
         const pose = k === 0 && fase % 2 === 0 ? 'FRENTE_COMEMORA' : 'FRENTE_PARADO';
         pin.ctx.drawImage(sprite(pose, visual), 23 * pin.px, (y + 8) * pin.px, 36 * pin.px, 48 * pin.px);
         desenharEscudo(pin, c.time, 50, y + 4, 0.7);
-        const nome = `@${c.username}`;
+        const nome = c.apelido || `@${c.username}`;
         pin.texto(nome, 72, y + 20, pin.caber(nome, 128, 11, texto, 700), texto, '#FFFFFF', { alinhar: 'left', peso: 700 });
         const info = `${POSICAO_FALADA[c.posicao]}, ${curto(c.time)}${c.gols ? `, ${c.gols} gol${c.gols > 1 ? 's' : ''}` : ''}`;
         pin.texto(info, 72, y + 38, pin.caber(info, 128, 7.5, texto, 500), texto, COR.placaSombra, { alinhar: 'left', peso: 500 });
@@ -398,7 +398,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       desenharEscudo(pin, c.time, 182, 74, 1);
       const cor = contraste(id.primaria);
       pin.texto('Craque da Temporada', COLUNAS / 2, 82, 9, texto, cor, { peso: 700 });
-      const nome = `@${c.username}`;
+      const nome = c.apelido || `@${c.username}`;
       pin.texto(nome, COLUNAS / 2, 232, pin.caber(nome, 150, 18, display), display, cor);
       pin.texto(`${POSICAO_FALADA[c.posicao]}, ${curto(c.time)}`, COLUNAS / 2, 252, 8, texto, cor, { peso: 600 });
       pin.ctx.globalAlpha = entre(q.tempo, 1.4, 2.0);

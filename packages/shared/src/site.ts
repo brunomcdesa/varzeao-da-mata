@@ -55,11 +55,11 @@ export interface RodadaPublica {
   fase: 'LIGA' | 'MATA_MATA';
   data: string;
   /** `numero`: o que se comenta (ou clica no site) para votar. */
-  candidatos: { numero: number; jogadorId: string; username: string; time: TimeId; posicao: Posicao; nota: number }[];
+  candidatos: { numero: number; jogadorId: string; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number }[];
   /** RODADA: Craque da Rodada. TEMPORADA: na Final, os Candidatos são a Craque da Temporada (nota = média). */
   votacao: 'RODADA' | 'TEMPORADA';
   /** Definido quando a votação fecha. */
-  craque: { jogadorId: string; username: string; time: TimeId } | null;
+  craque: { jogadorId: string; username: string; apelido?: string | null; time: TimeId } | null;
 }
 
 export interface LigaPublica {
@@ -82,6 +82,7 @@ export interface LigaPublica {
 export interface JogadorResumido {
   jogadorId: string;
   username: string;
+  apelido?: string | null;
   time: TimeId;
   posicao: Posicao;
 }
@@ -133,6 +134,10 @@ export interface Trofeu {
 export interface JogadorPublico {
   id: string;
   username: string;
+  /** Nome escolhido pelo dono (ADR-0014); sem ele, aparece o @. */
+  apelido?: string | null;
+  /** Quando o apelido foi trocado pela última vez (uma troca por Rodada, ADR-0014). */
+  apelidoTrocadoEm?: string | null;
   time: TimeId;
   posicao: Posicao;
   /** OVR visível: não muda antes do Apito da Partida que o alterou. */
@@ -176,7 +181,7 @@ export interface JogadorPublico {
 
 export interface EscalacaoPublica {
   time: TimeId;
-  jogadores: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; ovr: number; habilidades: Habilidades }[];
+  jogadores: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; ovr: number; habilidades: Habilidades }[];
 }
 
 export interface PartidaPublica {

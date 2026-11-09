@@ -30,6 +30,8 @@ export interface PerfilDoSite {
   jogadorId: string;
   visual?: { pele: string; cabelo: string; penteado: string };
   numero?: number;
+  /** Apelido (ADR-0014); vazio = voltar ao @. */
+  apelido?: string;
   pedidoEm: string;
   resultado?: 'SALVO' | 'RECUSADO';
   mensagem?: string;
@@ -43,7 +45,7 @@ export async function processarPedidosDoSite(banco: Banco, agenda: Agenda, agora
   const perfis = (await Promise.all((await agenda.listar(PREFIXO_PERFIL_SITE)).map(async (chave) => ({ chave, p: await agenda.ler<PerfilDoSite>(chave) })))).filter((x) => x.p && !x.p.processadoEm).sort((a, b) => a.p!.pedidoEm.localeCompare(b.p!.pedidoEm));
   for (const { chave, p: lido } of perfis) {
     const p = lido!;
-    const r = await banco.transacao((b) => aplicarPerfil(b, p.jogadorId, { ...(p.visual ? { visual: p.visual } : {}), ...(p.numero !== undefined ? { numero: p.numero } : {}) }));
+    const r = await banco.transacao((b) => aplicarPerfil(b, p.jogadorId, { ...(p.visual ? { visual: p.visual } : {}), ...(p.numero !== undefined ? { numero: p.numero } : {}), ...(p.apelido !== undefined ? { apelido: p.apelido } : {}) }, new Date(p.pedidoEm)));
     await agenda.gravar(chave, { ...p, resultado: r.ok ? 'SALVO' : 'RECUSADO', mensagem: r.mensagem, processadoEm: agora.toISOString() });
     n++;
   }

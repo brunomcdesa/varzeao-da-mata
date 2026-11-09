@@ -211,7 +211,12 @@ export function legendaDaPartida(d: DadosDoVideo, rodada: number): string {
   const nome = (t: TimeId) => FALA_DO_TIME[t].curto;
   const autores = d.resultado.lances
     .filter((l) => l.tipo === 'GOL' && l.finalizador)
-    .map((l) => d.nomes[l.finalizador!.lado][l.finalizador!.indice])
+    .map((l) => {
+      const arroba = d.nomes[l.finalizador!.lado][l.finalizador!.indice];
+      const apelido = d.apelidos?.[l.finalizador!.lado]?.[l.finalizador!.indice];
+      // Legenda: o apelido com o @ (marca a pessoa no post).
+      return arroba && apelido ? `${apelido} (${arroba})` : arroba;
+    })
     .filter((n): n is string => !!n);
   const linhas = [
     `⚽ ${nome(mandante)} ${g.mandante} × ${g.visitante} ${nome(visitante)}${d.resultado.penaltis ? ` (pênaltis ${d.resultado.penaltis.placar.mandante}–${d.resultado.penaltis.placar.visitante})` : ''}`,
@@ -461,8 +466,8 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
     await c.banco.query(`UPDATE temporada SET craque_jogador_id = $2 WHERE id = $1`, [t.id, craqueId]);
   }
   const s = (
-    await c.banco.query<{ username: string; time_id: TimeId; posicao: Posicao; media: string; jogos: string; votos: string }>(
-      `SELECT j.username, j.time_id, j.posicao, c.nota AS media,
+    await c.banco.query<{ username: string; apelido: string | null; time_id: TimeId; posicao: Posicao; media: string; jogos: string; votos: string }>(
+      `SELECT j.username, j.apelido, j.time_id, j.posicao, c.nota AS media,
               (SELECT count(*) FROM escalacao e JOIN partida p ON p.id = e.partida_id JOIN rodada r ON r.id = p.rodada_id
                 WHERE r.temporada_id = $3 AND e.jogador_id = j.id AND e.nota IS NOT NULL) AS jogos,
               (SELECT count(*) FROM voto_total v WHERE v.rodada_id = c.rodada_id AND v.jogador_id = j.id) AS votos
@@ -489,11 +494,11 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
     candidatos: [],
     ...(historia?.campeao ? { campeao: historia.campeao } : {}),
     fimDaTemporada: {
-      ...(historia?.artilheiro ? { artilheiro: { username: historia.artilheiro.username, time: historia.artilheiro.time, posicao: historia.artilheiro.posicao, gols: historia.artilheiro.gols } } : {}),
+      ...(historia?.artilheiro ? { artilheiro: { username: historia.artilheiro.username, apelido: historia.artilheiro.apelido ?? null, time: historia.artilheiro.time, posicao: historia.artilheiro.posicao, gols: historia.artilheiro.gols } } : {}),
       ...(historia?.goleiro ? { goleiro: { username: historia.goleiro.username, time: historia.goleiro.time, notaMedia: historia.goleiro.notaMedia } } : {}),
       proxima,
     },
-    craqueDaTemporada: { username: s.username, time: s.time_id, posicao: s.posicao, notaMedia: Number(s.media), gols, jogos: Number(s.jogos), votos: Number(s.votos) },
+    craqueDaTemporada: { username: s.username, apelido: s.apelido ?? null, time: s.time_id, posicao: s.posicao, notaMedia: Number(s.media), gols, jogos: Number(s.jogos), votos: Number(s.votos) },
   };
   let item: ItemDaAgenda | null = null;
   if (c.gravarResumo) {

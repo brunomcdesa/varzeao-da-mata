@@ -44,7 +44,22 @@ function videoDoJogo(s: Segmento, tJogo: number): number | null {
   return tJogo <= jr ? s.inicio + ((tJogo - ji) / (jr - ji)) * (r - s.inicio) : r + ((tJogo - jr) / (jf - jr)) * (s.fim - r);
 }
 
-export function montarNarracao(roteiro: Roteiro): Fala[] {
+/**
+ * O narrador só fala o apelido (ADR-0014) se der para ler em voz alta: precisa de vogal e de
+ * mais letras que números/símbolos. Senão, continua pela posição e pelo Time.
+ */
+export function apelidoFalavel(a: string | null | undefined): string | null {
+  if (!a) return null;
+  const letras = (a.match(/\p{L}/gu) ?? []).length;
+  if (letras < 2 || !/[aeiouáéíóúâêôãõà]/i.test(a) || letras < a.replace(/\s/g, '').length / 2) return null;
+  return a.replace(/[_.]+/g, ' ').trim();
+}
+
+/**
+ * `apelidos`: o apelido de cada lugar na Escalação (ADR-0014). O narrador fala o nome só nos
+ * gols; no resto, pela posição e pelo Time.
+ */
+export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string | null)[]>): Fala[] {
   const tl = roteiro.timeline;
   const r = tl.resultado;
   const esc = tl.escalacoes;
@@ -154,7 +169,8 @@ export function montarNarracao(roteiro: Roteiro): Fala[] {
 
     if (lance.tipo === 'GOL') {
       const placar = tl.placarEm(tl.janelas[s.lance!]!.resolucao + 1);
-      const extras = [
+      const nome = lance.finalizador ? apelidoFalavel(apelidos?.[lance.finalizador.lado]?.[lance.finalizador.indice]) : null;
+      const extras = nome ? [`${nome} não perdoa!`, `É dele! ${nome}!`, `${nome} balança a rede!`] : [
         FALA_DO_TIME[time(atq)].bordao,
         `${cap(f)} não perdoa!`,
         `${curto('mandante')} ${placar.mandante}, ${curto('visitante')} ${placar.visitante}.`,

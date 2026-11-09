@@ -63,9 +63,9 @@ export function timeLink(t: TimeId, escala = 1): Html {
   return html`<a class="time-link" href="#/time/${t}">${escudoImg(t, escala)}<span>${curto(t)}</span></a>`;
 }
 
-export function jogadorLink(id: string | null, username: string | null): Html {
+export function jogadorLink(id: string | null, username: string | null, apelido?: string | null): Html {
   if (!id || !username) return html`<span class="base" title="Jogador da Base: completa a vaga sem inscrito">Base</span>`;
-  return html`<a class="arroba" href="#/jogador/${id}">@${username}</a>`;
+  return apelido ? html`<a class="arroba" href="#/jogador/${id}" title="@${username}">${apelido}</a>` : html`<a class="arroba" href="#/jogador/${id}">@${username}</a>`;
 }
 
 export function rotuloClassico(a: TimeId, b: TimeId): string | null {

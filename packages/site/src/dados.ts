@@ -99,6 +99,8 @@ export interface AjusteLocal {
   time?: JogadorPublico['time'];
   posicao?: JogadorPublico['posicao'];
   transferenciaUsada?: boolean;
+  apelido?: string | null;
+  apelidoTrocadoEm?: string | null;
   em: number;
 }
 const CHAVE_AJUSTES = 'varzeao:ajustes';

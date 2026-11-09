@@ -97,6 +97,7 @@ async function preparar(dados: PartidaParaVideo, quadrosPorSegundo = 30): Promis
   opcoes = {
     times: dados.resultado.times,
     nomes: dados.nomes,
+    ...(dados.apelidos ? { apelidos: dados.apelidos } : {}),
     escudo,
     ...(dados.subtitulo ? { subtitulo: dados.subtitulo } : {}),
   };

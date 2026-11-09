@@ -48,12 +48,12 @@ function destaque(l: LigaPublica, p: PartidaNoCalendario | null): Html {
   </div>`;
 }
 
-function figurinha(titulo: string, c: { jogadorId: string; username: string; time: TimeId; posicao?: Posicao }, info: string): Html {
+function figurinha(titulo: string, c: { jogadorId: string; username: string; apelido?: string | null; time: TimeId; posicao?: Posicao }, info: string): Html {
   return html`<section class="placa votacao" aria-labelledby="titulo-votacao">
     <h2 id="titulo-votacao">${titulo}</h2>
     <a class="craque" href="#/jogador/${c.jogadorId}">
       <span class="craque-boneco">${c.posicao ? bonecoImg(c.time, c.posicao, c.username, 7, 'FRENTE_COMEMORA') : ''}</span>
-      <span class="craque-nome">@${c.username}</span>
+      <span class="craque-nome">${c.apelido || `@${c.username}`}</span>
       <span class="craque-info">${info}</span>
     </a>
   </section>`;
@@ -84,7 +84,7 @@ function votacao(l: LigaPublica): Html {
         (c) => html`<li class="${meu === c.numero ? 'meu-voto' : ''}">
           <span class="numero-voto" aria-hidden="true">${c.numero}</span>
           ${bonecoImg(c.time, c.posicao, c.username, 3)}
-          <span class="quem">${jogadorLink(c.jogadorId, c.username)}<small>${curto(c.time)} · ${temporada ? 'média' : 'nota'} ${nota(c.nota)}</small></span>
+          <span class="quem">${jogadorLink(c.jogadorId, c.username, c.apelido)}<small>${curto(c.time)} · ${temporada ? 'média' : 'nota'} ${nota(c.nota)}</small></span>
           ${noSite
             ? html`<button type="button" class="botao-voto" data-numero="${c.numero}" ${meu && !arroba ? 'disabled' : ''} aria-label="Votar no número ${c.numero}, @${c.username}">${meu === c.numero ? 'Seu voto' : `Votar no ${c.numero}`}</button>`
             : chamadaDeVoto(c.numero)}

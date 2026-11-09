@@ -17,6 +17,8 @@ export interface OpcoesDesenho {
   times: Record<Lado, TimeId>;
   /** @ de cada lugar da Escalação; null = Jogador da Base. */
   nomes: Record<Lado, (string | null)[]>;
+  /** Apelido de cada lugar (ADR-0014): o que aparece escrito. Sem ele, o @. O boneco segue pelo @. */
+  apelidos?: Record<Lado, (string | null)[]>;
   /** Fonte dos números e letreiros (precisa estar carregada na página). Padrão: Jersey 10. */
   fonteDisplay?: string;
   /** Fonte dos nomes. Padrão: Pixelify Sans. */
@@ -101,9 +103,14 @@ function desenharJogador(pin: Pincel, j: JogadorNoQuadro, o: OpcoesDesenho, fase
   c.restore();
 }
 
+/** O nome escrito na tela: o apelido, senão o @ (null = Jogador da Base). */
+export function rotulo(o: Pick<OpcoesDesenho, 'nomes' | 'apelidos'>, lado: Lado, indice: number): string | null {
+  return o.apelidos?.[lado]?.[indice] || o.nomes[lado][indice] || null;
+}
+
 function desenharNome(pin: Pincel, j: JogadorNoQuadro, o: OpcoesDesenho, fonte: string): void {
   const p = noCampo(j.pos);
-  const nome = o.nomes[j.slot.lado][j.slot.indice] ?? 'Base';
+  const nome = rotulo(o, j.slot.lado, j.slot.indice) ?? 'Base';
   pin.texto(nome, p.x, p.y + 6, 6.5, fonte, '#FFFFFF', { contorno: 'rgba(20,14,8,0.9)', peso: 600, espessura: 0.5 });
 }
 
@@ -282,7 +289,7 @@ const FALA_CURTA = (t: TimeId) => FALA_DO_TIME[t].curto;
 function desenharDestaque(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, display: string, texto: string): void {
   const d = e.destaque!;
   const id = IDENTIDADE[o.times[d.lado]];
-  const nome = o.nomes[d.protagonista.lado][d.protagonista.indice] ?? 'Jogador da Base';
+  const nome = rotulo(o, d.protagonista.lado, d.protagonista.indice) ?? 'Jogador da Base';
   const p = d.progresso;
 
   if (d.tipo === 'GOL' && !d.penalti) {

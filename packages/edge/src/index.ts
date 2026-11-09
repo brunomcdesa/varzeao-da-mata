@@ -154,7 +154,7 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
       return comBanco(env.DATABASE_URL, (b) =>
         b.transacao(async (t) => {
           if (p.tipo === 'PERFIL') {
-            const r = await aplicarPerfil(t, p.jogadorId, { ...(p.visual !== undefined ? { visual: p.visual } : {}), ...(p.numero !== undefined ? { numero: p.numero } : {}) });
+            const r = await aplicarPerfil(t, p.jogadorId, { ...(p.visual !== undefined ? { visual: p.visual } : {}), ...(p.numero !== undefined ? { numero: p.numero } : {}), ...(p.apelido !== undefined ? { apelido: p.apelido } : {}) }, agora);
             return { resultado: r.ok ? 'SALVO' : 'RECUSADO', mensagem: r.mensagem };
           }
           const r = await transferirJogador(t, p.jogadorId, { times: p.time ? [p.time as TimeId] : [], ...(p.posicao ? { posicao: p.posicao as Posicao } : {}) }, { quando: agora, ref: `site:${p.jogadorId}:${agora.toISOString()}` });

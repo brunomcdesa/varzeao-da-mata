@@ -16,6 +16,7 @@ const paraEscalacao = (e: EscalacaoPublica): Escalacao => ({
   jogadores: [...e.jogadores].sort((a, b) => a.lugar - b.lugar).map((j) => ({ jogadorId: j.jogadorId, posicao: j.posicao, ovr: j.ovr, habilidades: j.habilidades ?? habilidadesDoPerfil(j.posicao, j.ovr) })),
 });
 const nomesDe = (e: EscalacaoPublica) => [...e.jogadores].sort((a, b) => a.lugar - b.lugar).map((j) => (j.username ? `@${j.username}` : null));
+const apelidosDe = (e: EscalacaoPublica) => [...e.jogadores].sort((a, b) => a.lugar - b.lugar).map((j) => j.apelido ?? null);
 
 export function montarTimeline(p: PartidaPublica): Timeline | null {
   if (!p.resultado || !p.escalacoes) return null;
@@ -37,6 +38,8 @@ export function transmitir(
   const barra = raiz.querySelector<HTMLInputElement>('input[type="range"]');
   const velocidades = [...raiz.querySelectorAll<HTMLButtonElement>('[data-velocidade]')];
   const nomes: Record<Lado, (string | null)[]> = { mandante: nomesDe(p.escalacoes!.mandante), visitante: nomesDe(p.escalacoes!.visitante) };
+  // O apelido da época do jogo (ADR-0014) aparece escrito; o boneco segue pelo @.
+  const apelidos: Record<Lado, (string | null)[]> = { mandante: apelidosDe(p.escalacoes!.mandante), visitante: apelidosDe(p.escalacoes!.visitante) };
   const reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const FIM = timeline.duracao;
@@ -61,7 +64,7 @@ export function transmitir(
       tocando = false;
       marcar();
     }
-    desenharQuadro(ctx, timeline.estado(t), { times: timeline.resultado.times, nomes });
+    desenharQuadro(ctx, timeline.estado(t), { times: timeline.resultado.times, nomes, apelidos });
     if (barra) barra.value = String(Math.round(t));
     o.aoMudar?.(t);
     if (t >= FIM && !acabou) {
