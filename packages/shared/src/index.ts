@@ -30,6 +30,14 @@ export function ehClassico(a: TimeId, b: TimeId): boolean {
   return CLASSICOS.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
 }
 
+/**
+ * Goleada: o vencedor fez 4 gols ou mais e abriu 3 ou mais de vantagem
+ * (4×0, 4×1, 5×2 são goleada; 4×3 não). O narrador comemora no gol que a confirma e no fim.
+ */
+export function ehGoleada(golsVencedor: number, golsPerdedor: number): boolean {
+  return golsVencedor >= 4 && golsVencedor - golsPerdedor >= 3;
+}
+
 const NOMES_CLASSICOS: Readonly<Record<string, string>> = {
   'CAP-ONC': 'Clássico da Margem',
   'TAM-TAT': 'Clássico do Cupinzeiro',

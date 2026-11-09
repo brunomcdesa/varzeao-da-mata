@@ -4,7 +4,7 @@
  *
  * Regra do glossário: o Locutor fala dos Jogadores pela Posição e pelo Time, nunca pelo @.
  */
-import { FALA_DO_TIME, doTime, nomeDoClassico, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, doTime, ehGoleada, nomeDoClassico, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, type Lado, type Lance } from '@liga/sim';
 import { narradorDa } from './narradores.js';
 import { F_CHUTE_PENALTI, instanteDaCobranca, resultadoDaCobranca } from './penaltis.js';
@@ -87,6 +87,8 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
   const falas: Fala[] = [];
   const segs = roteiro.segmentos;
   const primeiroLance = segs.find((s) => s.tipo === 'LANCE');
+  /** Times que já ouviram a fala de Goleada neste vídeo. */
+  const goleou = new Set<Lado>();
 
   // Abertura: o Narrador da Partida se apresenta.
   const narrador = narradorDa(r.seed);
@@ -193,7 +195,21 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
     if (lance.tipo === 'GOL') {
       const placar = tl.placarEm(tl.janelas[s.lance!]!.resolucao + 1);
       const nome = lance.finalizador ? apelidoFalavel(apelidos?.[lance.finalizador.lado]?.[lance.finalizador.indice]) : null;
-      const extras = nome ? [`${nome} não perdoa!`, `É dele! ${nome}!`, `${nome} balança a rede!`] : [
+      const rival = atq === 'mandante' ? 'visitante' : 'mandante';
+      // O gol que confirma a Goleada: a fala extra comemora o placar (que está na tela).
+      // Só a primeira vez: se o rival diminuir e a Goleada voltar, não repete (4×1, 4×2, 5×2).
+      const golDaGoleada = !goleou.has(atq) && ehGoleada(placar[atq], placar[rival]);
+      if (golDaGoleada) goleou.add(atq);
+      const extras = golDaGoleada
+        ? nome
+          ? [`${nome}! E é goleada ${doTime(time(atq))}!`, `${nome} de novo! Goleada ${doTime(time(atq))}!`]
+          : [
+              `É goleada! ${cap(artigoDe(time(atq)))} ${curto(atq)} não tem dó!`,
+              `${curto(atq)} ${placar[atq]}, ${curto(rival)} ${placar[rival]}! É goleada no Varzeão!`,
+              `Virou passeio! Goleada ${doTime(time(atq))}!`,
+              `Chocolate ${doTime(time(atq))}! É goleada!`,
+            ]
+        : nome ? [`${nome} não perdoa!`, `É dele! ${nome}!`, `${nome} balança a rede!`] : [
         FALA_DO_TIME[time(atq)].bordao,
         `${cap(f)} não perdoa!`,
         `${curto('mandante')} ${placar.mandante}, ${curto('visitante')} ${placar.visitante}.`,
@@ -245,9 +261,16 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
   const fim = segs[segs.length - 1]!;
   const g = r.gols;
   const placar = `${curto('mandante')} ${g.mandante}, ${curto('visitante')} ${g.visitante}`;
+  const rngFim = criarRng(((r.seed >>> 0) ^ 0x85ebca6b) >>> 0);
+  /** No fim, a Goleada ganha frase própria no lugar do "Vitória do…". */
+  const vitoria = (v: Lado) => {
+    const perdedor = v === 'mandante' ? 'visitante' : 'mandante';
+    if (!ehGoleada(g[v], g[perdedor])) return `Vitória ${doTime(time(v))}!`;
+    return rngFim.pick([`Goleada ${doTime(time(v))}! Atropelou!`, `Foi um passeio! Goleada ${doTime(time(v))}!`, `Chocolate ${doTime(time(v))} no Varzeão!`]);
+  };
   const vencedor = r.penaltis && r.vencedor
     ? `${cap(artigoDe(time(r.vencedor)))} ${curto(r.vencedor)} venceu nos pênaltis!`
-    : r.vencedor ? `Vitória ${doTime(time(r.vencedor))}!` : 'Tudo igual no Varzeão!';
+    : r.vencedor ? vitoria(r.vencedor) : 'Tudo igual no Varzeão!';
   falas.push({ id: 'fim', texto: `Fim de jogo! ${placar}. ${vencedor} Curtiu? Compartilha com a galera! ${narrador.despedida}`, inicio: fim.inicio + 0.35, limite: fim.fim, tom: 'animado', segmento: segs.length - 1, parte: 'antes' });
   return falas;
 }

@@ -132,6 +132,10 @@ _Avoid_: aquecimento, lançamento
 Partida entre os dois Times de um par de rivais fixos. Cai no calendário por sorteio, como qualquer Partida, mas ganha abertura especial no Reels e move o OVR 1,5 vez mais que o normal.
 _Avoid_: derby, rivalidade, jogo grande
 
+**Goleada**:
+Vitória em que o vencedor faz 4 gols ou mais e abre 3 ou mais de vantagem (4×0, 4×1, 5×2; um 4×3 não é). O narrador comemora no gol que confirma a Goleada (uma vez por Partida) e no Fim de jogo. ADR-0017.
+_Avoid_: lavada, surra, massacre
+
 **Rei do Clássico**:
 O Jogador que decidiu um Clássico; o título fica registrado no seu Card.
 _Avoid_: herói do clássico, decisivo
