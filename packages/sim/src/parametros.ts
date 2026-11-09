@@ -2,7 +2,7 @@
  * Botões de calibração do motor. Mudar qualquer valor muda resultados de seeds
  * antigas, então exige subir VERSAO_SIM (ADR-0002).
  */
-export const VERSAO_SIM = 5;
+export const VERSAO_SIM = 6;
 
 export const PARAMETROS = {
   /** Lances de ataque de referência: a média das retas de EXPECTATIVA da Nota (ADR-0004). */
@@ -17,7 +17,7 @@ export const PARAMETROS = {
   /** Quantos pontos de Habilidade de diferença equivalem a "1 unidade" na curva logística. */
   escalaDuelo: 12,
   /** Peso da Habilidade contra a sorte em cada Duelo (0 = moeda). */
-  forcaHabilidade: 0.15,
+  forcaHabilidade: 0.2,
   /** Chance de um meia (em vez de atacante) finalizar a jogada. */
   chanceMeiaFinaliza: 0.3,
   /** Base da posse: o meia com a bola (Passe) contra o meia rival (Defesa). */

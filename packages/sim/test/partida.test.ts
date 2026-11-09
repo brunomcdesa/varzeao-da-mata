@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ehGoleada,
   HABILIDADES,
   HABILIDADE_MAX,
   LIMITE_DELTA_HABILIDADE,
@@ -146,8 +147,8 @@ describe('Habilidades (ADR-0010)', () => {
   });
 
   it('quem finaliza melhor chuta pra fora menos; quem dribla melhor tenta mais o drible', () => {
-    expect(chanceDeFora(90)).toBeCloseTo(0.22);
-    expect(chanceDeFora(50)).toBeCloseTo(0.35);
+    expect(chanceDeFora(90)).toBeCloseTo(0.25);
+    expect(chanceDeFora(50)).toBeCloseTo(0.38);
     expect(chanceDeDriblar(80, 60)).toBeGreaterThan(0.5);
   });
 
@@ -190,24 +191,33 @@ describe('calibração', () => {
     return vitorias / N;
   };
 
-  it('gols por jogo ficam perto de 3,8 (3,5 dos lances + os de escanteio)', () => {
+  it('gols por jogo ficam perto de 3,1 (VERSAO_SIM 6, ADR-0018)', () => {
     let gols = 0;
     for (let seed = 1; seed <= N; seed++) {
       const r = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('TAT', 70), seed });
       gols += r.gols.mandante + r.gols.visitante;
     }
-    expect(gols / N).toBeGreaterThan(3.5);
-    expect(gols / N).toBeLessThan(4.1);
+    expect(gols / N).toBeGreaterThan(2.8);
+    expect(gols / N).toBeLessThan(3.4);
   });
 
-  it('time bem mais forte (+15 de OVR) vence por volta de 60–65% das vezes', () => {
+  it('time bem mais forte (+15 de OVR) vence por volta de 68–72% das vezes', () => {
     const taxa = taxaDoForte(80, 65);
-    expect(taxa).toBeGreaterThan(0.58);
-    expect(taxa).toBeLessThan(0.7);
+    expect(taxa).toBeGreaterThan(0.64);
+    expect(taxa).toBeLessThan(0.76);
   });
 
   it('zebra existe: mesmo +25 de OVR perde de vez em quando', () => {
-    expect(taxaDoForte(85, 60)).toBeLessThan(0.85);
+    expect(taxaDoForte(85, 60)).toBeLessThan(0.9);
+  });
+
+  it('Goleada entre times iguais é rara (~9%)', () => {
+    let goleadas = 0;
+    for (let seed = 1; seed <= N; seed++) {
+      const r = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('TAT', 70), seed });
+      if (ehGoleada(Math.max(r.gols.mandante, r.gols.visitante), Math.min(r.gols.mandante, r.gols.visitante))) goleadas++;
+    }
+    expect(goleadas / N).toBeLessThan(0.13);
   });
 });
 
