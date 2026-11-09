@@ -31,11 +31,11 @@ export const PARAMETROS = {
   /** Quanto a diferença Drible − Finalização puxa a escolha entre driblar e chutar marcado. */
   escalaEscolha: 20,
   /** Base do chute contra o goleiro depois de driblar (livre) e depois de chutar marcado. */
-  baseChuteLivre: 0.78,
-  baseChuteApertado: 0.66,
+  baseChuteLivre: 0.62,
+  baseChuteApertado: 0.5,
   /** Chance de a bola que passou do goleiro ir pra fora: 35% com Finalização 50, 22% com 90. */
-  foraMaximo: 0.35,
-  foraMinimo: 0.22,
+  foraMaximo: 0.38,
+  foraMinimo: 0.25,
   /** Chance de converter um pênalti quando cobrador (Finalização) e goleiro (Goleiro) se igualam. */
   penaltiBase: 0.75,
   /** Quanto a vantagem no Duelo cobrador × goleiro desloca a chance de gol no pênalti. */
@@ -49,7 +49,7 @@ export const PARAMETROS = {
   /** Escanteio: cruzamento do cobrador (Passe) contra o zagueiro (Defesa) que tenta afastar. */
   baseCruzamento: 0.55,
   /** Escanteio: cabeceio (Finalização) contra o goleiro (Goleiro). */
-  baseCabeceio: 0.6,
+  baseCabeceio: 0.48,
   /** Chance de um lance começar com lateral (só o desenho). */
   chanceLateral: 0.35,
   /**

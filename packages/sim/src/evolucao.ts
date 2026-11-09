@@ -16,16 +16,16 @@ import {
 /** Pontos por ação (ponto de partida do ADR-0010, ajustados pela calibração). */
 export const ACOES = {
   // Finalização
-  gol: { hab: 'FIN', valor: 0.7 },
-  chuteDefendido: { hab: 'FIN', valor: -0.55 },
-  chuteFora: { hab: 'FIN', valor: -0.5 },
-  chuteBloqueado: { hab: 'FIN', valor: -0.5 },
+  gol: { hab: 'FIN', valor: 0.75 },
+  chuteDefendido: { hab: 'FIN', valor: -0.42 },
+  chuteFora: { hab: 'FIN', valor: -0.4 },
+  chuteBloqueado: { hab: 'FIN', valor: -0.48 },
   venceuChuteMarcado: { hab: 'FIN', valor: 0.2 },
   penaltiConvertido: { hab: 'FIN', valor: 0.5 },
   penaltiPerdido: { hab: 'FIN', valor: -0.6 },
   // Passe
-  assistencia: { hab: 'PAS', valor: 0.8 },
-  ganhouPosse: { hab: 'PAS', valor: 0.17 },
+  assistencia: { hab: 'PAS', valor: 0.85 },
+  ganhouPosse: { hab: 'PAS', valor: 0.2 },
   perdeuPosse: { hab: 'PAS', valor: -0.15 },
   desarmadoNaCriacao: { hab: 'PAS', valor: -0.3 },
   // Drible
@@ -40,10 +40,10 @@ export const ACOES = {
   bloqueio: { hab: 'DEF', valor: 0.5 },
   golSofridoZagueiro: { hab: 'DEF', valor: -0.2 },
   // Goleiro
-  defesa: { hab: 'GOL', valor: 0.65 },
+  defesa: { hab: 'GOL', valor: 0.28 },
   penaltiPego: { hab: 'GOL', valor: 1.0 },
   golSofridoGoleiro: { hab: 'GOL', valor: -0.4 },
-  semSofrerGol: { hab: 'GOL', valor: 0.5 },
+  semSofrerGol: { hab: 'GOL', valor: 0.4 },
 } as const satisfies Record<string, { hab: HabilidadeId; valor: number }>;
 
 export type Acao = keyof typeof ACOES;
