@@ -357,7 +357,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
         plaquinha(pin, 228, y + 14, 34, 30, c.nota.toFixed(1), display);
         // Número do voto, grande, no canto da figurinha: é o que se comenta.
         pin.placa(8, y - 2, 24, 26, { fundo: COR.amarelo, luz: '#FFE07A', sombra: '#B88600' });
-        pin.texto(String(c.numero ?? k + 1), 20, y + 12, 22, display, COR.tinta);
+        pin.texto(c.rotulo ?? String(c.numero ?? k + 1), 20, y + 12, 22, display, COR.tinta);
         if (d.votacao === 'TEMPORADA' && k === 0) pin.texto('média', 245, y + 52, 6, texto, COR.placaSombra, { peso: 600 });
         pin.ctx.restore();
         // a cor do Time numa faixinha embaixo do card
