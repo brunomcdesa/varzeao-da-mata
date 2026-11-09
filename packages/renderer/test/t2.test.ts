@@ -93,4 +93,19 @@ describe('Temporada 2 no renderer', () => {
     expect(falas.every((f) => !f.texto.includes('@'))).toBe(true);
     expect(montarEventos(roteiro).some((e) => e.tipo === 'APITO_FALTA')).toBe(true);
   });
+
+  it('o cobrador espera e bate do lado da bola oposto ao gol (nos dois sentidos)', () => {
+    for (const lado of ['mandante', 'visitante'] as const) {
+      const { resultado, timeline } = partidaCom((p) => p.resultado.lances.some((l) => (l.bolaParada === 'PENALTI' || l.bolaParada === 'FALTA_DIRETA') && l.ataque === lado));
+      const i = resultado.lances.findIndex((l) => (l.bolaParada === 'PENALTI' || l.bolaParada === 'FALTA_DIRETA') && l.ataque === lado);
+      const l = resultado.lances[i]!;
+      const j = timeline.janelas[i]!;
+      const gol = lado === 'mandante' ? 0.02 : 0.98;
+      for (const f of [0.4, 0.58]) {
+        const e = timeline.estado(j.inicio + (j.fim - j.inicio) * f);
+        const c = e.jogadores.find((x) => x.slot.lado === l.criador.lado && x.slot.indice === l.criador.indice)!;
+        expect(Math.abs(c.pos.y - gol)).toBeGreaterThan(Math.abs(e.bola.y - gol));
+      }
+    }
+  });
 });
