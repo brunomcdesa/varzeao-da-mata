@@ -3025,22 +3025,22 @@ a.jogo:hover {
   text-align: center;
 }
 .duelo-forca .lado {
-  display: flex;
+  display: grid;
   align-items: center;
   gap: 8px;
 }
+/* Número sempre na ponta de fora (mandante à esquerda, visitante à direita), barras iguais. */
 .duelo-forca .lado.m {
-  flex-direction: row-reverse;
+  grid-template-columns: 2.2em 1fr;
 }
-.duelo-forca .lado .forca-barra {
-  flex: 1;
+.duelo-forca .lado.v {
+  grid-template-columns: 1fr 2.2em;
 }
 .duelo-forca .lado.m .forca-barra > span {
   margin-left: auto;
 }
 .duelo-forca .lado b {
-  min-width: 1.6em;
-  font-size: 1rem;
+  font-size: 1.125rem;
   text-align: center;
 }
 .duelo-forca .lado.melhor b {
@@ -3049,8 +3049,8 @@ a.jogo:hover {
 .duelo-forca .lado:not(.melhor) .forca-barra > span {
   background: var(--cal-fraca);
 }
-.duelo-forca tr.geral b {
-  font: 400 1.5rem/1 var(--display);
+.duelo-forca tr.geral th {
+  font-weight: 700;
 }
 .duelo-forca .lado-nome {
   font-weight: 700;
