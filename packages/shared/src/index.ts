@@ -139,6 +139,67 @@ export interface JogadorEscalado {
   /** Resumo das Habilidades (ovrDasHabilidades). */
   ovr: number;
   habilidades: Habilidades;
+  /** Temporada 2 (ADR-0023): Especialização escolhida para o jogo. Só vale com as regras da T2. */
+  especializacao?: Especializacao;
+  /** Temporada 2 (ADR-0023): Habilidade de foco do Treino. */
+  treino?: HabilidadeId;
+  /** Temporada 2 (ADR-0023): Canto escolhido para pênaltis (batedor: onde chuta; goleiro: onde pula). */
+  canto?: Canto;
+}
+
+/** Temporada 2 (ADR-0020): a atitude do Time na Partida, escolhida pelo Capitão. */
+export const POSTURAS = ['OFENSIVA', 'EQUILIBRADA', 'DEFENSIVA'] as const;
+export type Postura = (typeof POSTURAS)[number];
+
+/** Temporada 2 (ADR-0023): Canto de pênalti. */
+export const CANTOS = ['ESQUERDA', 'MEIO', 'DIREITA'] as const;
+export type Canto = (typeof CANTOS)[number];
+
+/** Temporada 2 (ADR-0023): 3 Especializações por Posição. */
+export const ESPECIALIZACOES = {
+  ATA: ['ARTILHEIRO', 'DRIBLADOR', 'OPORTUNISTA'],
+  MEI: ['ARMADOR', 'VOLANTE', 'MEIA_ATACANTE'],
+  ZAG: ['XERIFE', 'BLOQUEADOR', 'ANTECIPACAO'],
+  GOL: ['PAREDAO', 'GATO', 'PEGADOR_DE_PENALTI'],
+} as const satisfies Record<Posicao, readonly string[]>;
+export type Especializacao = (typeof ESPECIALIZACOES)[Posicao][number];
+
+/** Nome de cada Especialização como o público lê. */
+export const NOME_DA_ESPECIALIZACAO: Readonly<Record<Especializacao, string>> = {
+  ARTILHEIRO: 'Artilheiro',
+  DRIBLADOR: 'Driblador',
+  OPORTUNISTA: 'Oportunista',
+  ARMADOR: 'Armador',
+  VOLANTE: 'Volante',
+  MEIA_ATACANTE: 'Meia-atacante',
+  XERIFE: 'Xerife',
+  BLOQUEADOR: 'Bloqueador',
+  ANTECIPACAO: 'Antecipação',
+  PAREDAO: 'Paredão',
+  GATO: 'Gato',
+  PEGADOR_DE_PENALTI: 'Pegador de pênalti',
+};
+
+/** O que cada Especialização faz, em uma linha (site e Ajuda). */
+export const DESCRICAO_DA_ESPECIALIZACAO: Readonly<Record<Especializacao, string>> = {
+  ARTILHEIRO: 'Chuta mais e finaliza melhor; dribla pior.',
+  DRIBLADOR: 'Dribla mais e melhor; chuta marcado pior.',
+  OPORTUNISTA: 'Aparece mais para finalizar, com menos precisão.',
+  ARMADOR: 'Cria melhor as jogadas; rouba menos a bola.',
+  VOLANTE: 'Rouba mais a bola; cria pior.',
+  MEIA_ATACANTE: 'Finaliza mais vezes; cria pior.',
+  XERIFE: 'Segura o drible; bloqueia pior o chute.',
+  BLOQUEADOR: 'Trava o chute; segura pior o drible.',
+  ANTECIPACAO: 'Corta melhor a criação; marca pior o finalizador.',
+  PAREDAO: 'Melhor no chute apertado; pior no chute livre.',
+  GATO: 'Melhor no chute livre; pior no chute apertado.',
+  PEGADOR_DE_PENALTI: 'Melhor nos pênaltis; um pouco pior no resto do jogo.',
+};
+
+/** Temporada 2: as regras que só valem a partir da Temporada 2 (ADRs 0020, 0021, 0023, 0024). */
+export const PRIMEIRA_TEMPORADA_COM_REGRAS_T2 = 2;
+export function temRegrasT2(numeroDaTemporada: number): boolean {
+  return numeroDaTemporada >= PRIMEIRA_TEMPORADA_COM_REGRAS_T2;
 }
 
 export interface Escalacao {
@@ -148,6 +209,6 @@ export interface Escalacao {
 export * from './site.js';
 export * from './rodada.js';
 export * from './habilidades.js';
-import type { Habilidades } from './habilidades.js';
+import type { HabilidadeId, Habilidades } from './habilidades.js';
 export * from './aparencia.js';
 export * from './apelido.js';
