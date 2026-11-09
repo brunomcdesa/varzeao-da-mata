@@ -57,6 +57,17 @@ export function chanceDeDriblar(drible: number, finalizacao: number): number {
 }
 
 /** Simula uma Partida. Mesma entrada (incluindo seed) → mesmo resultado, sempre. */
+/**
+ * Ritmo da Partida (ADR-0016): lances de ataque numa curva em sino (soma de dois sorteios)
+ * entre o mínimo e o máximo, com a média no meio. Tem sorteio próprio pelo seed, então os
+ * primeiros lances de uma Partida saem iguais aos da versão anterior.
+ */
+export function ritmoDaPartida(seed: number): number {
+  const r = criarRng(((seed >>> 0) ^ 0x2545f491) >>> 0);
+  const { ritmoMinimo: min, ritmoMaximo: max } = PARAMETROS;
+  return min + Math.round(((r.next() + r.next()) / 2) * (max - min));
+}
+
 export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
   validarEscalacao(entrada.mandante);
   validarEscalacao(entrada.visitante);
@@ -153,8 +164,10 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
       depoisDoLance(lances[lances.length - 1]!);
   };
 
-  for (let numero = 1; numero <= PARAMETROS.lances; numero++) {
-    const minuto = Math.min(90, Math.floor(((numero - 1) * 90) / PARAMETROS.lances) + 1 + rng.int(3));
+  // Ritmo (VERSAO_SIM 5): quantos lances de ataque a Partida tem, com sorteio próprio.
+  const totalDeLances = ritmoDaPartida(entrada.seed);
+  for (let numero = 1; numero <= totalDeLances; numero++) {
+    const minuto = Math.min(90, Math.floor(((numero - 1) * 90) / totalDeLances) + 1 + rng.int(3));
 
     // 1. Posse: o meia com a bola (Passe) contra o meia rival (Defesa).
     const comBola: Lado = rng.chance(0.5) ? 'mandante' : 'visitante';
@@ -321,7 +334,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
         jogadorId: jogador.jogadorId,
         posicao: jogador.posicao,
         ...c,
-        nota: notaDaPartida({ posicao: jogador.posicao, ...c, resultado: resultadoDe(lado) }, ovrAntes),
+        nota: notaDaPartida({ posicao: jogador.posicao, ...c, resultado: resultadoDe(lado) }, ovrAntes, totalDeLances / PARAMETROS.lances),
         ovrAntes,
         deltaOvr: ovrDepois - ovrAntes,
         ovrDepois,

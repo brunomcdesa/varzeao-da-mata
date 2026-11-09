@@ -58,7 +58,11 @@ export function expectativa(posicao: Posicao, ovr: number): number {
 const arredondar1 = (x: number): number => Math.round(x * 10) / 10;
 const limitar = (x: number, min: number, max: number): number => Math.min(max, Math.max(min, x));
 
-export function notaDaPartida(a: Acoes, ovr: number): number {
-  return arredondar1(limitar(PESOS_NOTA.base + contribuicao(a) - expectativa(a.posicao, ovr), 0, 10));
+/**
+ * Nota da Partida. `ritmo`: lances de ataque da Partida dividido pela referência (ADR-0016).
+ * A expectativa acompanha o Ritmo, para jogo travado não baixar a Nota de todo mundo.
+ */
+export function notaDaPartida(a: Acoes, ovr: number, ritmo = 1): number {
+  return arredondar1(limitar(PESOS_NOTA.base + contribuicao(a) - expectativa(a.posicao, ovr) * ritmo, 0, 10));
 }
 
