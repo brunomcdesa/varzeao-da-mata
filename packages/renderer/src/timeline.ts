@@ -10,6 +10,7 @@
 import type { Escalacao, Posicao } from '@liga/shared';
 import type { Lado, Lance, ResultadoPartida, SlotRef } from '@liga/sim';
 import {
+  FISICA,
   F_RESOLUCAO_CHUTE,
   F_RESOLUCAO_DESARME,
   MEIO,
@@ -106,23 +107,6 @@ const trapezio = (f: number, a: number, b: number, c: number, d: number): number
   f <= a || f >= d ? 0 : f < b ? suave((f - a) / (b - a)) : f <= c ? 1 : suave((d - f) / (d - c));
 const chave = (s: SlotRef) => `${s.lado}:${s.indice}`;
 
-/**
- * Corridas: a coreografia de cada lance diz para onde o boneco quer ir; a física decide como
- * ele chega lá, com velocidade e aceleração máximas, contínua entre os lances (sem teleporte).
- * Unidades: campo por segundo de jogo (no Ao Vivo, 1 s de jogo = 1/20 s de vídeo).
- */
-export const FISICA = {
-  /** Passo da integração (s de jogo). */
-  dt: 0.25,
-  /** Disparada de quem está na jogada (coreografia). */
-  sprint: 0.016,
-  /** Trote de quem volta ou acompanha a formação. */
-  trote: 0.008,
-  /** Aceleração máxima (campo/s²). */
-  aceleracao: 0.004,
-  /** Tempo para "chegar" ao alvo: abaixo dessa distância/tempo, desacelera sem passar do ponto. */
-  chegada: 1.5,
-};
 
 export class Timeline {
   readonly janelas: Janela[];
@@ -158,6 +142,7 @@ export class Timeline {
     this.planos = lances.map((l, i) => {
       const proximo = lances[i + 1];
       return montarPlano(l, this.bases, escalacoes, resultado.seed, {
+        duracao: this.janelas[i]!.fim - this.janelas[i]!.inicio,
         entrada: i === 0 ? MEIO : saida(i - 1),
         saida: saida(i),
         ...(proximo?.bolaParada === 'ESCANTEIO' ? { escanteio: pontoDoEscanteio(proximo) } : {}),
@@ -467,3 +452,5 @@ function montarJanelas(lances: readonly Lance[]): Janela[] {
   });
   return janelas;
 }
+
+export { FISICA };

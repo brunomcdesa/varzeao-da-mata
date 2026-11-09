@@ -433,11 +433,12 @@ export async function gravarNarracaoAoVivo(partida: PartidaParaVideo, saida: str
   }
   const duracaoFala = (id: string) => vozes.get(id)!.length / TAXA;
   const agenda = agendarAoVivo(falas, duracaoFala);
-  const ultima = agenda.reduce((m, a) => Math.max(m, a.inicio + duracaoFala(a.id)), 0);
+  const fimFala = (a: { id: string; inicio: number; fim?: number }) => a.fim ?? a.inicio + duracaoFala(a.id);
+  const ultima = agenda.reduce((m, a) => Math.max(m, fimFala(a)), 0);
   const duracao = Math.max(duracaoAoVivo(timeline), ultima) + 1.5;
-  const falando = agenda.reduce((s, a) => s + duracaoFala(a.id), 0);
+  const falando = agenda.reduce((s, a) => s + fimFala(a) - a.inicio, 0);
   console.log(`  Ao Vivo: ${agenda.length} de ${falas.length} falas, ${Math.round((100 * falando) / duracaoAoVivo(timeline))}% do tempo com voz.`);
-  const { esq, dir } = mixarAoVivo({ duracao, eventos: eventosAoVivo(timeline), vozes: agenda.map((a) => ({ inicio: a.inicio, amostras: vozes.get(a.id)! })) });
+  const { esq, dir } = mixarAoVivo({ duracao, eventos: eventosAoVivo(timeline), vozes: agenda.map((a) => ({ inicio: a.inicio, amostras: vozes.get(a.id)!, ...(a.fim !== undefined ? { fim: a.fim } : {}) })) });
   const pasta = await mkdtemp(join(tmpdir(), 'varzea-aovivo-'));
   try {
     const wav = join(pasta, 'aovivo.wav');
