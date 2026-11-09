@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { habilidadesDoPerfil, type Escalacao, type Posicao, type TimeId } from '@liga/shared';
 import { simularPartida } from '@liga/sim';
 import { DURACAO_JOGO, FISICA, Timeline } from '../src/timeline.js';
+import { cobradorDaBolaParada } from '../src/jogada.js';
 
 const ORDEM: Posicao[] = ['GOL', 'ZAG', 'ZAG', 'MEI', 'MEI', 'ATA', 'ATA'];
 const esc = (time: TimeId, ovr: number): Escalacao => ({
@@ -31,6 +32,27 @@ describe('Jogadas', () => {
         antes = agora;
       }
     }
+  });
+
+  it('bola parada só é cobrada com o cobrador já na bola (escanteio e lateral)', () => {
+    let vistos = 0;
+    for (let seed = 1; seed <= 12; seed++) {
+      const tl = timeline(seed);
+      tl.planos.forEach((p, i) => {
+        const l = tl.janelas[i]!.lance;
+        if (!l.bolaParada) return;
+        const parada = p.bola[0]!;
+        const voo = p.bola[1]!;
+        if (parada.tipo !== 'PARADA' || voo.tipo !== 'VOO') return;
+        const cobrador = l.bolaParada === 'ESCANTEIO' ? l.criador : cobradorDaBolaParada(l, (tl as any).bases, (tl as any).escalacoes);
+        const j = tl.janelas[i]!;
+        const t = j.inicio + voo.de * (j.fim - j.inicio);
+        const pe = tl.estado(t).jogadores.find((x) => x.slot.lado === cobrador.lado && x.slot.indice === cobrador.indice)!.pos;
+        expect(dist(pe, parada.ponto), `seed ${seed} lance ${i} ${l.bolaParada}`).toBeLessThan(0.04);
+        vistos++;
+      });
+    }
+    expect(vistos).toBeGreaterThan(20);
   });
 
   it('são as mesmas para a mesma Partida', () => {

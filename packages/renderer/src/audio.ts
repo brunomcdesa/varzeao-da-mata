@@ -259,6 +259,8 @@ export function agendarFalas(falas: Fala[], duracao: (id: string) => number): Fa
 export interface VozNaMixagem {
   inicio: number;
   amostras: Float32Array; // mono, TAXA
+  /** Corte (s): a voz para aqui, com um fade curto (Ao Vivo, quando o lance seguinte chega). */
+  fim?: number;
 }
 
 export function mixar(o: { duracao: number; segmentos: Segmento[]; eventos: EventoSonoro[]; vozes: VozNaMixagem[] }): { esq: Float32Array; dir: Float32Array } {
@@ -377,7 +379,12 @@ export function mixarAoVivo(o: { duracao: number; eventos: EventoSonoro[]; vozes
   const voz = new Float32Array(n);
   for (const v of o.vozes) {
     const i0 = Math.floor(v.inicio * TAXA);
-    for (let i = 0; i < v.amostras.length && i0 + i < n; i++) voz[i0 + i]! += v.amostras[i]!;
+    const total = v.fim === undefined ? v.amostras.length : Math.max(0, Math.min(v.amostras.length, Math.floor((v.fim - v.inicio) * TAXA)));
+    const fade = v.fim === undefined ? 0 : Math.min(total, Math.floor(0.12 * TAXA));
+    for (let i = 0; i < total && i0 + i < n; i++) {
+      const g = fade && i > total - fade ? (total - i) / fade : 1;
+      voz[i0 + i]! += v.amostras[i]! * g;
+    }
   }
   const esq = new Float32Array(n);
   const dir = new Float32Array(n);
