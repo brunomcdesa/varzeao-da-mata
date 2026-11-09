@@ -2,8 +2,8 @@
  * Chaveamento do Mata-mata: Semifinais (1º × 4º, 2º × 3º) levando à Final e ao campeão.
  * Antes das Semifinais existirem, mostra quem estaria lá se a Fase de Liga acabasse hoje.
  */
-import { etapaDa, type LigaPublica, type PartidaNoCalendario, type TimeId } from '@liga/shared';
-import { dia, hora, situacaoAgora } from '../dados.js';
+import { etapaDa, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
+import { dia, hora, serieDaPartida, situacaoAgora, tabelaDaSerie, temSeries } from '../dados.js';
 import { curto, escudoImg, html, taca, type Html } from '../ui.js';
 
 interface Vaga {
@@ -43,11 +43,15 @@ function jogo(o: { titulo: string; p?: PartidaNoCalendario; a: Vaga; b: Vaga; no
     : html`<div class="jogo ${o.projetado ? 'projetado' : ''}">${corpo}</div>`;
 }
 
-export function chaveamento(l: LigaPublica, o: { titulo?: boolean } = {}): Html {
-  const mm = l.calendario.filter((p) => p.fase === 'MATA_MATA');
+/** Chaveamento de uma Série (sem Série B, o da Liga inteira). */
+export function chaveamento(l: LigaPublica, o: { titulo?: boolean; serie?: Serie } = {}): Html {
+  const serie = o.serie ?? 'A';
+  const comSeries = temSeries(l);
+  const mm = l.calendario.filter((p) => p.fase === 'MATA_MATA' && serieDaPartida(p) === serie);
   const semis = mm.filter((p) => etapaDa(p.fase, p.rodada) === 'SEMIFINAL').sort((a, b) => a.apito.localeCompare(b.apito));
   const final = mm.find((p) => etapaDa(p.fase, p.rodada) === 'FINAL');
-  const ordem = l.tabela.map((x) => x.time);
+  const tabela = tabelaDaSerie(l, serie);
+  const ordem = tabela.map((x) => x.time);
   const semente = (t: TimeId) => (ordem.indexOf(t) >= 0 ? `${ordem.indexOf(t) + 1}º` : null);
   const projetado = semis.length === 0;
   const encerrou = (p?: PartidaNoCalendario) => !!p && situacaoAgora(p) === 'ENCERRADA' && !!p.placar;
@@ -70,10 +74,12 @@ export function chaveamento(l: LigaPublica, o: { titulo?: boolean } = {}): Html 
   const v2 = encerrou(s2) ? s2!.classificado! : null;
   const [fa, fb] = vagasDe(final, final?.mandante ?? v1, final?.visitante ?? v2, ['Vencedor da Semi 1', 'Vencedor da Semi 2']);
   const campeao = encerrou(final) ? final!.classificado! : null;
-  const ligaCorrendo = l.tabela.some((x) => x.jogos > 0) && projetado;
+  const ligaCorrendo = tabela.some((x) => x.jogos > 0) && projetado;
+  const id = `titulo-chave-${serie.toLowerCase()}`;
+  const nomeCampeao = comSeries ? `Campeão da Série ${serie}` : 'Campeão';
 
-  return html`<section class="chave-bloco" aria-labelledby="titulo-chave">
-    ${o.titulo === false ? '' : html`<h2 id="titulo-chave" class="secao">Mata-mata ${ligaCorrendo ? html`<small>se a Fase de Liga acabasse hoje</small>` : ''}</h2>`}
+  return html`<section class="chave-bloco" aria-labelledby="${id}">
+    ${o.titulo === false ? '' : html`<h2 id="${id}" class="secao">Mata-mata${comSeries ? ` da Série ${serie}` : ''} ${ligaCorrendo ? html`<small>se a Fase de Liga acabasse hoje</small>` : ''}</h2>`}
     <div class="chave ${projetado ? 'chave-projetada' : ''}">
       <div class="chave-coluna chave-semis">
         ${jogo({ titulo: 'Semifinal 1', ...(s1 ? { p: s1 } : {}), a: a1, b: b1, nota: 'empate vai para os pênaltis', projetado })}
@@ -87,8 +93,8 @@ export function chaveamento(l: LigaPublica, o: { titulo?: boolean } = {}): Html 
       <div class="chave-coluna chave-campeao">
         <div class="trofeu-vaga ${campeao ? 'tem-campeao' : ''}">
           ${taca(40, 'trofeu')}
-          ${campeao ? html`<a href="#/time/${campeao}">${escudoImg(campeao, 2)}<span>${curto(campeao)}</span></a>` : html`<span class="trofeu-espera">Campeão</span>`}
-          ${campeao ? html`<span class="trofeu-espera">Campeão</span>` : ''}
+          ${campeao ? html`<a href="#/time/${campeao}">${escudoImg(campeao, 2)}<span>${curto(campeao)}</span></a>` : html`<span class="trofeu-espera">${nomeCampeao}</span>`}
+          ${campeao ? html`<span class="trofeu-espera">${nomeCampeao}</span>` : ''}
         </div>
       </div>
     </div>

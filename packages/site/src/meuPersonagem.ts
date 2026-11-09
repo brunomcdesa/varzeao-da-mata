@@ -63,7 +63,7 @@ export const vinculoDisponivel = () => Boolean(BASE_API);
 /** Lugar na página do Jogador; `ligarMeuPersonagem` preenche. */
 export const blocoDoDono = () => (vinculoDisponivel() ? html`<section class="meu-personagem placa" aria-live="polite"></section>` : html``);
 
-export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: JogadorPublico[]): () => void {
+export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: JogadorPublico[], ativos: readonly TimeId[] = TIMES): () => void {
   const achada = raiz.querySelector<HTMLElement>('.meu-personagem');
   if (!achada) return () => {};
   const caixa: HTMLElement = achada;
@@ -154,8 +154,8 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
   function painel(g: Guardado, estado: Pedido, mensagem = '') {
     const pendente = Boolean(estado.pedidoEm && !estado.processadoEm);
     // Elencos sem ele, para mostrar para onde dá para ir (a regra final é da Liga).
-    const contagem = new Map<TimeId, number>(TIMES.map((t) => [t, 0]));
-    for (const x of todos) if (x.id !== j.id) contagem.set(x.time, (contagem.get(x.time) ?? 0) + 1);
+    const contagem = new Map<TimeId, number>(ativos.map((t) => [t, 0]));
+    for (const x of todos) if (x.id !== j.id && contagem.has(x.time)) contagem.set(x.time, (contagem.get(x.time) ?? 0) + 1);
     const menor = Math.min(...contagem.values());
     const temVaga = (t: TimeId) => t === j.time || contagem.get(t)! < menor + FOLGA;
     const resultado = estado.processadoEm && estado.mensagem ? html`<p class="${estado.resultado === 'TRANSFERIDO' ? 'sucesso' : 'erro'}">${estado.mensagem}</p>` : '';
@@ -178,7 +178,7 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
           : html`<form class="form-transferencia">
               <p>Uma vez por temporada, na Fase de Liga, você pode trocar de time, de posição ou dos dois. Vale a partir do próximo jogo escalado, e você leva as suas habilidades.</p>
               <label><span>Time</span><select name="time">
-                ${TIMES.map((t) => html`<option value="${t}" ${t === j.time ? 'selected' : ''} ${temVaga(t) ? '' : 'disabled'}>${curto(t)}${t === j.time ? ' (atual)' : temVaga(t) ? '' : ' (cheio)'}</option>`)}
+                ${ativos.map((t) => html`<option value="${t}" ${t === j.time ? 'selected' : ''} ${temVaga(t) ? '' : 'disabled'}>${curto(t)}${t === j.time ? ' (atual)' : temVaga(t) ? '' : ' (cheio)'}</option>`)}
               </select></label>
               <label><span>Posição</span><select name="posicao">
                 ${POSICOES_EM_ORDEM.map((p) => html`<option value="${p}" ${p === j.posicao ? 'selected' : ''}>${NOME_DA_POSICAO[p]}${p === j.posicao ? ' (atual)' : ''}</option>`)}

@@ -3,7 +3,8 @@
  *
  *   pnpm --filter @liga/renderer exec tsx scripts/previa-resumo.ts <pasta> [--series]
  *
- * Com --series, a Rodada tem Série A e Série B (ADR-0015).
+ * Com --series, a Rodada tem Série A e Série B (ADR-0015). Com --fim, mostra o anúncio do fim
+ * da Temporada (campeão e Craque, e os da Série B com --series).
  */
 import { resolve } from 'node:path';
 import { TIMES_FUNDADORES, TIMES_NOVOS, rotuloDoCandidato, type Posicao, type Serie, type TimeId } from '@liga/shared';
@@ -40,4 +41,20 @@ const dados: DadosDoResumo = {
   candidatos: [...candidatos(TIMES_FUNDADORES, 'A', 0), ...(comSeries ? candidatos(TIMES_NOVOS, 'B', 5) : [])],
 };
 
-await gravarResumo(dados, { saida: resolve(pasta, 'resumo.mp4'), previa: pasta });
+const craque = (username: string, time: TimeId, posicao: Posicao) => ({ username, time, posicao, notaMedia: 8.4, gols: 9, jogos: 9, votos: 41 });
+const fim: DadosDoResumo = {
+  temporada: 2,
+  rodada: 9,
+  fase: 'MATA_MATA',
+  placares: [],
+  tabela: [],
+  novosContratados: [],
+  totalNovos: 0,
+  candidatos: [],
+  campeao: 'ONC',
+  ...(comSeries ? { campeaoB: 'COR' as TimeId, craqueDaTemporadaB: craque('coruja.noturna', 'COR', 'ATA') } : {}),
+  craqueDaTemporada: craque('rafa.gol', 'CAP', 'MEI'),
+  fimDaTemporada: { proxima: { numero: 3, inicio: '2026-12-01' } },
+};
+
+await gravarResumo(process.argv.includes('--fim') ? fim : dados, { saida: resolve(pasta, 'resumo.mp4'), previa: pasta });

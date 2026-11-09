@@ -27,6 +27,21 @@ function linhaDaTemporada(t: TemporadaNaHistoria): Html {
   if (t.goleiro) {
     fatos.push(html`<div><dt>Melhor goleiro</dt><dd><a class="fato-jogador" href="#/jogador/${t.goleiro.jogadorId}">${bonecoImg(t.goleiro.time, t.goleiro.posicao, t.goleiro.username, 1.5)} ${t.goleiro.apelido || `@${t.goleiro.username}`}</a><small>nota média ${nota(t.goleiro.notaMedia)} · ${t.goleiro.defesas} defesas · ${t.goleiro.golsSofridos} gols sofridos</small></dd></div>`);
   }
+  // Série B (ADR-0015): campeão, Final e Craque da B.
+  const b = t.serieB;
+  if (b?.campeao) {
+    fatos.push(html`<div><dt>Campeão da Série B</dt><dd><a class="time-link" href="#/time/${b.campeao}">${escudoImg(b.campeao, 0.75)} ${curto(b.campeao)}</a>${
+      b.final ? html`<small><a href="#/partida/${b.final.partidaId}">Final: ${curto(b.final.mandante)} ${b.final.placar.mandante} × ${b.final.placar.visitante} ${curto(b.final.visitante)}</a></small>` : ''
+    }</dd></div>`);
+    if (b.final) fatos.push(html`<div><dt>Sobem para a Série A</dt><dd>${[b.final.mandante, b.final.visitante].map((x) => html`<a class="time-link" href="#/time/${x}">${escudoImg(x, 0.75)} ${curto(x)}</a> `)}</dd></div>`);
+  }
+  if (b?.craque) {
+    fatos.push(html`<div><dt>Craque da Série B</dt><dd><a class="fato-jogador" href="#/jogador/${b.craque.jogadorId}">${bonecoImg(b.craque.time, b.craque.posicao, b.craque.username, 1.5)} ${b.craque.apelido || `@${b.craque.username}`}</a><small>${curto(b.craque.time)}</small></dd></div>`);
+  }
+  if (b && !andamento && t.tabela.length) {
+    const caem = t.tabela.slice(-2).map((l) => l.time);
+    fatos.push(html`<div><dt>Caem para a Série B</dt><dd>${caem.map((x) => html`<a class="time-link" href="#/time/${x}">${escudoImg(x, 0.75)} ${curto(x)}</a> `)}</dd></div>`);
+  }
   if (lider) fatos.push(html`<div><dt>${andamento ? 'Líder agora' : 'Melhor da Fase de Liga'}</dt><dd><a class="time-link" href="#/time/${lider}">${escudoImg(lider, 0.75)} ${curto(lider)}</a><small>${t.tabela[0]!.pontos} pontos</small></dd></div>`);
 
   const inicio = new Date(`${t.inicio}T12:00:00Z`).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' });
@@ -39,7 +54,11 @@ function linhaDaTemporada(t: TemporadaNaHistoria): Html {
     </div>
     <dl class="temporada-fatos">${fatos}</dl>
     ${t.tabela.some((l) => l.jogos > 0)
-      ? html`<details class="temporada-tabela"><summary>Tabela da Fase de Liga</summary><div class="quadro-negro">${tabelaDeClassificacao(t.tabela, { compacta: true, semLegenda: true })}</div></details>`
+      ? html`<details class="temporada-tabela"><summary>Tabela da Fase de Liga${b ? ' (Série A e Série B)' : ''}</summary><div class="quadro-negro">${
+          b
+            ? html`<h3 class="subsecao-serie"><span class="selo-serie serie-a">Série A</span></h3>${tabelaDeClassificacao(t.tabela, { compacta: true, semLegenda: true, serie: 'A' })}<h3 class="subsecao-serie"><span class="selo-serie serie-b">Série B</span></h3>${tabelaDeClassificacao(b.tabela, { compacta: true, semLegenda: true, serie: 'B' })}`
+            : tabelaDeClassificacao(t.tabela, { compacta: true, semLegenda: true })
+        }</div></details>`
       : ''}
   </li>`;
 }

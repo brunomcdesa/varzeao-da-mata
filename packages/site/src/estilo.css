@@ -2646,3 +2646,55 @@ a.jogo:hover {
   background: var(--placa);
   border: 1px solid var(--contorno);
 }
+
+/* ------------------------------------------------------------- Séries (ADR-0015) */
+
+/* Selo "Série A" (amarelo) / "Série B" (madeira), no mesmo estilo das plaquinhas. */
+.selo-serie {
+  display: inline-block;
+  padding: 3px 10px 2px;
+  font: 400 1.25rem/1 var(--display);
+  color: var(--tinta);
+  background: var(--amarelo);
+  clip-path: var(--canto);
+  letter-spacing: 0.02em;
+}
+.selo-serie.serie-b {
+  color: var(--placa);
+  background: var(--madeira);
+  box-shadow: inset 0 -2px 0 var(--madeira-escura);
+}
+.subsecao-serie {
+  margin: 14px 0 6px;
+  font-size: 1rem;
+}
+.subsecao-serie:first-child {
+  margin-top: 0;
+}
+
+/* Zona de Rebaixamento da Série A: os 2 últimos. */
+.classificacao .rebaixamento td,
+.classificacao .rebaixamento th {
+  background: rgb(160 48 36 / 0.35);
+}
+.classificacao .rebaixamento .pos {
+  color: var(--desce);
+}
+
+/* Rótulo do voto com letra ("A3", "B3"). */
+.numero-voto.largo {
+  width: 44px;
+  font-size: 1.5rem;
+}
+
+/* Atalho para a outra Partida do mesmo horário. */
+.destaque-outra {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 10px;
+  font-size: 0.875rem;
+  color: var(--placa);
+}

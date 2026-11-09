@@ -497,21 +497,8 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
     craqueId = eleito.id;
     await c.banco.query(`UPDATE temporada SET craque_jogador_id = $2 WHERE id = $1`, [t.id, craqueId]);
   }
-  const s = (
-    await c.banco.query<{ username: string; apelido: string | null; time_id: TimeId; posicao: Posicao; media: string; jogos: string; votos: string }>(
-      `SELECT j.username, j.apelido, j.time_id, j.posicao, c.nota AS media,
-              (SELECT count(*) FROM escalacao e JOIN partida p ON p.id = e.partida_id JOIN rodada r ON r.id = p.rodada_id
-                WHERE r.temporada_id = $3 AND e.jogador_id = j.id AND e.nota IS NOT NULL) AS jogos,
-              (SELECT count(*) FROM voto_total v WHERE v.rodada_id = c.rodada_id AND v.jogador_id = j.id) AS votos
-       FROM candidato c JOIN jogador j ON j.id = c.jogador_id WHERE c.rodada_id = $1 AND j.id = $2`,
-      [t.final_id, craqueId, t.id],
-    )
-  ).rows[0]!;
-  const gols = (await c.banco.query<{ desempenho: { gols: number } }>(
-    `SELECT d AS desempenho FROM partida p JOIN rodada r ON r.id = p.rodada_id CROSS JOIN LATERAL jsonb_array_elements(p.resultado->'desempenhos') d
-     WHERE r.temporada_id = $1 AND d->>'jogadorId' = $2`,
-    [t.id, craqueId],
-  )).rows.reduce((soma, x) => soma + (x.desempenho.gols ?? 0), 0);
+  const { s, gols } = await numerosDoCraque(c.banco, t.id, t.final_id, craqueId);
+  const b = craqueB ? await numerosDoCraque(c.banco, t.id, t.final_id, craqueB.id) : null;
   const publicarEm = new Date(Math.max(Date.UTC(a, m - 1, d + 1, HORA_DO_RESUMO - FUSO_BRASILIA), agora.getTime()));
   // Campeão, vice, artilheiro e melhor goleiro: os mesmos números da página de História.
   const historia = ((await exportarSite(c.banco, agora)).arquivos.get('liga.json') as LigaPublica).temporadas.find((x) => x.numero === t.numero);
@@ -525,6 +512,8 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
     totalNovos: 0,
     candidatos: [],
     ...(historia?.campeao ? { campeao: historia.campeao } : {}),
+    ...(historia?.serieB?.campeao ? { campeaoB: historia.serieB.campeao } : {}),
+    ...(b ? { craqueDaTemporadaB: { username: b.s.username, apelido: b.s.apelido ?? null, time: b.s.time_id, posicao: b.s.posicao, notaMedia: Number(b.s.media), gols: b.gols, jogos: Number(b.s.jogos), votos: Number(b.s.votos) } } : {}),
     fimDaTemporada: {
       ...(historia?.artilheiro ? { artilheiro: { username: historia.artilheiro.username, apelido: historia.artilheiro.apelido ?? null, time: historia.artilheiro.time, posicao: historia.artilheiro.posicao, gols: historia.artilheiro.gols } } : {}),
       ...(historia?.goleiro ? { goleiro: { username: historia.goleiro.username, time: historia.goleiro.time, notaMedia: historia.goleiro.notaMedia } } : {}),
@@ -559,15 +548,37 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
   return t.id;
 }
 
+/** Os números do Craque da Temporada para o anúncio: nota média, jogos, votos e gols. */
+async function numerosDoCraque(banco: Banco, temporadaId: number, finalId: number, jogadorId: string) {
+  const s = (
+    await banco.query<{ username: string; apelido: string | null; time_id: TimeId; posicao: Posicao; media: string; jogos: string; votos: string }>(
+      `SELECT j.username, j.apelido, j.time_id, j.posicao, c.nota AS media,
+              (SELECT count(*) FROM escalacao e JOIN partida p ON p.id = e.partida_id JOIN rodada r ON r.id = p.rodada_id
+                WHERE r.temporada_id = $3 AND e.jogador_id = j.id AND e.nota IS NOT NULL) AS jogos,
+              (SELECT count(*) FROM voto_total v WHERE v.rodada_id = c.rodada_id AND v.jogador_id = j.id) AS votos
+       FROM candidato c JOIN jogador j ON j.id = c.jogador_id WHERE c.rodada_id = $1 AND j.id = $2`,
+      [finalId, jogadorId, temporadaId],
+    )
+  ).rows[0]!;
+  const gols = (
+    await banco.query<{ desempenho: { gols: number } }>(
+      `SELECT d AS desempenho FROM partida p JOIN rodada r ON r.id = p.rodada_id CROSS JOIN LATERAL jsonb_array_elements(p.resultado->'desempenhos') d
+       WHERE r.temporada_id = $1 AND d->>'jogadorId' = $2`,
+      [temporadaId, jogadorId],
+    )
+  ).rows.reduce((soma, x) => soma + (x.desempenho.gols ?? 0), 0);
+  return { s, gols };
+}
+
 /** Elege (uma vez só) o Craque da Temporada da Série B: o Candidato da B mais votado na Final. */
-async function eleitoDaSerieB(banco: Banco, temporadaId: number, finalId: number): Promise<{ username: string; time: TimeId } | null> {
+async function eleitoDaSerieB(banco: Banco, temporadaId: number, finalId: number): Promise<{ id: string; username: string; time: TimeId } | null> {
   let id = (await banco.query<{ id: string | null }>(`SELECT craque_b_jogador_id::text AS id FROM temporada WHERE id = $1`, [temporadaId])).rows[0]?.id ?? null;
   if (!id) {
     id = (await craqueDaRodada(banco, finalId, 'B'))?.id ?? null;
     if (!id) return null;
     await banco.query(`UPDATE temporada SET craque_b_jogador_id = $2 WHERE id = $1`, [temporadaId, id]);
   }
-  return (await banco.query<{ username: string; time: TimeId }>(`SELECT username, time_id AS time FROM jogador WHERE id = $1`, [id])).rows[0] ?? null;
+  return (await banco.query<{ id: string; username: string; time: TimeId }>(`SELECT id::text AS id, username, time_id AS time FROM jogador WHERE id = $1`, [id])).rows[0] ?? null;
 }
 
 /** Cria a Temporada seguinte (se ainda não existe) e devolve número e dia da Rodada 1. */

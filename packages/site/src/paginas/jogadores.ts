@@ -1,6 +1,6 @@
 /** Jogadores: busca e ranking, o Card de cada um e a comparação lado a lado. */
 import { IDENTIDADE, nomeVisivel, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId } from '@liga/shared';
-import { jogadores, liga } from '../dados.js';
+import { jogadores, liga, timesAtivos } from '../dados.js';
 import { bonecoImg, comCamisa, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html } from '../ui.js';
 import type { Pagina } from './tipos.js';
 import { blocoDoDono, ligarMeuPersonagem } from '../meuPersonagem.js';
@@ -280,7 +280,8 @@ export const paginaJogador: Pagina = async (main, [id]) => {
     const v = (e.target as HTMLSelectElement).value;
     if (v) location.hash = `#/comparar/${j.id}/${v}`;
   });
-  return ligarMeuPersonagem(main, j, todos);
+  // Transferência só para os Times que jogam a Temporada (com a Série B, os 16).
+  return ligarMeuPersonagem(main, j, todos, timesAtivos(l));
 };
 
 function numeros(e: Estatisticas, j: JogadorPublico): Html {
