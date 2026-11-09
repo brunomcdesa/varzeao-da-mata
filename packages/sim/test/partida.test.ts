@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   HABILIDADES,
@@ -11,6 +12,7 @@ import { simularPartida, chanceDeFora, chanceDeDriblar, ritmoDaPartida } from '.
 import { notaDaPartida } from '../src/nota.js';
 import { evoluir, fatorDeGanho, fatorDePerda, zeradas } from '../src/evolucao.js';
 import { escalacao } from './fabricas.js';
+import type { SlotRef } from '../src/tipos.js';
 
 const base = { fase: 'LIGA' as const };
 
@@ -302,5 +304,119 @@ describe('Ritmo da Partida (ADR-0016)', () => {
     const aberto = notaDaPartida(acoes as never, 70, 32 / 20);
     expect(travado).toBeGreaterThan(normal);
     expect(normal).toBeGreaterThan(aberto);
+  });
+});
+
+describe('trava da Temporada 1', () => {
+  it('sem as regras da T2, a simulação dá exatamente os resultados da VERSAO_SIM 5', async () => {
+    const { CASOS, impressao } = await import('./regressao-t1.js');
+    const esperado = JSON.parse(readFileSync(new URL('./regressao-t1.json', import.meta.url), 'utf8')) as string[];
+    expect(CASOS.map(impressao)).toEqual(esperado);
+  });
+});
+
+describe('regras da Temporada 2 (VERSAO_SIM 6)', () => {
+  const neutra = { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const;
+  /** `t2`: null joga com as regras da T1. */
+  const jogo = (seed: number, t2: Parameters<typeof simularPartida>[0]['t2'] | null = neutra, a = escalacao('CAP', 70), b = escalacao('ONC', 70, 'R')) =>
+    simularPartida({ mandante: a, visitante: b, seed, fase: 'LIGA', ...(t2 ? { t2 } : {}) });
+
+  it('com as regras da T2 a Partida é da versão 6, guarda Postura e Ritmo e é determinística', () => {
+    const r = jogo(11);
+    expect(r.versaoSim).toBe(6);
+    expect(r.postura).toEqual(neutra.postura);
+    expect(r.ritmo).toBeGreaterThanOrEqual(6);
+    expect(jogo(11)).toEqual(r);
+    expect(jogo(11, null).versaoSim).toBe(5);
+  });
+
+  it('na T1, Especialização, Treino e Canto não mudam nada', () => {
+    const a = escalacao('CAP', 70);
+    const com = { ...a, jogadores: a.jogadores.map((j) => ({ ...j, especializacao: j.posicao === 'ATA' ? ('ARTILHEIRO' as const) : undefined, treino: 'FIN' as const, canto: 'ESQUERDA' as const })) };
+    for (const seed of [3, 4, 5]) expect(jogo(seed, null, com as never)).toEqual(jogo(seed, null, a));
+  });
+
+  it('a falta para a jogada e vem logo a cobrança: pênalti com Canto, chute direto com Barreira, jogada ensaiada', () => {
+    const vistos = new Set<string>();
+    for (let seed = 1; seed <= 400; seed++) {
+      const r = jogo(seed);
+      r.lances.forEach((l, i) => {
+        if (l.tipo !== 'FALTA') return;
+        const cobranca = r.lances[i + 1]!;
+        expect(cobranca.ataque).toBe(l.ataque);
+        const esperado = { AREA: ['PENALTI'], ENTRADA: ['FALTA_DIRETA'], LONGE: ['FALTA_CRUZADA', 'FALTA_CURTA'] }[l.falta!.local];
+        expect(esperado).toContain(cobranca.bolaParada);
+        vistos.add(cobranca.bolaParada!);
+        if (cobranca.bolaParada === 'PENALTI') expect(cobranca.canto).toBeDefined();
+        if (cobranca.bolaParada === 'FALTA_DIRETA') expect(cobranca.barreira!.length).toBe(2);
+      });
+    }
+    expect([...vistos].sort()).toEqual(['FALTA_CRUZADA', 'FALTA_CURTA', 'FALTA_DIRETA', 'PENALTI']);
+  });
+
+  it('o expulso não aparece em mais nenhum lance, e dois amarelos na Partida viram vermelho', () => {
+    let expulsoes = 0;
+    let segundos = 0;
+    for (let seed = 1; seed <= 1500; seed++) {
+      const r = jogo(seed);
+      r.lances.forEach((l, i) => {
+        if (l.falta?.cartao !== 'VERMELHO') return;
+        expulsoes++;
+        if (l.falta.segundoAmarelo) segundos++;
+        const autor = l.falta.autor;
+        const mesmo = (s?: SlotRef) => s && s.lado === autor.lado && s.indice === autor.indice;
+        for (const depois of r.lances.slice(i + 1)) {
+          expect([depois.criador, depois.finalizador, depois.defensor, depois.marcador, depois.cobrador, ...(depois.barreira ?? [])].some(mesmo)).toBe(false);
+        }
+        const d = r.desempenhos.find((x) => x.slot.lado === autor.lado && x.slot.indice === autor.indice)!;
+        expect(d.expulso).toBe(true);
+      });
+    }
+    expect(expulsoes).toBeGreaterThan(0);
+    expect(segundos).toBeGreaterThan(0);
+  });
+
+  it('o Canto escolhido vale: o goleiro que sempre acerta o canto pega mais pênaltis', () => {
+    const chutaEsquerda = (e: ReturnType<typeof escalacao>) => ({ ...e, jogadores: e.jogadores.map((j) => ({ ...j, canto: 'ESQUERDA' as const })) });
+    let acertou = 0;
+    let errou = 0;
+    for (let seed = 1; seed <= 3000; seed++) {
+      const igual = jogo(seed, neutra, chutaEsquerda(escalacao('CAP', 70)), chutaEsquerda(escalacao('ONC', 70, 'R')));
+      for (const l of igual.lances) if (l.bolaParada === 'PENALTI') l.tipo === 'GOL' ? errou++ : acertou++;
+    }
+    // Com o goleiro sempre no canto certo, metade ou mais dos pênaltis não entram.
+    expect(acertou / (acertou + errou)).toBeGreaterThan(0.45);
+  });
+
+  it('a disputa de pênaltis da T2 usa o Canto', () => {
+    for (let seed = 1; seed <= 300; seed++) {
+      const r = simularPartida({ mandante: escalacao('CAP', 70), visitante: escalacao('ONC', 70, 'R'), seed, fase: 'MATA_MATA', t2: neutra });
+      if (!r.penaltis) continue;
+      expect(r.penaltis.cobrancas.every((c) => c.canto)).toBe(true);
+      return;
+    }
+    throw new Error('nenhuma disputa de pênaltis em 300 jogos');
+  });
+
+  it('Treino: a Habilidade de foco sobe mais que sem Treino', () => {
+    const pontos = { FIN: 1, PAS: 1, DRI: 0, DEF: 0, GOL: 0 };
+    const antes = { FIN: 60, PAS: 60, DRI: 60, DEF: 60, GOL: 60 };
+    const sem = evoluir(antes, pontos, false);
+    const com = evoluir(antes, pontos, false, { hab: 'FIN', multiplicador: 1.5 });
+    expect(com.delta.FIN).toBeGreaterThan(sem.delta.FIN);
+    expect(com.delta.PAS).toBe(sem.delta.PAS);
+  });
+
+  it('Postura: dois Times Ofensivos têm mais lances e mais gols que dois Defensivos', () => {
+    let golsOf = 0;
+    let golsDef = 0;
+    for (let seed = 1; seed <= 800; seed++) {
+      const of = jogo(seed, { postura: { mandante: 'OFENSIVA', visitante: 'OFENSIVA' } });
+      const de = jogo(seed, { postura: { mandante: 'DEFENSIVA', visitante: 'DEFENSIVA' } });
+      expect(of.ritmo).toBeGreaterThanOrEqual(de.ritmo!);
+      golsOf += of.gols.mandante + of.gols.visitante;
+      golsDef += de.gols.mandante + de.gols.visitante;
+    }
+    expect(golsOf).toBeGreaterThan(golsDef * 1.4);
   });
 });

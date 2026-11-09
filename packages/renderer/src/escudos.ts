@@ -143,6 +143,142 @@ const BICHOS: Record<TimeId, string[]> = {
     '..KzzzzzzK....',
     '...KKKKKK.....',
   ],
+  // Jacaré de lado: olho no alto da cabeça, focinho comprido e dentes à mostra.
+  JAC: [
+    '..............',
+    '..............',
+    '..KKK.........',
+    '.KvWKK........',
+    'KvvvvvKKKKKKK.',
+    'KvvvvvvvvvvvvK',
+    'KvvvvvvvvvvvKK',
+    'KhWhWhWhWhWhK.',
+    'KhhhhhhhhhhhK.',
+    '.KhhhhhhhhhK..',
+    '..KKKKKKKKK...',
+    '..............',
+    '..............',
+    '..............',
+  ],
+  // Sucuri enrolada: cabeça de cima, com manchas, e o corpo dando a volta.
+  SUC: [
+    '....KKKKKK....',
+    '...KnnnnnnK...',
+    '..KnKnnnnKnK..',
+    '..KnnqnnqnnK..',
+    '...KnnnnnnK...',
+    '....KnnnnK....',
+    '.....KiiK.....',
+    '..KKKKnnKKKK..',
+    '.KnqnnnnnqnnK.',
+    'KnnnnKKKKnnnnK',
+    'KnqnK....KnqnK',
+    'KnnnnKKKKnnnnK',
+    '.KnnqnnnnqnnK.',
+    '..KKKKKKKKKK..',
+  ],
+  // Lobo-guará de frente: orelhonas, focinho branco e a crina preta embaixo.
+  LOB: [
+    'KK..........KK',
+    'KlK........KlK',
+    'KllK......KllK',
+    'KlWlKKKKKKlWlK',
+    '.KllllllllllK.',
+    '.KlKKllllKKlK.',
+    '.KllllllllllK.',
+    '..KllWWWWllK..',
+    '..KlWWWWWWlK..',
+    '...KWWKKWWK...',
+    '...KWWKKWWK...',
+    '....KWWWWK....',
+    '.....KkkK.....',
+    '......KK......',
+  ],
+  // Cachorro-do-mato de frente: orelhas curtas e redondas, cara acinzentada.
+  CDM: [
+    '..............',
+    '.KK........KK.',
+    'KeeK......KeeK',
+    'KeeeKKKKKKeeeK',
+    '.KeeeeeeeeeeK.',
+    'KeeKKeeeeKKeeK',
+    'KeeeeeeeeeeeeK',
+    '.KeeeeWWeeeeK.',
+    '.KeeeWWWWeeeK.',
+    '..KeeWKKWeeK..',
+    '..KeeWKKWeeK..',
+    '...KeWWWWeK...',
+    '....KKKKKK....',
+    '..............',
+  ],
+  // Boto-cor-de-rosa de lado: testa redonda e bico comprido para a esquerda.
+  BOT: [
+    '..............',
+    '..............',
+    '.....KKKK.....',
+    '...KKrrrrK....',
+    '..KrrrrrrrK...',
+    '.KrrKrrrrrrK..',
+    'KrrrrrrrrrrrK.',
+    'KKKKKrrrrrrrrK',
+    '....KWWrrrrrrK',
+    '.....KWWWrrrK.',
+    '......KKWWrK..',
+    '........KKrK..',
+    '.........KK...',
+    '..............',
+  ],
+  // Pirarucu de lado: corpo escuro e o rabo vermelho.
+  PIR: [
+    '..............',
+    '..............',
+    '..............',
+    '...KKKKKKK....',
+    '.KKuuuuuuuKK.K',
+    'KuuKuuuuuiiuKK',
+    'KuuuuuuuiiiiiK',
+    'KKuuuuuiiiiiiK',
+    '.KuuuuuuiiiiKK',
+    '..KKiiiiiiKK.K',
+    '....KKKKKK....',
+    '..............',
+    '..............',
+    '..............',
+  ],
+  // Coruja de frente: tufos nas orelhas, olhões amarelos e bico pequeno.
+  COR: [
+    'KK..........KK',
+    'KxK........KxK',
+    'KxxKKKKKKKKxxK',
+    'KxxxxxxxxxxxxK',
+    'KxWWWxxxxWWWxK',
+    'KWfffWxxWfffWK',
+    'KWfKfWxxWfKfWK',
+    'KWfffWaaWfffWK',
+    'KxWWWxaaxWWWxK',
+    'KxxxxxxxxxxxxK',
+    '.KxWxWxWxWxxK.',
+    '..KxxxxxxxxK..',
+    '...KKKKKKKK...',
+    '..............',
+  ],
+  // Morcego de frente: asas abertas, orelhas pontudas e olhos claros.
+  MOR: [
+    '..............',
+    '.....K..K.....',
+    '....KtKKtK....',
+    'K...KttttK...K',
+    'KK.KtWttWtK.KK',
+    'KtKKtKttKtKKtK',
+    'KttKttttttKttK',
+    'KtttKtWWtKtttK',
+    'KttttKttKttttK',
+    'KtKtttKKtttKtK',
+    'K.KtKttttKtK.K',
+    '...K.KttK.K...',
+    '......KK......',
+    '..............',
+  ],
 };
 
 const PALETAS: Record<string, string> = {
@@ -161,6 +297,18 @@ const PALETAS: Record<string, string> = {
   a: '#F2C94C',
   z: '#2D63E0', // arara
   j: '#3A3A3A',
+  v: '#3F7A3A', // jacaré
+  h: '#CFC47A',
+  n: '#6B7A2E', // sucuri
+  q: '#2E3A16',
+  i: '#C8343A', // língua da sucuri, rabo do pirarucu
+  l: '#D9762B', // lobo-guará
+  e: '#7E7468', // cachorro-do-mato
+  r: '#E8A0B4', // boto
+  u: '#4E5B4A', // pirarucu
+  x: '#9B7653', // coruja
+  f: '#F2C14E',
+  t: '#4A3F66', // morcego
 };
 
 /** Fundo do medalhão por Time; null = o bicho fica direto na cor do Time. */
@@ -173,6 +321,14 @@ const MEDALHAO: Record<TimeId, string | null> = {
   SAG: null,
   TUC: '#EADFC4',
   ARA: '#FFD23F',
+  JAC: '#EADFC4',
+  SUC: '#EADFC4',
+  LOB: '#EADFC4',
+  CDM: '#EADFC4',
+  BOT: '#1C2E5A',
+  PIR: '#EADFC4',
+  COR: '#EADFC4',
+  MOR: '#8FD3FF',
 };
 
 /** Forma do brasão (20×24): P = fundo (primária), S = borda/faixa (secundária), K = contorno. */

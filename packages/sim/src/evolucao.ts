@@ -43,6 +43,8 @@ export const ACOES = {
   defesa: { hab: 'GOL', valor: 0.65 },
   penaltiPego: { hab: 'GOL', valor: 1.0 },
   golSofridoGoleiro: { hab: 'GOL', valor: -0.4 },
+  // Temporada 2: falta cometida (ADR-0024)
+  cometeuFalta: { hab: 'DEF', valor: -0.25 },
   semSofrerGol: { hab: 'GOL', valor: 0.5 },
 } as const satisfies Record<string, { hab: HabilidadeId; valor: number }>;
 
@@ -66,13 +68,22 @@ export function zeradas(): Record<HabilidadeId, number> {
 }
 
 /** Aplica o total de pontos de ação de uma Partida às Habilidades. */
-export function evoluir(antes: Habilidades, pontos: Record<HabilidadeId, number>, classico: boolean): { depois: Habilidades; delta: Record<HabilidadeId, number> } {
+/**
+ * `treino` (Temporada 2, ADR-0023): na Habilidade de foco, os ganhos são multiplicados por
+ * `multiplicadorTreino`; o teto por Partida continua o mesmo.
+ */
+export function evoluir(
+  antes: Habilidades,
+  pontos: Record<HabilidadeId, number>,
+  classico: boolean,
+  treino?: { hab: HabilidadeId; multiplicador: number },
+): { depois: Habilidades; delta: Record<HabilidadeId, number> } {
   const depois = { ...antes };
   const delta = zeradas();
   const mult = classico ? MULTIPLICADOR_CLASSICO : 1;
   const teto = classico ? LIMITE_DELTA_HABILIDADE_CLASSICO : LIMITE_DELTA_HABILIDADE;
   for (const hab of HABILIDADES) {
-    const p = pontos[hab] * mult;
+    const p = pontos[hab] * mult * (treino && treino.hab === hab && pontos[hab] > 0 ? treino.multiplicador : 1);
     if (p === 0) continue;
     const bruto = p > 0 ? p * fatorDeGanho(antes[hab]) : p * fatorDePerda(antes[hab]);
     const d = umaCasa(limitar(bruto, -teto, teto));

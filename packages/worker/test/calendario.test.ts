@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TIMES } from '@liga/shared';
+import { TIMES_FUNDADORES as TIMES, TIMES_NOVOS } from '@liga/shared';
 import { apitoInicial, faseDeLiga } from '../src/calendario.js';
 
 describe('Fase de Liga', () => {
@@ -19,6 +19,14 @@ describe('Fase de Liga', () => {
     }
     expect(pares.size).toBe(28); // C(8,2): cada par uma vez
     for (const n of emCasa.values()) expect([3, 4]).toContain(n);
+  });
+
+  it('a Série B tem o seu turno único entre os Times novos (ADR-0017)', () => {
+    const rodadas = faseDeLiga(11, TIMES_NOVOS);
+    expect(rodadas).toHaveLength(7);
+    const pares = new Set(rodadas.flatMap((jogos) => jogos.map((j) => [j.mandante, j.visitante].sort().join('-'))));
+    expect(pares.size).toBe(28);
+    for (const jogos of rodadas) expect(new Set(jogos.flatMap((j) => [j.mandante, j.visitante]))).toEqual(new Set(TIMES_NOVOS));
   });
 
   it('é a mesma para o mesmo seed e muda com outro', () => {

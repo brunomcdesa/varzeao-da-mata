@@ -28,5 +28,5 @@ Motivo: o dono queria placares mais realistas, de 0 a 0 a goleadas históricas, 
 
 - O Reels de um jogo travado fica curto (um 0 a 0 de 6 lances deu 12 s), e o de uma goleada passa dos 75 s, porque o Roteiro nunca corta gol (ADR-0006): um 5 a 6 deu 95 s. A API aceita os dois.
 - A narração do Ao Vivo acompanha o número de lances, então jogos abertos fazem mais pedidos ao Gemini.
-- Na Temporada 2, a Postura dos Capitães também puxa o Ritmo (ADR da Postura).
+- Na Temporada 2, a Postura dos Capitães também puxa o Ritmo (ADR-0020).
 - `scripts/placares.ts`, no pacote `sim`, mede a distribuição dos placares e a Nota média por Ritmo.

@@ -929,6 +929,16 @@ main:focus {
   background: var(--amarelo);
   color: var(--tinta);
 }
+/* Temporada 2: falta com cartão (a cor do chip é a do cartão). */
+.lance .chip.cartao-amarelo {
+  background: #f5d02a;
+  color: var(--tinta);
+  box-shadow: inset 3px 0 0 #c9a512;
+}
+.lance .chip.cartao-vermelho {
+  background: #d23a2a;
+  color: #fff;
+}
 .lance.tipo-gol .txt {
   font-weight: 600;
 }
@@ -2645,4 +2655,284 @@ a.jogo:hover {
   color: var(--tinta);
   background: var(--placa);
   border: 1px solid var(--contorno);
+}
+
+/* ------------------------------------------------------------- Séries (ADR-0017) */
+
+/* Selo "Série A" (amarelo) / "Série B" (madeira), no mesmo estilo das plaquinhas. */
+.selo-serie {
+  display: inline-block;
+  padding: 3px 10px 2px;
+  font: 400 1.25rem/1 var(--display);
+  color: var(--tinta);
+  background: var(--amarelo);
+  clip-path: var(--canto);
+  letter-spacing: 0.02em;
+}
+.selo-serie.serie-b {
+  color: var(--placa);
+  background: var(--madeira);
+  box-shadow: inset 0 -2px 0 var(--madeira-escura);
+}
+.subsecao-serie {
+  margin: 14px 0 6px;
+  font-size: 1rem;
+}
+.subsecao-serie:first-child {
+  margin-top: 0;
+}
+
+/* Zona de Rebaixamento da Série A: os 2 últimos. */
+.classificacao .rebaixamento td,
+.classificacao .rebaixamento th {
+  background: rgb(160 48 36 / 0.35);
+}
+.classificacao .rebaixamento .pos {
+  color: var(--desce);
+}
+
+/* Rótulo do voto com letra ("A3", "B3"). */
+.numero-voto.largo {
+  width: 44px;
+  font-size: 1.5rem;
+}
+
+/* Atalho para a outra Partida do mesmo horário. */
+.destaque-outra {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 10px;
+  font-size: 0.875rem;
+  color: var(--placa);
+}
+
+/* ---- Temporada 2: escolhas do dono (Presença, Postura, Especialização, Treino, Canto) */
+.escolha-t2 {
+  display: grid;
+  gap: 10px;
+  max-width: 480px;
+  margin-bottom: 14px;
+}
+.escolha-t2 + .escolha-t2 {
+  border-top: 2px dashed var(--placa-sombra);
+  padding-top: 12px;
+}
+.escolha-t2 label:not(.opcao-t2) {
+  display: grid;
+  gap: 4px;
+  font-weight: 600;
+}
+.escolha-t2 select {
+  font: inherit;
+  padding: 8px;
+  border: 2px solid var(--contorno);
+  background: #fffaf0;
+  color: var(--tinta);
+}
+.opcoes-t2 {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.opcoes-t2.cantos {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+.opcao-t2 {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border: 2px solid var(--placa-sombra);
+  background: #fffaf0;
+  cursor: pointer;
+}
+.opcao-t2:has(input:checked) {
+  border-color: var(--contorno);
+  background: #fff3c7;
+}
+.opcao-t2 input {
+  appearance: none;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  border: 2px solid var(--contorno);
+  background: #fffaf0;
+}
+.opcao-t2 input:checked {
+  background: var(--madeira);
+  box-shadow: inset 0 0 0 2px #fffaf0;
+}
+.opcao-t2 input:focus-visible {
+  outline: 2px solid var(--amarelo);
+  outline-offset: 2px;
+}
+.opcao-t2 span {
+  display: grid;
+  gap: 2px;
+}
+.opcao-t2 small {
+  color: var(--tinta-fraca);
+  font-size: 0.8125rem;
+}
+.estado-escolha:empty {
+  display: none;
+}
+
+/* ---- Página de Carreira (T2, ADR-0025) */
+.pagina-carreira {
+  display: grid;
+  gap: 16px;
+  max-width: 760px;
+  margin: 0 auto;
+}
+.cabeca-carreira {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.cabeca-carreira h1 {
+  font: 400 2.25rem var(--display);
+  margin: 0;
+}
+.cabeca-carreira h1 a {
+  color: inherit;
+}
+.cabeca-carreira p {
+  margin: 2px 0;
+}
+.cabeca-carreira .legenda {
+  color: var(--tinta-fraca);
+}
+.lista-carreira {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.temporada-carreira header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.temporada-carreira h2 {
+  font: 400 1.75rem var(--display);
+  margin: 0;
+}
+.temporada-carreira h2 small {
+  font: 600 0.8125rem var(--texto);
+  color: var(--tinta-fraca);
+}
+.times-carreira {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+.times-carreira a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+  font-weight: 600;
+}
+.times-carreira small {
+  font-weight: 400;
+  color: var(--tinta-fraca);
+}
+.numeros-carreira {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+}
+.numeros-carreira div {
+  background: #fffaf0;
+  border: 2px solid var(--placa-sombra);
+  padding: 6px 8px;
+}
+.numeros-carreira dt {
+  font-size: 0.75rem;
+  color: var(--tinta-fraca);
+}
+.numeros-carreira dd {
+  margin: 0;
+  font: 400 1.5rem var(--display);
+}
+.numeros-carreira .sobe {
+  color: #2f7d22;
+}
+.numeros-carreira .desce {
+  color: #b2401f;
+}
+.mini-cartao {
+  display: inline-block;
+  width: 9px;
+  height: 13px;
+  margin: 0 3px 0 2px;
+  border: 1px solid var(--contorno);
+  vertical-align: -1px;
+}
+.mini-cartao.amarelo {
+  background: #f5d02a;
+}
+.mini-cartao.vermelho {
+  background: #d23a2a;
+}
+.trofeus-carreira {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 0;
+}
+.trofeus-carreira span {
+  background: var(--amarelo);
+  color: var(--tinta);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  padding: 3px 8px 1px;
+  clip-path: var(--canto);
+}
+
+/* Faixa de Capitão (T2, ADR-0020) */
+.card-pos .faixa-capitao {
+  font-size: 0.9em;
+  vertical-align: 2px;
+}
+.com-faixa {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+.com-faixa > :first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.com-faixa .faixa-capitao {
+  flex: none;
+}
+.faixa-capitao {
+  display: inline-block;
+  margin-left: 6px;
+  min-width: 1.25em;
+  padding: 1px 3px 0;
+  font: 400 0.9em/1.1 var(--display);
+  text-align: center;
+  text-decoration: none;
+  color: var(--tinta);
+  background: var(--amarelo);
+  border: 2px solid var(--contorno);
+  vertical-align: 1px;
+  cursor: help;
 }

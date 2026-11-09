@@ -2,7 +2,7 @@
  * Botões de calibração do motor. Mudar qualquer valor muda resultados de seeds
  * antigas, então exige subir VERSAO_SIM (ADR-0002).
  */
-export const VERSAO_SIM = 5;
+export const VERSAO_SIM = 6;
 
 export const PARAMETROS = {
   /** Lances de ataque de referência: a média das retas de EXPECTATIVA da Nota (ADR-0004). */
@@ -63,6 +63,74 @@ export const PARAMETROS = {
   recomposicaoPorAdiantado: 0.1,
   /** Com tantos adiantados (escanteio), sem recompor o marcador também fica para trás. */
   adiantadosSemMarcador: 5,
+} as const;
+
+/**
+ * Regras da Temporada 2 (VERSAO_SIM 6). Só valem com `entrada.t2`; sem elas, a Partida sai
+ * igual à VERSAO_SIM 5 (VERSAO_SIM_T1).
+ */
+export const VERSAO_SIM_T1 = 5;
+
+export const PARAMETROS_T2 = {
+  /**
+   * Postura (ADR-0020): o que soma à chance de quem ataca, pela Postura de quem ataca e de quem
+   * defende. Ofensiva ataca melhor e defende pior; Defensiva, o contrário. Não dá vantagem de
+   * graça: muda o tamanho do placar e a chance de surpresa.
+   */
+  posturaAtaque: { OFENSIVA: 0.03, EQUILIBRADA: 0, DEFENSIVA: -0.03 },
+  posturaDefesa: { OFENSIVA: 0.04, EQUILIBRADA: 0, DEFENSIVA: -0.03 },
+  /** Postura puxa o Ritmo: lances a mais (ou a menos) por Time. */
+  posturaRitmo: { OFENSIVA: 1, EQUILIBRADA: 0, DEFENSIVA: -1 },
+  /** Faltas (ADR-0024): chance de um desarme ser falta, na criação e no drible. */
+  chanceFaltaNaCriacao: 0.17,
+  chanceFaltaNoDrible: 0.24,
+  /** Onde: falta na criação é na entrada da área com esta chance (senão, longe). */
+  criacaoNaEntrada: 0.4,
+  /** Falta no drible: dentro da área (pênalti) com esta chance (senão, na entrada). */
+  dribleNaArea: 0.4,
+  /** Cartões (ADR-0021): amarelo numa falta comum e no pênalti; vermelho no pênalti do último homem. */
+  chanceAmarelo: 0.25,
+  chanceAmareloNoPenalti: 0.35,
+  chanceVermelhoNoPenalti: 0.12,
+  /** Chute direto: Finalização do cobrador contra a Defesa da barreira, depois contra o goleiro. */
+  baseBarreira: 0.55,
+  baseFaltaDireta: 0.25,
+  /** Jogada ensaiada: cruzamento para cabeçada (como o escanteio) ou toque curto para chute de longe. */
+  chanceCruzada: 0.55,
+  baseCruzamentoFalta: 0.45,
+  baseCabeceioFalta: 0.42,
+  baseChuteDeLonge: 0.2,
+  /** Canto (ADR-0023): o pênalti fica mais difícil se o goleiro acerta o canto, mais fácil se erra. */
+  cantoAcertado: 0.62,
+  cantoErrado: 1.19,
+  /** Pênalti perdido: chance de ter sido defesa quando o goleiro acertou ou errou o canto. */
+  defendidoNoCanto: 0.85,
+  defendidoForaDoCanto: 0.25,
+  /** Treino (ADR-0023): ganhos na Habilidade de foco. */
+  multiplicadorTreino: 1.5,
+} as const;
+
+/**
+ * Especialização (ADR-0023): quanto cada uma soma à chance de quem ataca em cada Duelo.
+ * Positivo ajuda o ataque; para quem defende, o sinal já está do ponto de vista do ataque.
+ */
+export const ESPECIALIZACAO = {
+  // ATA
+  ARTILHEIRO: { escolhaDrible: -0.15, drible: -0.04, chuteMarcado: 0.04, finalizacao: 0.03 },
+  DRIBLADOR: { escolhaDrible: 0.15, drible: 0.05, chuteMarcado: -0.04 },
+  OPORTUNISTA: { pesoFinalizador: 1.8, finalizacao: -0.02, fora: 0.04 },
+  // MEI (com a bola: posse e criação; sem a bola: defesa da posse)
+  ARMADOR: { criacao: 0.05, defesaPosse: 0.04 },
+  VOLANTE: { criacao: -0.04, defesaPosse: -0.05 },
+  MEIA_ATACANTE: { criacao: -0.02, chanceMeiaFinaliza: 0.2 },
+  // ZAG (do ponto de vista do ataque)
+  XERIFE: { contraDrible: -0.05, contraChuteMarcado: 0.04 },
+  BLOQUEADOR: { contraDrible: 0.04, contraChuteMarcado: -0.05 },
+  ANTECIPACAO: { contraCriacao: -0.05, contraDrible: 0.03, contraChuteMarcado: 0.03 },
+  // GOL (do ponto de vista do ataque)
+  PAREDAO: { contraChuteApertado: -0.05, contraChuteLivre: 0.04 },
+  GATO: { contraChuteApertado: 0.04, contraChuteLivre: -0.05 },
+  PEGADOR_DE_PENALTI: { contraPenalti: -0.08, contraChuteApertado: 0.02, contraChuteLivre: 0.02 },
 } as const;
 
 /** Pesos que convertem ações em pontos de Nota da Partida. */

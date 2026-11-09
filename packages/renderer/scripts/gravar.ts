@@ -36,6 +36,11 @@ const { values: args } = parseArgs({
     escudos: { type: 'string' },
     /** Procura a partir de --seed a primeira Partida de Mata-mata decidida nos pênaltis. */
     penaltis: { type: 'boolean' },
+    /** Partida com as regras da Temporada 2 (ADR-0019 a 0024). Com --vitrine, procura uma com falta, cartão, pênalti e barreira. */
+    t2: { type: 'boolean' },
+    vitrine: { type: 'boolean' },
+    /** Na prévia, instantes extras em segundos, separados por vírgula. */
+    instantes: { type: 'string' },
   },
 });
 
@@ -48,13 +53,25 @@ async function main(): Promise<void> {
     do partida = partidaDeTeste(s++, args.mandante as TimeId, args.visitante as TimeId, args.subtitulo ?? 'Final', 'MATA_MATA');
     while (!partida.resultado.penaltis);
     console.log(`seed ${s - 1}: ${partida.resultado.gols.mandante}x${partida.resultado.gols.visitante}, pênaltis ${partida.resultado.penaltis.placar.mandante}x${partida.resultado.penaltis.placar.visitante}`);
-  } else if (args.seed) partida = partidaDeTeste(Number(args.seed), args.mandante as TimeId, args.visitante as TimeId, args.subtitulo);
+  } else if (args.t2 && args.vitrine) {
+    // A primeira Partida da T2 a partir de --seed com pênalti, chute direto, cartão e gol.
+    let s = Number(args.seed ?? 1);
+    const tem = (p: PartidaParaVideo) =>
+      p.resultado.lances.some((l) => l.bolaParada === 'PENALTI') &&
+      p.resultado.lances.some((l) => l.bolaParada === 'FALTA_DIRETA') &&
+      p.resultado.lances.some((l) => l.falta?.cartao) &&
+      p.resultado.lances.filter((l) => l.tipo === 'GOL').length >= 2;
+    do partida = partidaDeTeste(s++, args.mandante as TimeId, args.visitante as TimeId, args.subtitulo, 'LIGA', true);
+    while (!tem(partida));
+    console.log(`seed ${s - 1}: ${partida.resultado.gols.mandante}x${partida.resultado.gols.visitante}`);
+  } else if (args.seed) partida = partidaDeTeste(Number(args.seed), args.mandante as TimeId, args.visitante as TimeId, args.subtitulo, 'LIGA', !!args.t2);
   else throw new Error('informe --entrada partida.json, --seed N ou --escudos pasta');
   await gravarReels(partida, {
     saida: resolve(process.cwd(), args.saida!),
     fps: Number(args.fps),
     crf: Number(args.crf),
     ...(args.previa ? { previa: resolve(process.cwd(), args.previa) } : {}),
+    ...(args.instantes ? { instantes: args.instantes.split(',').map(Number) } : {}),
   });
 }
 

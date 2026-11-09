@@ -16,6 +16,7 @@
  * A sessão é um segredo aleatório que só o navegador guarda; no KV fica só o hash dela.
  * Só a própria conta consegue mandar DM com o próprio @, então o código prova o dono.
  */
+import { TIMES } from '@liga/shared';
 
 export interface EnvVinculo {
   AGENDA: KVNamespace;
@@ -27,13 +28,24 @@ export interface EnvVinculo {
 
 /** Aplica no banco agora (Transferência ou perfil); null quando a borda não tem o banco. */
 export type AplicarAgora = (
-  pedido: { tipo: 'TRANSFERENCIA'; jogadorId: string; time?: string; posicao?: string } | { tipo: 'PERFIL'; jogadorId: string; visual?: unknown; numero?: number; apelido?: string },
+  pedido:
+    | { tipo: 'TRANSFERENCIA'; jogadorId: string; time?: string; posicao?: string }
+    | { tipo: 'PERFIL'; jogadorId: string; visual?: unknown; numero?: number; apelido?: string }
+    | { tipo: 'ESCOLHA'; jogadorId: string; escolha: EscolhaDaT2 },
 ) => Promise<{ resultado: string; mensagem: string } | null>;
+
+/** Temporada 2 (ADRs 0020 e 0023): o que se escolhe pelo site. A regra fica no worker. */
+export type EscolhaDaT2 =
+  | { tipo: 'ESPECIALIZACAO'; valor: string | null }
+  | { tipo: 'TREINO'; valor: string | null }
+  | { tipo: 'CANTO'; valor: string | null }
+  | { tipo: 'PRESENCA' }
+  | { tipo: 'POSTURA'; valor: string };
+const TIPOS_DE_ESCOLHA = ['ESPECIALIZACAO', 'TREINO', 'CANTO', 'PRESENCA', 'POSTURA'] as const;
 
 type Graph = <T>(metodo: 'GET' | 'POST', caminho: string, params: Record<string, string>) => Promise<T>;
 type Disparar = (job: string) => Promise<boolean>;
 
-const TIMES = ['ONC', 'ARA', 'CAP', 'TUC', 'SAG', 'PRE', 'TAM', 'TAT'] as const;
 const POSICOES = ['GOL', 'ZAG', 'MEI', 'ATA'] as const;
 /** O código vale 15 minutos. */
 export const VALIDADE_CODIGO_S = 15 * 60;
@@ -111,7 +123,18 @@ export async function sessaoDe(env: EnvVinculo, sessao: string): Promise<SessaoV
   return env.AGENDA.get<SessaoVinculada>(`vinculo/sessao/${await hash(sessao)}`, 'json');
 }
 
-export async function rotasDoVinculo(req: Request, env: EnvVinculo, agora: Date, graph: Graph, disparar: Disparar, aplicar: AplicarAgora = async () => null): Promise<Response | null> {
+/** Capitão do próximo jogo do Time do Jogador (T2); null fora da T2, sem jogo ou sem banco. */
+export type ConsultarCapitania = (jogadorId: string) => Promise<{ eu: boolean; capitao: string | null; postura: string } | null>;
+
+export async function rotasDoVinculo(
+  req: Request,
+  env: EnvVinculo,
+  agora: Date,
+  graph: Graph,
+  disparar: Disparar,
+  aplicar: AplicarAgora = async () => null,
+  capitania: ConsultarCapitania = async () => null,
+): Promise<Response | null> {
   const { pathname } = new URL(req.url);
   if (req.method !== 'POST') return null;
 
@@ -206,6 +229,32 @@ export async function rotasDoVinculo(req: Request, env: EnvVinculo, agora: Date,
     const registro = feito ? { ...pedido, resultado: feito.resultado, mensagem: feito.mensagem, processadoEm: agora.toISOString() } : pedido;
     await env.AGENDA.put(chave, JSON.stringify(registro), { expirationTtl: 7 * 86400 });
     const disparou = await disparar('coletar').catch(() => false);
+    return json({ ok: true, pedido: registro, disparou });
+  }
+
+  // Temporada 2: Postura (Capitão), Presença, Especialização, Treino e Canto. Um pedido por tipo.
+  if (pathname === '/escolha' || pathname === '/escolha/estado') {
+    const c = await corpo<{ sessao: string; tipo: string; valor: string | null }>(req);
+    if (!sessaoValida(c?.sessao)) return json({ erro: 'Sessão inválida' }, 400);
+    const s = await sessaoDe(env, c.sessao);
+    if (!s) return json({ erro: 'Não vinculado' }, 401);
+    if (pathname === '/escolha/estado') {
+      const estado: Record<string, unknown> = {};
+      for (const t of TIPOS_DE_ESCOLHA) estado[t] = (await env.AGENDA.get(`escolha-site/${s.jogadorId}/${t}`, 'json')) ?? null;
+      // A Postura só aparece para o Capitão (os outros veem quem ele é).
+      estado.capitania = await capitania(s.jogadorId).catch(() => null);
+      return json(estado);
+    }
+    const tipo = String(c.tipo ?? '') as (typeof TIPOS_DE_ESCOLHA)[number];
+    if (!TIPOS_DE_ESCOLHA.includes(tipo)) return json({ erro: 'Escolha desconhecida' }, 400);
+    const valor = c.valor === null || c.valor === undefined || c.valor === '' ? null : String(c.valor).slice(0, 30);
+    if (tipo === 'POSTURA' && !valor) return json({ erro: 'Escolha a Postura' }, 400);
+    const escolha = (tipo === 'PRESENCA' ? { tipo } : { tipo, valor }) as EscolhaDaT2;
+    const base = { jogadorId: s.jogadorId, escolha, pedidoEm: agora.toISOString() };
+    const feito = await aplicar({ tipo: 'ESCOLHA', jogadorId: s.jogadorId, escolha }).catch(() => null);
+    const registro = feito ? { ...base, resultado: feito.resultado, mensagem: feito.mensagem, processadoEm: agora.toISOString() } : base;
+    await env.AGENDA.put(`escolha-site/${s.jogadorId}/${tipo}`, JSON.stringify(registro), { expirationTtl: 7 * 86400 });
+    const disparou = feito ? false : await disparar('coletar').catch(() => false);
     return json({ ok: true, pedido: registro, disparou });
   }
 

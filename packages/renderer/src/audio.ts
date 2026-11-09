@@ -200,6 +200,27 @@ function somarEvento(esq: Float32Array, dir: Float32Array, e: EventoSonoro, seed
         return [bpE(r(), f) * 0.7 * env, bpD(r(), f * 1.05) * 0.7 * env];
       }, 1.3);
       break;
+    case 'APITO_FALTA':
+      apito(e.t, 0.35);
+      break;
+    case 'CORO': {
+      // Grito de guerra: palmas no tempo e um "ô-ô-ô" de multidão (vogal em ruído filtrado).
+      const batida = 0.42;
+      for (let k = 0; k < 8; k++) {
+        const t0 = k * batida;
+        ambos((t) => {
+          const s = r() * Math.exp(-t * 60) * 0.5;
+          return [s, s];
+        }, 0.08, e.t + t0);
+      }
+      ambos((t) => {
+        const env = Math.min(1, t / 0.3) * Math.min(1, (3.4 - t) / 0.6);
+        const nota = [392, 392, 330, 392, 440, 392, 330, 294][Math.min(7, Math.floor(t / batida))]!;
+        const pulso = 0.6 + 0.4 * Math.abs(Math.sin((Math.PI * t) / batida));
+        return [bpE(r(), nota * 1.6) * 0.55 * env * pulso, bpD(r(), nota * 1.62) * 0.55 * env * pulso];
+      }, 3.4);
+      break;
+    }
     case 'DESARME':
       ambos((t) => {
         const env = Math.sin(Math.min(1, t / 0.7) * Math.PI);

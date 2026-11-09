@@ -10,6 +10,7 @@
     "test": "vitest run",
     "liga": "tsx scripts/liga.ts",
     "site-demo": "tsx scripts/site-demo.ts",
+    "site-demo-series": "tsx scripts/site-demo-series.ts",
     "verificar": "tsx scripts/verificar.ts",
     "postar-apresentacao": "tsx scripts/postar-apresentacao.ts",
     "postar-anuncio": "tsx scripts/postar-anuncio.ts",

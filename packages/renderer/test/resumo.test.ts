@@ -39,6 +39,14 @@ describe('Resumo da Rodada', () => {
     expect(falas.join(' ')).not.toContain('@');
   });
 
+  it('com Série B, anuncia o Craque da Rodada de cada Série (ADR-0017)', () => {
+    const c = { rodada: 2, fase: 'LIGA' as const, username: 'eofamoso__2k', apelido: null, time: 'TUC' as const, posicao: 'MEI' as const, nota: 8.4, gols: 1, votos: 12 };
+    const r = new RoteiroResumo({ ...base, tabelaB: [], craqueDaRodada: c, craqueDaRodadaB: { ...c, time: 'COR', votos: 3 } });
+    expect(r.segmentos.filter((s) => s.cartela === 'CRAQUE').map((s) => s.serie)).toEqual(['A', 'B']);
+    const falas = narracaoDoResumo(r).map((f) => f.texto);
+    expect(falas[2]).toBe('Na Série B: O Craque da Rodada 2, eleito pela torcida com 3 votos, é o meia da Coruja!');
+  });
+
   it('narra placares e a ponta da tabela, sem falar @', () => {
     const falas = narracaoDoResumo(new RoteiroResumo(base)).map((f) => f.texto);
     expect(falas[1]).toBe('Tamanduá venceu o Tatu por 2 a 0. Preguiça e Capivara empataram em 2 a 2.');

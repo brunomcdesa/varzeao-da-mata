@@ -20,7 +20,7 @@ const apelidosDe = (e: EscalacaoPublica) => [...e.jogadores].sort((a, b) => a.lu
 
 export function montarTimeline(p: PartidaPublica): Timeline | null {
   if (!p.resultado || !p.escalacoes) return null;
-  return new Timeline(p.resultado as ResultadoPartida, { mandante: paraEscalacao(p.escalacoes.mandante), visitante: paraEscalacao(p.escalacoes.visitante) });
+  return new Timeline(p.resultado as ResultadoPartida, { mandante: paraEscalacao(p.escalacoes.mandante), visitante: paraEscalacao(p.escalacoes.visitante) }, p.torcida ? { torcida: p.torcida } : {});
 }
 
 /** Segundos de jogo agora, para uma Partida ao vivo. */

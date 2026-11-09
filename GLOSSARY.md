@@ -18,6 +18,10 @@ _Avoid_: bot, NPC, reserva
 A trajetória de um Jogador ao longo de várias Temporadas. Time e OVR persistem de uma Temporada para a seguinte.
 _Avoid_: histórico, perfil
 
+**Página de Carreira**:
+Página do site, a partir da Temporada 2, que mostra a Carreira de um Jogador Temporada por Temporada: Time e Série, números, OVR do começo ao fim, cartões e troféus (ADR-0025).
+_Avoid_: perfil, ficha
+
 **Posição**:
 A função do Jogador em campo, informada na Inscrição: GOL, ZAG, MEI ou ATA.
 _Avoid_: função, papel
@@ -81,11 +85,11 @@ _Avoid_: reprise, VT, gravação
 ### Competição
 
 **Liga**:
-A competição inteira, disputada entre vários Times ao longo de uma Temporada.
+A competição inteira, disputada entre 16 Times, divididos em Série A e Série B, ao longo de uma Temporada.
 _Avoid_: campeonato, torneio
 
 **Time**:
-Um dos oito clubes fictícios, com identidade própria do projeto, que disputam a Liga.
+Um dos 16 clubes fictícios, com identidade própria do projeto, que disputam a Liga. Cada Time está numa Série e tem um rival fixo, com quem faz o Clássico.
 _Avoid_: equipe, clube, lado, seleção
 
 **Elenco**:
@@ -97,15 +101,15 @@ Os 7 Jogadores de um Time que entram em campo numa Partida, escolhidos do Elenco
 _Avoid_: titulares, time titular, onze
 
 **Candidatos a Craque**:
-Os 5 Jogadores com maior Nota da Partida numa Rodada, exibidos no Resumo da Rodada como as únicas opções de voto.
+Os 5 Jogadores com maior Nota da Partida numa Rodada, em cada Série, exibidos no Resumo da Rodada como as únicas opções de voto.
 _Avoid_: indicados, finalistas, top 5
 
 **Craque da Rodada**:
-O Candidato a Craque mais votado pelo público, revelado no Reels da primeira Partida do dia seguinte. Cada Candidato tem um número (1 a 5, da maior Nota para a menor). Vota-se comentando o número no Resumo da Rodada (um voto por @, vale o último, inclusive em si mesmo) ou clicando no site (um voto por aparelho, vale o primeiro). Os dois somam.
+O Candidato a Craque mais votado pelo público em cada Série, revelado no Reels da primeira Partida do dia seguinte. Cada Candidato tem a letra da Série e um número (A1 a A5 e B1 a B5, da maior Nota para a menor). Vota-se comentando o número no Resumo da Rodada (um voto por @, vale o último, inclusive em si mesmo) ou clicando no site (um voto por aparelho, vale o primeiro). Os dois somam.
 _Avoid_: MVP, melhor em campo, destaque
 
 **Craque da Temporada**:
-O melhor Jogador da Temporada, eleito pelo público entre os 5 com a maior nota média (com pelo menos 3 jogos). A votação abre no Resumo da Final e fecha às 18h do dia seguinte; o anúncio sai às 19h, num Reels próprio.
+O melhor Jogador da Temporada em cada Série, eleito pelo público entre os 5 da Série com a maior nota média (com pelo menos 3 jogos). A votação abre no Resumo da Final e fecha às 18h do dia seguinte; o anúncio sai às 19h, num Reels próprio.
 _Avoid_: craque do campeonato, MVP da temporada, bola de ouro
 
 **Título**:
@@ -117,11 +121,11 @@ Um ciclo completo da Liga, com duração de 7 a 10 dias.
 _Avoid_: edição, season
 
 **Rodada**:
-O conjunto de Partidas disputadas num mesmo dia da Temporada, em horários escalonados (12h, 14h, 16h e 18h); há exatamente uma Rodada por dia. No Mata-mata, as Partidas ocupam os últimos horários do dia.
+O conjunto de Partidas disputadas num mesmo dia da Temporada, em horários escalonados (12h, 14h, 16h e 18h), com uma Partida de cada Série em cada horário; há exatamente uma Rodada por dia. No Mata-mata, as Partidas ocupam os últimos horários do dia.
 _Avoid_: jornada, dia de jogo
 
 **Resumo da Rodada**:
-O Reels das 19h que fecha o dia: placares, tabela, Novos Contratados e Candidatos a Craque. Nenhuma Partida da Rodada acontece depois dele.
+O Reels das 19h que fecha o dia: placares e tabelas das duas Séries, Novos Contratados e Candidatos a Craque de cada Série. Nenhuma Partida da Rodada acontece depois dele.
 _Avoid_: compacto, melhores momentos, recap
 
 **Pré-temporada**:
@@ -133,7 +137,7 @@ Partida entre os dois Times de um par de rivais fixos. Cai no calendário por so
 _Avoid_: derby, rivalidade, jogo grande
 
 **Goleada**:
-Vitória em que o vencedor faz 4 gols ou mais e abre 3 ou mais de vantagem (4×0, 4×1, 5×2; um 4×3 não é). O narrador comemora no gol que confirma a Goleada (uma vez por Partida) e no Fim de jogo. ADR-0017.
+Vitória em que o vencedor faz 4 gols ou mais e abre 3 ou mais de vantagem (4×0, 4×1, 5×2; um 4×3 não é). O narrador comemora no gol que confirma a Goleada (uma vez por Partida) e no Fim de jogo. ADR-0026.
 _Avoid_: lavada, surra, massacre
 
 **Rei do Clássico**:
@@ -141,11 +145,11 @@ O Jogador que decidiu um Clássico; o título fica registrado no seu Card.
 _Avoid_: herói do clássico, decisivo
 
 **Fase de Liga**:
-A primeira parte da Temporada, em turno único: os 8 Times se enfrentam uma vez cada, ao longo de 7 Rodadas.
+A primeira parte da Temporada, em turno único: os 8 Times de cada Série se enfrentam uma vez cada, ao longo de 7 Rodadas.
 _Avoid_: fase de grupos, classificatória, pontos corridos
 
 **Mata-mata**:
-A parte final da Temporada, com semifinais (1º × 4º e 2º × 3º) e final entre os 4 melhores da Fase de Liga. Empate vai para a Disputa de pênaltis.
+A parte final da Temporada, disputada em cada Série, com semifinais (1º × 4º e 2º × 3º) e final entre os 4 melhores da Fase de Liga. Na Série B, os dois finalistas ganham o Acesso. Empate vai para a Disputa de pênaltis.
 _Avoid_: playoffs, eliminatórias
 
 **Disputa de pênaltis**:
@@ -156,17 +160,73 @@ _Avoid_: penalidades, prorrogação (não existe)
 O confronto entre Jogadores envolvidos num lance, decidido pelas Habilidades de cada um somadas a uma dose moderada de sorte. Uma jogada tem até quatro: posse (Passe do meia contra Defesa do meia rival), criação (Passe do meia contra Defesa de um zagueiro), atacante contra o outro zagueiro (Drible ou Finalização contra Defesa: Drible, Bloqueio, desarme ou chute marcado) e finalização (Finalização contra Goleiro). O pênalti é Finalização contra Goleiro.
 _Avoid_: disputa, embate, lance
 
+**Falta**:
+Desarme feito de forma irregular, que dá bola parada ao Time que atacava: pênalti dentro da área, chute direto com Barreira na entrada da área, jogada ensaiada mais longe. Pode dar Cartão. ADR-0024.
+_Avoid_: infração
+
+**Barreira**:
+Os jogadores do Time que defende enfileirados na frente do chute direto de Falta. O chute pode bater nela antes de chegar ao goleiro. ADR-0024.
+_Avoid_: muralha
+
 **Ritmo**:
-Quantos lances de ataque uma Partida tem, sorteado para cada Partida: jogo travado tem poucos, jogo aberto tem muitos. ADR-0016.
+Quantos lances de ataque uma Partida tem, sorteado para cada Partida e, a partir da Temporada 2, puxado um pouco pela Postura dos dois Times: jogo travado tem poucos, jogo aberto tem muitos. ADR-0016.
 _Avoid_: intensidade, velocidade
 
 **Nota da Partida**:
 A avaliação de 0 a 10 de um Jogador escalado, calculada pelas ações típicas da sua Posição e pelo resultado do Time, em relação ao que se esperava do seu OVR. Escolhe os Candidatos a Craque e o Craque da Temporada; não mexe no OVR (quem mexe são as Habilidades).
 _Avoid_: rating, avaliação, desempenho
 
-**Locutor da Liga**:
-A voz única e fixa que narra todos os Reels. Fala de Jogadores pela Posição e pelo Time, nunca pelo @.
-_Avoid_: narrador, comentarista, voz
+**Narrador**:
+A voz que narra a Partida, no Reels e no Ao Vivo: uma de cinco, sorteada pela semente da Partida. Fala dos Jogadores pela Posição e pelo Time, nunca pelo @, e só comenta o que aparece na tela.
+_Avoid_: Locutor da Liga, locutor, comentarista, voz
+
+**Série**:
+Cada uma das duas divisões da Liga, com 8 Times: a Série A, de cima, e a Série B. Cada Série tem a sua Fase de Liga, o seu Mata-mata, o seu Título e os seus Craques.
+_Avoid_: divisão, grupo, chave
+
+**Acesso**:
+A subida de um Time da Série B para a Série A no fim da Temporada. Ganham o Acesso os dois finalistas do Mata-mata da Série B.
+_Avoid_: promoção, subida
+
+**Rebaixamento**:
+A descida de um Time da Série A para a Série B no fim da Temporada. Caem os dois últimos da Fase de Liga da Série A. Os Jogadores descem com o Time.
+_Avoid_: descenso, queda, degola
+
+**Capitão**:
+O Jogador com mais Partidas por um Time, que escolhe a Postura antes de cada Partida. Se não tiver Vínculo ou estiver suspenso, a faixa passa para o próximo com Vínculo.
+_Avoid_: líder, técnico, dono do time
+
+**Postura**:
+A atitude do Time numa Partida (Ofensiva, Equilibrada ou Defensiva), escolhida em segredo pelo Capitão até o Corte. Sem escolha, é Equilibrada.
+_Avoid_: tática, estratégia, esquema
+
+**Cartão**:
+Punição a um Jogador na Partida. O vermelho expulsa na hora, e o Time segue com um a menos. Dois amarelos na Temporada, ou um vermelho, dão Suspensão.
+_Avoid_: advertência, punição
+
+**Suspensão**:
+Uma Partida em que o Jogador fica fora da Escalação por causa de Cartões.
+_Avoid_: gancho, punição
+
+**Presença**:
+A confirmação, feita pelo site ou comentando CONFIRMO até o Corte, de que o Jogador quer jogar o próximo jogo do Time. Quem confirmou passa na frente no rodízio da Escalação. ADR-0023.
+_Avoid_: check-in, convocação
+
+**Especialização**:
+A função que o Jogador escolhe dentro da sua Posição (por exemplo Artilheiro, Volante, Xerife ou Paredão), que dá um bônus num Duelo e um custo pequeno em outro. São 3 por Posição, no máximo uma valendo em cada jogo, trocada uma vez por Rodada. ADR-0023.
+_Avoid_: estilo, classe, perfil, função
+
+**Treino**:
+A Habilidade de foco que o Jogador escolhe pelo site; os ganhos dela sobem mais rápido. ADR-0023.
+_Avoid_: foco, upgrade, boost
+
+**Canto**:
+O lado escolhido por batedor e goleiro na Disputa de pênaltis; quem não escolhe tem o canto sorteado. ADR-0023.
+_Avoid_: lado, direção
+
+**Janela de Transferências**:
+O período da Pré-temporada em que qualquer Jogador pode trocar para qualquer Time, de qualquer Série, desde que o destino não fique desequilibrado. Não gasta a Transferência da Temporada.
+_Avoid_: mercado, janela de inverno
 
 **Partida**:
 Um confronto simulado entre dois Times, com Apito Inicial marcado. Pode ser vista Ao Vivo ou em Replay no site e ganha um Reels próprio assim que termina.
@@ -175,3 +235,21 @@ _Avoid_: jogo, match
 **Contra-ataque**:
 Lance logo depois de o rival perder a bola com gente adiantada. Se a defesa não recompõe, o 1º zagueiro (ou, depois de escanteio, também o marcador) fica fora do lance (ADR-0015).
 _Evite_: contragolpe
+
+### Espetáculo
+
+**Arquibancada**:
+A torcida de madeira nas laterais do campo, nas cores de cada Time, que reage aos lances da Partida. Cresce com o tamanho do Elenco. É só espetáculo: não decide nenhum lance.
+_Avoid_: torcida virtual, plateia, galera
+
+**Grito de guerra**:
+O canto próprio de cada Time, que a Arquibancada entoa depois de um gol do Time.
+_Avoid_: hino, música, cântico
+
+**Clima**:
+O tempo da Partida (sol, chuva ou lama), sorteado para cada Partida. Muda o visual e a fala do Narrador, e não decide nenhum lance.
+_Avoid_: tempo, condição do campo
+
+**Segundo uniforme**:
+A camisa alternativa que um Time usa quando as suas cores se confundem com as do adversário.
+_Avoid_: camisa reserva, uniforme dois

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { TIMES, type JogadorPublico, type LigaPublica } from '@liga/shared';
+import { TIMES_FUNDADORES as TIMES, type JogadorPublico, type LigaPublica } from '@liga/shared';
 import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
 import { processarComentario } from '../src/coletar.js';

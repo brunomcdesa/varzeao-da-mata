@@ -4,7 +4,7 @@ import type { Desempenho, Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { contagem, diaLongo, hora, jogadores, partida, situacaoAgora } from '../dados.js';
 import { DURACAO_JOGO, narradorDa, resultadoDaCobranca } from '@liga/renderer';
 import { montarTimeline, transmitir } from '../transmissao.js';
-import { bonecoImg, curto, escudoImg, html, jogadorLink, nota, NOME_DA_POSICAO, rotuloClassico, type Html, comCamisa } from '../ui.js';
+import { bonecoImg, curto, escudoImg, html, jogadorLink, nota, NOME_DA_POSICAO, rotuloClassico, type Html, comCamisa, comFaixa } from '../ui.js';
 import type { Pagina } from './tipos.js';
 
 const CORTE_MIN = 30;
@@ -21,7 +21,7 @@ function escalacao(e: EscalacaoPublica, lado: Lado, r: ResultadoPartida | null, 
         return html`<li>
           ${bonecoImg(e.time, j.posicao, j.username, 2)}
           <span class="pos" title="${NOME_DA_POSICAO[j.posicao]}">${j.posicao}</span>
-          <span class="quem">${comCamisa(jogadorLink(j.jogadorId, j.username, j.apelido), j.jogadorId ? camisas.get(j.jogadorId) : null)}</span>
+          <span class="quem">${comFaixa(comCamisa(jogadorLink(j.jogadorId, j.username, j.apelido), j.jogadorId ? camisas.get(j.jogadorId) : null), j.capitao)}</span>
           ${d && (d.gols || d.assistencias) ? html`<span class="feitos">${'●'.repeat(d.gols)}${d.assistencias ? html`<small>+${d.assistencias} assist.</small>` : ''}</span>` : html`<span class="feitos"></span>`}
           <span class="ovr" title="OVR antes do jogo">${j.ovr}${d && delta ? html`<small class="${delta > 0 ? 'sobe' : 'desce'}">${delta > 0 ? '▲' : '▼'}${Math.abs(delta)}</small>` : ''}</span>
           ${d ? html`<span class="nota-chip" title="Nota da Partida">${nota(d.nota)}</span>` : ''}
@@ -48,6 +48,32 @@ function textoDoLance(r: ResultadoPartida, nomes: Record<Lado, (string | null)[]
         return inicio(`escanteio: ${n(l.defensor)} afasta de cabeça`);
     }
   }
+  // Temporada 2 (ADR-0024): a falta e as cobranças. Partidas da T1 nunca têm esses lances.
+  if (l.tipo === 'FALTA' && l.falta) {
+    const onde = l.falta.local === 'AREA' ? 'na área: pênalti' : l.falta.local === 'ENTRADA' ? 'na entrada da área' : 'no meio do caminho';
+    const cartao = l.falta.cartao === 'VERMELHO' ? (l.falta.segundoAmarelo ? ', segundo amarelo e expulsão' : ', vermelho direto') : l.falta.cartao === 'AMARELO' ? ', cartão amarelo' : '';
+    const vitima = n(l.finalizador ?? l.criador);
+    return inicio(`falta ${de(l.falta.autor)} ${vitima === 'a Base' ? 'na Base' : `em ${vitima}`} ${onde}${cartao}`);
+  }
+  if (l.bolaParada === 'PENALTI') {
+    const canto = l.canto ? ` (bateu no canto ${l.canto.cobrador === 'ESQUERDA' ? 'esquerdo' : l.canto.cobrador === 'DIREITA' ? 'direito' : 'do meio'})` : '';
+    if (l.tipo === 'GOL') return `Gol de pênalti ${de(l.finalizador)}${canto}`;
+    if (l.tipo === 'DEFESA') return inicio(`${n(l.defensor)} pega o pênalti ${de(l.finalizador)}${canto}`);
+    return inicio(`${n(l.finalizador)} manda o pênalti para fora`);
+  }
+  if (l.bolaParada === 'FALTA_DIRETA') {
+    if (l.tipo === 'GOL') return `Gol de falta ${de(l.finalizador)}, por cima da barreira`;
+    if (l.tipo === 'BLOQUEIO' || l.barreira) return inicio(`a barreira para a cobrança ${de(l.finalizador)}`);
+    if (l.tipo === 'DEFESA') return inicio(`${n(l.defensor)} defende a cobrança de falta ${de(l.finalizador)}`);
+    return inicio(`${n(l.finalizador)} cobra a falta para fora`);
+  }
+  if (l.bolaParada === 'FALTA_CRUZADA' || l.bolaParada === 'FALTA_CURTA') {
+    const jogada = l.bolaParada === 'FALTA_CRUZADA' ? `falta cruzada ${n(l.criador) === 'a Base' ? 'pela Base' : `por ${n(l.criador)}`}` : `falta ensaiada, toque curto ${de(l.criador)}`;
+    if (l.tipo === 'GOL') return `Gol ${de(l.finalizador)} na ${jogada}`;
+    if (l.tipo === 'DEFESA') return inicio(`${jogada}: ${n(l.defensor)} defende o chute ${de(l.finalizador)}`);
+    if (l.tipo === 'FORA') return inicio(`${jogada}: ${n(l.finalizador)} manda para fora`);
+    return inicio(`${jogada}: ${n(l.defensor)} corta`);
+  }
   const doLateral = l.bolaParada === 'LATERAL' ? ' (começou num lateral)' : l.contraAtaque ? (l.contraAtaque.recomposto ? ' (contra-ataque)' : ' (contra-ataque com a defesa aberta)') : '';
   switch (l.tipo) {
     case 'GOL':
@@ -62,12 +88,14 @@ function textoDoLance(r: ResultadoPartida, nomes: Record<Lado, (string | null)[]
       return l.drible && l.finalizador
         ? inicio(`${n(l.finalizador)} tenta o drible e ${n(l.defensor)} desarma`)
         : inicio(`${n(l.defensor)} desarma ${n(l.criador)}`);
+    default:
+      return '';
   }
 }
 
 const maiuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
-const ROTULO: Record<string, string> = { GOL: 'Gol', DEFESA: 'Defesa', BLOQUEIO: 'Bloqueio', FORA: 'Fora', DESARME: 'Desarme' };
+const ROTULO: Record<string, string> = { GOL: 'Gol', DEFESA: 'Defesa', BLOQUEIO: 'Bloqueio', FORA: 'Fora', DESARME: 'Desarme', FALTA: 'Falta' };
 
 export const paginaPartida: Pagina = async (main, [idTexto]) => {
   const id = Number(idTexto);
@@ -143,7 +171,7 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
         ? html`<section aria-labelledby="titulo-lances"><h2 id="titulo-lances" class="secao">Lance a lance</h2>
             <ol class="lances">${r.lances.map(
               (l, i) => html`<li><button type="button" class="lance tipo-${l.tipo.toLowerCase()}" data-indice="${i}">
-                <span class="min">${l.minuto}'</span><span class="chip">${ROTULO[l.tipo]}</span>
+                <span class="min">${l.minuto}'</span><span class="chip${l.falta?.cartao ? ` cartao-${l.falta.cartao.toLowerCase()}` : ''}">${l.falta?.cartao === 'VERMELHO' ? 'Vermelho' : l.falta?.cartao === 'AMARELO' ? 'Amarelo' : ROTULO[l.tipo]}</span>
                 <span class="txt">${textoDoLance(r, nomes, i)}</span><span class="sig">${IDENTIDADE[r.times[l.ataque]].sigla}</span>
               </button></li>`,
             )}</ol></section>

@@ -4,7 +4,7 @@
  * narrada pelo Locutor da Liga; cada cartela estica até a sua fala caber inteira.
  */
 import { desenharCompartilhe } from './anuncio.js';
-import { FALA_DO_TIME, IDENTIDADE, doTime, nomeDaRodada, type Posicao, type TimeId, type Aparencia } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, TIMES_QUE_TROCAM_DE_SERIE, doTime, nomeDaRodada, type Posicao, type Serie, type TimeId, type Aparencia } from '@liga/shared';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, plaquinha } from './desenho.js';
 import { apelidoFalavel, type Fala } from './narracao.js';
@@ -17,14 +17,23 @@ export interface DadosDoResumo {
   temporada: number;
   rodada: number;
   fase: 'LIGA' | 'MATA_MATA';
-  placares: { mandante: TimeId; visitante: TimeId; golsMandante: number; golsVisitante: number; penaltis: { mandante: number; visitante: number } | null; hora: number }[];
+  /** `serie`: em Temporadas com Série B, de qual Série é o placar (ADR-0017). */
+  placares: { mandante: TimeId; visitante: TimeId; golsMandante: number; golsVisitante: number; penaltis: { mandante: number; visitante: number } | null; hora: number; serie?: Serie }[];
+  /** Tabela da Série A (ou da Liga inteira, antes das Séries). */
   tabela: { time: TimeId; jogos: number; pontos: number; vitorias: number; saldo: number }[];
+  /** Tabela da Série B, quando existe. */
+  tabelaB?: { time: TimeId; jogos: number; pontos: number; vitorias: number; saldo: number }[];
   novosContratados: { username: string; time: TimeId; posicao: Posicao }[];
   totalNovos: number;
-  /** `numero`: o que se comenta para votar (ADR-0011). */
-  candidatos: { numero?: number; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number; gols: number }[];
+  /**
+   * `numero`: o número interno do Candidato (ADR-0011); `rotulo`: o que se comenta para votar
+   * ("3", ou "A3" e "B3" com duas Séries); `serie`: a Série do Candidato (ADR-0017).
+   */
+  candidatos: { numero?: number; rotulo?: string; serie?: Serie; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number; gols: number }[];
   /** Resumo da Final: o Time campeão ganha uma cartela própria. */
   campeao?: TimeId;
+  /** Campeão da Série B, quando existe. */
+  campeaoB?: TimeId;
   /** Na Final os Candidatos são da Temporada inteira (nota = nota média). */
   votacao?: 'RODADA' | 'TEMPORADA';
   /**
@@ -38,16 +47,36 @@ export interface DadosDoResumo {
   };
   /** Anúncio do Craque da Temporada (o dia seguinte à Final): só essa cartela e a chamada. */
   craqueDaTemporada?: { username: string; apelido?: string | null; time: TimeId; posicao: Posicao; notaMedia: number; gols: number; jogos: number; votos: number };
+  /** Craque da Temporada da Série B, quando há (ADR-0017): ganha a sua cartela depois do da A. */
+  craqueDaTemporadaB?: { username: string; apelido?: string | null; time: TimeId; posicao: Posicao; notaMedia: number; gols: number; jogos: number; votos: number };
   /** Craque da Rodada anterior: a votação fechou no Corte do primeiro jogo e o anúncio abre o Resumo. */
   craqueDaRodada?: { rodada: number; fase: 'LIGA' | 'MATA_MATA'; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number; gols: number; votos: number };
+  /** Craque da Rodada anterior na Série B, quando há (ADR-0017). */
+  craqueDaRodadaB?: { rodada: number; fase: 'LIGA' | 'MATA_MATA'; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number; gols: number; votos: number };
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
 }
 
 export type Cartela = 'ABERTURA' | 'PLACARES' | 'CAMPEAO' | 'TABELA' | 'NOVOS' | 'CANDIDATOS' | 'CRAQUE' | 'DESTAQUES' | 'CHAMADA' | 'COMPARTILHE';
 
-/** Segmento do Roteiro com a cartela que ele mostra (tipo 'ABERTURA' = trilha cheia na mixagem). */
-export type SegmentoResumo = Segmento & { cartela: Cartela };
+/**
+ * Segmento do Roteiro com a cartela que ele mostra (tipo 'ABERTURA' = trilha cheia na mixagem).
+ * `serie`: com Série B, placares, tabela e Candidatos ganham uma cartela por Série (ADR-0017).
+ */
+export type SegmentoResumo = Segmento & { cartela: Cartela; serie?: Serie };
+
+/** Cartelas que se repetem por Série quando a Temporada tem Série B. */
+const POR_SERIE: ReadonlySet<Cartela> = new Set(['PLACARES', 'TABELA', 'CANDIDATOS']);
+
+/** Com Série B, os dados de uma cartela são só os da Série dela. */
+export function dadosDaSerie(d: DadosDoResumo, serie: Serie | undefined): Pick<DadosDoResumo, 'placares' | 'tabela' | 'candidatos'> {
+  if (!serie) return d;
+  return {
+    placares: d.placares.filter((p) => (p.serie ?? 'A') === serie),
+    tabela: serie === 'B' ? (d.tabelaB ?? []) : d.tabela,
+    candidatos: d.candidatos.filter((c) => (c.serie ?? 'A') === serie),
+  };
+}
 
 const DURACAO_BASE: Record<Cartela, number> = { ABERTURA: 3, PLACARES: 5, CAMPEAO: 6, TABELA: 6, NOVOS: 4, CANDIDATOS: 7, CRAQUE: 7, DESTAQUES: 6, CHAMADA: 5, COMPARTILHE: 6 };
 const CORTE = 0.3;
@@ -68,7 +97,7 @@ export class RoteiroResumo {
       if (dados.fimDaTemporada?.artilheiro || dados.fimDaTemporada?.goleiro) cartelas.push('DESTAQUES');
     }
     else {
-      if (dados.craqueDaRodada) cartelas.push('CRAQUE');
+      if (dados.craqueDaRodada || dados.craqueDaRodadaB) cartelas.push('CRAQUE');
       if (dados.placares.length) cartelas.push('PLACARES');
       if (dados.campeao) cartelas.push('CAMPEAO');
       if (dados.fase === 'LIGA') cartelas.push('TABELA');
@@ -76,11 +105,32 @@ export class RoteiroResumo {
       if (dados.candidatos.length) cartelas.push('CANDIDATOS');
     }
     cartelas.push('CHAMADA', 'COMPARTILHE');
+    // Com Série B: cada cartela por Série vira duas, a da A e a da B (se a B tiver o que mostrar).
+    const comSeries = !!dados.tabelaB;
+    const lista: { cartela: Cartela; serie?: Serie }[] = cartelas.flatMap((cartela) => {
+      if (!comSeries || !POR_SERIE.has(cartela)) return [{ cartela }];
+      return (['A', 'B'] as const).filter((serie) => {
+        const x = dadosDaSerie(dados, serie);
+        return cartela === 'PLACARES' ? x.placares.length > 0 : cartela === 'TABELA' ? x.tabela.length > 0 : x.candidatos.length > 0;
+      }).map((serie) => ({ cartela, serie }));
+    });
+    // Campeão e Craque da Temporada: com Série B, uma cartela para cada Série.
+    const dupla = (cartela: Cartela, temB: boolean) => {
+      const k = lista.findIndex((x) => x.cartela === cartela);
+      if (k >= 0 && temB) lista.splice(k, 1, { cartela, serie: 'A' }, { cartela, serie: 'B' });
+    };
+    dupla('CAMPEAO', !!dados.campeaoB);
+    dupla('CRAQUE', !!(dados.craqueDaTemporadaB || (dados.craqueDaRodada && dados.craqueDaRodadaB)));
+    // Só a B tem Craque da Rodada (a A ficou sem Candidatos): a cartela é da B.
+    if (!dados.craqueDaRodada && dados.craqueDaRodadaB && !dados.craqueDaTemporada) {
+      const k = lista.findIndex((x) => x.cartela === 'CRAQUE');
+      if (k >= 0) lista[k] = { cartela: 'CRAQUE', serie: 'B' };
+    }
     let cursor = 0;
-    this.segmentos = cartelas.map((cartela, i) => {
+    this.segmentos = lista.map(({ cartela, serie }, i) => {
       const inicio = cursor;
       cursor += Math.max(DURACAO_BASE[cartela], minimos[i]?.antes ?? 0);
-      return { tipo: 'ABERTURA', cartela, inicio, fim: cursor };
+      return { tipo: 'ABERTURA', cartela, inicio, fim: cursor, ...(serie ? { serie } : {}) };
     });
     this.duracao = cursor;
   }
@@ -117,6 +167,9 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
   const falas: Fala[] = [];
   roteiro.segmentos.forEach((s, i) => {
     let texto = '';
+    // Com Série B, a fala de placares, tabela e Candidatos é só da Série da cartela.
+    const x = dadosDaSerie(d, s.serie);
+    const naSerie = s.serie ? `Na Série ${s.serie}, ` : '';
     switch (s.cartela) {
       case 'ABERTURA':
         texto = d.fimDaTemporada
@@ -129,20 +182,25 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
               ? `Fim da Rodada ${d.rodada} no Varzeão da Mata! Bora pro resumo!`
               : 'Fim do dia de mata-mata no Varzeão da Mata!';
         break;
-      case 'CAMPEAO':
-        texto = `${artigo(d.campeao!, true)} ${curto(d.campeao!)} é campeão da Temporada ${d.temporada}! ${FALA_DO_TIME[d.campeao!].bordao}`;
+      case 'CAMPEAO': {
+        const t = s.serie === 'B' ? d.campeaoB! : d.campeao!;
+        texto = s.serie === 'B'
+          ? `Na Série B, ${artigo(t)} ${curto(t)} é campeão! ${FALA_DO_TIME[t].bordao}`
+          : `${artigo(t, true)} ${curto(t)} é campeão da Temporada ${d.temporada}! ${FALA_DO_TIME[t].bordao}`;
         break;
+      }
       case 'CRAQUE': {
-        if (!d.craqueDaTemporada) {
-          const c = d.craqueDaRodada!;
+        const t = s.serie === 'B' ? d.craqueDaTemporadaB : d.craqueDaTemporada;
+        const naSerieDoCraque = s.serie ? `Na Série ${s.serie}: ` : '';
+        if (!t) {
+          const c = (s.serie === 'B' ? d.craqueDaRodadaB : d.craqueDaRodada)!;
           const quem = apelidoFalavel(c.apelido) ? `${apelidoFalavel(c.apelido)}, ${POSICAO_FALADA[c.posicao]} ${doTime(c.time)}` : `o ${POSICAO_FALADA[c.posicao]} ${doTime(c.time)}`;
-          texto = c.votos > 0
+          texto = naSerieDoCraque + (c.votos > 0
             ? `O Craque ${daRodada(c)}, eleito pela torcida com ${c.votos} ${c.votos === 1 ? 'voto' : 'votos'}, é ${quem}!`
-            : `Ninguém votou, então o Craque ${daRodada(c)} ficou com a maior nota: ${quem}!`;
+            : `Ninguém votou, então o Craque ${daRodada(c)} ficou com a maior nota: ${quem}!`);
           break;
         }
-        const c = d.craqueDaTemporada!;
-        texto = `Com ${c.votos} ${c.votos === 1 ? 'voto' : 'votos'} da torcida, o Craque da Temporada é ${apelidoFalavel(c.apelido) ? `${apelidoFalavel(c.apelido)}, ${POSICAO_FALADA[c.posicao]} ${doTime(c.time)}` : `o ${POSICAO_FALADA[c.posicao]} ${doTime(c.time)}`}! Nota média ${c.notaMedia.toFixed(1).replace('.', ',')}.`;
+        texto = `${naSerieDoCraque}Com ${t.votos} ${t.votos === 1 ? 'voto' : 'votos'} da torcida, o Craque da Temporada é ${apelidoFalavel(t.apelido) ? `${apelidoFalavel(t.apelido)}, ${POSICAO_FALADA[t.posicao]} ${doTime(t.time)}` : `o ${POSICAO_FALADA[t.posicao]} ${doTime(t.time)}`}! Nota média ${t.notaMedia.toFixed(1).replace('.', ',')}.`;
         break;
       }
       case 'DESTAQUES': {
@@ -155,7 +213,8 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
       }
       case 'PLACARES':
         texto =
-          d.placares
+          naSerie +
+          x.placares
             .map((p) => {
               const [a, b, ga, gb] = p.golsMandante >= p.golsVisitante ? [p.mandante, p.visitante, p.golsMandante, p.golsVisitante] : [p.visitante, p.mandante, p.golsVisitante, p.golsMandante];
               if (ga === gb) return p.penaltis ? `${curto(a)} e ${curto(b)} empataram, e a decisão foi nos pênaltis` : `${curto(a)} e ${curto(b)} empataram em ${ga} a ${gb}`;
@@ -164,30 +223,31 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
             .join('. ') + '.';
         break;
       case 'TABELA': {
-        const l1 = d.tabela[0]!;
-        const ponta = d.tabela.filter((l) => l.pontos === l1.pontos).map((l) => curto(l.time));
+        const l1 = x.tabela[0]!;
+        const ponta = x.tabela.filter((l) => l.pontos === l1.pontos).map((l) => curto(l.time));
         const lista = ponta.length > 1 ? `${ponta.slice(0, -1).join(', ')} e ${ponta[ponta.length - 1]}` : '';
+        const naTabela = s.serie ? `Na tabela da Série ${s.serie}` : 'Na tabela';
         texto =
-          ponta.length === d.tabela.length
-            ? `Na tabela, tudo igual: todo mundo com ${l1.pontos} ${l1.pontos === 1 ? 'ponto' : 'pontos'}.`
+          ponta.length === x.tabela.length
+            ? `${naTabela}, tudo igual: todo mundo com ${l1.pontos} ${l1.pontos === 1 ? 'ponto' : 'pontos'}.`
             : ponta.length > 1
-              ? `Na tabela, ${lista} dividem a ponta com ${l1.pontos} pontos.`
-              : `Na tabela, ${artigo(l1.time)} ${curto(l1.time)} lidera com ${l1.pontos} ${l1.pontos === 1 ? 'ponto' : 'pontos'}.`;
+              ? `${naTabela}, ${lista} dividem a ponta com ${l1.pontos} pontos.`
+              : `${naTabela}, ${artigo(l1.time)} ${curto(l1.time)} lidera com ${l1.pontos} ${l1.pontos === 1 ? 'ponto' : 'pontos'}.`;
         break;
       }
       case 'NOVOS':
         texto = d.totalNovos === 1 ? 'Chegou um novo contratado na Liga. Seja bem-vindo!' : `Chegaram ${d.totalNovos} novos contratados na Liga. Sejam bem-vindos!`;
         break;
       case 'CANDIDATOS': {
-        const [melhor] = d.candidatos;
-        texto = `Esses são os candidatos a Craque ${d.votacao === 'TEMPORADA' ? 'da Temporada, os melhores do campeonato' : 'da Rodada'}.${melhor ? ` A maior nota foi ${apelidoFalavel(melhor.apelido) ? `de ${apelidoFalavel(melhor.apelido)}` : `do ${POSICAO_FALADA[melhor.posicao]} ${doTime(melhor.time)}`}.` : ''}`;
+        const [melhor] = x.candidatos;
+        texto = `${s.serie ? `Na Série ${s.serie}, esses` : 'Esses'} são os candidatos a Craque ${d.votacao === 'TEMPORADA' ? 'da Temporada, os melhores do campeonato' : 'da Rodada'}.${melhor ? ` A maior nota foi ${apelidoFalavel(melhor.apelido) ? `de ${apelidoFalavel(melhor.apelido)}` : `do ${POSICAO_FALADA[melhor.posicao]} ${doTime(melhor.time)}`}.` : ''}`;
         break;
       }
       case 'CHAMADA':
         texto = d.fimDaTemporada?.proxima
           ? `A Temporada ${d.fimDaTemporada.proxima.numero} começa ${diaFalado(d.fimDaTemporada.proxima.inicio)}. Quer jogar? Comente ENTRO, o time e a posição!`
           : d.candidatos.length
-          ? `Vote no seu Craque${d.votacao === 'TEMPORADA' ? ' da Temporada' : ''} comentando só o número dele, ou pelo site.${d.votacao === 'TEMPORADA' ? ' O resultado sai amanhã às sete da noite!' : ''}`
+          ? `Vote no seu Craque${d.votacao === 'TEMPORADA' ? ' da Temporada' : ''} ${d.tabelaB ? 'de cada série comentando a letra e o número, como A3 ou B3' : 'comentando só o número dele'}, ou pelo site.${d.votacao === 'TEMPORADA' ? ' O resultado sai amanhã às sete da noite!' : ''}`
           : 'A próxima Temporada vem aí. Quer jogar? Comente ENTRO, o time e a posição!';
         break;
       case 'COMPARTILHE':
@@ -243,9 +303,16 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
 
   // Entrada escalonada dos itens: o item k aparece em `aparece(k)` segundos.
   const aparece = (k: number, passo = 0.35, atraso = 0.5) => entre(q.tempo, atraso + k * passo, atraso + k * passo + 0.35);
+  const serie = q.segmento.serie;
+  const ds = dadosDaSerie(d, serie);
   const titulo = (t: string) => {
     pin.tabua(COLUNAS / 2 - 90, 34, 180, 34);
     pin.texto(t, COLUNAS / 2, 51, pin.caber(t, 160, 24, display), display, COR.amarelo, { contorno: COR.contorno });
+    // Plaquinha da Série pendurada embaixo do título (ADR-0017).
+    if (serie) {
+      pin.placa(COLUNAS / 2 - 34, 64, 68, 20, { fundo: serie === 'A' ? COR.amarelo : COR.placa, sombra: COR.contorno, degrau: 2 });
+      pin.texto(`Série ${serie}`, COLUNAS / 2, 74, 15, display, COR.tinta);
+    }
   };
 
   switch (q.segmento.cartela) {
@@ -261,7 +328,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
     }
     case 'PLACARES': {
       titulo('Placares');
-      d.placares.forEach((p, k) => {
+      ds.placares.forEach((p, k) => {
         const a = aparece(k);
         if (a <= 0) return;
         const y = 92 + k * 86;
@@ -289,13 +356,15 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       pin.tabua(x, 84, w, 360);
       const cab = 100;
       for (const [rotulo, cx] of [['P', 180], ['J', 204], ['V', 224], ['SG', 244]] as const) pin.texto(rotulo, cx, cab, 9, texto, COR.placaSombra, { peso: 700 });
-      d.tabela.forEach((l, k) => {
+      ds.tabela.forEach((l, k) => {
         const a = aparece(k, 0.18, 0.4);
         if (a <= 0) return;
         const y = 112 + k * 40;
         pin.ctx.globalAlpha = a;
         const lider = k === 0;
-        pin.placa(x + 6, y, w - 12, 34, { fundo: lider ? COR.amarelo : COR.madeiraEscura, sombra: lider ? '#C99500' : COR.contorno, degrau: 2 });
+        // Série A: os 2 últimos estão na zona de Rebaixamento (ADR-0017).
+        const caindo = serie === 'A' && k >= ds.tabela.length - TIMES_QUE_TROCAM_DE_SERIE;
+        pin.placa(x + 6, y, w - 12, 34, { fundo: lider ? COR.amarelo : caindo ? '#7A2A22' : COR.madeiraEscura, sombra: lider ? '#C99500' : COR.contorno, degrau: 2 });
         const cor = lider ? COR.tinta : COR.placa;
         pin.texto(`${k + 1}`, x + 18, y + 18, 16, display, cor);
         desenharEscudo(pin, l.time, x + 30, y + 5, 1);
@@ -306,6 +375,12 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
         pin.texto(l.saldo > 0 ? `+${l.saldo}` : String(l.saldo), 244, y + 18, 14, display, cor);
         pin.ctx.globalAlpha = 1;
       });
+      if (serie) {
+        pin.ctx.globalAlpha = aparece(ds.tabela.length, 0.18, 0.4);
+        const regra = serie === 'A' ? 'Os 2 últimos caem para a Série B' : 'Os 2 finalistas do mata-mata sobem';
+        pin.texto(regra, COLUNAS / 2, 458, pin.caber(regra, 236, 10, texto, 600), texto, COR.placa, { peso: 600 });
+        pin.ctx.globalAlpha = 1;
+      }
       break;
     }
     case 'NOVOS': {
@@ -334,7 +409,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
     case 'CANDIDATOS': {
       titulo(d.votacao === 'TEMPORADA' ? 'Craque da Temporada?' : 'Candidatos a Craque');
       const fase = Math.floor(tVideo * 3);
-      d.candidatos.forEach((c, k) => {
+      ds.candidatos.forEach((c, k) => {
         const a = aparece(k, 0.45, 0.5);
         if (a <= 0) return;
         const y = 84 + k * 72;
@@ -362,9 +437,11 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
         const info = `${POSICAO_FALADA[c.posicao]}, ${curto(c.time)}${c.gols ? `, ${c.gols} gol${c.gols > 1 ? 's' : ''}` : ''}`;
         pin.texto(info, 72, y + 38, pin.caber(info, 128, 7.5, texto, 500), texto, COR.placaSombra, { alinhar: 'left', peso: 500 });
         plaquinha(pin, 228, y + 14, 34, 30, c.nota.toFixed(1), display);
-        // Número do voto, grande, no canto da figurinha: é o que se comenta.
-        pin.placa(8, y - 2, 24, 26, { fundo: COR.amarelo, luz: '#FFE07A', sombra: '#B88600' });
-        pin.texto(String(c.numero ?? k + 1), 20, y + 12, 22, display, COR.tinta);
+        // Número do voto, grande, no canto da figurinha: é o que se comenta ("3", ou "A3"/"B3").
+        const voto = c.rotulo ?? String(c.numero ?? k + 1);
+        const larguraVoto = voto.length > 1 ? 34 : 24;
+        pin.placa(8, y - 2, larguraVoto, 26, { fundo: COR.amarelo, luz: '#FFE07A', sombra: '#B88600' });
+        pin.texto(voto, 8 + larguraVoto / 2, y + 12, pin.caber(voto, larguraVoto - 6, 22, display), display, COR.tinta);
         if (d.votacao === 'TEMPORADA' && k === 0) pin.texto('média', 245, y + 52, 6, texto, COR.placaSombra, { peso: 600 });
         pin.ctx.restore();
         // a cor do Time numa faixinha embaixo do card
@@ -373,7 +450,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       break;
     }
     case 'CAMPEAO': {
-      const t = d.campeao!;
+      const t = serie === 'B' ? d.campeaoB! : d.campeao!;
       const id = IDENTIDADE[t];
       const a = entre(q.tempo, 0.2, 0.9);
       // Confete nas cores do Time, caindo devagar (determinístico pelo tempo).
@@ -384,6 +461,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       }
       pin.ctx.globalAlpha = a;
       pin.texto('Campeão!', COLUNAS / 2, 96, 44, display, COR.amarelo, { contorno: COR.contorno, espessura: 1.5 });
+      if (serie) pin.texto(`Série ${serie}`, COLUNAS / 2, 60, 16, display, COR.placa, { contorno: COR.contorno });
       desenharEscudo(pin, t, COLUNAS / 2 - 50, 130 - (1 - a) * 20, 5);
       pin.texto(curto(t), COLUNAS / 2, 280, pin.caber(curto(t), 220, 40, display), display, COR.placa, { contorno: COR.contorno });
       pin.texto(`Temporada ${d.temporada}`, COLUNAS / 2, 312, 11, texto, COR.placa, { peso: 600 });
@@ -394,8 +472,8 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       break;
     }
     case 'CRAQUE': {
-      const t = d.craqueDaTemporada;
-      const r = d.craqueDaRodada;
+      const t = serie === 'B' ? d.craqueDaTemporadaB : d.craqueDaTemporada;
+      const r = serie === 'B' ? d.craqueDaRodadaB : d.craqueDaRodada;
       const c = (t ?? r)!;
       const id = IDENTIDADE[c.time];
       const a = entre(q.tempo, 0.3, 1.1);
@@ -416,6 +494,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       desenharEscudo(pin, c.time, 182, 74, 1);
       const cor = contraste(id.primaria);
       pin.texto(t ? 'Craque da Temporada' : `Craque ${daRodada(r!)}`, COLUNAS / 2, 82, 9, texto, cor, { peso: 700 });
+      if (serie) pin.texto(`Série ${serie}`, COLUNAS / 2, 58, 16, display, COR.placa, { contorno: COR.contorno });
       const nome = c.apelido || `@${c.username}`;
       pin.texto(nome, COLUNAS / 2, 232, pin.caber(nome, 150, 18, display), display, cor);
       pin.texto(`${POSICAO_FALADA[c.posicao]}, ${curto(c.time)}`, COLUNAS / 2, 252, 8, texto, cor, { peso: 600 });
@@ -516,8 +595,10 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       pin.tabua(22, 160, 226, 120);
       const chamada = d.votacao === 'TEMPORADA' ? 'Craque da Temporada' : 'Vote no Craque';
       pin.texto(chamada, COLUNAS / 2, 184, pin.caber(chamada, 200, 22, display), display, COR.amarelo, { contorno: COR.contorno });
-      pin.texto('comente só o número', COLUNAS / 2, 208, 10, texto, COR.placa, { peso: 600 });
-      const exemplo = `1 a ${d.candidatos.length}`;
+      const porSerie = !!d.tabelaB;
+      pin.texto(porSerie ? 'comente a letra e o número' : 'comente só o número', COLUNAS / 2, 208, 10, texto, COR.placa, { peso: 600 });
+      const da = (s: Serie) => d.candidatos.filter((c) => (c.serie ?? 'A') === s).length;
+      const exemplo = porSerie ? [da('A') ? `A1 a A${da('A')}` : '', da('B') ? `B1 a B${da('B')}` : ''].filter(Boolean).join(' · ') : `1 a ${d.candidatos.length}`;
       pin.texto(exemplo, COLUNAS / 2, 240, pin.caber(exemplo, 200, 34, display), display, '#FFFFFF', { contorno: COR.contorno });
       pin.texto('ou vote no site, link na bio', COLUNAS / 2, 266, 8, texto, COR.placaSombra, { peso: 500 });
       pin.ctx.globalAlpha = 1;

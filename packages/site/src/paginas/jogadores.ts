@@ -1,7 +1,7 @@
 /** Jogadores: busca e ranking, o Card de cada um e a comparação lado a lado. */
-import { IDENTIDADE, nomeVisivel, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId } from '@liga/shared';
-import { jogadores, liga } from '../dados.js';
-import { bonecoImg, comCamisa, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html } from '../ui.js';
+import { IDENTIDADE, nomeVisivel, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId, temRegrasT2 } from '@liga/shared';
+import { jogadores, liga, timesAtivos } from '../dados.js';
+import { bonecoImg, comCamisa, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html, faixaC } from '../ui.js';
 import type { Pagina } from './tipos.js';
 import { blocoDoDono, ligarMeuPersonagem } from '../meuPersonagem.js';
 
@@ -32,11 +32,11 @@ function valor(j: JogadorPublico, c: Criterio, p: Periodo): number | null {
 const filtros = { busca: '', time: '' as TimeId | '', posicao: '' as Posicao | '', criterio: 'ovr' as Criterio, periodo: 'temporada' as Periodo, marcados: [] as string[] };
 
 export const paginaJogadores: Pagina = async (main) => {
-  const todos = await jogadores();
+  const [todos, l] = await Promise.all([jogadores(), liga()]);
   main.innerHTML = html`<h1 class="titulo-pagina">Jogadores <small>${todos.length} inscritos</small></h1>
     <form class="filtros" role="search">
       <label class="busca"><span class="sr">Buscar pelo @</span><input type="search" name="busca" placeholder="Buscar @" autocomplete="off" value="${filtros.busca}" /></label>
-      <label><span>Time</span><select name="time"><option value="">Todos</option>${TIMES.map((t) => html`<option value="${t}" ${filtros.time === t ? 'selected' : ''}>${curto(t)}</option>`)}</select></label>
+      <label><span>Time</span><select name="time"><option value="">Todos</option>${timesAtivos(l).map((t) => html`<option value="${t}" ${filtros.time === t ? 'selected' : ''}>${curto(t)}</option>`)}</select></label>
       <label><span>Posição</span><select name="posicao"><option value="">Todas</option>${POSICOES_EM_ORDEM.map((p) => html`<option value="${p}" ${filtros.posicao === p ? 'selected' : ''}>${NOME_DA_POSICAO[p]}</option>`)}</select></label>
       <label><span>Período</span><select name="periodo"><option value="temporada" ${filtros.periodo === 'temporada' ? 'selected' : ''}>Esta Temporada</option><option value="carreira" ${filtros.periodo === 'carreira' ? 'selected' : ''}>Carreira</option></select></label>
       <label><span>Ordenar por</span><select name="criterio">${(Object.keys(CRITERIOS) as Criterio[]).map((c) => html`<option value="${c}" ${filtros.criterio === c ? 'selected' : ''}>${CRITERIOS[c]}</option>`)}</select></label>
@@ -170,13 +170,13 @@ export function card(j: JogadorPublico, o: { pequeno?: boolean } = {}): Html {
   return html`<div class="card ${o.pequeno ? 'pequeno' : ''}" style="--cor:${id.primaria};--cor2:${id.secundaria};--sobre:${tintaSobre(id.primaria)}">
     <div class="card-topo">
       <span class="card-ovr">${j.ovr}</span>
-      <span class="card-pos">${j.posicao}</span>
+      <span class="card-pos">${j.posicao}${faixaC(j.capitao)}</span>
       ${escudoImg(j.time, o.pequeno ? 1 : 1.5, 'card-escudo')}
     </div>
     <div class="card-boneco">${bonecoImg(j.time, j.posicao, j.username, o.pequeno ? 6 : 9)}</div>
     <p class="card-nome">${comCamisa(nomeVisivel(j), j.numero)}</p>
     ${j.apelido ? html`<p class="card-arroba">@${j.username}</p>` : ''}
-    <p class="card-time">${curto(j.time)} · ${NOME_DA_POSICAO[j.posicao]}</p>
+    <p class="card-time">${curto(j.time)} · ${NOME_DA_POSICAO[j.posicao]}${j.capitao ? ' · Capitão' : ''}</p>
     ${barrasDeHabilidade(j.posicao, j.habilidades, o.pequeno ? undefined : j.habilidadesIniciais)}
     <dl class="card-numeros">
       <div><dt>Jogos</dt><dd>${j.jogos}</dd></div>
@@ -229,6 +229,7 @@ export const paginaJogador: Pagina = async (main, [id]) => {
     <div class="jogador-detalhes">
       <h1 class="sr">${j.apelido ? `${j.apelido} (@${j.username})` : `@${j.username}`}</h1>
       <p class="ranking-frase">${rankOvr}º maior OVR da Liga · ${rankPos}º entre ${daPosicao.length} ${NOME_DA_POSICAO[j.posicao].toLowerCase()}s</p>
+      ${temRegrasT2(l.temporada?.numero ?? 0) ? html`<p><a class="botao secundario" href="#/carreira/${j.id}">Ver a Carreira, temporada por temporada</a></p>` : ''}
       ${salaDeTrofeus(j)}
       ${blocoDoDono()}
       <section aria-labelledby="titulo-numeros">
@@ -280,7 +281,8 @@ export const paginaJogador: Pagina = async (main, [id]) => {
     const v = (e.target as HTMLSelectElement).value;
     if (v) location.hash = `#/comparar/${j.id}/${v}`;
   });
-  return ligarMeuPersonagem(main, j, todos);
+  // Transferência só para os Times que jogam a Temporada (com a Série B, os 16).
+  return ligarMeuPersonagem(main, j, todos, timesAtivos(l), temRegrasT2(l.temporada?.numero ?? 0));
 };
 
 function numeros(e: Estatisticas, j: JogadorPublico): Html {

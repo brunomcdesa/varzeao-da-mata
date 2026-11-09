@@ -12,6 +12,8 @@ import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
 import { ALTURA_ESCUDO, LARGURA_ESCUDO, escudo } from './escudos.js';
 import { ALTURA_SPRITE, LARGURA_SPRITE, aparencia, escolherPose, sprite, type Visual } from './sprites.js';
 import type { EstadoQuadro, JogadorNoQuadro, Ponto } from './timeline.js';
+import { desenharArquibancada, desenharCartao, desenharClimaNoAr, desenharClimaNoChao, desenharCloseDaTorcida } from './arquibancada.js';
+import { segundoUniforme } from './clima.js';
 
 export interface OpcoesDesenho {
   times: Record<Lado, TimeId>;
@@ -41,6 +43,11 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
 
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(cenario(), 0, 0, COLUNAS * pin.px, LINHAS * pin.px);
+  // Temporada 2 (ADR-0019): Arquibancada nas laterais e lama ou poças no gramado.
+  if (estado.t2) {
+    desenharArquibancada(pin, estado, o.times);
+    desenharClimaNoChao(pin, estado);
+  }
 
   // Sombras primeiro, depois Jogadores de cima para baixo (quem está mais embaixo fica na frente).
   const fase = Math.floor(estado.t / 1.1);
@@ -54,19 +61,30 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
 
   const bolaAlta = estado.bolaAltura > 0.08;
   if (!bolaAlta) desenharBola(pin, bolaChao, 0);
-  for (const j of ordem) desenharJogador(pin, j, o, fase);
+  for (const j of ordem) desenharJogador(pin, j, o, fase, estado);
   // Na disputa de pênaltis, só o nome de quem está na área (cobrador e goleiro): a roda fica limpa.
   for (const j of ordem) if (!estado.penaltis || j.pos.y < 0.3) desenharNome(pin, j, o, texto);
   if (bolaAlta) desenharBola(pin, bolaChao, estado.bolaAltura);
+  if (estado.t2) {
+    desenharCartao(pin, estado, noCampo);
+    desenharClimaNoAr(pin, estado);
+  }
 
   desenharPlacar(pin, estado, o, display, texto);
   if (estado.penaltis) desenharFaixaDosPenaltis(pin, estado, o, display, texto);
   if (estado.destaque) desenharDestaque(pin, estado, o, display, texto);
+  if (estado.t2) desenharCloseDaTorcida(pin, estado, o.times, texto);
 }
 
-function visualDe(j: JogadorNoQuadro, o: OpcoesDesenho): Visual {
+function visualDe(j: JogadorNoQuadro, o: OpcoesDesenho, e?: EstadoQuadro): Visual {
   const nome = o.nomes[j.slot.lado][j.slot.indice] ?? `base-${j.slot.lado}-${j.slot.indice}`;
-  return visualDoJogador(o.times[j.slot.lado], j.posicao, nome);
+  const v = visualDoJogador(o.times[j.slot.lado], j.posicao, nome);
+  // T2: o visitante usa o segundo uniforme quando as camisas se confundem (o goleiro não muda).
+  if (e?.t2?.segundoUniforme === j.slot.lado && j.posicao !== 'GOL') {
+    const rival = o.times[j.slot.lado === 'mandante' ? 'visitante' : 'mandante'];
+    return { ...v, ...segundoUniforme(o.times[j.slot.lado], rival) };
+  }
+  return v;
 }
 
 /** Uniforme do Time (goleiro com as cores invertidas) e pele/cabelo fixos pelo @ ("@rafa"). */
@@ -82,11 +100,11 @@ export function visualDoJogador(time: TimeId, posicao: Posicao, nome: string): V
   };
 }
 
-function desenharJogador(pin: Pincel, j: JogadorNoQuadro, o: OpcoesDesenho, fase: number): void {
+function desenharJogador(pin: Pincel, j: JogadorNoQuadro, o: OpcoesDesenho, fase: number, e?: EstadoQuadro): void {
   const p = noCampo(j.pos);
   const olhar = { x: j.olhar.x - j.pos.x, y: j.olhar.y - j.pos.y };
   const { pose, espelhar, pulo } = escolherPose(j.acao, j.vel, olhar, fase + j.slot.indice);
-  const img = sprite(pose, visualDe(j, o));
+  const img = sprite(pose, visualDe(j, o, e));
   // 1 pixel do boneco = 1,5 pixel lógico (6 px no vídeo de 1080).
   const s = pin.px * ESCALA_BONECO;
   const x = Math.round(p.x * pin.px - (LARGURA_SPRITE / 2) * s);
@@ -260,8 +278,16 @@ function escurecer(hex: string): string {
   return `#${f((n >> 16) & 255)}${f((n >> 8) & 255)}${f(n & 255)}`;
 }
 
-const TITULO = { GOL: 'Goooool!', DEFESA: 'Defesaça!', BLOQUEIO: 'Bloqueou!', DESARME: 'Desarme!', FORA: 'Pra fora!' } as const;
-const TITULO_PENALTI = { GOL: 'Converteu!', DEFESA: 'Pegou!', BLOQUEIO: 'Bloqueou!', DESARME: 'Desarme!', FORA: 'Pra fora!' } as const;
+const TITULO = { GOL: 'Goooool!', DEFESA: 'Defesaça!', BLOQUEIO: 'Bloqueou!', DESARME: 'Desarme!', FORA: 'Pra fora!', FALTA: 'Falta!' } as const;
+const TITULO_PENALTI = { GOL: 'Converteu!', DEFESA: 'Pegou!', BLOQUEIO: 'Bloqueou!', DESARME: 'Desarme!', FORA: 'Pra fora!', FALTA: 'Falta!' } as const;
+
+/** Letreiro de um destaque menor (T2: falta, cartão, pênalti e barreira têm o seu). */
+function tituloDoDestaque(d: NonNullable<EstadoQuadro['destaque']>): string {
+  if (d.tipo === 'FALTA') return d.cartao === 'VERMELHO' ? 'Expulso!' : d.cartao === 'AMARELO' ? 'Amarelo!' : 'Falta!';
+  if (d.bolaParada === 'PENALTI') return d.tipo === 'DEFESA' ? 'Pegou o pênalti!' : d.tipo === 'FORA' ? 'Pênalti pra fora!' : TITULO_PENALTI[d.tipo];
+  if (d.bolaParada === 'FALTA_DIRETA' && d.tipo === 'BLOQUEIO') return 'Na barreira!';
+  return (d.penalti ? TITULO_PENALTI : TITULO)[d.tipo];
+}
 
 /** Letreiros grandes da disputa: "Pênaltis!" na abertura e o vencedor no fim. */
 function desenharFaixaDosPenaltis(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, display: string, texto: string): void {
@@ -336,7 +362,7 @@ function desenharDestaque(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, displa
   const y = d.penalti ? 392 : embaixo ? 404 : 70;
   pin.tabua(x, y, w, h);
   desenharEscudo(pin, o.times[d.lado], x + 8, y + 9, 1.15);
-  pin.texto((d.penalti ? TITULO_PENALTI : TITULO)[d.tipo], x + w / 2 + 14, y + 17, 22, display, COR.amarelo, { contorno: COR.contorno });
+  pin.texto(tituloDoDestaque(d), x + w / 2 + 14, y + 17, 22, display, COR.amarelo, { contorno: COR.contorno });
   pin.texto(nome, x + w / 2 + 14, y + 34, pin.caber(nome, w - 50, 8, texto, 600), texto, COR.placa, { peso: 600 });
 }
 

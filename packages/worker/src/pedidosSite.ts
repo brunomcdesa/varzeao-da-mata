@@ -8,6 +8,19 @@ import type { Banco } from './banco.js';
 import { transferirJogador, type Resultado } from './coletar.js';
 import type { Agenda } from './nuvem.js';
 import { aplicarPerfil } from './perfil.js';
+import { aplicarEscolha, jogadoresComVinculo, type Escolha } from './temporada2.js';
+
+/** Temporada 2 (ADRs 0020 e 0023): escolhas do site, em `escolha-site/<jogadorId>/<tipo>`. */
+export const PREFIXO_ESCOLHA_SITE = 'escolha-site/';
+
+export interface EscolhaDoSite {
+  jogadorId: string;
+  escolha: Escolha;
+  pedidoEm: string;
+  resultado?: 'SALVO' | 'RECUSADO';
+  mensagem?: string;
+  processadoEm?: string;
+}
 
 export const PREFIXO_PEDIDO_SITE = 'pedido-site/';
 
@@ -46,6 +59,15 @@ export async function processarPedidosDoSite(banco: Banco, agenda: Agenda, agora
   for (const { chave, p: lido } of perfis) {
     const p = lido!;
     const r = await banco.transacao((b) => aplicarPerfil(b, p.jogadorId, { ...(p.visual ? { visual: p.visual } : {}), ...(p.numero !== undefined ? { numero: p.numero } : {}), ...(p.apelido !== undefined ? { apelido: p.apelido } : {}) }, new Date(p.pedidoEm)));
+    await agenda.gravar(chave, { ...p, resultado: r.ok ? 'SALVO' : 'RECUSADO', mensagem: r.mensagem, processadoEm: agora.toISOString() });
+    n++;
+  }
+  // Temporada 2: Postura, Presença, Especialização, Treino e Canto (o Vínculo só pesa na Postura).
+  const escolhas = (await Promise.all((await agenda.listar(PREFIXO_ESCOLHA_SITE)).map(async (chave) => ({ chave, p: await agenda.ler<EscolhaDoSite>(chave) })))).filter((x) => x.p && !x.p.processadoEm).sort((a, b) => a.p!.pedidoEm.localeCompare(b.p!.pedidoEm));
+  let vinculos: Promise<Set<string>> | null = null;
+  for (const { chave, p: lido } of escolhas) {
+    const p = lido!;
+    const r = await banco.transacao((b) => aplicarEscolha(b, p.jogadorId, p.escolha, new Date(p.pedidoEm), () => (vinculos ??= jogadoresComVinculo(agenda))));
     await agenda.gravar(chave, { ...p, resultado: r.ok ? 'SALVO' : 'RECUSADO', mensagem: r.mensagem, processadoEm: agora.toISOString() });
     n++;
   }

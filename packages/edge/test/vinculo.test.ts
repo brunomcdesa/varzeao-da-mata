@@ -136,4 +136,19 @@ describe('Vínculo pela DM (ADR-0013)', () => {
     expect(pedidos).toEqual([{ tipo: 'PERFIL', jogadorId: '7', numero: 10, pedidoEm: agora.toISOString() }]);
     expect(JSON.parse(t.AGENDA.m.get('perfil-site/7')!)).toMatchObject({ resultado: 'SALVO', processadoEm: agora.toISOString() });
   });
+
+  it('o estado das escolhas diz quem é o Capitão (só ele vê a Postura)', async () => {
+    const t = montar([]);
+    const sessao = 'c'.repeat(43);
+    const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sessao)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+    await t.AGENDA.put(`vinculo/sessao/${h}`, JSON.stringify({ jogadorId: '7', username: 'Fulano_10', vinculadoEm: agora.toISOString() }));
+    const req = new Request('https://borda/escolha/estado', { method: 'POST', body: JSON.stringify({ sessao }) });
+    const perguntados: string[] = [];
+    const r = await rotasDoVinculo(req, t.env, agora, async () => ({}) as never, async () => true, async () => null, async (id) => {
+      perguntados.push(id);
+      return { eu: false, capitao: 'beltrano', postura: 'OFENSIVA' };
+    });
+    expect(await r!.json()).toMatchObject({ capitania: { eu: false, capitao: 'beltrano', postura: 'OFENSIVA' } });
+    expect(perguntados).toEqual(['7']);
+  });
 });

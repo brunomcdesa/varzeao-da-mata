@@ -10,9 +10,10 @@
  *   os votos do KV para o banco e mantém `votacao-aberta` em dia.
  */
 
-import type { Posicao, TimeId } from '@liga/shared';
+import { serieDoCandidato, type Posicao, type TimeId } from '@liga/shared';
 import { transferirJogador } from '../../worker/src/coletar.js';
 import { aplicarPerfil } from '../../worker/src/perfil.js';
+import { aplicarEscolha, capitaniaDoJogador, type Escolha } from '../../worker/src/temporada2.js';
 import { comBanco } from './banco.js';
 import { rotasDoVinculo, sessaoDe } from './vinculo.js';
 
@@ -130,6 +131,21 @@ async function publicarDaLista(env: Env, agora: Date, f: Fetch): Promise<string[
   return feitas;
 }
 
+/** Postura (T2): o Capitão é o primeiro da ordem com Vínculo; as sessões ficam no KV. */
+async function comVinculo(env: Env): Promise<Set<string>> {
+  const ids = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const lista = await env.AGENDA.list({ prefix: 'vinculo/sessao/', ...(cursor ? { cursor } : {}) });
+    for (const k of lista.keys) {
+      const sessao = await env.AGENDA.get<{ jogadorId?: string }>(k.name, 'json');
+      if (sessao?.jogadorId) ids.add(sessao.jogadorId);
+    }
+    cursor = lista.list_complete ? undefined : lista.cursor;
+  } while (cursor);
+  return ids;
+}
+
 // ------------------------------------------------------------------ leitura
 
 /** Igual a duracaoAoVivoMs do @liga/shared: 5 min, 7 no Mata-mata (pênaltis). */
@@ -153,6 +169,11 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
       if (!env.DATABASE_URL) return null;
       return comBanco(env.DATABASE_URL, (b) =>
         b.transacao(async (t) => {
+          if (p.tipo === 'ESCOLHA') {
+            // Postura: o Capitão é o primeiro da ordem com Vínculo; as sessões ficam no KV.
+            const r = await aplicarEscolha(t, p.jogadorId, p.escolha as Escolha, agora, () => comVinculo(env));
+            return { resultado: r.ok ? 'SALVO' : 'RECUSADO', mensagem: r.mensagem };
+          }
           if (p.tipo === 'PERFIL') {
             const r = await aplicarPerfil(t, p.jogadorId, { ...(p.visual !== undefined ? { visual: p.visual } : {}), ...(p.numero !== undefined ? { numero: p.numero } : {}), ...(p.apelido !== undefined ? { apelido: p.apelido } : {}) }, agora);
             return { resultado: r.ok ? 'SALVO' : 'RECUSADO', mensagem: r.mensagem };
@@ -163,6 +184,7 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
         }),
       );
     },
+    async (jogadorId) => (env.DATABASE_URL ? comBanco(env.DATABASE_URL, (b) => capitaniaDoJogador(b, jogadorId, agora, () => comVinculo(env))) : null),
   ).catch((e: Error) => json({ erro: `Não deu agora: ${e.message.slice(0, 200)}` }, 502));
   if (vinculo) return vinculo;
   if (req.method !== 'GET' && req.method !== 'HEAD') return json({ erro: 'método não permitido' }, 405);
@@ -205,6 +227,11 @@ async function resumo(texto: string): Promise<string> {
   return [...h.slice(0, 12)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** Com duas Séries, o voto da B fica numa chave à parte, para valer um voto em cada (ADR-0017). */
+function sufixoDaSerie(numero: number): string {
+  return serieDoCandidato(numero) === 'B' ? ':B' : '';
+}
+
 async function votar(req: Request, env: Env, agora: Date, f: Fetch): Promise<Response> {
   let corpo: { rodada?: unknown; numero?: unknown; aparelho?: unknown; turnstile?: unknown; sessao?: unknown };
   try {
@@ -236,17 +263,17 @@ async function votar(req: Request, env: Env, agora: Date, f: Fetch): Promise<Res
   if (typeof corpo.sessao === 'string' && corpo.sessao) {
     const s = await sessaoDe(env, corpo.sessao);
     if (s) {
-      await env.AGENDA.put(`voto-vinculado/${rodada}/${s.jogadorId}`, '', { metadata: { numero, em: agora.toISOString() }, expirationTtl: 14 * 86400 });
+      await env.AGENDA.put(`voto-vinculado/${rodada}/${s.jogadorId}${sufixoDaSerie(numero)}`, '', { metadata: { numero, em: agora.toISOString() }, expirationTtl: 14 * 86400 });
       return json({ ok: true, numero, comoArroba: s.username });
     }
   }
 
-  // Um voto por aparelho: o primeiro vale.
-  const chave = `voto-site/${rodada}/${aparelho}`;
+  // Um voto por aparelho em cada Série: o primeiro vale.
+  const chave = `voto-site/${rodada}/${aparelho}${sufixoDaSerie(numero)}`;
   const ja = await env.AGENDA.getWithMetadata<{ numero: number }>(chave);
   if (ja.metadata) return json({ ok: true, numero: ja.metadata.numero, jaVotou: true });
 
-  const chaveIp = `voto-ip/${rodada}/${await resumo(ip)}`;
+  const chaveIp = `voto-ip/${rodada}${sufixoDaSerie(numero)}/${await resumo(ip)}`;
   const daRede = Number((await env.AGENDA.get(chaveIp)) ?? 0);
   if (daRede >= VOTOS_POR_IP) return json({ erro: 'Muitos votos saindo dessa rede. Vote pelo Instagram, comentando o número.' }, 429);
 

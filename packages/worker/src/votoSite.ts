@@ -14,6 +14,7 @@ export const PREFIXO_VOTO_SITE = 'voto-site/';
 
 export interface VotacaoAberta {
   rodada: number;
+  /** O maior número de Candidato da votação (com duas Séries, a B vai de 6 a 10). */
   candidatos: number;
 }
 
@@ -57,11 +58,12 @@ export async function importarVotosVinculados(banco: Banco, agenda: Agenda, roda
   let novos = 0;
   for (const { nome, metadados } of await agenda.listarComMetadados<MetadadosDoVoto>(prefixo)) {
     if (!metadados) continue;
-    const jogadorId = nome.slice(prefixo.length);
+    // A borda guarda um voto por Série: "<jogador>" na A e "<jogador>:B" na B (ADR-0017).
+    const jogadorId = nome.slice(prefixo.length).split(':')[0]!;
     const r = await banco.query(
-      `INSERT INTO voto (rodada_id, ig_user_id, jogador_id, votado_em)
-       SELECT $1, j.ig_user_id, c.jogador_id, $4 FROM jogador j JOIN candidato c ON c.rodada_id = $1 AND c.numero = $3 WHERE j.id = $2
-       ON CONFLICT (rodada_id, ig_user_id) DO UPDATE SET jogador_id = EXCLUDED.jogador_id, votado_em = EXCLUDED.votado_em
+      `INSERT INTO voto (rodada_id, ig_user_id, jogador_id, votado_em, serie)
+       SELECT $1, j.ig_user_id, c.jogador_id, $4, c.serie FROM jogador j JOIN candidato c ON c.rodada_id = $1 AND c.numero = $3 WHERE j.id = $2
+       ON CONFLICT (rodada_id, ig_user_id, serie) DO UPDATE SET jogador_id = EXCLUDED.jogador_id, votado_em = EXCLUDED.votado_em
        WHERE voto.votado_em < EXCLUDED.votado_em
        RETURNING ig_user_id`,
       [rodada, jogadorId, metadados.numero, metadados.em],
@@ -82,7 +84,7 @@ export async function sincronizarVotacao(banco: Banco, agenda: Agenda): Promise<
   if (rodada === null) {
     if (atual) await agenda.apagar(CHAVE_VOTACAO);
   } else {
-    const n = Number((await banco.query<{ n: string }>(`SELECT count(*) AS n FROM candidato WHERE rodada_id = $1`, [rodada])).rows[0]!.n);
+    const n = Number((await banco.query<{ n: string | null }>(`SELECT max(numero) AS n FROM candidato WHERE rodada_id = $1`, [rodada])).rows[0]!.n ?? 0);
     if (!atual || atual.rodada !== rodada || atual.candidatos !== n) await agenda.gravar(CHAVE_VOTACAO, { rodada, candidatos: n } satisfies VotacaoAberta);
   }
   return { rodada, importados };

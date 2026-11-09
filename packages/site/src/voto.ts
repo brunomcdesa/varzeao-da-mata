@@ -3,7 +3,11 @@
  * guardado neste navegador; a borda guarda o voto e limita quantos aparelhos votam da mesma
  * rede. Com Turnstile configurado, o voto passa antes pelo desafio anti-robô.
  */
+import { serieDoCandidato, type Serie } from '@liga/shared';
 import { BASE_API, TURNSTILE } from './dados.js';
+
+/** Com duas Séries, o aparelho vota uma vez em cada (ADR-0017): a B fica numa chave à parte. */
+const chaveDoVoto = (rodada: number, serie: Serie) => `varzeao:voto:${rodada}${serie === 'B' ? ':B' : ''}`;
 
 const guardar = (k: string, v: string) => {
   try {
@@ -49,9 +53,9 @@ function aparelho(): string {
   return id;
 }
 
-/** Número em que este aparelho já votou nessa Rodada, se votou. */
-export function votoGuardado(rodada: number): number | null {
-  const v = Number(lerGuardado(`varzeao:voto:${rodada}`));
+/** Número em que este aparelho já votou nessa Rodada (na Série), se votou. */
+export function votoGuardado(rodada: number, serie: Serie = 'A'): number | null {
+  const v = Number(lerGuardado(chaveDoVoto(rodada, serie)));
   return v >= 1 ? v : null;
 }
 
@@ -95,6 +99,6 @@ export async function votar(rodada: number, numero: number, caixaDoDesafio: HTML
   });
   const j = (await r.json().catch(() => ({}))) as { ok?: boolean; numero?: number; jaVotou?: boolean; erro?: string };
   if (!r.ok || !j.ok) throw new Error(j.erro ?? 'Não deu para registrar o voto agora. Tente de novo.');
-  guardar(`varzeao:voto:${rodada}`, String(j.numero));
+  guardar(chaveDoVoto(rodada, serieDoCandidato(j.numero!)), String(j.numero));
   return { numero: j.numero!, jaVotou: Boolean(j.jaVotou) };
 }

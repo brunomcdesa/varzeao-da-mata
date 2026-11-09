@@ -4,7 +4,7 @@
  * porque os arquivos estáticos só são regerados de hora em hora.
  */
 import { definirAparencias } from '@liga/renderer';
-import { duracaoAoVivoMs, type JogadorPublico, type LigaPublica, type LinhaTabelaPublica, type PartidaNoCalendario, type PartidaPublica, type SituacaoPartida } from '@liga/shared';
+import { TIMES_FUNDADORES, duracaoAoVivoMs, type JogadorPublico, type LigaPublica, type LinhaTabelaPublica, type PartidaNoCalendario, type PartidaPublica, type Serie, type SituacaoPartida, type TimeId } from '@liga/shared';
 
 const meta = (nome: string) => document.querySelector<HTMLMetaElement>(`meta[name="${nome}"]`)?.content.trim() ?? '';
 const comBarra = (s: string) => (s && !s.endsWith('/') ? `${s}/` : s);
@@ -52,7 +52,8 @@ async function completarLiga(l: LigaPublica): Promise<LigaPublica> {
   if (!atrasadas.length) return l;
   const resultados = await Promise.all(atrasadas.map((p) => partida(p.id).catch(() => null)));
   const calendario = [...l.calendario];
-  const tabela = new Map(l.tabela.map((t) => [t.time, { ...t }]));
+  // Com Série B, as duas tabelas (ADR-0017); cada Time está numa só.
+  const tabela = new Map([...l.tabela, ...(l.tabelaB ?? [])].map((t) => [t.time, { ...t }]));
   let mudouTabela = false;
   atrasadas.forEach((p, k) => {
     const r = resultados[k]?.resultado as ResultadoMinimo | null | undefined;
@@ -81,8 +82,40 @@ async function completarLiga(l: LigaPublica): Promise<LigaPublica> {
   });
   // Mesmo critério do worker: pontos, vitórias, saldo, gols pró, sigla.
   const ordem = (a: LinhaTabelaPublica, b: LinhaTabelaPublica) => b.pontos - a.pontos || b.vitorias - a.vitorias || b.saldo - a.saldo || b.golsPro - a.golsPro || a.time.localeCompare(b.time);
-  return { ...l, calendario, tabela: mudouTabela ? [...tabela.values()].sort(ordem) : l.tabela };
+  const refazer = (linhas: LinhaTabelaPublica[]) => linhas.map((x) => tabela.get(x.time)!).sort(ordem);
+  return {
+    ...l,
+    calendario,
+    tabela: mudouTabela ? refazer(l.tabela) : l.tabela,
+    ...(l.tabelaB ? { tabelaB: mudouTabela ? refazer(l.tabelaB) : l.tabelaB } : {}),
+  };
 }
+
+/** A Temporada atual tem Série B (ADR-0017)? */
+export const temSeries = (l: LigaPublica): boolean => Boolean(l.series?.B.length);
+
+/** A Série de um Time na Temporada atual (sem Séries, todos são da A). */
+export function serieDoTime(l: LigaPublica, t: TimeId): Serie {
+  return l.series?.B.includes(t) ? 'B' : 'A';
+}
+
+/** A tabela de uma Série. */
+export function tabelaDaSerie(l: LigaPublica, s: Serie): LinhaTabelaPublica[] {
+  return s === 'B' ? (l.tabelaB ?? []) : l.tabela;
+}
+
+/** Os Times que jogam a Temporada atual: os 16 com Série B; senão, os fundadores. */
+export function timesAtivos(l: LigaPublica): TimeId[] {
+  return l.series ? [...l.series.A, ...l.series.B] : [...TIMES_FUNDADORES];
+}
+
+/** As Séries da Temporada atual, na ordem (só a A antes da Série B). */
+export function seriesDaLiga(l: LigaPublica): Serie[] {
+  return temSeries(l) ? ['A', 'B'] : ['A'];
+}
+
+/** A Série de uma Partida do calendário. */
+export const serieDaPartida = (p: PartidaNoCalendario): Serie => p.serie ?? 'A';
 
 interface ResultadoMinimo {
   gols: { mandante: number; visitante: number };
@@ -101,6 +134,8 @@ export interface AjusteLocal {
   transferenciaUsada?: boolean;
   apelido?: string | null;
   apelidoTrocadoEm?: string | null;
+  especializacao?: NonNullable<JogadorPublico['especializacao']> | null;
+  treino?: NonNullable<JogadorPublico['treino']> | null;
   em: number;
 }
 const CHAVE_AJUSTES = 'varzeao:ajustes';

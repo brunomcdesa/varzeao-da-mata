@@ -5,14 +5,15 @@
  *   "Onça, atacante" (sem ENTRO)                → também Inscrição, se o comentário for só isso:
  *                                                 um Time, uma posição e palavras de ligação
  *   "ENTRO ARARA" / "eu sou da arara"           → Inscrição sem posição: entra na mais vazia do Time
- *   "CRAQUE 3" (ou "VOTO 3")                    → voto no Candidato número 3
- *   "3" sozinho                                 → o mesmo, mas só vale no post do Resumo
+ *   "CRAQUE 3" (ou "VOTO 3")                    → voto no Candidato número 3 (da Série A)
+ *   "CRAQUE B3" / "CRAQUE A3"                   → voto no Candidato 3 da Série B / A (ADR-0017)
+ *   "3", "A3" ou "B3" sozinho                   → o mesmo, mas só vale no post do Resumo
  *   "TRANSFERIR PREGUIÇA [posição]"             → Transferência (ADR-0012); também "quero ir pra
  *                                                 Preguiça", "posso ir pro time da Preguiça",
  *                                                 "quero virar zagueiro" (só a posição)
  *   qualquer outra coisa                        → ignorado
  */
-import type { Posicao, TimeId } from '@liga/shared';
+import type { Posicao, Serie, TimeId } from '@liga/shared';
 import { APELIDOS_DE_TIME, PALAVRAS_DE_LIGACAO, SINONIMOS_DE_POSICAO, normalizar } from './vocabulario.js';
 
 export type MotivoInvalido =
@@ -26,13 +27,18 @@ export type MotivoInvalido =
 export type Comando =
   /** Sem `posicao`: a pessoa só disse o Time; entra na posição mais vazia dele. */
   | { tipo: 'INSCRICAO'; time: TimeId; posicao?: Posicao }
-  /** `solto`: só o número, sem CRAQUE; vale apenas no post da votação. */
-  | { tipo: 'VOTO'; numero: number; solto?: true }
+  /**
+   * `numero`: o número dentro da Série (1 a 5). `serie`: a letra que a pessoa escreveu (sem
+   * letra, é a A). `solto`: só o número, sem CRAQUE; vale apenas no post da votação.
+   */
+  | { tipo: 'VOTO'; numero: number; serie?: Serie; solto?: true }
   /**
    * Transferência (ADR-0012). `times`: os Times citados (1, ou 2 quando cita o de origem
    * também: "sair da Onça e ir pra Preguiça"); vazio = só troca de posição.
    */
   | { tipo: 'TRANSFERENCIA'; times: TimeId[]; posicao?: Posicao }
+  /** Temporada 2 (ADR-0023): "CONFIRMO" (ou "CONFIRMADO", "TO DENTRO", "VOU JOGAR") para o próximo jogo do Time. */
+  | { tipo: 'PRESENCA' }
   | { tipo: 'INVALIDO'; prefixo: 'ENTRO' | 'CRAQUE' | 'TRANSFERIR'; motivo: MotivoInvalido }
   | { tipo: 'IGNORADO' };
 
@@ -50,6 +56,10 @@ const POSICOES = indice(SINONIMOS_DE_POSICAO);
 /** O @ da própria Liga: quem marca a Liga ao pedir para entrar não está marcando um terceiro. */
 export const CONTA_DA_LIGA = '@VARZEAO_DA_MATA';
 
+function serieDoVoto(letra: string | undefined): { serie?: Serie } {
+  return letra ? { serie: letra.toUpperCase() as Serie } : {};
+}
+
 export function interpretar(texto: string): Comando {
   const palavras = normalizar(texto)
     // "meu nome é Fulano": o nome não é Time nem posição, e não atrapalha o pedido.
@@ -59,13 +69,16 @@ export function interpretar(texto: string): Comando {
   const prefixo = palavras[0];
 
   // Voto por número (ADR-0011): não marca ninguém nos comentários.
-  const solto = /^\s*(?:N[ºO°]?\s*)?#?\s*([1-9])[^\p{L}\p{N}]*$/iu.exec(texto);
-  if (solto) return { tipo: 'VOTO', numero: Number(solto[1]), solto: true };
+  const solto = /^\s*(?:([AB])\s*)?(?:N[ºO°]?\s*)?#?\s*([1-9])[^\p{L}\p{N}]*$/iu.exec(texto);
+  if (solto) return { tipo: 'VOTO', numero: Number(solto[2]), ...serieDoVoto(solto[1]), solto: true };
   if (prefixo === 'CRAQUE' || prefixo === 'VOTO') {
-    const m = /^\s*\S+\s*(?:N[ºO°]?\s*)?#?\s*([1-9])(?!\d)/iu.exec(texto);
+    const m = /^\s*\S+\s*(?:(?:DA\s+)?(?:S[EÉ]RIE\s+)?([AB])\s*)?(?:N[ºO°]?\s*)?#?\s*([1-9])(?!\d)/iu.exec(texto);
     if (!m) return { tipo: 'INVALIDO', prefixo: 'CRAQUE', motivo: 'SEM_CANDIDATO' };
-    return { tipo: 'VOTO', numero: Number(m[1]) };
+    return { tipo: 'VOTO', numero: Number(m[2]), ...serieDoVoto(m[1]) };
   }
+
+  // Presença (T2): "CONFIRMO", "confirmado!", "tô dentro", "vou jogar" — sozinho no comentário.
+  if (/^(CONFIRMO|CONFIRMADO|CONFIRMADISSIMO|PRESENCA CONFIRMADA|PRESENTE|TO DENTRO|TO DENTRO DO JOGO|VOU JOGAR)$/.test(palavras.join(' '))) return { tipo: 'PRESENCA' };
 
   if (prefixo !== 'ENTRO') return transferencia(palavras) ?? semPrefixo(palavras);
 

@@ -2,7 +2,7 @@ import { mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { TIMES } from '@liga/shared';
+import { TIMES_FUNDADORES as TIMES, TIMES_NOVOS } from '@liga/shared';
 import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
 import type { Comentario } from '../src/coletar.js';
@@ -147,6 +147,32 @@ describe('jobs', () => {
     await agenda.gravar(chave!, { ...item, publicadoEm: '2026-11-07T15:06:30Z', mediaId: 'M1' });
     expect(await sincronizarPublicados(ctx)).toBe(1);
     expect(await status(id!)).toBe('PUBLICADA');
+  });
+
+  it('partida: com duas Séries, simula as duas do horário antes de gravar o primeiro Reels (ADR-0017)', async () => {
+    const t2 = await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-20', seed: 4, series: { A: TIMES, B: TIMES_NOVOS } });
+    // Só as Partidas da Temporada 2 estão pendentes.
+    await banco.query(`UPDATE partida SET status = 'PUBLICADA' WHERE rodada_id IN (SELECT id FROM rodada WHERE temporada_id <> $1)`, [t2]);
+    const doHorario = (
+      await banco.query<{ id: number }>(
+        `SELECT p.id FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND p.apito_inicial = '2026-11-20T15:00:00Z' ORDER BY p.serie`,
+        [t2],
+      )
+    ).rows.map((r) => r.id);
+    expect(doHorario).toHaveLength(2);
+    const statusNaGravacao: string[][] = [];
+    agora = new Date('2026-11-20T14:25:00Z');
+    const feitas = await jobPartida({
+      ...ctx,
+      gravarReels: async (_d, saida) => {
+        statusNaGravacao.push(await Promise.all(doHorario.map(status)));
+        await writeFile(saida, 'mp4 de mentira');
+      },
+    });
+    expect(feitas).toEqual(doHorario);
+    // Quando o primeiro Reels começou a ser gravado, a outra Partida já estava simulada.
+    expect(statusNaGravacao[0]).toEqual(['SIMULADA', 'SIMULADA']);
+    for (const id of doHorario) expect(JSON.parse(await readFile(join(pasta, 'privado/partidas', `${id}.json`), 'utf8')).resultado.lances.length).toBeGreaterThan(0);
   });
 
   it('resumo: fecha a Rodada e agenda para as 19h', async () => {

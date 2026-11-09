@@ -60,7 +60,7 @@ export interface OpcoesRoteiro {
 }
 
 const PADRAO: Required<Omit<OpcoesRoteiro, 'duracaoLance' | 'minimos' | 'bolasParadas'>> & { duracaoLance: Record<TipoLance, number> } = {
-  duracaoLance: { GOL: 8, DEFESA: 5, BLOQUEIO: 5, FORA: 4, DESARME: 0 },
+  duracaoLance: { GOL: 8, DEFESA: 5, BLOQUEIO: 5, FORA: 4, DESARME: 0, FALTA: 4 },
   duracaoAbertura: 3,
   duracaoFim: 4,
   duracaoMaxima: 75,
@@ -71,10 +71,10 @@ const PADRAO: Required<Omit<OpcoesRoteiro, 'duracaoLance' | 'minimos' | 'bolasPa
  * Fração do trecho de vídeo usada até a resolução. O resto é para o gol, a defesa ou o
  * desarme respirarem: a comemoração e o letreiro ficam mais tempo na tela.
  */
-const PIVO: Record<TipoLance, number> = { GOL: 0.55, DEFESA: 0.62, BLOQUEIO: 0.62, FORA: 0.65, DESARME: 0.6 };
+const PIVO: Record<TipoLance, number> = { GOL: 0.55, DEFESA: 0.62, BLOQUEIO: 0.62, FORA: 0.65, DESARME: 0.6, FALTA: 0.55 };
 
 /** Ordem de corte quando o vídeo passa do teto: primeiro some o menos importante. */
-const PRIORIDADE: TipoLance[] = ['DESARME', 'FORA', 'BLOQUEIO', 'DEFESA', 'GOL'];
+const PRIORIDADE: TipoLance[] = ['DESARME', 'FALTA', 'FORA', 'BLOQUEIO', 'DEFESA', 'GOL'];
 
 /**
  * Trecho de jogo que cada tipo de lance mostra, em frações da janela do lance
@@ -87,6 +87,8 @@ const RECORTE: Record<TipoLance, { de: number; extraDepois: number }> = {
   BLOQUEIO: { de: 0.22, extraDepois: 20 },
   FORA: { de: 0.28, extraDepois: 14 },
   DESARME: { de: 0.25, extraDepois: 15 },
+  // Falta (T2): o bote, o apito e o cartão; a cobrança vem no lance seguinte.
+  FALTA: { de: 0.32, extraDepois: 20 },
 };
 
 export class Roteiro {
@@ -109,11 +111,14 @@ export class Roteiro {
     const total = (lista: number[]) =>
       o.duracaoAbertura + o.duracaoFim + lista.reduce((s, i) => s + o.duracaoLance[lances[i]!.tipo], 0);
 
+    // Falta (T2) que vira gol (pênalti ou cobrança) ou dá vermelho fica junto com o gol:
+    // sem ela o pênalti apareceria do nada e o expulso sumiria sem explicação.
+    const fixa = (i: number) => lances[i]!.tipo === 'FALTA' && (lances[i + 1]?.tipo === 'GOL' || lances[i]!.falta?.cartao === 'VERMELHO');
     // Acima do teto, corta do fim para o começo dentro de cada tipo, do menos importante ao mais.
     for (const tipo of PRIORIDADE) {
       if (tipo === 'GOL') break; // gol nunca sai do vídeo
       while (total(escolhidos) > o.duracaoMaxima) {
-        const ultimo = [...escolhidos].reverse().find((i) => lances[i]!.tipo === tipo);
+        const ultimo = [...escolhidos].reverse().find((i) => lances[i]!.tipo === tipo && !fixa(i));
         if (ultimo === undefined) break;
         escolhidos = escolhidos.filter((i) => i !== ultimo);
       }

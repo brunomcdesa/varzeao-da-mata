@@ -11,6 +11,7 @@ import { simularPartida, type Lado, type ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { HORARIOS, FUSO_BRASILIA } from './calendario.js';
 import { escalarPartida, type PartidaEscalada } from './escalacao.js';
+import { partidaTemRegrasT2, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
 
 /** O que o renderer precisa para gravar o Reels (mesmo formato de PartidaParaVideo). */
 export interface DadosDoVideo {
@@ -22,6 +23,8 @@ export interface DadosDoVideo {
   subtitulo?: string;
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
+  /** Temporada 2: tamanho de cada Elenco, para a Arquibancada (ADR-0019). Nunca na T1. */
+  torcida?: Record<Lado, number>;
 }
 
 /** Grava o MP4 da Partida em `saida`. Injetado para os testes não dependerem do navegador. */
@@ -68,19 +71,22 @@ export async function simular(banco: Banco, partidaId: number, escalada: Partida
     if (p.status !== 'ESCALADA') throw new Error(`Partida ${partidaId} precisa estar ESCALADA para simular (está ${p.status})`);
 
     const seed = o.seed ?? randomInt(0, 2 ** 31);
+    // Regras da Temporada 2 só para Partidas de uma Temporada com elas (a T1 segue a versão 5).
+    const t2 = (await partidaTemRegrasT2(b, partidaId)) ? { postura: await posturasDaPartida(b, partidaId, p.mandante_id, p.visitante_id) } : undefined;
     const resultado = simularPartida({
       mandante: escalada.escalacoes.mandante,
       visitante: escalada.escalacoes.visitante,
       seed,
       fase: p.fase,
       ...(p.vantagem_do_empate ? { vantagemDoEmpate: p.vantagem_do_empate } : {}),
+      ...(t2 ? { t2 } : {}),
     });
 
     for (const d of resultado.desempenhos) {
       const time = resultado.times[d.slot.lado];
       await b.query(
-        `UPDATE escalacao SET nota = $4, ovr_depois = $5, habilidades_depois = $6 WHERE partida_id = $1 AND time_id = $2 AND lugar = $3`,
-        [partidaId, time, d.slot.indice, d.nota, d.ovrDepois, JSON.stringify(d.habilidadesDepois)],
+        `UPDATE escalacao SET nota = $4, ovr_depois = $5, habilidades_depois = $6, faltas = $7, amarelos = $8, expulso = $9 WHERE partida_id = $1 AND time_id = $2 AND lugar = $3`,
+        [partidaId, time, d.slot.indice, d.nota, d.ovrDepois, JSON.stringify(d.habilidadesDepois), d.faltas ?? null, d.amarelos ?? null, d.expulso ?? false],
       );
       if (d.jogadorId !== null) {
         await b.query(`UPDATE jogador SET ovr = $2, habilidades = $3 WHERE id = $1`, [d.jogadorId, d.ovrDepois, JSON.stringify(d.habilidadesDepois)]);
@@ -114,6 +120,8 @@ export function subtituloDaPartida(rodada: number, fase: 'LIGA' | 'MATA_MATA', a
 export interface OpcoesDoJob {
   /** Craque da Rodada anterior (id do Jogador), com lugar garantido na Escalação. */
   craque?: string | null;
+  /** Jogadores com Vínculo (T2): a faixa de Capitão prefere quem tem (ADR-0020). */
+  vinculos?: ReadonlySet<string>;
   /** Seed fixo (testes); em produção é sorteado e salvo. */
   seed?: number;
   /** Se informado, grava o Reels (status → RENDERIZADA). */
@@ -130,7 +138,7 @@ export interface ResultadoDoJob {
 
 /** Roda as etapas que faltam de uma Partida, na ordem, e devolve onde ela parou. */
 export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJob = {}): Promise<ResultadoDoJob> {
-  const escalada = await escalarPartida(banco, partidaId, { craque: o.craque ?? null });
+  const escalada = await escalarPartida(banco, partidaId, { craque: o.craque ?? null, ...(o.vinculos ? { vinculos: o.vinculos } : {}) });
   const resultado = await simular(banco, partidaId, escalada, o.seed !== undefined ? { seed: o.seed } : {});
   const p = await lerPartida(banco, partidaId);
   const dados: DadosDoVideo = {
@@ -141,6 +149,10 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
     subtitulo: subtituloDaPartida(p.rodada, p.fase, new Date(p.apito_inicial)),
     aparencias: await aparenciasEscolhidas(banco),
   };
+  if (resultado.versaoSim >= 6) {
+    const elencos = await tamanhoDosElencos(banco);
+    dados.torcida = { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 };
+  }
 
   let video = p.video_url;
   let status = p.status;
