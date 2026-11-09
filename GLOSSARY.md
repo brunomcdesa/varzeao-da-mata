@@ -152,6 +152,18 @@ _Avoid_: penalidades, prorrogação (não existe)
 O confronto entre Jogadores envolvidos num lance, decidido pelas Habilidades de cada um somadas a uma dose moderada de sorte. Uma jogada tem até quatro: posse (Passe do meia contra Defesa do meia rival), criação (Passe do meia contra Defesa de um zagueiro), atacante contra o outro zagueiro (Drible ou Finalização contra Defesa: Drible, Bloqueio, desarme ou chute marcado) e finalização (Finalização contra Goleiro). O pênalti é Finalização contra Goleiro.
 _Avoid_: disputa, embate, lance
 
+**Falta**:
+Desarme feito de forma irregular, que dá bola parada ao Time que atacava: pênalti dentro da área, chute direto com Barreira na entrada da área, jogada ensaiada mais longe. Pode dar Cartão. ADR-0022.
+_Avoid_: infração
+
+**Barreira**:
+Os jogadores do Time que defende enfileirados na frente do chute direto de Falta. O chute pode bater nela antes de chegar ao goleiro. ADR-0022.
+_Avoid_: muralha
+
+**Ritmo**:
+Quantos lances de ataque uma Partida tem, sorteado pela semente e puxado um pouco pela Postura dos dois Times: jogo travado tem poucos, jogo aberto tem muitos. ADR-0022.
+_Avoid_: intensidade, velocidade
+
 **Nota da Partida**:
 A avaliação de 0 a 10 de um Jogador escalado, calculada pelas ações típicas da sua Posição e pelo resultado do Time, em relação ao que se esperava do seu OVR. Escolhe os Candidatos a Craque e o Craque da Temporada; não mexe no OVR (quem mexe são as Habilidades).
 _Avoid_: rating, avaliação, desempenho
