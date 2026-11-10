@@ -473,11 +473,12 @@ export async function gravarNarracaoAoVivo(partida: PartidaParaVideo, saida: str
   const inicio = performance.now();
   const timeline = new Timeline(partida.resultado, partida.escalacoes, partida.torcida ? { torcida: partida.torcida } : {});
   const falas = roteiroAoVivo(timeline, partida.apelidos);
+  const narrador = narradorDa(partida.resultado.seed);
   // Em lotes: um pedido só com o jogo inteiro ficaria longo demais para recortar.
   const vozes = new Map<string, Float32Array>();
   for (let i = 0; i < falas.length; i += 20) {
     const lote = falas.slice(i, i + 20).map((f) => ({ id: f.id, texto: f.texto, tom: f.tom }) as Fala);
-    for (const [id, a] of await sintetizar(lote, narradorDa(partida.resultado.seed).voz)) vozes.set(id, a);
+    for (const [id, a] of await sintetizar(lote, narrador.voz, narrador.jeito)) vozes.set(id, a);
   }
   const duracaoFala = (id: string) => vozes.get(id)!.length / TAXA;
   const agenda = agendarAoVivo(falas, duracaoFala);
