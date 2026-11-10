@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { interpretar } from '../src/comandos.js';
 
 describe('Inscrição', () => {
+  it('"Entrou" no lugar de "Entro": "Entrou arara ponta esquerda"', () => {
+    expect(interpretar('Entrou arara ponta esquerda')).toEqual({ tipo: 'INSCRICAO', time: 'ARA', posicao: 'ATA' });
+    expect(interpretar('entrou na onça')).toEqual({ tipo: 'INSCRICAO', time: 'ONC' });
+  });
+
   it.each([
     ['ENTRO CAPIVARA ATA', 'CAP', 'ATA'],
     ['entro onça goleiro', 'ONC', 'GOL'],
