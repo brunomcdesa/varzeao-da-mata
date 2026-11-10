@@ -72,7 +72,8 @@ const idsInformados = JSON.parse(process.env.NARRADORES_IDS || '{}') as Record<s
 const existentes: Record<string, string> =
   previaComparacao && !Object.keys(idsInformados).length ? Object.fromEntries(NARRADORES.map((n) => [n.nome, n.voz])) : idsInformados;
 const lista: Pick<Candidato, 'nome'>[] = previaComparacao ? Object.keys(existentes).map((nome) => ({ nome })) : CANDIDATOS;
-const falas = previaComparacao ? FALAS.slice(1, 2) : FALAS;
+// Com candidatas (NARRADORES_IDS), a prévia inclui a abertura, para conferir a pronúncia de "Varzeão".
+const falas = !previaComparacao ? FALAS : Object.keys(idsInformados).length ? FALAS.slice(0, 2) : FALAS.slice(1, 2);
 // Na prévia, NARRADORES_JEITOS ({"Nome": "jeito"}) testa o jeito de narrar de cada um.
 const jeitos: Record<string, string> = previaComparacao
   ? { ...Object.fromEntries(NARRADORES.flatMap((n) => (n.jeito ? [[n.nome, n.jeito]] : []))), ...(JSON.parse(process.env.NARRADORES_JEITOS || '{}') as Record<string, string>) }
