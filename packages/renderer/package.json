@@ -31,6 +31,7 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./gravacao": "./scripts/gravacao.ts"
+    "./gravacao": "./scripts/gravacao.ts",
+    "./explicacao": "./src/explicacaoEscalacao.ts"
   }
 }
