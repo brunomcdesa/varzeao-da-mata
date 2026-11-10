@@ -71,19 +71,23 @@ export function zeradas(): Record<HabilidadeId, number> {
 /**
  * `treino` (Temporada 2, ADR-0023): na Habilidade de foco, os ganhos são multiplicados por
  * `multiplicadorTreino`; o teto por Partida continua o mesmo.
+ * `ganhos` (Resenha, ADR-0033): multiplica os ganhos de todas as Habilidades. Com Treino, os
+ * dois bônus somam na Habilidade de foco (1,5 e 1,5 viram 2).
  */
 export function evoluir(
   antes: Habilidades,
   pontos: Record<HabilidadeId, number>,
   classico: boolean,
   treino?: { hab: HabilidadeId; multiplicador: number },
+  ganhos = 1,
 ): { depois: Habilidades; delta: Record<HabilidadeId, number> } {
   const depois = { ...antes };
   const delta = zeradas();
   const mult = classico ? MULTIPLICADOR_CLASSICO : 1;
   const teto = classico ? LIMITE_DELTA_HABILIDADE_CLASSICO : LIMITE_DELTA_HABILIDADE;
   for (const hab of HABILIDADES) {
-    const p = pontos[hab] * mult * (treino && treino.hab === hab && pontos[hab] > 0 ? treino.multiplicador : 1);
+    const bonus = pontos[hab] > 0 ? ganhos + (treino && treino.hab === hab ? treino.multiplicador - 1 : 0) : 1;
+    const p = pontos[hab] * mult * bonus;
     if (p === 0) continue;
     const bruto = p > 0 ? p * fatorDeGanho(antes[hab]) : p * fatorDePerda(antes[hab]);
     const d = umaCasa(limitar(bruto, -teto, teto));

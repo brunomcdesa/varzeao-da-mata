@@ -123,6 +123,27 @@ export async function montarEscalacao(
   return { escalacao: { time: o.time, jogadores }, nomes, apelidos };
 }
 
+/**
+ * Resenha (ADR-0033): os Jogadores do Time que comentaram, até o Corte, no Reels do último jogo
+ * do Time que foi ao ar antes desta Partida. Qualquer comentário vale, e um basta.
+ */
+export async function comResenha(b: Banco, time: TimeId, apito: Date, corte: Date): Promise<Set<string>> {
+  const linhas = (
+    await b.query<{ id: string }>(
+      `SELECT j.id::text AS id FROM jogador j
+       WHERE j.time_id = $1 AND EXISTS (
+         SELECT 1 FROM comando c
+         WHERE c.ig_user_id = j.ig_user_id AND c.comentado_em <= $3
+           AND c.ig_media_id = (
+             SELECT p.ig_media_id FROM partida p
+             WHERE (p.mandante_id = $1 OR p.visitante_id = $1) AND p.ig_media_id IS NOT NULL AND p.apito_inicial < $2
+             ORDER BY p.apito_inicial DESC LIMIT 1))`,
+      [time, apito.toISOString(), corte.toISOString()],
+    )
+  ).rows;
+  return new Set(linhas.map((l) => l.id));
+}
+
 export interface PartidaEscalada {
   partidaId: number;
   escalacoes: { mandante: Escalacao; visitante: Escalacao };
@@ -155,11 +176,16 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
     const regrasV = await regras(p.visitante_id);
     const mandante = await montarEscalacao(b, { time: p.mandante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, ...(regrasM ? { t2: regrasM } : {}) });
     const visitante = await montarEscalacao(b, { time: p.visitante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, ...(regrasV ? { t2: regrasV } : {}) });
+    // Resenha (ADR-0033): vale nas duas Temporadas.
+    for (const m of [mandante, visitante]) {
+      const resenha = await comResenha(b, m.escalacao.time, new Date(p.apito_inicial), corte);
+      m.escalacao = { ...m.escalacao, jogadores: m.escalacao.jogadores.map((j) => (j.jogadorId !== null && resenha.has(j.jogadorId) ? { ...j, resenha: true } : j)) };
+    }
     for (const m of [mandante, visitante]) {
       for (const [lugar, j] of m.escalacao.jogadores.entries()) {
         await b.query(
-          `INSERT INTO escalacao (partida_id, time_id, lugar, jogador_id, posicao, ovr_antes, habilidades_antes, apelido, especializacao, treino, canto) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-          [partidaId, m.escalacao.time, lugar, j.jogadorId, j.posicao, j.ovr, JSON.stringify(j.habilidades), m.apelidos[lugar] ?? null, j.especializacao ?? null, j.treino ?? null, j.canto ?? null],
+          `INSERT INTO escalacao (partida_id, time_id, lugar, jogador_id, posicao, ovr_antes, habilidades_antes, apelido, especializacao, treino, canto, resenha) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          [partidaId, m.escalacao.time, lugar, j.jogadorId, j.posicao, j.ovr, JSON.stringify(j.habilidades), m.apelidos[lugar] ?? null, j.especializacao ?? null, j.treino ?? null, j.canto ?? null, j.resenha ?? false],
         );
       }
     }
@@ -184,8 +210,8 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
 
 async function lerEscalacao(b: Banco, partidaId: number, mandante: TimeId, visitante: TimeId): Promise<PartidaEscalada> {
   const linhas = (
-    await b.query<{ time_id: TimeId; jogador_id: string | null; posicao: Posicao; ovr_antes: number; habilidades_antes: Habilidades | string | null; username: string | null; apelido: string | null; especializacao: Especializacao | null; treino: HabilidadeId | null; canto: Canto | null }>(
-      `SELECT e.time_id, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.especializacao, e.treino, e.canto
+    await b.query<{ time_id: TimeId; jogador_id: string | null; posicao: Posicao; ovr_antes: number; habilidades_antes: Habilidades | string | null; username: string | null; apelido: string | null; especializacao: Especializacao | null; treino: HabilidadeId | null; canto: Canto | null; resenha: boolean }>(
+      `SELECT e.time_id, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.especializacao, e.treino, e.canto, e.resenha
        FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id
        WHERE e.partida_id = $1 ORDER BY e.lugar`,
       [partidaId],
@@ -204,6 +230,7 @@ async function lerEscalacao(b: Banco, partidaId: number, mandante: TimeId, visit
           ...(l.especializacao ? { especializacao: l.especializacao } : {}),
           ...(l.treino ? { treino: l.treino } : {}),
           ...(l.canto ? { canto: l.canto } : {}),
+          ...(l.resenha ? { resenha: true } : {}),
         })),
       } as Escalacao,
       nomes: minhas.map((l) => (l.username ? `@${l.username}` : null)),

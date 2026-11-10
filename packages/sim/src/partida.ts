@@ -80,7 +80,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
 
   const hab = (s: SlotRef, h: HabilidadeId): number => escalacoes[s.lado].jogadores[s.indice]!.habilidades[h];
 
-  // Regras da Temporada 2 (VERSAO_SIM 8). Sem `entrada.t2`, nada daqui muda a Partida: os
+  // Regras da Temporada 2 (VERSAO_SIM 10). Sem `entrada.t2`, nada daqui muda a Partida: os
   // sorteios da T2 são próprios e os ajustes valem zero, então a T1 sai igual à versão 5.
   const t2 = entrada.t2;
   const rngT2 = criarRng(((entrada.seed >>> 0) ^ 0x68e31da4) >>> 0);
@@ -102,12 +102,23 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
   const ajustePostura = (ataque: Lado): number =>
     t2 ? PARAMETROS_T2.posturaAtaque[posturaDe(ataque)] + PARAMETROS_T2.posturaDefesa[posturaDe(outro(ataque))] : 0;
 
+  /** Trava de goleada (ADR-0032): quem ataca com vantagem larga tira o pé (0 sem vantagem). */
+  const ajusteVantagem = (ataque: Lado): number => {
+    const vantagem = gols[ataque] - gols[outro(ataque)];
+    return vantagem >= PARAMETROS.travaDesde ? -PARAMETROS.travaPasso * (vantagem - PARAMETROS.travaDesde + 1) : 0;
+  };
+
   const slotsDa = (lado: Lado, posicao: Posicao): SlotRef[] =>
     escalacoes[lado].jogadores.flatMap((j, indice) => (j.posicao === posicao && !expulsos.has(`${lado}:${indice}`) ? [{ lado, indice }] : []));
   /** Os dois que defendem como zagueiros: os ZAG em campo, completados por meias se houve expulsão. */
   const zaga = (lado: Lado): SlotRef[] => {
     const z = slotsDa(lado, 'ZAG');
-    return z.length >= 2 ? z : [...z, ...slotsDa(lado, 'MEI')].slice(0, 2);
+    return z.length >= 2 ? z : [...z, ...slotsDa(lado, 'MEI'), ...slotsDa(lado, 'ATA')].slice(0, 2);
+  };
+  /** Quem joga como meia: os MEI em campo; se todos foram expulsos, os atacantes recuam. */
+  const meio = (lado: Lado): SlotRef[] => {
+    const m = slotsDa(lado, 'MEI');
+    return m.length ? m : slotsDa(lado, 'ATA');
   };
 
   const contadores: Record<Lado, Contadores[]> = {
@@ -152,7 +163,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     if (!rngBP.chance(PARAMETROS.chanceEscanteio)) return;
     const defesa = outro(ataque);
     const min = Math.min(90, minuto + 1);
-    const cobrador = rngBP.pick(slotsDa(ataque, 'MEI'));
+    const cobrador = rngBP.pick(meio(ataque));
     const finalizador = rngBP.chance(PARAMETROS.chanceZagueiroCabeceia) ? rngBP.pick(zaga(ataque)) : rngBP.pick(slotsDa(ataque, 'ATA'));
     const zagueiro = rngBP.pick(zaga(defesa));
     const goleiro = rngBP.pick(slotsDa(defesa, 'GOL'));
@@ -375,8 +386,8 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
 
     // 1. Posse: o meia com a bola (Passe) contra o meia rival (Defesa).
     const comBola: Lado = rng.chance(0.5) ? 'mandante' : 'visitante';
-    const meiaComBola = rng.pick(slotsDa(comBola, 'MEI'));
-    const meiaRival = rng.pick(slotsDa(outro(comBola), 'MEI'));
+    const meiaComBola = rng.pick(meio(comBola));
+    const meiaRival = rng.pick(meio(outro(comBola)));
     let criador: SlotRef;
     if (duelo(rng, hab(meiaComBola, 'PAS'), hab(meiaRival, 'DEF'), PARAMETROS.basePosse + mod(meiaRival, 'defesaPosse'))) {
       criador = meiaComBola;
@@ -408,7 +419,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
 
     // 2. Criação: meia (Passe) contra o 1º zagueiro (Defesa). No contra-ataque sem
     //    recomposição o zagueiro ficou para trás (o sorteio acontece igual, para não mexer no resto).
-    const criou = duelo(rng, hab(criador, 'PAS'), hab(zagueiro1, 'DEF'), PARAMETROS.baseCriacao + ajustePostura(ataque) + mod(criador, 'criacao') + mod(zagueiro1, 'contraCriacao'));
+    const criou = duelo(rng, hab(criador, 'PAS'), hab(zagueiro1, 'DEF'), PARAMETROS.baseCriacao + ajustePostura(ataque) + ajusteVantagem(ataque) + mod(criador, 'criacao') + mod(zagueiro1, 'contraCriacao'));
     if (!criou && !semZagueiro1) {
       // T2: às vezes o desarme é falta (ADR-0024).
       if (t2 && rngT2.chance(PARAMETROS_T2.chanceFaltaNaCriacao)) {
@@ -439,8 +450,8 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     let baseChute: number;
     // Sem marcador (escanteio desfeito em contra-ataque): o duelo é sorteado, mas não vale.
     const venceuMarcador = drible
-      ? duelo(rng, hab(finalizador, 'DRI'), hab(marcador, 'DEF'), PARAMETROS.baseDrible + ajustePostura(ataque) + mod(finalizador, 'drible') + mod(marcador, 'contraDrible'))
-      : duelo(rng, hab(finalizador, 'FIN'), hab(marcador, 'DEF'), PARAMETROS.baseChuteMarcado + ajustePostura(ataque) + mod(finalizador, 'chuteMarcado') + mod(marcador, 'contraChuteMarcado'));
+      ? duelo(rng, hab(finalizador, 'DRI'), hab(marcador, 'DEF'), PARAMETROS.baseDrible + ajustePostura(ataque) + ajusteVantagem(ataque) + mod(finalizador, 'drible') + mod(marcador, 'contraDrible'))
+      : duelo(rng, hab(finalizador, 'FIN'), hab(marcador, 'DEF'), PARAMETROS.baseChuteMarcado + ajustePostura(ataque) + ajusteVantagem(ataque) + mod(finalizador, 'chuteMarcado') + mod(marcador, 'contraChuteMarcado'));
     let livre = true;
     if (semMarcador) {
       baseChute = PARAMETROS.baseChuteLivre;
@@ -550,7 +561,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
       const antes: Habilidades = { ...jogador.habilidades };
       const daBase = jogador.jogadorId === null;
       const treino = t2 && jogador.treino ? { hab: jogador.treino, multiplicador: PARAMETROS_T2.multiplicadorTreino } : undefined;
-      const { depois, delta } = daBase ? { depois: antes, delta: zeradas() } : evoluir(antes, pontos[lado][indice]!, classico, treino);
+      const { depois, delta } = daBase ? { depois: antes, delta: zeradas() } : evoluir(antes, pontos[lado][indice]!, classico, treino, jogador.resenha ? PARAMETROS.multiplicadorResenha : 1);
       const ovrAntes = ovrDasHabilidades(jogador.posicao, antes);
       const ovrDepois = ovrDasHabilidades(jogador.posicao, depois);
       return {
