@@ -71,7 +71,7 @@ export function zeradas(): Record<HabilidadeId, number> {
 /**
  * `treino` (Temporada 2, ADR-0023): na Habilidade de foco, os ganhos são multiplicados por
  * `multiplicadorTreino`; o teto por Partida continua o mesmo.
- * `ganhos` (Resenha, ADR-0033): multiplica os ganhos de todas as Habilidades. Com Treino, os
+ * `ganhos` (Resenha, ADR-0034): multiplica os ganhos de todas as Habilidades. Com Treino, os
  * dois bônus somam na Habilidade de foco (1,5 e 1,5 viram 2).
  */
 export function evoluir(

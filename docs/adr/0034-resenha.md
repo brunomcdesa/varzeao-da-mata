@@ -21,7 +21,7 @@ Motivo: o dono quer premiar quem interage com os Reels, e já nesta Temporada.
 
 ## Consequences
 
-- Não muda nenhum lance: a Partida de quem tem Resenha é a mesma, só a evolução depois dela muda. Entra junto com a versão 9/10 da simulação (ADR-0032).
+- Não muda nenhum lance: a Partida de quem tem Resenha é a mesma, só a evolução depois dela muda. Entra junto com a versão 9/10 da simulação (ADR-0033).
 - Quem sempre comenta evolui mais rápido que quem não comenta. O limite por Partida e o ritmo de ganho (perto de 99 o ganho encolhe) seguram o exagero.
 - O bônus depende de a coleta ter lido o comentário antes da Escalação. A coleta do job `partida` roda logo depois do Corte e lê os posts do último dia.
 - Ainda não aparece no site nem no Reels. Mostrar a Resenha no painel do personagem ou na Partida é mudança visual e precisa de prévia.

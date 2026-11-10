@@ -101,7 +101,7 @@ describe('Escalação', () => {
   });
 });
 
-describe('Resenha (ADR-0033)', () => {
+describe('Resenha (ADR-0034)', () => {
   const comentar = (id: string, midia: string, quando: Date, texto = 'que jogo!') =>
     processarComentario(banco, { igCommentId: `r${++n}`, igMediaId: midia, igUserId: id, username: id, texto, comentadoEm: quando }, { rodadaEmVotacao: null });
   const publicar = (partidaId: number, midia: string) => banco.query(`UPDATE partida SET status = 'PUBLICADA', ig_media_id = $2 WHERE id = $1`, [partidaId, midia]);

@@ -124,7 +124,7 @@ export async function montarEscalacao(
 }
 
 /**
- * Resenha (ADR-0033): os Jogadores do Time que comentaram, até o Corte, no Reels do último jogo
+ * Resenha (ADR-0034): os Jogadores do Time que comentaram, até o Corte, no Reels do último jogo
  * do Time que foi ao ar antes desta Partida. Qualquer comentário vale, e um basta.
  */
 export async function comResenha(b: Banco, time: TimeId, apito: Date, corte: Date): Promise<Set<string>> {
@@ -176,7 +176,7 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
     const regrasV = await regras(p.visitante_id);
     const mandante = await montarEscalacao(b, { time: p.mandante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, ...(regrasM ? { t2: regrasM } : {}) });
     const visitante = await montarEscalacao(b, { time: p.visitante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, ...(regrasV ? { t2: regrasV } : {}) });
-    // Resenha (ADR-0033): vale nas duas Temporadas.
+    // Resenha (ADR-0034): vale nas duas Temporadas.
     for (const m of [mandante, visitante]) {
       const resenha = await comResenha(b, m.escalacao.time, new Date(p.apito_inicial), corte);
       m.escalacao = { ...m.escalacao, jogadores: m.escalacao.jogadores.map((j) => (j.jogadorId !== null && resenha.has(j.jogadorId) ? { ...j, resenha: true } : j)) };

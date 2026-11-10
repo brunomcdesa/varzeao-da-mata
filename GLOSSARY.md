@@ -225,7 +225,7 @@ A Habilidade de foco que o Jogador escolhe pelo site; os ganhos dela sobem mais 
 _Avoid_: foco, upgrade, boost
 
 **Resenha**:
-O comentário do Jogador no Reels do último jogo do próprio Time, feito até o Corte da Partida seguinte. Quem tem Resenha e é escalado ganha Habilidade 50% mais rápido naquela Partida. ADR-0033.
+O comentário do Jogador no Reels do último jogo do próprio Time, feito até o Corte da Partida seguinte. Quem tem Resenha e é escalado ganha Habilidade 50% mais rápido naquela Partida. ADR-0034.
 _Avoid_: engajamento, bônus de comentário, interação
 
 **Canto**:
