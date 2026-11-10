@@ -3,6 +3,7 @@
  *
  *   pnpm liga temporada [--inicio 2026-11-07]        cria a Temporada (7 Rodadas, 12h/14h/16h/18h)
  *   USUARIO=fulano pnpm liga remover               remove um Jogador que ainda não jogou
+ *   USUARIO=fulano TIME=onca POSICAO=zagueiro pnpm liga mover   muda o Time à mão (ADR-0029)
  *   pnpm liga comentarios                          os comentários lidos e o resultado de cada um
  *   pnpm liga mudar-inicio --inicio 2026-11-08      antecipa/adia a Temporada (antes do 1º jogo)
  *   pnpm liga inscricoes-de-teste [--quantidade 40]  "comentários" ENTRO de seguidores fictícios
@@ -32,6 +33,8 @@ import {
   craqueDaRodada,
   fecharRodada,
   processarComentario,
+  moverJogador,
+  interpretar,
   rodadaEmVotacao,
   rodarPartida,
   tokenGuardado,
@@ -238,11 +241,22 @@ async function main(): Promise<void> {
         const r = await processarComentario(
           banco,
           { igCommentId: `dm-${randomUUID()}`, igMediaId: 'dm', igUserId: id ?? `dm-${usuario.toLowerCase()}`, username: usuario, texto: pedido, comentadoEm: new Date() },
-          { rodadaEmVotacao: null, realocar: true },
+          // FORCAR=true: escolha do dono, ignora o equilíbrio de Elencos (ADR-0029).
+          { rodadaEmVotacao: null, realocar: true, forcar: process.env.FORCAR === 'true' },
         );
         const j = (await banco.query<{ time_id: string; posicao: string; ovr: number }>(`SELECT time_id, posicao, ovr FROM jogador WHERE lower(username) = lower($1)`, [usuario])).rows[0];
         console.log(`Resultado: ${r}${j ? ` → ${j.posicao} do ${j.time_id}, OVR ${j.ovr}` : ''}`);
         if (r !== 'INSCRITO' && r !== 'REALOCADO') process.exitCode = 1;
+        break;
+      }
+
+      case 'mover': {
+        // Muda o Time (e a posição, se vier) à mão, sem gastar a Transferência (ADR-0029).
+        const usuario = (process.env.USUARIO ?? '').replace(/^@/, '').trim();
+        const pedido = interpretar(`ENTRO ${process.env.TIME ?? ''} ${process.env.POSICAO ?? ''}`.trim());
+        if (!usuario || pedido.tipo !== 'INSCRICAO') throw new Error('Use: USUARIO=fulano TIME=onca POSICAO=zagueiro pnpm liga mover');
+        const r = await moverJogador(banco, usuario, pedido.time, pedido.posicao);
+        console.log(`Movido: @${usuario} de ${r.de} para ${r.posicao} do ${r.para}, OVR ${r.ovr}.${r.perdeuCamisa ? ' A camisa já tinha dono no Time novo e foi liberada.' : ''}`);
         break;
       }
 

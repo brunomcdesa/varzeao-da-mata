@@ -13,6 +13,10 @@ on:
       posicao:
         description: 'Posição (ex.: atacante)'
         required: false
+      forcar:
+        description: 'Forçar o Time mesmo cheio (ignora o equilíbrio de Elencos, ADR-0029)'
+        type: boolean
+        default: false
 jobs:
   inscrever:
     runs-on: ubuntu-latest
@@ -38,6 +42,7 @@ jobs:
       USUARIO: ${{ inputs.usuario }}
       TIME: ${{ inputs.time }}
       POSICAO: ${{ inputs.posicao }}
+      FORCAR: ${{ inputs.forcar }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/preparar

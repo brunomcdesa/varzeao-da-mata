@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Banco } from '../src/banco.js';
-import { processarComentario, type Comentario } from '../src/coletar.js';
+import { moverJogador, processarComentario, type Comentario } from '../src/coletar.js';
 import { FOLGA_DE_ELENCO, OVR_INICIAL } from '../src/regras.js';
 import { AgendaNaMemoria } from '../src/nuvem.js';
 import { craqueDaRodada } from '../src/resumo.js';
@@ -76,6 +76,30 @@ describe('Inscrição', () => {
     await processarComentario(banco, comentario('tat0', 'entro tatu goleiro', { username: 'goleirao' }), { ...semVotacao, responder: async (_id, t) => void confirmacao.push(t) });
     expect(confirmacao[0]).toMatch(/^@goleirao você entrou no Varzeão da Mata! Agora é goleiro do Tatu, OVR \d+\./);
     expect(await processarComentario(banco, comentario('onc0', 'ENTRO ONCA ATA'), semVotacao)).toBe('INSCRITO');
+  });
+
+  it('Inscrição manual forçada entra no Time cheio, na posição pedida (ADR-0029)', async () => {
+    for (let i = 0; i < FOLGA_DE_ELENCO; i++) await processarComentario(banco, comentario(`onc${i}`, 'ENTRO ONCA ATA'), semVotacao);
+    expect(await processarComentario(banco, comentario('dm-1', 'ENTRO ONCA ZAG'), { ...semVotacao, realocar: true, forcar: true })).toBe('INSCRITO');
+    const j = (await banco.query<{ time_id: string; posicao: string }>(`SELECT time_id, posicao FROM jogador WHERE ig_user_id = 'dm-1'`)).rows[0]!;
+    expect(j).toEqual({ time_id: 'ONC', posicao: 'ZAG' });
+    // Sem forçar, o mesmo pedido continua sendo realocado.
+    expect(await processarComentario(banco, comentario('dm-2', 'ENTRO ONCA ZAG'), { ...semVotacao, realocar: true })).toBe('REALOCADO');
+  });
+
+  it('mover: muda o Time cheio sem gastar a Transferência e mantém as Habilidades (ADR-0029)', async () => {
+    for (let i = 0; i < FOLGA_DE_ELENCO; i++) await processarComentario(banco, comentario(`onc${i}`, 'ENTRO ONCA ATA'), semVotacao);
+    await processarComentario(banco, comentario('pre1', 'ENTRO PREGUICA ZAG', { username: 'Jonatas_KS' }), semVotacao);
+    await banco.query(`UPDATE jogador SET numero = 4 WHERE username = 'Jonatas_KS'`);
+    await banco.query(`UPDATE jogador SET numero = 4 WHERE ig_user_id = 'onc0'`);
+    const antes = (await banco.query<{ ovr: number; habilidades: unknown }>(`SELECT ovr, habilidades FROM jogador WHERE username = 'Jonatas_KS'`)).rows[0]!;
+    const r = await moverJogador(banco, '@jonatas_ks', 'ONC');
+    expect(r).toMatchObject({ de: 'PRE', para: 'ONC', posicao: 'ZAG', ovr: antes.ovr, perdeuCamisa: true });
+    const depois = (await banco.query<{ time_id: string; posicao: string; numero: number | null; habilidades: unknown }>(`SELECT time_id, posicao, numero, habilidades FROM jogador WHERE username = 'Jonatas_KS'`)).rows[0]!;
+    expect(depois).toMatchObject({ time_id: 'ONC', posicao: 'ZAG', numero: null });
+    expect(depois.habilidades).toEqual(antes.habilidades);
+    expect((await banco.query('SELECT 1 FROM transferencia')).rows).toHaveLength(0);
+    await expect(moverJogador(banco, 'ninguem', 'ONC')).rejects.toThrow(/Nenhum Jogador/);
   });
 
   it('banido é ignorado; @ bloqueado não se inscreve', async () => {

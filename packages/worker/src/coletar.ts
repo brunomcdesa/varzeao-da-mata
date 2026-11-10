@@ -67,6 +67,8 @@ export interface Contexto {
   responder?: (igCommentId: string, texto: string) => Promise<void>;
   /** Sobrescreve REALOCAR_QUANDO_CHEIO (testes). */
   realocar?: boolean;
+  /** Inscrição manual do dono (workflow inscrever-jogador): ignora o equilíbrio de Elencos (ADR-0029). */
+  forcar?: boolean;
 }
 
 export async function processarComentario(banco: Banco, c: Comentario, ctx: Contexto): Promise<Resultado> {
@@ -209,7 +211,7 @@ async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posica
   // Time cheio: entra no mais vazio (empate decidido pelo id do comentário, para espalhar),
   // na posição pedida, e recebe uma resposta explicando.
   let time = pedido;
-  if (contagem.get(pedido)! >= menor + FOLGA_DE_ELENCO) {
+  if (!ctx.forcar && contagem.get(pedido)! >= menor + FOLGA_DE_ELENCO) {
     if (!(ctx.realocar ?? REALOCAR_QUANDO_CHEIO)) return 'TIME_CHEIO';
     const vazios = ativos.filter((t) => contagem.get(t) === menor);
     time = vazios[hashSimples(c.igCommentId) % vazios.length]!;
@@ -331,6 +333,38 @@ export async function transferirJogador(
     resultado: 'TRANSFERIDO',
     mensagem: `${destino === j.time_id ? 'mudança de posição feita' : 'transferência feita'}! Agora você é ${vaga}. Vale a partir do próximo jogo escalado. Esta foi a sua transferência da temporada.${perdeCamisa ? ` A camisa ${camisa} já tem dono ${doTime(destino)}: escolha outro número no site.` : ''} ⚽`,
   };
+}
+
+/**
+ * Mudança de Time feita à mão pelo dono (ADR-0029): ignora o equilíbrio de Elencos e não gasta
+ * a Transferência do Jogador. Leva as Habilidades; o OVR é o delas na posição nova. A camisa vai
+ * junto, a não ser que o número já tenha dono no Time novo. Vale a partir do próximo Corte.
+ */
+export async function moverJogador(
+  b: Banco,
+  username: string,
+  destino: TimeId,
+  posicaoPedida?: Posicao,
+): Promise<{ de: TimeId; para: TimeId; posicao: Posicao; ovr: number; perdeuCamisa: boolean }> {
+  const j = (
+    await b.query<{ id: string; time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; numero: number | null }>(
+      `SELECT id::text AS id, time_id, posicao, ovr, habilidades, numero FROM jogador WHERE lower(username) = lower($1) AND NOT banido`,
+      [username.replace(/^@/, '').trim()],
+    )
+  ).rows[0];
+  if (!j) throw new Error(`Nenhum Jogador @${username}.`);
+  if (!(await timesAtivos(b)).includes(destino)) throw new Error(`O time ${destino} não joga esta Temporada.`);
+  const posicao = posicaoPedida ?? j.posicao;
+  const habilidades = habilidadesDe(j.posicao, j.ovr, j.habilidades);
+  const ovr = ovrDasHabilidades(posicao, habilidades);
+  const perdeuCamisa =
+    destino !== j.time_id &&
+    j.numero !== null &&
+    (await b.query(`SELECT 1 FROM jogador WHERE time_id = $1 AND numero = $2 AND id <> $3 AND NOT banido`, [destino, j.numero, j.id])).rows.length > 0;
+  await b.query(`UPDATE jogador SET time_id = $2, posicao = $3, ovr = $4, habilidades = $5${perdeuCamisa ? ', numero = NULL' : ''} WHERE id = $1`, [
+    j.id, destino, posicao, ovr, JSON.stringify(habilidades),
+  ]);
+  return { de: j.time_id, para: destino, posicao, ovr, perdeuCamisa };
 }
 
 /**
