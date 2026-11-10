@@ -3289,3 +3289,263 @@ a.jogo:hover {
     font-size: 0;
   }
 }
+
+/* ------------------------------------------------------------ Temporada: o panorama da Temporada atual */
+
+/* Placar da Temporada: 4 números grandes na tábua, como um placar de várzea. */
+.placar-temporada {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 18px;
+}
+.placar-temporada div {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 10px 6px 8px;
+  background: rgb(0 0 0 / 0.24);
+  box-shadow: inset 0 0 0 3px var(--contorno);
+  clip-path: var(--canto);
+  text-align: center;
+}
+.placar-temporada dt {
+  order: 2;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+.placar-temporada dd {
+  margin: 0;
+  font: 400 2.25rem/1 var(--display);
+  color: var(--amarelo);
+  text-shadow: 2px 2px 0 var(--contorno);
+}
+.placar-temporada dd small {
+  font-size: 1.25rem;
+  color: var(--placa);
+  opacity: 0.7;
+}
+.painel-subtitulo {
+  font-size: 1.75rem;
+  margin: 0 0 8px;
+  text-shadow: 2px 2px 0 var(--contorno);
+}
+
+/* Líder (ou campeão) de cada Série: o escudo grande na tábua. */
+.lideres-times {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+.lider-time {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 18px 14px 16px;
+  text-align: center;
+  color: var(--placa);
+  text-decoration: none;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cor) 32%, transparent), transparent 70%), rgb(0 0 0 / 0.24);
+  box-shadow: inset 0 0 0 3px var(--contorno), inset 0 4px 0 3px rgb(0 0 0 / 0.25);
+  clip-path: var(--canto);
+}
+.lider-time:hover .lider-nome {
+  text-decoration: underline;
+}
+.lider-rotulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 400 1.75rem/1 var(--display);
+  color: var(--amarelo);
+  text-shadow: 2px 2px 0 var(--contorno);
+}
+.lider-rotulo .selo-serie {
+  font-size: 1rem;
+  text-shadow: none;
+}
+.lider-nome {
+  font: 400 2rem/1 var(--display);
+  text-shadow: 2px 2px 0 var(--contorno);
+}
+.lider-pontos {
+  font-weight: 600;
+}
+.lider-numeros {
+  display: flex;
+  gap: 18px;
+  margin: 0;
+}
+.lider-numeros div {
+  display: grid;
+}
+.lider-numeros dt {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+.lider-numeros dd {
+  margin: 0;
+  font: 400 1.5rem/1 var(--display);
+}
+
+/* Artilharia, Assistências e Goleiros: três placas lado a lado. */
+.temporada-grade {
+  display: grid;
+  gap: 24px;
+  margin-top: 28px;
+}
+@media (min-width: 900px) {
+  .temporada-grade {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+.temporada-grade > .placa {
+  margin: 0;
+}
+.lideres {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.lideres li {
+  display: grid;
+  grid-template-columns: 22px auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-bottom: 2px dashed var(--placa-sombra);
+}
+.lideres li:last-child {
+  border-bottom: 0;
+}
+.lideres li.primeiro {
+  padding: 8px 8px 10px;
+  margin-bottom: 4px;
+  border-bottom: 0;
+  background: var(--placa-sombra);
+  clip-path: var(--canto);
+}
+.lideres-pos {
+  font: 400 1.5rem/1 var(--display);
+  color: var(--tinta-fraca);
+  text-align: center;
+}
+.primeiro .lideres-pos {
+  color: var(--madeira-escura);
+}
+.lideres-boneco img {
+  display: block;
+  image-rendering: pixelated;
+}
+.lideres-quem {
+  display: grid;
+  min-width: 0;
+}
+.lideres-quem a {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.primeiro .lideres-quem a {
+  font-size: 1.125rem;
+}
+.lideres-quem small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--tinta-fraca);
+  font-size: 0.8125rem;
+}
+.lideres-valor {
+  display: grid;
+  justify-items: end;
+  font: 400 1.75rem/1 var(--display);
+  color: var(--tinta);
+}
+.primeiro .lideres-valor {
+  font-size: 2.25rem;
+}
+.lideres-valor small {
+  font: 600 0.6875rem/1.2 var(--texto);
+  color: var(--tinta-fraca);
+}
+.ranking-temporada .legenda {
+  margin: 10px 0 0;
+  font-size: 0.8125rem;
+  color: var(--tinta-fraca);
+}
+
+/* Números dos Times e Craques das Rodadas, no quadro-negro. */
+.fatos-temporada {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px 24px;
+  margin: 0;
+}
+.fatos-temporada dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: var(--cal-fraca);
+}
+.fatos-temporada dt .selo-serie {
+  font-size: 0.875rem;
+  padding: 2px 6px 1px;
+}
+.fatos-temporada dd {
+  display: grid;
+  gap: 2px;
+  margin: 4px 0 0;
+  font-weight: 600;
+}
+.fatos-temporada dd a {
+  color: var(--cal);
+}
+.fatos-temporada dd small {
+  font-weight: 400;
+  color: var(--cal-fraca);
+}
+.subtitulo-giz {
+  margin: 20px 0 8px;
+  font-size: 1.25rem;
+}
+.craques-rodadas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.craques-rodadas li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  background: rgb(0 0 0 / 0.25);
+  box-shadow: inset 0 0 0 2px rgb(239 232 214 / 0.2);
+}
+.craques-rodadas-quando {
+  padding: 2px 6px 1px;
+  font: 400 1rem/1 var(--display);
+  color: var(--tinta);
+  background: var(--amarelo);
+}
+.craques-rodadas a {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--cal);
+  font-weight: 600;
+}
+@media (max-width: 520px) {
+  .placar-temporada {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

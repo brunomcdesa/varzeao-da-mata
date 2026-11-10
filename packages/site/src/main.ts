@@ -6,11 +6,13 @@ import { paginaJogos, paginaTabela, paginaTime, paginaTimes } from './paginas/li
 import { paginaHistoria } from './paginas/historia.js';
 import { paginaPartida } from './paginas/partida.js';
 import { paginaCarreira } from './paginas/carreira.js';
+import { paginaTemporada } from './paginas/temporada.js';
 import type { Pagina } from './paginas/tipos.js';
 import { html } from './ui.js';
 
 const ROTAS: { padrao: RegExp; pagina: Pagina; secao: string; titulo: string }[] = [
   { padrao: /^\/?$/, pagina: inicio, secao: 'inicio', titulo: '' },
+  { padrao: /^\/temporada$/, pagina: paginaTemporada, secao: 'temporada', titulo: 'Temporada' },
   { padrao: /^\/jogos$/, pagina: paginaJogos, secao: 'jogos', titulo: 'Jogos' },
   { padrao: /^\/tabela$/, pagina: paginaTabela, secao: 'tabela', titulo: 'Tabela' },
   { padrao: /^\/times$/, pagina: paginaTimes, secao: 'times', titulo: 'Times' },
