@@ -103,7 +103,7 @@ export const paginaTemporada: Pagina = async (main) => {
   const p = panorama(l, agora);
   const forma = formaDosTimes(l, 5, agora);
   const series = seriesDaLiga(l);
-  const porSerie = temSeries(l) ? 4 : 6;
+  const porSerie = temSeries(l) ? 4 : 6; // ADR-0031
   const ultimos = encerradas(l, agora);
   const numero = l.temporada?.numero ?? '';
   const fmt1 = (n: number) => n.toFixed(1).replace('.', ',');

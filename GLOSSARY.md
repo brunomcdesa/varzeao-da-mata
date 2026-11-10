@@ -22,6 +22,10 @@ _Avoid_: histórico, perfil
 Página do site, a partir da Temporada 2, que mostra a Carreira de um Jogador Temporada por Temporada: Time e Série, números, OVR do começo ao fim, cartões e troféus (ADR-0025).
 _Avoid_: perfil, ficha
 
+**Página da Temporada**:
+Página do site com o panorama da Temporada atual: placar da Temporada, líder de cada Série, últimos jogos, Artilharia, Assistências, Goleiros e Números dos Times. Vale desde a Temporada 1 e nunca mostra uma Temporada que ainda não começou (ADR-0031).
+_Avoid_: estatísticas, resumo da temporada
+
 **Posição**:
 A função do Jogador em campo, informada na Inscrição: GOL, ZAG, MEI ou ATA.
 _Avoid_: função, papel
