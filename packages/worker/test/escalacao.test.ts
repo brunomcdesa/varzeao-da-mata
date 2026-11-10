@@ -100,3 +100,65 @@ describe('Escalação', () => {
     expect(r.desempenhos.filter((d) => d.jogadorId !== null)).toHaveLength(4);
   });
 });
+
+describe('Resenha (ADR-0033)', () => {
+  const comentar = (id: string, midia: string, quando: Date, texto = 'que jogo!') =>
+    processarComentario(banco, { igCommentId: `r${++n}`, igMediaId: midia, igUserId: id, username: id, texto, comentadoEm: quando }, { rodadaEmVotacao: null });
+  const publicar = (partidaId: number, midia: string) => banco.query(`UPDATE partida SET status = 'PUBLICADA', ig_media_id = $2 WHERE id = $1`, [partidaId, midia]);
+  const resenhaDe = (p: Awaited<ReturnType<typeof escalarPartida>>, lado: 'mandante' | 'visitante') =>
+    p.escalacoes[lado].jogadores.map((j, i) => (j.resenha ? p.nomes[lado][i] : null)).filter(Boolean);
+
+  it('quem comentou no Reels do último jogo do próprio Time, até o Corte, entra com Resenha', async () => {
+    for (const a of ['a1', 'a2']) await inscrever(a, 'ENTRO CAPIVARA ATA');
+    await inscrever('o1', 'ENTRO ONCA ATA');
+    await inscrever('t1', 'ENTRO TATU ATA');
+    const p1 = await novaPartida('CAP', 'ONC', hora(12));
+    expect(resenhaDe(await escalarPartida(banco, p1), 'mandante')).toEqual([]); // primeiro jogo: não há Reels anterior
+    await publicar(p1, 'reels1');
+    await comentar('a1', 'reels1', hora(13));
+    await comentar('a2', 'outro-post', hora(13)); // post que não é o do jogo
+    await comentar('o1', 'reels1', hora(13)); // o jogo também era da Onça
+    await comentar('t1', 'reels1', hora(13)); // jogo de outros Times: não vale para o Tatu
+    const p2 = await escalarPartida(banco, await novaPartida('CAP', 'TAT', hora(16)));
+    expect(resenhaDe(p2, 'mandante')).toEqual(['@a1']);
+    expect(resenhaDe(p2, 'visitante')).toEqual([]);
+    const p3 = await escalarPartida(banco, await novaPartida('ONC', 'TUC', hora(18)));
+    expect(resenhaDe(p3, 'mandante')).toEqual(['@o1']);
+    // Fica gravada: reler a Escalação devolve a mesma coisa.
+    expect(await escalarPartida(banco, p2.partidaId)).toEqual(p2);
+    expect((await banco.query(`SELECT 1 FROM escalacao WHERE resenha`)).rows).toHaveLength(2);
+  });
+
+  it('comentário depois do Corte não vale, e só conta o Reels do jogo mais recente', async () => {
+    await inscrever('a1', 'ENTRO CAPIVARA ATA');
+    const p1 = await novaPartida('CAP', 'ONC', hora(10));
+    await escalarPartida(banco, p1);
+    await publicar(p1, 'reels1');
+    const p2 = await novaPartida('CAP', 'TAT', hora(12));
+    await escalarPartida(banco, p2);
+    await publicar(p2, 'reels2');
+    await comentar('a1', 'reels1', hora(13)); // Reels antigo
+    await comentar('a1', 'reels2', hora(15, 31)); // Corte das 16h é 15h30
+    expect(resenhaDe(await escalarPartida(banco, await novaPartida('CAP', 'TUC', hora(16))), 'mandante')).toEqual([]);
+    await comentar('a1', 'reels2', hora(17));
+    expect(resenhaDe(await escalarPartida(banco, await novaPartida('CAP', 'ARA', hora(18))), 'mandante')).toEqual(['@a1']);
+  });
+
+  it('na simulação, quem tem Resenha evolui pelo menos tanto quanto sem ela', async () => {
+    await inscrever('a1', 'ENTRO CAPIVARA ATA');
+    const p1 = await novaPartida('CAP', 'ONC', hora(12));
+    await escalarPartida(banco, p1);
+    await publicar(p1, 'reels1');
+    await comentar('a1', 'reels1', hora(13));
+    const p = await escalarPartida(banco, await novaPartida('CAP', 'TAT', hora(16)));
+    const sem = { ...p.escalacoes.mandante, jogadores: p.escalacoes.mandante.jogadores.map(({ resenha: _, ...j }) => j) };
+    let maior = 0;
+    for (let seed = 1; seed <= 30; seed++) {
+      const com = simularPartida({ ...p.escalacoes, seed, fase: 'LIGA' }).desempenhos.find((d) => d.jogadorId !== null)!;
+      const base = simularPartida({ mandante: sem, visitante: p.escalacoes.visitante, seed, fase: 'LIGA' }).desempenhos.find((d) => d.jogadorId !== null)!;
+      expect(com.deltaHabilidades.FIN).toBeGreaterThanOrEqual(base.deltaHabilidades.FIN);
+      if (com.deltaHabilidades.FIN > base.deltaHabilidades.FIN) maior++;
+    }
+    expect(maior).toBeGreaterThan(0);
+  });
+});

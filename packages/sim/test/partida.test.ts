@@ -203,23 +203,38 @@ describe('calibração', () => {
     expect(gols / N).toBeLessThan(3.4);
   });
 
-  it('time bem mais forte (+15 de OVR) vence por volta de 68–72% das vezes', () => {
+  it('time bem mais forte (+15 de OVR) vence por volta de 82–87% das vezes (ADR-0032)', () => {
     const taxa = taxaDoForte(80, 65);
-    expect(taxa).toBeGreaterThan(0.64);
-    expect(taxa).toBeLessThan(0.76);
+    expect(taxa).toBeGreaterThan(0.8);
+    expect(taxa).toBeLessThan(0.89);
   });
 
-  it('zebra existe: mesmo +25 de OVR perde de vez em quando', () => {
-    expect(taxaDoForte(85, 60)).toBeLessThan(0.9);
+  it('diferença pequena (+4 de OVR) ainda deixa o jogo aberto: o mais forte vence menos de 60%', () => {
+    const taxa = taxaDoForte(72, 68);
+    expect(taxa).toBeGreaterThan(0.45);
+    expect(taxa).toBeLessThan(0.6);
   });
 
-  it('Goleada entre times iguais é rara (~9%)', () => {
+  it('zebra existe: +10 de OVR ainda perde ou empata mais de 20% das vezes', () => {
+    expect(taxaDoForte(75, 65)).toBeLessThan(0.8);
+  });
+
+  it('trava de goleada (ADR-0032): mesmo com +15 de OVR, a Goleada fica abaixo de 35%', () => {
+    let goleadas = 0;
+    for (let seed = 1; seed <= N; seed++) {
+      const r = simularPartida({ ...base, mandante: escalacao('CAP', 80), visitante: escalacao('TAT', 65), seed });
+      if (ehGoleada(Math.max(r.gols.mandante, r.gols.visitante), Math.min(r.gols.mandante, r.gols.visitante))) goleadas++;
+    }
+    expect(goleadas / N).toBeLessThan(0.35);
+  });
+
+  it('Goleada entre times iguais é rara (~7%)', () => {
     let goleadas = 0;
     for (let seed = 1; seed <= N; seed++) {
       const r = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('TAT', 70), seed });
       if (ehGoleada(Math.max(r.gols.mandante, r.gols.visitante), Math.min(r.gols.mandante, r.gols.visitante))) goleadas++;
     }
-    expect(goleadas / N).toBeLessThan(0.13);
+    expect(goleadas / N).toBeLessThan(0.1);
   });
 });
 
@@ -318,26 +333,26 @@ describe('Ritmo da Partida (ADR-0016)', () => {
 });
 
 describe('trava da Temporada 1', () => {
-  it('sem as regras da T2, a simulação dá exatamente os resultados da VERSAO_SIM 7', async () => {
+  it('sem as regras da T2, a simulação dá exatamente os resultados da VERSAO_SIM 9', async () => {
     const { CASOS, impressao } = await import('./regressao-t1.js');
     const esperado = JSON.parse(readFileSync(new URL('./regressao-t1.json', import.meta.url), 'utf8')) as string[];
     expect(CASOS.map(impressao)).toEqual(esperado);
   });
 });
 
-describe('regras da Temporada 2 (VERSAO_SIM 8)', () => {
+describe('regras da Temporada 2 (VERSAO_SIM 10)', () => {
   const neutra = { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const;
   /** `t2`: null joga com as regras da T1. */
   const jogo = (seed: number, t2: Parameters<typeof simularPartida>[0]['t2'] | null = neutra, a = escalacao('CAP', 70), b = escalacao('ONC', 70, 'R')) =>
     simularPartida({ mandante: a, visitante: b, seed, fase: 'LIGA', ...(t2 ? { t2 } : {}) });
 
-  it('com as regras da T2 a Partida é da versão 8, guarda Postura e Ritmo e é determinística', () => {
+  it('com as regras da T2 a Partida é da versão 10, guarda Postura e Ritmo e é determinística', () => {
     const r = jogo(11);
-    expect(r.versaoSim).toBe(8);
+    expect(r.versaoSim).toBe(10);
     expect(r.postura).toEqual(neutra.postura);
     expect(r.ritmo).toBeGreaterThanOrEqual(6);
     expect(jogo(11)).toEqual(r);
-    expect(jogo(11, null).versaoSim).toBe(7);
+    expect(jogo(11, null).versaoSim).toBe(9);
   });
 
   it('na T1, Especialização, Treino e Canto não mudam nada', () => {
@@ -428,5 +443,59 @@ describe('regras da Temporada 2 (VERSAO_SIM 8)', () => {
       golsDef += de.gols.mandante + de.gols.visitante;
     }
     expect(golsOf).toBeGreaterThan(golsDef * 1.4);
+  });
+});
+
+describe('Resenha (ADR-0033)', () => {
+  it('evoluir: os ganhos valem 50% a mais e as perdas não mudam', () => {
+    const antes = { FIN: 60, PAS: 60, DRI: 60, DEF: 60, GOL: 60 };
+    const pontos = { ...zeradas(), FIN: 1, DRI: -1 };
+    const sem = evoluir(antes, pontos, false);
+    const com = evoluir(antes, pontos, false, undefined, 1.5);
+    expect(sem.delta.FIN).toBe(1);
+    expect(com.delta.FIN).toBe(1.5);
+    expect(com.delta.DRI).toBe(sem.delta.DRI);
+  });
+
+  it('evoluir: com Treino, os dois bônus somam na Habilidade de foco e o teto por Partida continua', () => {
+    const antes = { FIN: 60, PAS: 60, DRI: 60, DEF: 60, GOL: 60 };
+    const treino = { hab: 'FIN' as const, multiplicador: 1.5 };
+    const os2 = evoluir(antes, { ...zeradas(), FIN: 1, PAS: 1 }, false, treino, 1.5);
+    const nenhum = evoluir(antes, { ...zeradas(), FIN: 1, PAS: 1 }, false);
+    expect(nenhum.delta.FIN).toBe(1);
+    expect(os2.delta.FIN).toBe(2);
+    expect(os2.delta.PAS).toBe(1.5);
+    expect(evoluir(antes, { ...zeradas(), FIN: 5 }, false, treino, 1.5).delta.FIN).toBe(LIMITE_DELTA_HABILIDADE);
+  });
+
+  it('na Partida, vale com as regras da T1: mesmo jogo, e quem tem Resenha nunca evolui menos', () => {
+    let subiuMais = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const a = escalacao('CAP', 66);
+      const com = { ...a, jogadores: a.jogadores.map((j) => ({ ...j, resenha: true })) };
+      const r0 = simularPartida({ ...base, mandante: a, visitante: escalacao('TAT', 66), seed });
+      const r1 = simularPartida({ ...base, mandante: com, visitante: escalacao('TAT', 66), seed });
+      expect(r1.lances).toEqual(r0.lances);
+      expect(r1.gols).toEqual(r0.gols);
+      r1.desempenhos.forEach((d, i) => {
+        const d0 = r0.desempenhos[i]!;
+        for (const h of HABILIDADES) {
+          if (d.slot.lado === 'visitante') expect(d.deltaHabilidades[h]).toBe(d0.deltaHabilidades[h]);
+          else {
+            expect(d.deltaHabilidades[h]).toBeGreaterThanOrEqual(d0.deltaHabilidades[h]);
+            if (d.deltaHabilidades[h] > d0.deltaHabilidades[h]) subiuMais++;
+          }
+        }
+      });
+    }
+    expect(subiuMais).toBeGreaterThan(40);
+  });
+});
+
+describe('expulsões em série (T2)', () => {
+  it('com três expulsos no mesmo Time a Partida termina (os atacantes recuam)', () => {
+    const neutra = { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const;
+    const r = simularPartida({ ...base, mandante: escalacao('TAT', 65), visitante: escalacao('CAP', 75), seed: 3359, t2: neutra });
+    expect(r.desempenhos.filter((d) => d.expulso).length).toBeGreaterThanOrEqual(3);
   });
 });

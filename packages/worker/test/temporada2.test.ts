@@ -45,7 +45,7 @@ describe('Temporada 2 no worker', () => {
     const p = await primeiraPartida(t1, 'CAP');
     const job = await rodarPartida(banco, p.id, { seed: 5 });
     const res = job.dados.resultado;
-    expect(res.versaoSim).toBe(7);
+    expect(res.versaoSim).toBe(9);
     expect(job.dados.torcida).toBeUndefined();
     const site = await exportarSite(banco, new Date('2026-12-30T12:00:00Z'));
     expect((site.arquivos.get(`partidas/${p.id}.json`) as { torcida?: unknown }).torcida).toBeUndefined();
@@ -64,7 +64,7 @@ describe('Temporada 2 no worker', () => {
     await inscrever('CAP', 'MEI');
     const p = await primeiraPartida(t2, 'CAP');
     const job = await rodarPartida(banco, p.id, { seed: 5 });
-    expect(job.dados.resultado.versaoSim).toBe(8);
+    expect(job.dados.resultado.versaoSim).toBe(10);
     const lado = p.mandante_id === 'CAP' ? 'mandante' : 'visitante';
     expect(job.dados.torcida?.[lado]).toBe(2);
     const site = await exportarSite(banco, new Date('2026-12-30T12:00:00Z'));
@@ -107,7 +107,7 @@ describe('Temporada 2 no worker', () => {
     const faixa = (await banco.query<{ id: string }>(`SELECT jogador_id::text AS id FROM escalacao WHERE partida_id = $1 AND time_id = 'ONC' AND capitao`, [p.id])).rows;
     expect(faixa).toEqual([{ id: novato }]);
     expect((await banco.query(`SELECT 1 FROM escalacao WHERE partida_id = $1 AND capitao`, [p.id])).rows.length).toBeLessThanOrEqual(2);
-    expect(res.versaoSim).toBe(8);
+    expect(res.versaoSim).toBe(10);
     const lado = p.mandante_id === 'ONC' ? 'mandante' : 'visitante';
     expect(res.postura![lado]).toBe('OFENSIVA');
     expect(res.postura![lado === 'mandante' ? 'visitante' : 'mandante']).toBe('EQUILIBRADA');
@@ -181,6 +181,6 @@ describe('Temporada 2 no worker', () => {
     const linha = (await banco.query<{ especializacao: string; treino: string; canto: string; amarelos: number | null }>(`SELECT especializacao, treino, canto, amarelos FROM escalacao WHERE partida_id = $1 AND jogador_id = $2`, [p.id, id])).rows[0]!;
     expect(linha).toMatchObject({ especializacao: 'PEGADOR_DE_PENALTI', treino: 'GOL', canto: 'DIREITA' });
     expect(linha.amarelos).not.toBeNull();
-    expect(res.versaoSim).toBe(8);
+    expect(res.versaoSim).toBe(10);
   });
 });

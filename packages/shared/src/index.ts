@@ -153,6 +153,8 @@ export interface JogadorEscalado {
   treino?: HabilidadeId;
   /** Temporada 2 (ADR-0023): Canto escolhido para pênaltis (batedor: onde chuta; goleiro: onde pula). */
   canto?: Canto;
+  /** Resenha (ADR-0033): comentou no Reels do último jogo do Time; ganhos de Habilidade maiores nesta Partida. */
+  resenha?: boolean;
 }
 
 /** Temporada 2 (ADR-0020): a atitude do Time na Partida, escolhida pelo Capitão. */

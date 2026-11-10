@@ -18,7 +18,7 @@ export interface EntradaPartida {
   /** Legado (regra antiga). Ignorado: empate no Mata-mata vai para os pênaltis. */
   vantagemDoEmpate?: Lado;
   /**
-   * Regras da Temporada 2 (VERSAO_SIM 8): Postura, faltas, cartões, Especialização, Canto e
+   * Regras da Temporada 2 (VERSAO_SIM 10): Postura, faltas, cartões, Especialização, Canto e
    * Treino (ADRs 0020, 0021, 0023, 0024). Sem este campo, a Partida segue as regras da
    * Temporada 1 e sai igual à VERSAO_SIM 5.
    */
