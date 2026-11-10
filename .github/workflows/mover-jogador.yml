@@ -13,6 +13,9 @@ on:
       posicao:
         description: 'Posição (ex.: zagueiro); vazio mantém a atual'
         required: false
+      id:
+        description: 'Opcional: id do Jogador, quando há dois com o mesmo @'
+        required: false
 jobs:
   mover:
     runs-on: ubuntu-latest
@@ -36,6 +39,7 @@ jobs:
       GEMINI_TTS_VOZ: ${{ vars.GEMINI_TTS_VOZ || 'Lumi' }}
       GEMINI_TTS_RPM: ${{ vars.GEMINI_TTS_RPM || '10' }}
       USUARIO: ${{ inputs.usuario }}
+      ID: ${{ inputs.id }}
       TIME: ${{ inputs.time }}
       POSICAO: ${{ inputs.posicao }}
     steps:

@@ -335,6 +335,13 @@ export async function transferirJogador(
   };
 }
 
+/** O Jogador com esse @ (sem diferenciar maiúsculas), ou null. */
+export async function jogadorPeloUsername(b: Banco, username: string): Promise<{ id: string; time_id: TimeId; posicao: Posicao } | null> {
+  return (
+    (await b.query<{ id: string; time_id: TimeId; posicao: Posicao }>(`SELECT id::text AS id, time_id, posicao FROM jogador WHERE lower(username) = lower($1) AND NOT banido ORDER BY id LIMIT 1`, [username.replace(/^@/, '').trim()])).rows[0] ?? null
+  );
+}
+
 /**
  * Mudança de Time feita à mão pelo dono (ADR-0029): ignora o equilíbrio de Elencos e não gasta
  * a Transferência do Jogador. Leva as Habilidades; o OVR é o delas na posição nova. A camisa vai
@@ -345,13 +352,16 @@ export async function moverJogador(
   username: string,
   destino: TimeId,
   posicaoPedida?: Posicao,
+  id?: string,
 ): Promise<{ de: TimeId; para: TimeId; posicao: Posicao; ovr: number; perdeuCamisa: boolean }> {
-  const j = (
+  const achados = (
     await b.query<{ id: string; time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; numero: number | null }>(
-      `SELECT id::text AS id, time_id, posicao, ovr, habilidades, numero FROM jogador WHERE lower(username) = lower($1) AND NOT banido`,
-      [username.replace(/^@/, '').trim()],
+      `SELECT id::text AS id, time_id, posicao, ovr, habilidades, numero FROM jogador WHERE lower(username) = lower($1) AND NOT banido AND ($2::text IS NULL OR id::text = $2)`,
+      [username.replace(/^@/, '').trim(), id ?? null],
     )
-  ).rows[0];
+  ).rows;
+  if (achados.length > 1) throw new Error(`Há ${achados.length} Jogadores @${username} (ids ${achados.map((x) => x.id).join(', ')}): informe o ID.`);
+  const j = achados[0];
   if (!j) throw new Error(`Nenhum Jogador @${username}.`);
   if (!(await timesAtivos(b)).includes(destino)) throw new Error(`O time ${destino} não joga esta Temporada.`);
   const posicao = posicaoPedida ?? j.posicao;

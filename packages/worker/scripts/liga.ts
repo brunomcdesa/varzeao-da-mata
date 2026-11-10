@@ -34,6 +34,7 @@ import {
   fecharRodada,
   processarComentario,
   moverJogador,
+  jogadorPeloUsername,
   interpretar,
   rodadaEmVotacao,
   rodarPartida,
@@ -234,6 +235,9 @@ async function main(): Promise<void> {
         const usuario = (process.env.USUARIO ?? '').replace(/^@/, '').trim();
         const pedido = `ENTRO ${process.env.TIME ?? ''} ${process.env.POSICAO ?? ''}`.trim();
         if (!usuario || !process.env.TIME) throw new Error('Use: USUARIO=fulano TIME=onca POSICAO=atacante pnpm liga inscrever');
+        // Já joga (inscrito pelo comentário)? Não cria outro Jogador com o mesmo @: use o mover.
+        const existente = await jogadorPeloUsername(banco, usuario);
+        if (existente) throw new Error(`@${usuario} já joga: é ${existente.posicao} do ${existente.time_id} (id ${existente.id}). Para mudar de Time, use o mover-jogador.`);
         const token = (await tokenGuardado(banco))?.token ?? process.env.IG_ACCESS_TOKEN;
         const ig = process.env.IG_USER_ID && token ? new Instagram({ userId: process.env.IG_USER_ID, token }) : null;
         const id = (await ig?.idNaDm(usuario).catch(() => null)) ?? null;
@@ -255,7 +259,7 @@ async function main(): Promise<void> {
         const usuario = (process.env.USUARIO ?? '').replace(/^@/, '').trim();
         const pedido = interpretar(`ENTRO ${process.env.TIME ?? ''} ${process.env.POSICAO ?? ''}`.trim());
         if (!usuario || pedido.tipo !== 'INSCRICAO') throw new Error('Use: USUARIO=fulano TIME=onca POSICAO=zagueiro pnpm liga mover');
-        const r = await moverJogador(banco, usuario, pedido.time, pedido.posicao);
+        const r = await moverJogador(banco, usuario, pedido.time, pedido.posicao, process.env.ID || undefined);
         console.log(`Movido: @${usuario} de ${r.de} para ${r.posicao} do ${r.para}, OVR ${r.ovr}.${r.perdeuCamisa ? ' A camisa já tinha dono no Time novo e foi liberada.' : ''}`);
         break;
       }
@@ -264,9 +268,12 @@ async function main(): Promise<void> {
         // Remove um Jogador que ainda não jogou (cadastro feito por engano).
         const usuario = (process.env.USUARIO ?? '').replace(/^@/, '').toLowerCase();
         if (!usuario) throw new Error('Use: USUARIO=fulano pnpm liga remover');
-        const j = (await banco.query<{ id: string; username: string; time_id: string; posicao: string }>(
-          `SELECT id::text AS id, username, time_id, posicao FROM jogador WHERE lower(username) = $1`, [usuario],
-        )).rows[0];
+        // Com ID: remove exatamente esse Jogador (quando há dois com o mesmo @).
+        const achados = (await banco.query<{ id: string; username: string; time_id: string; posicao: string }>(
+          `SELECT id::text AS id, username, time_id, posicao FROM jogador WHERE lower(username) = $1 AND ($2::text IS NULL OR id::text = $2)`, [usuario, process.env.ID || null],
+        )).rows;
+        if (achados.length > 1) throw new Error(`Há ${achados.length} Jogadores @${usuario} (ids ${achados.map((x) => x.id).join(', ')}): informe o ID.`);
+        const j = achados[0];
         if (!j) throw new Error(`Nenhum Jogador @${usuario}.`);
         const usos = (await banco.query<{ n: string }>(
           `SELECT (SELECT count(*) FROM escalacao WHERE jogador_id = $1) + (SELECT count(*) FROM candidato WHERE jogador_id = $1) AS n`, [j.id],

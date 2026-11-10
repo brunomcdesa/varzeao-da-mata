@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Banco } from '../src/banco.js';
-import { moverJogador, processarComentario, type Comentario } from '../src/coletar.js';
+import { jogadorPeloUsername, moverJogador, processarComentario, type Comentario } from '../src/coletar.js';
 import { FOLGA_DE_ELENCO, OVR_INICIAL } from '../src/regras.js';
 import { AgendaNaMemoria } from '../src/nuvem.js';
 import { craqueDaRodada } from '../src/resumo.js';
@@ -100,6 +100,15 @@ describe('Inscrição', () => {
     expect(depois.habilidades).toEqual(antes.habilidades);
     expect((await banco.query('SELECT 1 FROM transferencia')).rows).toHaveLength(0);
     await expect(moverJogador(banco, 'ninguem', 'ONC')).rejects.toThrow(/Nenhum Jogador/);
+  });
+
+  it('dois Jogadores com o mesmo @: mover pede o id; a Inscrição manual vê que o @ já joga', async () => {
+    await processarComentario(banco, comentario('ig-real', 'ENTRO TAMANDUA ZAG', { username: '_eduardo_les' }), semVotacao);
+    expect(await jogadorPeloUsername(banco, '@_Eduardo_Les')).toMatchObject({ time_id: 'TAM', posicao: 'ZAG' });
+    await processarComentario(banco, comentario('dm-_eduardo_les', 'ENTRO ONCA ZAG', { username: '_eduardo_les' }), { ...semVotacao, forcar: true });
+    await expect(moverJogador(banco, '_eduardo_les', 'ONC')).rejects.toThrow(/informe o ID/);
+    const real = (await banco.query<{ id: string }>(`SELECT id::text AS id FROM jogador WHERE ig_user_id = 'ig-real'`)).rows[0]!.id;
+    expect(await moverJogador(banco, '_eduardo_les', 'ONC', undefined, real)).toMatchObject({ de: 'TAM', para: 'ONC' });
   });
 
   it('banido é ignorado; @ bloqueado não se inscreve', async () => {
