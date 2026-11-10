@@ -18,6 +18,10 @@ on:
       jeitos:
         description: 'Prévia: JSON {"Nome": "jeito de narrar"} para testar o estilo de cada um'
         default: ''
+      lite:
+        description: 'Gravar pelo modelo lite (quando a cota do principal acabou)'
+        type: boolean
+        default: false
       catalogo:
         description: 'Só lista as vozes prontas pt-BR da biblioteca (sem gerar áudio)'
         type: boolean
@@ -37,6 +41,7 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       NARRADORES_IDS: ${{ inputs.ids }}
       NARRADORES_JEITOS: ${{ inputs.jeitos }}
+      NARRADORES_LITE: ${{ inputs.lite && '1' || '' }}
       NARRADORES_PREVIA: ${{ inputs.previa && '1' || '' }}
     steps:
       - uses: actions/checkout@v4

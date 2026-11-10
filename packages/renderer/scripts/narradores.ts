@@ -14,7 +14,7 @@
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { MODELO_PADRAO, falarGemini } from './gemini.js';
+import { MODELO_LITE, MODELO_PADRAO, falarGemini } from './gemini.js';
 import type { Tom } from '../src/narracao.js';
 import { NARRADORES } from '../src/narradores.js';
 
@@ -67,6 +67,8 @@ const pasta = resolve(process.argv[2] ?? 'narradores');
 await mkdir(pasta, { recursive: true });
 // NARRADORES_IDS='{"Seu Dito":"voice_..."}': regrava as amostras sem criar vozes novas.
 const previaComparacao = process.env.NARRADORES_PREVIA === '1';
+// NARRADORES_LITE=1: grava pelo modelo lite (cota própria), para quando a do principal acabou.
+const modelo = process.env.NARRADORES_LITE === '1' ? MODELO_LITE : MODELO_PADRAO;
 // Na prévia, NARRADORES_IDS ({"Nome": "voz"}) troca os Narradores atuais por candidatas.
 const idsInformados = JSON.parse(process.env.NARRADORES_IDS || '{}') as Record<string, string>;
 const existentes: Record<string, string> =
@@ -90,7 +92,7 @@ for (const c of lista) {
   }
   for (const [i, f] of falas.entries()) {
     partes.push(join(pasta, `${c.nome}-${i + 1}.wav`));
-    await writeFile(partes.at(-1)!, await falarGemini(f.texto, f.tom, chave, id, MODELO_PADRAO, jeitos[c.nome]));
+    await writeFile(partes.at(-1)!, await falarGemini(f.texto, f.tom, chave, id, modelo, jeitos[c.nome]));
   }
   // Tudo num mp3 só, com meio segundo entre as partes.
   const entradas = partes.flatMap((p) => ['-i', p]);
