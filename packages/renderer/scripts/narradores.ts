@@ -8,7 +8,8 @@
  * Os ids não são segredo: os escolhidos vão para src/narradores.ts.
  *
  * Prévia de comparação (NARRADORES_PREVIA=1): uma fala só, a mesma, para cada Narrador de
- * src/narradores.ts (inclusive o Beto Bola, voz pronta). Um pedido por voz, sem criar vozes.
+ * src/narradores.ts (inclusive o Beto Bola, voz pronta), ou para as vozes de NARRADORES_IDS.
+ * Um pedido por voz, sem criar vozes.
  */
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -66,10 +67,11 @@ const pasta = resolve(process.argv[2] ?? 'narradores');
 await mkdir(pasta, { recursive: true });
 // NARRADORES_IDS='{"Seu Dito":"voice_..."}': regrava as amostras sem criar vozes novas.
 const previaComparacao = process.env.NARRADORES_PREVIA === '1';
-const existentes: Record<string, string> = previaComparacao
-  ? Object.fromEntries(NARRADORES.map((n) => [n.nome, n.voz]))
-  : (JSON.parse(process.env.NARRADORES_IDS || '{}') as Record<string, string>);
-const lista: Pick<Candidato, 'nome'>[] = previaComparacao ? NARRADORES.map((n) => ({ nome: n.nome })) : CANDIDATOS;
+// Na prévia, NARRADORES_IDS ({"Nome": "voz"}) troca os Narradores atuais por candidatas.
+const idsInformados = JSON.parse(process.env.NARRADORES_IDS || '{}') as Record<string, string>;
+const existentes: Record<string, string> =
+  previaComparacao && !Object.keys(idsInformados).length ? Object.fromEntries(NARRADORES.map((n) => [n.nome, n.voz])) : idsInformados;
+const lista: Pick<Candidato, 'nome'>[] = previaComparacao ? Object.keys(existentes).map((nome) => ({ nome })) : CANDIDATOS;
 const falas = previaComparacao ? FALAS.slice(1, 2) : FALAS;
 const ids: Record<string, string> = {};
 for (const c of lista) {

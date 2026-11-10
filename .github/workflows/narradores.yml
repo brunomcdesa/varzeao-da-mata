@@ -15,6 +15,10 @@ on:
         description: 'Só o teste de pronúncia (sem criar vozes nem amostras)'
         type: boolean
         default: false
+      catalogo:
+        description: 'Só lista as vozes prontas pt-BR da biblioteca (sem gerar áudio)'
+        type: boolean
+        default: false
       previa:
         description: 'Prévia de comparação: a mesma fala com cada Narrador (5 pedidos de voz, branch previa-narradores)'
         type: boolean
@@ -35,17 +39,23 @@ jobs:
       - uses: ./.github/actions/preparar
         with:
           video: 'true'
-      - if: inputs.cota
+      - if: inputs.cota && !inputs.catalogo
         run: |
           pnpm --filter @liga/renderer exec tsx scripts/opcoes-pronuncia.ts "$RUNNER_TEMP/narradores"
           cd "$RUNNER_TEMP/narradores" && git init -q -b amostras && git add opcoes-varzeao.mp3
           git -c user.name=liga -c user.email=liga@users.noreply.github.com commit -qm "Opções de pronúncia"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" amostras
-      - if: inputs.pronuncia && !inputs.cota
+      - if: inputs.catalogo
+        run: |
+          pnpm --filter @liga/renderer exec tsx scripts/catalogo.ts "$RUNNER_TEMP/catalogo"
+          cd "$RUNNER_TEMP/catalogo" && git init -q -b catalogo-vozes && git add catalogo.json
+          git -c user.name=liga -c user.email=liga@users.noreply.github.com commit -qm "Catálogo de vozes pt-BR"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" catalogo-vozes
+      - if: inputs.pronuncia && !inputs.cota && !inputs.catalogo
         run: pnpm --filter @liga/renderer pronuncia
-      - if: ${{ !inputs.pronuncia && !inputs.cota }}
+      - if: ${{ !inputs.pronuncia && !inputs.cota && !inputs.catalogo }}
         run: pnpm --filter @liga/renderer narradores "$RUNNER_TEMP/narradores"
-      - if: ${{ !inputs.pronuncia && !inputs.cota }}
+      - if: ${{ !inputs.pronuncia && !inputs.cota && !inputs.catalogo }}
         uses: actions/upload-artifact@v4
         with:
           name: narradores
@@ -53,7 +63,7 @@ jobs:
             ${{ runner.temp }}/narradores/*.mp3
             ${{ runner.temp }}/narradores/narradores.json
       # As amostras também vão para o branch 'amostras' (só os mp3 e os ids), para baixar com git.
-      - if: ${{ !inputs.pronuncia && !inputs.cota }}
+      - if: ${{ !inputs.pronuncia && !inputs.cota && !inputs.catalogo }}
         run: |
           cd "$RUNNER_TEMP/narradores"
           RAMO=${{ inputs.previa && 'previa-narradores' || 'amostras' }}
