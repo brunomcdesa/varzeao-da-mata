@@ -62,8 +62,11 @@ export function ssml(texto: string, tom: Tom, voz: string, estilo?: string): str
   );
 }
 
-/** `vozGemini`: a voz do Narrador da Partida (senão GEMINI_TTS_VOZ ou a padrão). */
-export function criarLocutor(pastaCache: string, modoForcado?: string, vozGemini?: string): Locutor {
+/**
+ * `vozGemini`: a voz do Narrador da Partida (senão GEMINI_TTS_VOZ ou a padrão).
+ * `jeito`: o jeito de narrar do Narrador (veja estiloDe em gemini.ts).
+ */
+export function criarLocutor(pastaCache: string, modoForcado?: string, vozGemini?: string, jeito?: string): Locutor {
   const chave = process.env.AZURE_SPEECH_KEY;
   const regiao = process.env.AZURE_SPEECH_REGION;
   const voz = process.env.AZURE_SPEECH_VOICE ?? 'pt-BR-AntonioNeural';
@@ -99,8 +102,9 @@ export function criarLocutor(pastaCache: string, modoForcado?: string, vozGemini
   if (modo === 'gemini') {
     const voz = vozGemini || process.env.GEMINI_TTS_VOZ || VOZ_PADRAO;
     const modelo = process.env.GEMINI_TTS_MODELO || MODELO_PADRAO;
-    const chaveDe = (texto: string, tom: Tom) => `gemini|${modelo}|${voz}|${tom}|${paraFalar(texto, voz)}`;
-    const falar = (texto: string, tom: Tom) => comCache(chaveDe(texto, tom), () => falarGemini(texto, tom, chaveGemini!, voz, modelo));
+    // O jeito entra na chave só quando existe, para o cache antigo continuar valendo.
+    const chaveDe = (texto: string, tom: Tom) => `gemini|${modelo}|${voz}|${tom}|${jeito ? `${jeito}|` : ''}${paraFalar(texto, voz)}`;
+    const falar = (texto: string, tom: Tom) => comCache(chaveDe(texto, tom), () => falarGemini(texto, tom, chaveGemini!, voz, modelo, jeito));
     const diagnostico = async (wav: Uint8Array, motivo: string) => {
       const pasta = join(pastaCache, 'falhas');
       await mkdir(pasta, { recursive: true });
@@ -110,7 +114,7 @@ export function criarLocutor(pastaCache: string, modoForcado?: string, vozGemini
     };
     /** Um pedido para o lote inteiro; se o corte falhar, divide ao meio (sem cair para fala por fala). */
     const sintetizarLote = async (lote: { texto: string; tom: Tom }[]): Promise<Uint8Array[]> => {
-      const r = await falarVariasGemini(lote, chaveGemini!, voz, modelo, diagnostico);
+      const r = await falarVariasGemini(lote, chaveGemini!, voz, modelo, diagnostico, jeito);
       if (r) return r;
       if (lote.length === 1) throw new Error(`não consegui recortar a fala "${lote[0]!.texto}"`);
       const meio = Math.ceil(lote.length / 2);
@@ -142,7 +146,7 @@ export function criarLocutor(pastaCache: string, modoForcado?: string, vozGemini
             const anterior = process.env.GEMINI_TTS_MODELO;
             process.env.GEMINI_TTS_MODELO = MODELO_LITE;
             try {
-              return await criarLocutor(pastaCache, 'gemini', voz).falarTodas(falas, progresso);
+              return await criarLocutor(pastaCache, 'gemini', voz, jeito).falarTodas(falas, progresso);
             } catch (e2) {
               if (!(e2 instanceof CotaDiariaEsgotada) && !/recusou/.test((e2 as Error).message)) throw e2;
               console.warn(`  ⚠ O modelo lite também falhou: ${(e2 as Error).message.slice(0, 300)}`);

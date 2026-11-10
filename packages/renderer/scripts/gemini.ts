@@ -39,7 +39,12 @@ export const ESTILO_CURTO: Record<Tom, string> = {
   animado: 'Empolgado, reagindo ao lance.',
   grito: 'Gritando o gol, eufórico.',
 };
-export const estiloDe = (tom: Tom, voz: string) => (voz.startsWith('voice_') ? ESTILO_CURTO : ESTILO)[tom];
+/**
+ * `jeito`: o jeito de narrar próprio do Narrador (ritmo e postura), que vai antes da emoção do
+ * momento. Sem jeito, vale o estilo de sempre: curto para vozes do Voice design, longo para as outras.
+ */
+export const estiloDe = (tom: Tom, voz: string, jeito?: string) =>
+  jeito ? `${jeito} ${ESTILO_CURTO[tom]}` : (voz.startsWith('voice_') ? ESTILO_CURTO : ESTILO)[tom];
 
 /**
  * Grafia só para a voz. As vozes criadas no Voice design às vezes leem "Varzeão" como
@@ -50,13 +55,13 @@ export const estiloDe = (tom: Tom, voz: string) => (voz.startsWith('voice_') ? E
 export const paraFalar = (texto: string, voz: string) =>
   process.env.SEM_GRAFIA === '1' || !voz.startsWith('voice_') ? texto : texto.replace(/Varzeão/g, 'Varzêão').replace(/VARZEÃO/g, 'VARZÊÃO');
 
-export function pedidoGemini(texto: string, tom: Tom, voz: string, modelo: string): unknown {
+export function pedidoGemini(texto: string, tom: Tom, voz: string, modelo: string, jeito?: string): unknown {
   return {
     model: modelo,
     input: [
       {
         type: 'user_input',
-        content: [{ type: 'text', text: paraFalar(texto, voz), annotations: [{ type: 'speech_metadata', style: estiloDe(tom, voz) }] }],
+        content: [{ type: 'text', text: paraFalar(texto, voz), annotations: [{ type: 'speech_metadata', style: estiloDe(tom, voz, jeito) }] }],
       },
     ],
     response_format: { type: 'audio', mime_type: 'audio/wav', sample_rate: 24000 },
@@ -151,8 +156,8 @@ async function pedir(corpo: unknown, chave: string, descricao: string): Promise<
   throw new Error(`Gemini TTS recusou ${descricao}: ${ultimoErro}`);
 }
 
-export function falarGemini(texto: string, tom: Tom, chave: string, voz: string, modelo: string): Promise<Uint8Array> {
-  return pedir(pedidoGemini(texto, tom, voz, modelo), chave, `a fala "${texto}"`);
+export function falarGemini(texto: string, tom: Tom, chave: string, voz: string, modelo: string, jeito?: string): Promise<Uint8Array> {
+  return pedir(pedidoGemini(texto, tom, voz, modelo, jeito), chave, `a fala "${texto}"`);
 }
 
 /**
@@ -160,7 +165,7 @@ export function falarGemini(texto: string, tom: Tom, chave: string, voz: string,
  * texto por fala, cada um com seu speech_metadata). Pausas longas no fim de cada fala
  * permitem cortar o áudio depois.
  */
-export function pedidoGeminiVarias(falas: { texto: string; tom: Tom }[], voz: string, modelo: string): unknown {
+export function pedidoGeminiVarias(falas: { texto: string; tom: Tom }[], voz: string, modelo: string, jeito?: string): unknown {
   return {
     model: modelo,
     input: [
@@ -169,7 +174,7 @@ export function pedidoGeminiVarias(falas: { texto: string; tom: Tom }[], voz: st
         content: falas.map((f, i) => ({
           type: 'text',
           text: paraFalar(i < falas.length - 1 ? f.texto + SEPARADOR : f.texto, voz),
-          annotations: [{ type: 'speech_metadata', style: estiloDe(f.tom, voz) }],
+          annotations: [{ type: 'speech_metadata', style: estiloDe(f.tom, voz, jeito) }],
         })),
       },
     ],
@@ -254,8 +259,9 @@ export async function falarVariasGemini(
   voz: string,
   modelo: string,
   diagnostico?: (wav: Uint8Array, motivo: string) => Promise<void>,
+  jeito?: string,
 ): Promise<Uint8Array[] | null> {
-  const wav = await pedir(pedidoGeminiVarias(falas, voz, modelo), chave, `um lote de ${falas.length} falas`);
+  const wav = await pedir(pedidoGeminiVarias(falas, voz, modelo, jeito), chave, `um lote de ${falas.length} falas`);
   if (falas.length === 1) {
     const { amostras } = lerWavMono(wav);
     const [unica] = dividirPorSilencio(amostras, 1)!;

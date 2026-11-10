@@ -73,6 +73,10 @@ const existentes: Record<string, string> =
   previaComparacao && !Object.keys(idsInformados).length ? Object.fromEntries(NARRADORES.map((n) => [n.nome, n.voz])) : idsInformados;
 const lista: Pick<Candidato, 'nome'>[] = previaComparacao ? Object.keys(existentes).map((nome) => ({ nome })) : CANDIDATOS;
 const falas = previaComparacao ? FALAS.slice(1, 2) : FALAS;
+// Na prévia, NARRADORES_JEITOS ({"Nome": "jeito"}) testa o jeito de narrar de cada um.
+const jeitos: Record<string, string> = previaComparacao
+  ? { ...Object.fromEntries(NARRADORES.flatMap((n) => (n.jeito ? [[n.nome, n.jeito]] : []))), ...(JSON.parse(process.env.NARRADORES_JEITOS || '{}') as Record<string, string>) }
+  : {};
 const ids: Record<string, string> = {};
 for (const c of lista) {
   const { id, previa } = existentes[c.nome] ? { id: existentes[c.nome]!, previa: null } : await criarVoz(chave, c as Candidato);
@@ -85,7 +89,7 @@ for (const c of lista) {
   }
   for (const [i, f] of falas.entries()) {
     partes.push(join(pasta, `${c.nome}-${i + 1}.wav`));
-    await writeFile(partes.at(-1)!, await falarGemini(f.texto, f.tom, chave, id, MODELO_PADRAO));
+    await writeFile(partes.at(-1)!, await falarGemini(f.texto, f.tom, chave, id, MODELO_PADRAO, jeitos[c.nome]));
   }
   // Tudo num mp3 só, com meio segundo entre as partes.
   const entradas = partes.flatMap((p) => ['-i', p]);

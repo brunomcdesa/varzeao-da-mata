@@ -100,7 +100,7 @@ async function montarAudio(partida: PartidaParaVideo, dir: string): Promise<{ ar
   const falasBase = montarNarracao(base, partida.apelidos);
   const narrador = narradorDa(partida.resultado.seed);
   console.log(`  Narrador: ${narrador.nome}`);
-  const vozes = await sintetizar(falasBase, narrador.voz);
+  const vozes = await sintetizar(falasBase, narrador.voz, narrador.jeito);
   const duracao = (id: string) => vozes.get(id)!.length / TAXA;
   const opcoes: OpcoesRoteiro = { ...partida.roteiro, minimos: exigenciasDaNarracao(base, falasBase, duracao) };
   const roteiro = new Roteiro(timeline, opcoes);
@@ -160,8 +160,8 @@ async function codificar(pagina: import('playwright').Page, totalQuadros: number
 }
 
 /** Sintetiza as falas pelo Locutor e devolve as amostras de cada uma (48 kHz mono). */
-async function sintetizar(falas: Fala[], voz?: string): Promise<Map<string, Float32Array>> {
-  const locutor = criarLocutor(join(raiz, '.cache/locutor'), undefined, voz);
+async function sintetizar(falas: Fala[], voz?: string, jeito?: string): Promise<Map<string, Float32Array>> {
+  const locutor = criarLocutor(join(raiz, '.cache/locutor'), undefined, voz, jeito);
   if (locutor.modo === 'espeak') console.warn('  Sem chave de voz: usando a voz de teste do espeak-ng.');
   if (locutor.modo === 'mudo') console.warn('  Sem chave de voz nem espeak-ng: o vídeo sai sem a voz do Locutor.');
   const wavs = await locutor.falarTodas(falas, (feitas) => {

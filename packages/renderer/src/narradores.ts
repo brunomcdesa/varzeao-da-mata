@@ -8,8 +8,10 @@
 export interface Narrador {
   id: string;
   nome: string;
-  /** Voz do Gemini TTS: pronta ("Lumi") ou criada no Voice design ("voice_..."). */
+  /** Voz do Gemini TTS: pronta ("Lumi", "pt-br-...") ou criada no Voice design ("voice_..."). */
   voz: string;
+  /** Jeito de narrar (ritmo e postura), somado à emoção do momento. Sem ele, o estilo padrão. */
+  jeito?: string;
   /** Como ele se apresenta na abertura. */
   apresentacao: string;
   /** Grito de gol próprio; {time} vira "da Onça", "do Tatu"... */

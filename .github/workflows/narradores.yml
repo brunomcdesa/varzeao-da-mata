@@ -15,6 +15,9 @@ on:
         description: 'Só o teste de pronúncia (sem criar vozes nem amostras)'
         type: boolean
         default: false
+      jeitos:
+        description: 'Prévia: JSON {"Nome": "jeito de narrar"} para testar o estilo de cada um'
+        default: ''
       catalogo:
         description: 'Só lista as vozes prontas pt-BR da biblioteca (sem gerar áudio)'
         type: boolean
@@ -33,6 +36,7 @@ jobs:
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       NARRADORES_IDS: ${{ inputs.ids }}
+      NARRADORES_JEITOS: ${{ inputs.jeitos }}
       NARRADORES_PREVIA: ${{ inputs.previa && '1' || '' }}
     steps:
       - uses: actions/checkout@v4

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 // Nos testes não há limite real de pedidos por minuto.
 process.env.GEMINI_TTS_RPM = '10000';
 import { codificarWav, lerWavMono } from '../src/audio.js';
-import { CotaDiariaEsgotada, ESTILO, dividirPorSilencio, falarLoteGemini, falarVariasGemini, pedidoGeminiVarias, esperaPedida, extrairAudio, para48k, pedidoGemini } from '../scripts/gemini.js';
+import { CotaDiariaEsgotada, ESTILO, ESTILO_CURTO, estiloDe, dividirPorSilencio, falarLoteGemini, falarVariasGemini, pedidoGeminiVarias, esperaPedida, extrairAudio, para48k, pedidoGemini } from '../scripts/gemini.js';
 
 describe('Gemini TTS', () => {
   it('monta o pedido com voz, estilo do tom e texto separados', () => {
@@ -14,6 +14,20 @@ describe('Gemini TTS', () => {
     expect(conteudo.text).toBe('Gooool da Capivara!');
     expect(conteudo.annotations[0]).toEqual({ type: 'speech_metadata', style: ESTILO.grito });
     expect(p.response_format.type).toBe('audio');
+  });
+
+  it('jeito do Narrador vai antes da emoção do momento, no pedido avulso e no lote', () => {
+    const jeito = 'Narrador veterano, fala pausada.';
+    expect(estiloDe('grito', 'pt-br-storyteller-10', jeito)).toBe(`${jeito} ${ESTILO_CURTO.grito}`);
+    const avulso = pedidoGemini('Gol!', 'grito', 'pt-br-storyteller-10', 'm', jeito) as any;
+    expect(avulso.input[0].content[0].annotations[0].style).toBe(`${jeito} ${ESTILO_CURTO.grito}`);
+    const lote = pedidoGeminiVarias([{ texto: 'a', tom: 'normal' }, { texto: 'b', tom: 'animado' }], 'pt-br-storyteller-10', 'm', jeito) as any;
+    expect(lote.input[0].content.map((c: any) => c.annotations[0].style)).toEqual([`${jeito} ${ESTILO_CURTO.normal}`, `${jeito} ${ESTILO_CURTO.animado}`]);
+  });
+
+  it('sem jeito, o estilo de sempre: longo para voz pronta, curto para Voice design', () => {
+    expect(estiloDe('grito', 'Lumi')).toBe(ESTILO.grito);
+    expect(estiloDe('grito', 'voice_abc')).toBe(ESTILO_CURTO.grito);
   });
 
   it('acha o áudio na resposta e converte 24 kHz para 48 kHz', () => {
