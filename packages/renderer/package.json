@@ -11,6 +11,7 @@
     "demo": "node scripts/build-demo.mjs",
     "gravar": "tsx scripts/gravar.ts",
     "apresentacao": "tsx scripts/apresentacao.ts",
+    "explicacao-escalacao": "tsx scripts/explicacao-escalacao.ts",
     "vozes": "tsx scripts/vozes.ts",
     "narradores": "tsx scripts/narradores.ts",
     "pronuncia": "tsx scripts/pronuncia.ts",

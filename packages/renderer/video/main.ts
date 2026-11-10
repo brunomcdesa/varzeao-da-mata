@@ -26,6 +26,7 @@ import telaVisualEscolhido from './telas/8b-visual-escolhido.png';
 import telaCamisa from './telas/9-visual-escolhido.png';
 import telaCard from './telas/11-card.png';
 import { RoteiroAnuncio, desenharQuadroAnuncio, type TelaDoSite } from '../src/anuncio.js';
+import { RoteiroExplicacao, desenharQuadroExplicacao, type DadosDaExplicacao } from '../src/explicacaoEscalacao.js';
 import { Roteiro, Timeline, desenharCapa, desenharQuadroVideo, type OpcoesVideo, type PartidaParaVideo } from '../src/index.js';
 
 const FONTES: [string, string, string][] = [
@@ -47,6 +48,8 @@ let apresentacao: RoteiroApresentacao | null = null;
 let fps = 30;
 /** Quando preenchido, a página grava o Reels de anúncio (vínculo pela DM). */
 let anuncio: RoteiroAnuncio | null = null;
+/** Quando preenchido, a página grava o Reels que explica a Escalação. */
+let explicacao: RoteiroExplicacao | null = null;
 const URL_DAS_TELAS: Record<TelaDoSite, string> = { busca: telaBusca, convite: telaConvite, codigo: telaCodigo, vinculado: telaVinculado, transferencia: telaTransferencia, pedido: telaPedido, feito: telaFeito, visual: telaVisual, visualEscolhido: telaVisualEscolhido, camisa: telaCamisa, card: telaCard };
 const telas: Partial<Record<TelaDoSite, HTMLImageElement>> = {};
 const telasProntas = Promise.all(
@@ -67,6 +70,7 @@ async function prepararAnuncio(minimos: Record<number, { antes?: number }> = {},
   fps = quadrosPorSegundo;
   resumo = null;
   apresentacao = null;
+  explicacao = null;
   anuncio = new RoteiroAnuncio(minimos);
   return { duracao: anuncio.duracao, totalQuadros: anuncio.totalQuadros(fps) };
 }
@@ -92,6 +96,7 @@ async function preparar(dados: PartidaParaVideo, quadrosPorSegundo = 30): Promis
   resumo = null;
   apresentacao = null;
   anuncio = null;
+  explicacao = null;
   definirAparencias(dados.aparencias ?? {});
   roteiro = new Roteiro(new Timeline(dados.resultado, dados.escalacoes), dados.roteiro);
   opcoes = {
@@ -113,6 +118,7 @@ async function prepararResumo(
   fps = quadrosPorSegundo;
   apresentacao = null;
   anuncio = null;
+  explicacao = null;
   definirAparencias(dados.aparencias ?? {});
   resumo = new RoteiroResumo(dados, minimos);
   return { duracao: resumo.duracao, totalQuadros: resumo.totalQuadros(fps) };
@@ -127,11 +133,27 @@ async function prepararApresentacao(
   fps = quadrosPorSegundo;
   resumo = null;
   anuncio = null;
+  explicacao = null;
   apresentacao = new RoteiroApresentacao(dados, minimos);
   return { duracao: apresentacao.duracao, totalQuadros: apresentacao.totalQuadros(fps) };
 }
 
+async function prepararExplicacao(
+  dados: DadosDaExplicacao,
+  minimos: Record<number, { antes?: number }> = {},
+  quadrosPorSegundo = 30,
+): Promise<{ duracao: number; totalQuadros: number }> {
+  await Promise.all([fontesProntas, escudoPronto]);
+  fps = quadrosPorSegundo;
+  resumo = null;
+  apresentacao = null;
+  anuncio = null;
+  explicacao = new RoteiroExplicacao(dados, minimos);
+  return { duracao: explicacao.duracao, totalQuadros: explicacao.totalQuadros(fps) };
+}
+
 function desenhar(n: number): void {
+  if (explicacao) return desenharQuadroExplicacao(ctx, explicacao, n / fps, { escudo });
   if (anuncio) return desenharQuadroAnuncio(ctx, anuncio, n / fps, { escudo, telas });
   if (apresentacao) return desenharQuadroApresentacao(ctx, apresentacao, n / fps, { escudo });
   if (resumo) return desenharQuadroResumo(ctx, resumo, n / fps, { escudo });
@@ -157,6 +179,7 @@ function capa(qualidade = 0.95): string {
 
 /** Segmentos do roteiro (para a prévia escolher quadros-chave). */
 function segmentos(): { tipo: string; inicio: number; fim: number; resolucao?: number }[] {
+  if (explicacao) return explicacao.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
   if (anuncio) return anuncio.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
   if (apresentacao) return apresentacao.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
   if (resumo) return resumo.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
@@ -175,5 +198,5 @@ function escudoPng(time: TimeId, escala: number): string {
   return c.toDataURL('image/png').slice('data:image/png;base64,'.length);
 }
 
-const api: VarzeaApi = { preparar, prepararResumo, prepararApresentacao, prepararAnuncio, desenhar, capturar, capa, segmentos, escudoPng, times: () => [...TIMES] };
+const api: VarzeaApi = { preparar, prepararResumo, prepararApresentacao, prepararAnuncio, prepararExplicacao, desenhar, capturar, capa, segmentos, escudoPng, times: () => [...TIMES] };
 window.varzea = api;

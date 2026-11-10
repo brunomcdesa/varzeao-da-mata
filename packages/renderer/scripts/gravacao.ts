@@ -27,6 +27,7 @@ import type { VarzeaApi } from '../video/api.js';
 import { RoteiroResumo, narracaoDoResumo, type DadosDoResumo } from '../src/resumo.js';
 import { RoteiroApresentacao, narracaoDaApresentacao, type DadosDaApresentacao } from '../src/apresentacao.js';
 import { RoteiroAnuncio, narracaoDoAnuncio } from '../src/anuncio.js';
+import { RoteiroExplicacao, narracaoDaExplicacao, type DadosDaExplicacao } from '../src/explicacaoEscalacao.js';
 import type { Fala } from '../src/narracao.js';
 
 const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -354,6 +355,53 @@ export async function gravarAnuncio(o: OpcoesGravacao): Promise<{ duracao: numbe
     }
     const { duracao, totalQuadros } = await pagina.evaluate(([m, f]) => window.varzea.prepararAnuncio(m, f), [minimos, fps] as const);
     console.log(`Anúncio: vínculo pela DM · ${duracao.toFixed(1)} s · ${totalQuadros} quadros a ${fps} fps`);
+    if (o.previa) {
+      await gravarPrevia(pagina, o.previa, fps, o.instantes);
+      return { duracao };
+    }
+    await codificar(pagina, totalQuadros, audio!, o.saida, fps, crf);
+    console.log(`Pronto: ${o.saida} (${((performance.now() - inicio) / 1000).toFixed(1)} s)`);
+    return { duracao };
+  } finally {
+    await navegador.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+/** Reels que explica a Escalação (rodízio por Posição), com os Elencos do momento. */
+export async function gravarExplicacao(dados: DadosDaExplicacao, o: OpcoesGravacao): Promise<{ duracao: number }> {
+  const inicio = performance.now();
+  const fps = o.fps ?? 30;
+  const crf = o.crf ?? 20;
+  await mkdir(dirname(o.saida), { recursive: true });
+  const dir = await mkdtemp(join(tmpdir(), 'varzea-explicacao-'));
+  const navegador = await chromium.launch();
+  try {
+    const pagina = await navegador.newPage({ viewport: { width: 1080, height: 1920 } });
+    pagina.on('pageerror', (e) => console.error('[página]', e.message));
+    await pagina.goto(await montarPagina(dir));
+
+    let minimos: Record<number, { antes?: number }> = {};
+    let audio: string | null = null;
+    if (!o.previa) {
+      console.log('Locução:');
+      const base = new RoteiroExplicacao(dados);
+      const falasBase = narracaoDaExplicacao(base);
+      const vozes = await sintetizar(falasBase);
+      const duracao = (id: string) => vozes.get(id)!.length / TAXA;
+      minimos = exigenciasDaNarracao(base, falasBase, duracao);
+      const roteiro = new RoteiroExplicacao(dados, minimos);
+      const falas = narracaoDaExplicacao(roteiro);
+      const naMixagem: VozNaMixagem[] = agendarFalas(falas, duracao).map((a) => {
+        console.log(`  ${a.inicio.toFixed(1).padStart(5)} s  ${falas.find((x) => x.id === a.id)!.texto}`);
+        return { inicio: a.inicio, amostras: vozes.get(a.id)! };
+      });
+      const { esq, dir: direita } = mixar({ duracao: roteiro.duracao, segmentos: roteiro.segmentos, eventos: [{ tipo: 'APITO_FINAL', t: 0.1 }, { tipo: 'APITO_FINAL', t: roteiro.duracao - 1.2 }], vozes: naMixagem });
+      audio = join(dir, 'audio.wav');
+      await writeFile(audio, codificarWav(esq, direita));
+    }
+    const { duracao, totalQuadros } = await pagina.evaluate(([d, m, f]) => window.varzea.prepararExplicacao(d, m, f), [dados, minimos, fps] as const);
+    console.log(`Explicação da Escalação · ${duracao.toFixed(1)} s · ${totalQuadros} quadros a ${fps} fps`);
     if (o.previa) {
       await gravarPrevia(pagina, o.previa, fps, o.instantes);
       return { duracao };
