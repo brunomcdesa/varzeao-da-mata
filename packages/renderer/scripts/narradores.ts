@@ -6,12 +6,16 @@
  * Cada candidato vira uma voz guardada no projeto (id voice_..., vale 1 ano). Na pasta saem
  * <nome>.mp3 (a prévia do Voice design + as falas de teste) e narradores.json com os ids.
  * Os ids não são segredo: os escolhidos vão para src/narradores.ts.
+ *
+ * Prévia de comparação (NARRADORES_PREVIA=1): uma fala só, a mesma, para cada Narrador de
+ * src/narradores.ts (inclusive o Beto Bola, voz pronta). Um pedido por voz, sem criar vozes.
  */
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { MODELO_PADRAO, falarGemini } from './gemini.js';
 import type { Tom } from '../src/narracao.js';
+import { NARRADORES } from '../src/narradores.js';
 
 interface Candidato {
   nome: string;
@@ -61,10 +65,15 @@ if (!chave) throw new Error('Falta GEMINI_API_KEY.');
 const pasta = resolve(process.argv[2] ?? 'narradores');
 await mkdir(pasta, { recursive: true });
 // NARRADORES_IDS='{"Seu Dito":"voice_..."}': regrava as amostras sem criar vozes novas.
-const existentes = JSON.parse(process.env.NARRADORES_IDS || '{}') as Record<string, string>;
+const previaComparacao = process.env.NARRADORES_PREVIA === '1';
+const existentes: Record<string, string> = previaComparacao
+  ? Object.fromEntries(NARRADORES.map((n) => [n.nome, n.voz]))
+  : (JSON.parse(process.env.NARRADORES_IDS || '{}') as Record<string, string>);
+const lista: Pick<Candidato, 'nome'>[] = previaComparacao ? NARRADORES.map((n) => ({ nome: n.nome })) : CANDIDATOS;
+const falas = previaComparacao ? FALAS.slice(1, 2) : FALAS;
 const ids: Record<string, string> = {};
-for (const c of CANDIDATOS) {
-  const { id, previa } = existentes[c.nome] ? { id: existentes[c.nome]!, previa: null } : await criarVoz(chave, c);
+for (const c of lista) {
+  const { id, previa } = existentes[c.nome] ? { id: existentes[c.nome]!, previa: null } : await criarVoz(chave, c as Candidato);
   ids[c.nome] = id;
   console.log(`${c.nome}: ${id}`);
   const partes: string[] = [];
@@ -72,7 +81,7 @@ for (const c of CANDIDATOS) {
     partes.push(join(pasta, `${c.nome}-0.wav`));
     await writeFile(partes.at(-1)!, previa);
   }
-  for (const [i, f] of FALAS.entries()) {
+  for (const [i, f] of falas.entries()) {
     partes.push(join(pasta, `${c.nome}-${i + 1}.wav`));
     await writeFile(partes.at(-1)!, await falarGemini(f.texto, f.tom, chave, id, MODELO_PADRAO));
   }
