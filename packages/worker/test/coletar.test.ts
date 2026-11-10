@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Banco } from '../src/banco.js';
-import { jogadorPeloUsername, moverJogador, processarComentario, type Comentario } from '../src/coletar.js';
+import { corrigirTrocasDePosicao, jogadorPeloUsername, moverJogador, processarComentario, vincularConta, type Comentario } from '../src/coletar.js';
 import { FOLGA_DE_ELENCO, OVR_INICIAL } from '../src/regras.js';
 import { AgendaNaMemoria } from '../src/nuvem.js';
 import { craqueDaRodada } from '../src/resumo.js';
 import { importarVotosDoSite } from '../src/votoSite.js';
 import { bancoDeTeste } from './banco-de-teste.js';
+import { ovrDasHabilidades } from '@liga/shared';
 
 let banco: Banco;
 let n = 0;
@@ -109,6 +110,17 @@ describe('Inscrição', () => {
     await expect(moverJogador(banco, '_eduardo_les', 'ONC')).rejects.toThrow(/informe o ID/);
     const real = (await banco.query<{ id: string }>(`SELECT id::text AS id FROM jogador WHERE ig_user_id = 'ig-real'`)).rows[0]!.id;
     expect(await moverJogador(banco, '_eduardo_les', 'ONC', undefined, real)).toMatchObject({ de: 'TAM', para: 'ONC' });
+  });
+
+  it('vincular-conta: o Jogador da DM passa a ser da conta que comentou', async () => {
+    await processarComentario(banco, comentario('1789', 'ENTRO TAMANDUA ZAG', { username: '_eduardo_les' }), semVotacao);
+    await banco.query(`DELETE FROM jogador`);
+    await processarComentario(banco, comentario('dm-_eduardo_les', 'ENTRO ONCA ZAG', { username: '_eduardo_les', igMediaId: 'dm' }), { ...semVotacao, forcar: true });
+    expect(await vincularConta(banco, '@_eduardo_les')).toMatchObject({ de: 'dm-_eduardo_les', para: '1789' });
+    expect((await banco.query(`SELECT time_id FROM jogador WHERE ig_user_id = '1789'`)).rows).toEqual([{ time_id: 'ONC' }]);
+    // Agora o comentário dele acha o Jogador: um novo ENTRO não cria outro.
+    expect(await processarComentario(banco, comentario('1789', 'ENTRO ONCA ZAG', { username: '_eduardo_les' }), semVotacao)).toBe('JA_INSCRITO');
+    await expect(vincularConta(banco, '_eduardo_les')).rejects.toThrow(/id provisório/);
   });
 
   it('banido é ignorado; @ bloqueado não se inscreve', async () => {
@@ -238,12 +250,29 @@ describe('Transferência (ADR-0012)', () => {
     expect((await time('u1')).time_id).toBe('PRE');
   });
 
-  it('trocar só de posição recalcula o OVR pelas Habilidades e conta como a Transferência', async () => {
+  it('trocar de posição mantém o OVR e refaz as Habilidades no perfil novo (ADR-0030)', async () => {
     await processarComentario(banco, comentario('u1', 'ENTRO ONCA ATA'), ctx);
+    const antes = await time('u1');
     expect(await processarComentario(banco, comentario('u1', 'quero virar goleiro'), ctx)).toBe('TRANSFERIDO');
     const j = await time('u1');
-    expect(j).toMatchObject({ time_id: 'ONC', posicao: 'GOL' });
-    expect(respostas.at(-1)).toMatch(/mudança de posição feita/);
+    expect(j).toMatchObject({ time_id: 'ONC', posicao: 'GOL', ovr: antes.ovr });
+    const h = (await banco.query<{ habilidades: Record<string, number> }>(`SELECT habilidades FROM jogador WHERE ig_user_id = 'u1'`)).rows[0]!.habilidades;
+    expect(h.GOL).toBeGreaterThan(h.FIN!);
+    expect(Math.round(ovrDasHabilidades('GOL', h as never))).toBe(antes.ovr);
+    expect(respostas.at(-1)).toMatch(new RegExp(`mudança de posição feita! Agora você é goleiro da Onça, OVR ${antes.ovr}`));
+  });
+
+  it('corrige quem trocou de posição pela regra antiga: volta ao OVR de antes (ADR-0030)', async () => {
+    await processarComentario(banco, comentario('u1', 'ENTRO ARARA ATA'), ctx);
+    const antes = (await banco.query<{ id: string; ovr: number; habilidades: unknown }>(`SELECT id::text AS id, ovr, habilidades FROM jogador WHERE ig_user_id = 'u1'`)).rows[0]!;
+    // Como a regra antiga deixava: virou goleiro com as Habilidades de atacante.
+    const gol = Math.round(ovrDasHabilidades('GOL', antes.habilidades as never));
+    await banco.query(`UPDATE jogador SET posicao = 'GOL', ovr = $2 WHERE id = $1`, [antes.id, gol]);
+    await banco.query(`INSERT INTO transferencia (jogador_id, temporada_id, de_time, para_time, de_posicao, para_posicao, ig_comment_id, feita_em, janela) VALUES ($1, $2, 'ARA', 'ARA', 'ATA', 'GOL', 'x', now(), false)`, [antes.id, temporada]);
+    expect(gol).toBeLessThan(50);
+    expect(await corrigirTrocasDePosicao(banco)).toEqual([{ username: 'user_u1', antes: gol, depois: antes.ovr }]);
+    expect(await time('u1')).toMatchObject({ posicao: 'GOL', ovr: antes.ovr });
+    expect(await corrigirTrocasDePosicao(banco)).toEqual([]);
   });
 
   it('não vai para um Time cheio (mesma folga da Inscrição)', async () => {

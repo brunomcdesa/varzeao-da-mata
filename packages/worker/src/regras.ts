@@ -42,8 +42,16 @@ function hash(texto: string): number {
  */
 export function sortearHabilidadesIniciais(semente: string, posicao: Posicao): { ovr: number; habilidades: Habilidades } {
   const ovr = sortearOvrInicial(semente);
+  return { ovr, habilidades: perfilNaPosicao(semente, posicao, ovr) };
+}
+
+/**
+ * Habilidades no perfil da Posição para um OVR, com a variação derivada da semente. Usado na
+ * Inscrição e na troca de posição (ADR-0030): quem troca de posição mantém o OVR.
+ */
+export function perfilNaPosicao(semente: string, posicao: Posicao, ovr: number): Habilidades {
   const ruido = Object.fromEntries(HABILIDADES.map((h) => [h, (hash(`${semente}:${h}`) % 2001) / 1000 - 1])) as Habilidades;
-  return { ovr, habilidades: habilidadesDoPerfil(posicao, ovr, ruido) };
+  return habilidadesDoPerfil(posicao, ovr, ruido);
 }
 
 /** Habilidades gravadas, ou o perfil da Posição para quem se inscreveu antes delas existirem. */

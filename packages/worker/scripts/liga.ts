@@ -4,6 +4,8 @@
  *   pnpm liga temporada [--inicio 2026-11-07]        cria a Temporada (7 Rodadas, 12h/14h/16h/18h)
  *   USUARIO=fulano pnpm liga remover               remove um Jogador que ainda não jogou
  *   USUARIO=fulano TIME=onca POSICAO=zagueiro pnpm liga mover   muda o Time à mão (ADR-0029)
+ *   USUARIO=fulano pnpm liga vincular-conta        liga o Jogador da DM (id provisório) à conta do Instagram
+ *   pnpm liga corrigir-trocas-de-posicao            devolve o OVR de quem trocou de posição pela regra antiga (ADR-0030)
  *   pnpm liga comentarios                          os comentários lidos e o resultado de cada um
  *   pnpm liga mudar-inicio --inicio 2026-11-08      antecipa/adia a Temporada (antes do 1º jogo)
  *   pnpm liga inscricoes-de-teste [--quantidade 40]  "comentários" ENTRO de seguidores fictícios
@@ -34,6 +36,8 @@ import {
   fecharRodada,
   processarComentario,
   moverJogador,
+  vincularConta,
+  corrigirTrocasDePosicao,
   jogadorPeloUsername,
   interpretar,
   rodadaEmVotacao,
@@ -261,6 +265,23 @@ async function main(): Promise<void> {
         if (!usuario || pedido.tipo !== 'INSCRICAO') throw new Error('Use: USUARIO=fulano TIME=onca POSICAO=zagueiro pnpm liga mover');
         const r = await moverJogador(banco, usuario, pedido.time, pedido.posicao, process.env.ID || undefined);
         console.log(`Movido: @${usuario} de ${r.de} para ${r.posicao} do ${r.para}, OVR ${r.ovr}.${r.perdeuCamisa ? ' A camisa já tinha dono no Time novo e foi liberada.' : ''}`);
+        break;
+      }
+
+      case 'vincular-conta': {
+        // Jogador inscrito com id provisório (DM) passa a ser da conta do Instagram dele.
+        const usuario = (process.env.USUARIO ?? '').trim();
+        if (!usuario) throw new Error('Use: USUARIO=fulano pnpm liga vincular-conta');
+        const r = await vincularConta(banco, usuario);
+        console.log(`Vinculado: Jogador ${r.id} (@${usuario.replace(/^@/, '')}) agora é da conta ${r.para} (era ${r.de}).`);
+        break;
+      }
+
+      case 'corrigir-trocas-de-posicao': {
+        // Quem trocou de posição pela regra antiga volta ao OVR de antes da troca (ADR-0030).
+        const feitas = await corrigirTrocasDePosicao(banco);
+        for (const f of feitas) console.log(`Corrigido: @${f.username} OVR ${f.antes} → ${f.depois}.`);
+        console.log(`${feitas.length} Jogador(es) corrigido(s).`);
         break;
       }
 

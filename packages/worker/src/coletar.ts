@@ -9,7 +9,7 @@ import type { Banco } from './banco.js';
 import { CONTA_DA_LIGA, citacoes, interpretar, type Comando } from './comandos.js';
 import { timesAtivos } from './series.js';
 import { aplicarEscolha } from './temporada2.js';
-import { FOLGA_DE_ELENCO, FORMACAO, REALOCAR_QUANDO_CHEIO, habilidadesDe, sortearHabilidadesIniciais } from './regras.js';
+import { FOLGA_DE_ELENCO, FORMACAO, REALOCAR_QUANDO_CHEIO, habilidadesDe, perfilNaPosicao, sortearHabilidadesIniciais } from './regras.js';
 import { normalizar } from './vocabulario.js';
 import { CORTE_MINUTOS } from './escalacao.js';
 
@@ -318,8 +318,7 @@ export async function transferirJogador(
     }
   }
 
-  const habilidades = habilidadesDe(j.posicao, j.ovr, j.habilidades);
-  const ovr = ovrDasHabilidades(posicao, habilidades);
+  const { ovr, habilidades } = naPosicao(jogadorId, j.posicao, posicao, j.ovr, j.habilidades);
   // A camisa vai junto, a não ser que o número já tenha dono no Time novo.
   const camisa = destino === j.time_id ? null : (await b.query<{ numero: number | null }>(`SELECT numero FROM jogador WHERE id = $1`, [jogadorId])).rows[0]?.numero ?? null;
   const perdeCamisa = camisa !== null && (await b.query(`SELECT 1 FROM jogador WHERE time_id = $1 AND numero = $2 AND id <> $3 AND NOT banido`, [destino, camisa, jogadorId])).rows.length > 0;
@@ -333,6 +332,68 @@ export async function transferirJogador(
     resultado: 'TRANSFERIDO',
     mensagem: `${destino === j.time_id ? 'mudança de posição feita' : 'transferência feita'}! Agora você é ${vaga}. Vale a partir do próximo jogo escalado. Esta foi a sua transferência da temporada.${perdeCamisa ? ` A camisa ${camisa} já tem dono ${doTime(destino)}: escolha outro número no site.` : ''} ⚽`,
   };
+}
+
+/**
+ * OVR e Habilidades depois de uma troca (ADR-0030). Mesma posição: tudo igual. Posição nova: o
+ * OVR continua o mesmo e as Habilidades são refeitas no perfil da posição nova (quem tinha
+ * perfil de atacante não vira um goleiro de OVR 34).
+ */
+export function naPosicao(
+  semente: string,
+  de: Posicao,
+  para: Posicao,
+  ovr: number,
+  gravadas: Habilidades | string | null | undefined,
+): { ovr: number; habilidades: Habilidades } {
+  if (de === para) return { ovr, habilidades: habilidadesDe(de, ovr, gravadas) };
+  return { ovr, habilidades: perfilNaPosicao(`troca:${semente}`, para, ovr) };
+}
+
+/**
+ * Liga à conta do Instagram o Jogador inscrito com id provisório (inscrição pela DM, "dm-…"):
+ * pega o id da conta no comentário mais recente desse @. Sem isso, voto e vínculo pela DM
+ * não acham o Jogador e um novo ENTRO criaria outro.
+ */
+export async function vincularConta(b: Banco, username: string): Promise<{ id: string; de: string; para: string }> {
+  const nome = username.replace(/^@/, '').trim();
+  const j = (await b.query<{ id: string; ig_user_id: string }>(`SELECT id::text AS id, ig_user_id FROM jogador WHERE lower(username) = lower($1) AND ig_user_id LIKE 'dm-%'`, [nome])).rows;
+  if (j.length !== 1) throw new Error(j.length ? `Há ${j.length} Jogadores @${nome} com id provisório.` : `Nenhum Jogador @${nome} com id provisório.`);
+  const conta = (
+    await b.query<{ ig_user_id: string }>(
+      `SELECT ig_user_id FROM comando WHERE lower(username) = lower($1) AND ig_user_id NOT LIKE 'dm-%' AND ig_media_id <> 'dm' ORDER BY comentado_em DESC LIMIT 1`,
+      [nome],
+    )
+  ).rows[0];
+  if (!conta) throw new Error(`Nenhum comentário de @${nome}: não dá para saber o id da conta.`);
+  const dono = (await b.query<{ id: string }>(`SELECT id::text AS id FROM jogador WHERE ig_user_id = $1`, [conta.ig_user_id])).rows[0];
+  if (dono) throw new Error(`A conta ${conta.ig_user_id} já é do Jogador ${dono.id}.`);
+  await b.query(`UPDATE jogador SET ig_user_id = $2 WHERE id = $1`, [j[0]!.id, conta.ig_user_id]);
+  return { id: j[0]!.id, de: j[0]!.ig_user_id, para: conta.ig_user_id };
+}
+
+/**
+ * Corrige quem trocou de posição pela regra antiga (ADR-0030): volta ao OVR que tinha na
+ * posição de antes da troca, com as Habilidades no perfil da posição atual. Só sobe o OVR;
+ * Partidas já jogadas não mudam.
+ */
+export async function corrigirTrocasDePosicao(b: Banco): Promise<{ username: string; antes: number; depois: number }[]> {
+  const trocas = (
+    await b.query<{ id: string; username: string; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; de_posicao: Posicao }>(
+      `SELECT DISTINCT ON (j.id) j.id::text AS id, j.username, j.posicao, j.ovr, j.habilidades, t.de_posicao
+         FROM transferencia t JOIN jogador j ON j.id = t.jogador_id
+        WHERE t.de_posicao <> t.para_posicao AND j.posicao = t.para_posicao AND NOT j.banido
+        ORDER BY j.id, t.feita_em DESC`,
+    )
+  ).rows;
+  const feitas: { username: string; antes: number; depois: number }[] = [];
+  for (const t of trocas) {
+    const ovr = Math.round(ovrDasHabilidades(t.de_posicao, habilidadesDe(t.posicao, t.ovr, t.habilidades)));
+    if (ovr <= t.ovr) continue;
+    await b.query(`UPDATE jogador SET ovr = $2, habilidades = $3 WHERE id = $1`, [t.id, ovr, JSON.stringify(perfilNaPosicao(`troca:${t.id}`, t.posicao, ovr))]);
+    feitas.push({ username: t.username, antes: t.ovr, depois: ovr });
+  }
+  return feitas;
 }
 
 /** O Jogador com esse @ (sem diferenciar maiúsculas), ou null. */
@@ -365,8 +426,7 @@ export async function moverJogador(
   if (!j) throw new Error(`Nenhum Jogador @${username}.`);
   if (!(await timesAtivos(b)).includes(destino)) throw new Error(`O time ${destino} não joga esta Temporada.`);
   const posicao = posicaoPedida ?? j.posicao;
-  const habilidades = habilidadesDe(j.posicao, j.ovr, j.habilidades);
-  const ovr = ovrDasHabilidades(posicao, habilidades);
+  const { ovr, habilidades } = naPosicao(j.id, j.posicao, posicao, j.ovr, j.habilidades);
   const perdeuCamisa =
     destino !== j.time_id &&
     j.numero !== null &&
