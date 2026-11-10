@@ -152,7 +152,8 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
 
 /**
  * Se a pessoa (ainda não inscrita) mandou, em até 24 h, um comentário só com o Time e outro só
- * com a posição (ou um ENTRO sem Time), devolve a Inscrição juntando os dois.
+ * com a posição (ou um ENTRO sem Time), devolve a Inscrição juntando os dois. O pedido (ENTRO)
+ * pode estar num terceiro comentário, sozinho.
  */
 async function juntarComOutroComentario(b: Banco, c: Comentario): Promise<Comando | null> {
   const este = citacoes(c.texto);
@@ -163,15 +164,17 @@ async function juntarComOutroComentario(b: Banco, c: Comentario): Promise<Comand
       [c.igUserId, c.igCommentId, c.comentadoEm.toISOString()],
     )
   ).rows;
-  // O comentário com a posição precisa ser um pedido (ENTRO); o do Time pode ser só o nome.
+  // Precisa haver um pedido (ENTRO, QUERO, SOU) em algum comentário da pessoa nessas 24 h: no
+  // do Time, no da posição ou num terceiro, sozinho ("ENTRO", depois "ATA", depois "Arara").
+  // Sem pedido nenhum, "Arara" e "que meia!" são só torcida.
   const pedido = (texto: string) => /\bENTR(O|AR)\b|\bQUERO\b|\bSOU\b/.test(normalizar(texto));
+  if (!pedido(c.texto) && !outros.some((o) => pedido(o.texto))) return null;
   for (const o of outros) {
     const outro = citacoes(o.texto);
     if (outro.times.length > 1 || outro.posicoes.length > 1) continue;
     const time = este.times[0] ?? (outro.posicoes.length === 0 ? outro.times[0] : undefined);
     const posicao = este.posicoes[0] ?? (outro.times.length === 0 ? outro.posicoes[0] : undefined);
     if (!time || !posicao) continue;
-    if (!pedido(este.posicoes.length ? c.texto : o.texto) && !pedido(este.times.length ? c.texto : o.texto)) continue;
     return { tipo: 'INSCRICAO', time, posicao };
   }
   return null;

@@ -149,6 +149,36 @@ describe('Inscrição', () => {
     expect(await processarComentario(banco, comentario('torcedor', 'que meia!', t(51)), semVotacao)).toBe('IGNORADO');
   });
 
+  it('pedido em três comentários: "ENTRO" sozinho, depois a posição, depois o Time', async () => {
+    const t = (min: number) => ({ comentadoEm: new Date(Date.UTC(2026, 10, 10, 4, min)) });
+    expect(await processarComentario(banco, comentario('clyverff', 'ENTRO', t(6)), semVotacao)).toBe('SEM_TIME');
+    expect(await processarComentario(banco, comentario('clyverff', '10', t(7)), semVotacao)).toBe('IGNORADO');
+    expect(await processarComentario(banco, comentario('clyverff', 'ATA', t(8)), semVotacao)).toBe('IGNORADO');
+    expect(await processarComentario(banco, comentario('clyverff', 'Arara', t(9)), semVotacao)).toBe('INSCRITO');
+    const j = (await banco.query<{ time_id: string; posicao: string }>(`SELECT time_id, posicao FROM jogador WHERE ig_user_id = 'clyverff'`)).rows[0]!;
+    expect(j).toEqual({ time_id: 'ARA', posicao: 'ATA' });
+  });
+
+  it('releitura: comentários lidos antes da regra (ENTRO, ATA, Arara) inscrevem na coleta seguinte', async () => {
+    const t = (min: number) => ({ comentadoEm: new Date(Date.UTC(2026, 10, 10, 4, min)) });
+    const lidos = [
+      [comentario('cly2', 'ENTRO', t(6)), 'INVALIDO', 'SEM_TIME'],
+      [comentario('cly2', 'ATA', t(8)), 'IGNORADO', 'IGNORADO'],
+      [comentario('cly2', 'Arara', t(9)), 'IGNORADO', 'IGNORADO'],
+    ] as const;
+    for (const [c, tipo, resultado] of lidos) {
+      await banco.query(
+        `INSERT INTO comando (ig_comment_id, ig_media_id, ig_user_id, username, texto, comentado_em, tipo, resultado) VALUES ($1, 'reels-1', 'cly2', 'user_cly2', $2, $3, $4, $5)`,
+        [c.igCommentId, c.texto, c.comentadoEm.toISOString(), tipo, resultado],
+      );
+    }
+    const resultados = [];
+    for (const [c] of lidos) resultados.push(await processarComentario(banco, c, semVotacao));
+    expect(resultados).toContain('INSCRITO');
+    const j = (await banco.query<{ time_id: string; posicao: string }>(`SELECT time_id, posicao FROM jogador WHERE ig_user_id = 'cly2'`)).rows[0]!;
+    expect(j).toEqual({ time_id: 'ARA', posicao: 'ATA' });
+  });
+
   it('comentário da própria Liga nunca inscreve', async () => {
     expect(await processarComentario(banco, comentario('liga', 'Comente ENTRO (POSICAO) ARARA', { username: 'varzeao_da_mata' }), semVotacao)).toBe('IGNORADO');
     expect((await banco.query(`SELECT 1 FROM jogador WHERE ig_user_id = 'liga'`)).rows).toHaveLength(0);
