@@ -6,10 +6,11 @@ describe('Narradores', () => {
     expect(new Set(NARRADORES.map((n) => n.voz)).size).toBe(NARRADORES.length);
   });
 
-  it('o Beto Bola segue na voz original; os outros usam a biblioteca pt-BR, cada um com o seu jeito', () => {
-    const [beto, ...outros] = NARRADORES;
-    expect(beto).toMatchObject({ id: 'BETO', voz: 'Lumi' });
-    expect(beto!.jeito).toBeUndefined();
+  it('o Zé da Várzea fica na voz original; os outros usam a biblioteca pt-BR, cada um com o seu jeito', () => {
+    const ze = NARRADORES.find((n) => n.id === 'ZE')!;
+    const outros = NARRADORES.filter((n) => n.id !== 'ZE');
+    expect(ze.voz).toBe('Lumi');
+    expect(ze.jeito).toBeUndefined();
     for (const n of outros) {
       expect(n.voz, n.nome).toMatch(/^pt-br-/);
       expect(n.jeito, n.nome).toBeTruthy();

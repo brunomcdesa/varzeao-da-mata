@@ -2,18 +2,19 @@
 
 Os cinco Narradores estrearam em 10/11 com quatro vozes criadas no Voice design do Gemini. Nos jogos elas soaram como uma voz só: o tom médio das três masculinas ficou na mesma faixa da Lumi (o Beto Bola), e todas recebiam o mesmo estilo curto.
 
-Decisão: o Beto Bola continua na Lumi, e os outros quatro passam a usar vozes prontas da biblioteca pt-BR do Gemini, escolhidas de ouvido pelo dono numa prévia com a mesma fala:
+Decisão: a Lumi, que era do Beto Bola, passa para o Zé da Várzea, e os outros quatro usam vozes prontas da biblioteca pt-BR do Gemini, escolhidas de ouvido pelo dono em prévias com a mesma fala:
 
+- Zé da Várzea: `Lumi`
 - Seu Dito: `pt-br-storyteller-10`
 - Tiago Turbo: `pt-br-techagent-4`
-- Zé da Várzea: `pt-br-assistant-9`
+- Beto Bola: `pt-br-assistant-9`
 - Rita Rádio: `pt-br-training-7`
 
-Cada um desses quatro ganha também um **jeito**: uma frase curta sobre ritmo e postura ("fala pausada e solene", "fala muito rápida e elétrica"), que vai no estilo do pedido antes da emoção do momento.
+Cada um dos quatro da biblioteca ganha também um **jeito**: uma frase curta sobre ritmo e postura ("fala pausada e solene", "fala muito rápida e elétrica"), que vai no estilo do pedido antes da emoção do momento.
 
 ## Regras
 
-- O jeito é opcional. Sem jeito (o Beto Bola), o estilo e o cache de falas são os de sempre.
+- O jeito é opcional. Sem jeito (o Zé da Várzea), o estilo e o cache de falas são os de sempre.
 - O jeito entra na chave do cache de falas, então trocar o jeito regrava as falas daquele Narrador.
 - A grafia "Varzêão" só é usada para vozes do Voice design (`voice_...`); as vozes da biblioteca leem "Varzeão" como se escreve.
 - O sorteio do Narrador pela semente não muda, e vale só para Partidas ainda não gravadas. Reels e Ao Vivo já publicados ficam com a voz antiga.
