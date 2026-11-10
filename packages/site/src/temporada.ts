@@ -36,16 +36,16 @@ export function assistencias(js: JogadorPublico[], n = 5): Lider[] {
 }
 
 /**
- * Goleiros: maior nota média, com pelo menos 3 jogos; desempate: menos gols sofridos por jogo.
- * `valor` é a nota média.
+ * Goleiros: menos gols sofridos por jogo, com pelo menos 3 jogos; desempate: maior nota média,
+ * depois mais jogos, depois quem se inscreveu antes. `valor` é a média de gols sofridos por jogo.
  */
 export function goleiros(js: JogadorPublico[], n = 3): Lider[] {
-  const sofridosPorJogo = (j: JogadorPublico) => j.nestaTemporada.golsSofridos / j.nestaTemporada.jogos;
+  const media = (j: JogadorPublico) => j.nestaTemporada.golsSofridos / j.nestaTemporada.jogos;
   return js
-    .filter((j) => j.posicao === 'GOL' && j.nestaTemporada.jogos >= MIN_JOGOS_GOLEIRO && j.nestaTemporada.notaMedia !== null)
-    .sort((a, b) => b.nestaTemporada.notaMedia! - a.nestaTemporada.notaMedia! || sofridosPorJogo(a) - sofridosPorJogo(b) || Number(a.id) - Number(b.id))
+    .filter((j) => j.posicao === 'GOL' && j.nestaTemporada.jogos >= MIN_JOGOS_GOLEIRO)
+    .sort((a, b) => media(a) - media(b) || (b.nestaTemporada.notaMedia ?? 0) - (a.nestaTemporada.notaMedia ?? 0) || b.nestaTemporada.jogos - a.nestaTemporada.jogos || Number(a.id) - Number(b.id))
     .slice(0, n)
-    .map((j) => ({ jogador: j, valor: j.nestaTemporada.notaMedia!, jogos: j.nestaTemporada.jogos }));
+    .map((j) => ({ jogador: j, valor: media(j), jogos: j.nestaTemporada.jogos }));
 }
 
 /** Partidas já encerradas pelo relógio de quem vê (nada antes do fim do Ao Vivo), da mais recente para a mais antiga. */

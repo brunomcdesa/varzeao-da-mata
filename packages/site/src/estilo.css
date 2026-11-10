@@ -3471,6 +3471,7 @@ a.jogo:hover {
   font-size: 2.25rem;
 }
 .lideres-valor small {
+  white-space: nowrap;
   font: 600 0.6875rem/1.2 var(--texto);
   color: var(--tinta-fraca);
 }

@@ -143,10 +143,10 @@ export const paginaTemporada: Pagina = async (main) => {
         'Goleiros',
         'titulo-goleiros',
         goleiros(js),
-        (x) => html`${nota(x.valor)}<small>nota média</small>`,
+        (x) => html`${nota(x.valor)}<small>sofridos/jogo</small>`,
         l,
         `Aparece quando algum goleiro tiver ${MIN_JOGOS_GOLEIRO} jogos.`,
-        `Maior nota média, com pelo menos ${MIN_JOGOS_GOLEIRO} jogos. Desempate: menos gols sofridos por jogo.`,
+        `Menos gols sofridos por jogo, com pelo menos ${MIN_JOGOS_GOLEIRO} jogos. Desempate: maior nota média.`,
       )}
     </div>
     ${numerosDosTimes(l, agora)}`.s;

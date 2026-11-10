@@ -21,14 +21,15 @@ describe('Líderes da Temporada', () => {
     const js = [jog('1', 'MEI', { assistencias: 2, jogos: 3 }), jog('2', 'ATA', { assistencias: 0, jogos: 3 })];
     expect(assistencias(js).map((l) => [l.jogador.id, l.valor])).toEqual([['1', 2]]);
   });
-  it('goleiros: só GOL com pelo menos 3 jogos; empate na nota vai para menos gols sofridos por jogo', () => {
+  it('goleiros: só GOL com pelo menos 3 jogos; menos gols sofridos por jogo, empate vai para a maior nota', () => {
     const js = [
       jog('1', 'GOL', { jogos: 3, notaMedia: 7.2, golsSofridos: 3 }),
-      jog('2', 'GOL', { jogos: 4, notaMedia: 7.2, golsSofridos: 2 }),
-      jog('3', 'GOL', { jogos: 2, notaMedia: 9 }),
-      jog('4', 'ZAG', { jogos: 5, notaMedia: 8 }),
+      jog('2', 'GOL', { jogos: 4, notaMedia: 6.5, golsSofridos: 2 }),
+      jog('3', 'GOL', { jogos: 4, notaMedia: 7.0, golsSofridos: 2 }),
+      jog('4', 'GOL', { jogos: 2, notaMedia: 9, golsSofridos: 0 }),
+      jog('5', 'ZAG', { jogos: 5, notaMedia: 8, golsSofridos: 0 }),
     ];
-    expect(goleiros(js).map((l) => l.jogador.id)).toEqual(['2', '1']);
+    expect(goleiros(js).map((l) => [l.jogador.id, l.valor])).toEqual([['3', 0.5], ['2', 0.5], ['1', 1]]);
   });
 });
 

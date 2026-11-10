@@ -15,7 +15,7 @@ Repetir parte da página da Rodada (tabela, jogos recentes) é aceito: cada pág
 - **Vale desde a Temporada 1.** A página só lê a Temporada atual de `liga.json` e o `nestaTemporada` de `jogadores.json`. O worker escolhe como atual a última Temporada que já começou, então uma Temporada criada e ainda não começada (a T2 antes da estreia) não aparece aqui; só o aviso de `proximaTemporada` na página da Rodada fala dela.
 - **Nada antes da hora:** só entram Partidas encerradas pelo relógio de quem vê; um jogo Ao Vivo entra quando o Ao Vivo acaba.
 - **Artilharia e Assistências:** mais gols (ou assistências); desempate por menos jogos, depois por quem se inscreveu antes. É o mesmo critério do artilheiro da História.
-- **Goleiros:** Jogadores que hoje são goleiros, com pelo menos 3 jogos na Temporada; maior nota média, desempate por menos gols sofridos por jogo. É a regra do melhor goleiro da História.
+- **Goleiros:** Jogadores que hoje são goleiros, com pelo menos 3 jogos na Temporada; menos gols sofridos por jogo, desempate por maior nota média, depois mais jogos, depois quem se inscreveu antes. A média por jogo (e não o total) não pune quem jogou mais. É diferente do melhor goleiro da História, que continua sendo a maior nota média.
 - **Com Séries:** os rankings de Jogadores são da Liga inteira, com a Série ao lado do nome; líder, últimos jogos e Números dos Times são de cada Série.
 
 ## Considered Options
@@ -25,5 +25,5 @@ Repetir parte da página da Rodada (tabela, jogos recentes) é aceito: cada pág
 
 ## Consequences
 
-- Um Jogador que trocou de Posição no meio da Temporada (ADR-0030) entra ou sai do ranking de Goleiros pela Posição de hoje, com a nota média de todos os jogos dele na Temporada. Nesse caso raro, o ranking pode diferir do melhor goleiro da História, que conta só os jogos no gol.
+- Um Jogador que trocou de Posição no meio da Temporada (ADR-0030) entra ou sai do ranking de Goleiros pela Posição de hoje, com a nota média de todos os jogos dele na Temporada. Nesse caso raro, os gols sofridos dele contam também os jogos fora do gol.
 - No celular, o menu tem 7 itens e rola para o lado.
