@@ -9,6 +9,7 @@ import { paginaCarreira } from './paginas/carreira.js';
 import { paginaTemporada } from './paginas/temporada.js';
 import type { Pagina } from './paginas/tipos.js';
 import { html } from './ui.js';
+import { prepararApp } from './appInstalavel.js';
 
 const ROTAS: { padrao: RegExp; pagina: Pagina; secao: string; titulo: string }[] = [
   { padrao: /^\/?$/, pagina: inicio, secao: 'inicio', titulo: '' },
@@ -71,6 +72,7 @@ window.addEventListener('hashchange', () => {
 });
 document.addEventListener('submit', (e) => e.preventDefault());
 void navegar();
+prepararApp();
 
 // Rodapé: quando os dados foram gerados.
 void liga()
