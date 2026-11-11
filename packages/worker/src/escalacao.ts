@@ -1,7 +1,8 @@
 /**
  * Escalação de uma Partida (job `partida`, passo 1): 7 lugares por Time na FORMACAO, com
- * rodízio do Elenco, Craque da Rodada anterior garantido e Jogadores da Base completando
- * as vagas. Só conta quem se inscreveu até o Corte (30 min antes do Apito Inicial).
+ * rodízio do Elenco, Craque da Rodada anterior garantido, prioridade para quem tem Resenha
+ * (ou, na T2, confirmou Presença) e Jogadores da Base completando as vagas. Só conta quem se
+ * inscreveu até o Corte (30 min antes do Apito Inicial).
  */
 import { habilidadesDoPerfil, temRegrasT2, type Canto, type Escalacao, type Especializacao, type HabilidadeId, type Habilidades, type Posicao, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
@@ -41,20 +42,20 @@ export interface RegrasDaEscalacao {
 }
 
 /**
- * Ordem do rodízio, por Posição: Craque da Rodada anterior primeiro; depois quem jogou
- * menos na Temporada; empate, quem jogou há mais tempo (ou nunca); depois quem se
- * inscreveu antes.
+ * Ordem do rodízio, por Posição: Craque da Rodada anterior primeiro; depois quem tem
+ * prioridade (Resenha, ADR-0039, ou Presença na T2, ADR-0023), todos no mesmo nível; depois
+ * quem jogou menos na Temporada; empate, quem jogou há mais tempo (ou nunca); depois quem
+ * se inscreveu antes.
  */
-export function ordemDoRodizio(a: Disponivel, b: Disponivel, craque: string | null, confirmados?: ReadonlySet<string>): number {
+export function ordemDoRodizio(a: Disponivel, b: Disponivel, craque: string | null, prioridade?: ReadonlySet<string>): number {
   if (craque) {
     if (a.id === craque && b.id !== craque) return -1;
     if (b.id === craque && a.id !== craque) return 1;
   }
-  // T2: quem confirmou Presença vem logo depois do Craque (ADR-0023).
-  if (confirmados) {
-    const ca = confirmados.has(a.id);
-    const cb = confirmados.has(b.id);
-    if (ca !== cb) return ca ? -1 : 1;
+  if (prioridade) {
+    const pa = prioridade.has(a.id);
+    const pb = prioridade.has(b.id);
+    if (pa !== pb) return pa ? -1 : 1;
   }
   if (a.jogos !== b.jogos) return a.jogos - b.jogos;
   const ua = a.ultimo?.getTime() ?? -Infinity;
@@ -66,7 +67,7 @@ export function ordemDoRodizio(a: Disponivel, b: Disponivel, craque: string | nu
 
 export async function montarEscalacao(
   banco: Banco,
-  o: { time: TimeId; temporadaId: number; corte: Date; craque?: string | null; t2?: RegrasDaEscalacao },
+  o: { time: TimeId; temporadaId: number; corte: Date; craque?: string | null; t2?: RegrasDaEscalacao; resenha?: ReadonlySet<string> },
 ): Promise<EscalacaoMontada> {
   const disponiveis = (
     await banco.query<{ id: string; username: string; apelido: string | null; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; jogos: string; ultimo: string | Date | null; inscrito_em: string | Date; especializacao: Especializacao | null; treino: HabilidadeId | null; canto: Canto | null }>(
@@ -95,9 +96,12 @@ export async function montarEscalacao(
     }),
   ).filter((d) => !o.t2?.suspensos.has(d.id));
 
+  // Prioridade no rodízio (ADR-0039): Resenha e, na T2, Presença valem o mesmo.
+  const prioridade = new Set([...(o.resenha ?? []), ...(o.t2?.confirmados ?? [])]);
   const porPosicao = new Map<Posicao, Disponivel[]>();
   for (const d of disponiveis) porPosicao.set(d.posicao, [...(porPosicao.get(d.posicao) ?? []), d]);
-  for (const lista of porPosicao.values()) lista.sort((a, b) => ordemDoRodizio(a, b, o.craque ?? null, o.t2?.confirmados));
+  for (const lista of porPosicao.values()) lista.sort((a, b) => ordemDoRodizio(a, b, o.craque ?? null, prioridade));
+  const resenha = o.resenha ?? new Set<string>();
 
   const jogadores: Escalacao['jogadores'][number][] = [];
   const nomes: (string | null)[] = [];
@@ -114,6 +118,7 @@ export async function montarEscalacao(
             ...(proximo.especializacao ? { especializacao: proximo.especializacao } : {}),
             ...(proximo.treino ? { treino: proximo.treino } : {}),
             ...(proximo.canto ? { canto: proximo.canto } : {}),
+            ...(resenha.has(proximo.id) ? { resenha: true } : {}),
           }
         : { jogadorId: null, posicao, ovr: OVR_BASE, habilidades: habilidadesDoPerfil(posicao, OVR_BASE) },
     );
@@ -124,8 +129,9 @@ export async function montarEscalacao(
 }
 
 /**
- * Resenha (ADR-0034): os Jogadores do Time que comentaram, até o Corte, no Reels do último jogo
- * do Time que foi ao ar antes desta Partida. Qualquer comentário vale, e um basta.
+ * Resenha (ADRs 0034 e 0039): os Jogadores do Time que comentaram, até o Corte, no Reels do
+ * último jogo do Time que foi ao ar antes desta Partida. Qualquer comentário vale, e um basta.
+ * Dá prioridade no rodízio e evolução mais rápida para quem é escalado.
  */
 export async function comResenha(b: Banco, time: TimeId, apito: Date, corte: Date): Promise<Set<string>> {
   const linhas = (
@@ -174,13 +180,12 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
       temRegrasT2(p.numero) ? { suspensos: await suspensos(b, time, partidaId), confirmados: await confirmados(b, partidaId) } : undefined;
     const regrasM = await regras(p.mandante_id);
     const regrasV = await regras(p.visitante_id);
-    const mandante = await montarEscalacao(b, { time: p.mandante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, ...(regrasM ? { t2: regrasM } : {}) });
-    const visitante = await montarEscalacao(b, { time: p.visitante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, ...(regrasV ? { t2: regrasV } : {}) });
-    // Resenha (ADR-0034): vale nas duas Temporadas.
-    for (const m of [mandante, visitante]) {
-      const resenha = await comResenha(b, m.escalacao.time, new Date(p.apito_inicial), corte);
-      m.escalacao = { ...m.escalacao, jogadores: m.escalacao.jogadores.map((j) => (j.jogadorId !== null && resenha.has(j.jogadorId) ? { ...j, resenha: true } : j)) };
-    }
+    // Resenha (ADRs 0034 e 0039): vale nas duas Temporadas e entra antes do rodízio.
+    const apito = new Date(p.apito_inicial);
+    const resenhaM = await comResenha(b, p.mandante_id, apito, corte);
+    const resenhaV = await comResenha(b, p.visitante_id, apito, corte);
+    const mandante = await montarEscalacao(b, { time: p.mandante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, resenha: resenhaM, ...(regrasM ? { t2: regrasM } : {}) });
+    const visitante = await montarEscalacao(b, { time: p.visitante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, resenha: resenhaV, ...(regrasV ? { t2: regrasV } : {}) });
     for (const m of [mandante, visitante]) {
       for (const [lugar, j] of m.escalacao.jogadores.entries()) {
         await b.query(
