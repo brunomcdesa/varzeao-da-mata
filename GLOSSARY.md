@@ -137,7 +137,7 @@ Os 2 a 3 dias antes da primeira Rodada de uma Temporada, dedicados a apresentar 
 _Avoid_: aquecimento, lançamento
 
 **Clássico**:
-Partida entre os dois Times de um par de rivais fixos. Cai no calendário por sorteio, como qualquer Partida, mas ganha abertura especial no Reels e move o OVR 1,5 vez mais que o normal.
+Partida entre os dois Times de um par de rivais fixos. Cai no calendário por sorteio, como qualquer Partida, mas ganha abertura especial no Reels e as ações valem o dobro para as Habilidades (e o limite por Partida também dobra).
 _Avoid_: derby, rivalidade, jogo grande
 
 **Goleada**:

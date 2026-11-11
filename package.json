@@ -12,6 +12,7 @@
     "postar-apresentacao": "pnpm --filter @liga/worker postar-apresentacao",
     "postar-anuncio": "pnpm --filter @liga/worker postar-anuncio",
     "postar-explicacao": "pnpm --filter @liga/worker postar-explicacao",
+    "postar-explicacao-ovr": "pnpm --filter @liga/worker postar-explicacao-ovr",
     "vozes": "pnpm --filter @liga/renderer vozes",
     "testar-grito": "pnpm --filter @liga/renderer testar-grito",
     "liga": "pnpm --filter @liga/worker liga",
