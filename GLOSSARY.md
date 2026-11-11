@@ -236,6 +236,18 @@ _Avoid_: lado, direção
 O período da Pré-temporada em que qualquer Jogador pode trocar para qualquer Time, de qualquer Série, desde que o destino não fique desequilibrado. Não gasta a Transferência da Temporada.
 _Avoid_: mercado, janela de inverno
 
+**Rebalanceamento**:
+A redistribuição dos Elencos entre a Série A e a Série B na Pré-temporada da T2, para que todos os inscritos joguem. Primeiro entram os voluntários. Se faltar gente, saem os inscritos mais recentes de cada Time da A (ADR-0036).
+_Avoid_: rebaixamento, corte, remoção
+
+**Time Primo**:
+O Time da Série B que forma par fixo com um Time da Série A e recebe quem é remanejado dele no Rebalanceamento (exemplo: Onça → Jacaré).
+_Avoid_: time irmão, time filial
+
+**Fundador**:
+O título de quem começa a primeira Temporada de um Time da Série B no Elenco dele. Aparece na página de Carreira e dá prioridade na escolha da camisa.
+_Avoid_: pioneiro, membro original
+
 **Partida**:
 Um confronto simulado entre dois Times, com Apito Inicial marcado. Pode ser vista Ao Vivo ou em Replay no site e ganha um Reels próprio assim que termina.
 _Avoid_: jogo, match
