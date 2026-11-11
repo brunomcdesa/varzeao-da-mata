@@ -108,6 +108,20 @@ describe('Comentários sem Comando', () => {
       expect(interpretar('Quer ser atacante dos Tamandua,me chamo Alisson')).toEqual({ tipo: 'INSCRICAO', time: 'TAM', posicao: 'ATA' });
     });
 
+    it('pedidos ignorados em 10/11 passam a valer', () => {
+      expect(interpretar('Quero ser da ARARA FC DE MEIO CAMPISTA CENTRAL')).toEqual({ tipo: 'INSCRICAO', time: 'ARA', posicao: 'MEI' });
+      expect(interpretar('Cuida mano bote o meu, goleiro, onça, por favor mim bota nesse time')).toEqual({ tipo: 'INSCRICAO', time: 'ONC', posicao: 'GOL' });
+      expect(interpretar('Na primeira partida do time de onça pode mim bota pra eu jogar por favor')).toEqual({ tipo: 'INSCRICAO', time: 'ONC' });
+    });
+
+    it('comemoração continua ignorada', () => {
+      expect(interpretar('Gol meu vamo onça')).toEqual({ tipo: 'IGNORADO' });
+      expect(interpretar('Primeira vitória nossa e gol meu')).toEqual({ tipo: 'IGNORADO' });
+      expect(interpretar('Na primeira partida da onça o goleiro pegou tudo')).toEqual({ tipo: 'IGNORADO' });
+      expect(interpretar('empatei o jogo, vamo tucano')).toEqual({ tipo: 'IGNORADO' });
+      expect(interpretar('Vou ser titular no tucano?')).toEqual({ tipo: 'IGNORADO' });
+    });
+
     it('não vale em frase sobre o jogo, com dois times ou marcando alguém', () => {
       expect(interpretar('o atacante da onça jogou muito')).toEqual({ tipo: 'IGNORADO' });
       expect(interpretar('onça ou tatu, atacante')).toEqual({ tipo: 'IGNORADO' });

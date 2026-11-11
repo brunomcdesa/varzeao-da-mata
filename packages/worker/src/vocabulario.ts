@@ -26,7 +26,8 @@ export const APELIDOS_DE_TIME: Record<TimeId, string[]> = {
 export const SINONIMOS_DE_POSICAO: Record<Posicao, string[]> = {
   GOL: ['GOL', 'GOLEIRO', 'GOLEIRA', 'GOLEIROS', 'ARQUEIRO', 'ARQUEIRA', 'GK', 'GOLQUIPER', 'GOLEIRAO'],
   ZAG: ['ZAG', 'ZAGUEIRO', 'ZAGUEIRA', 'ZAGA', 'BEQUE', 'DEFENSOR', 'DEFENSORA', 'DEFESA', 'ZAGUEIRAO', 'LATERAL'],
-  MEI: ['MEI', 'MEIA', 'MEIO', 'MEIO CAMPO', 'MEIOCAMPO', 'MEIO DE CAMPO', 'VOLANTE', 'ARMADOR', 'ARMADORA', 'CAMISA 10', 'MEIA ATACANTE'],
+  MEI: ['MEI', 'MEIA', 'MEIO', 'MEIO CAMPO', 'MEIOCAMPO', 'MEIO DE CAMPO', 'VOLANTE', 'ARMADOR', 'ARMADORA', 'CAMISA 10', 'MEIA ATACANTE',
+    'MEIO CAMPISTA', 'MEIOCAMPISTA', 'MEIO CAMPISTA CENTRAL', 'MEIA CENTRAL', 'MEIO CENTRAL'],
   ATA: ['ATA', 'ATACANTE', 'ATAQUE', 'CENTROAVANTE', 'ARTILHEIRO', 'ARTILHEIRA', 'PONTA', 'CAMISA 9', 'CA', 'FINALIZADOR', 'FINALIZADORA'],
 };
 
@@ -34,6 +35,8 @@ export const SINONIMOS_DE_POSICAO: Record<Posicao, string[]> = {
 export const PALAVRAS_DE_LIGACAO = new Set([
   'NA', 'NO', 'NAS', 'NOS', 'DA', 'DO', 'DAS', 'DOS', 'DE', 'COMO', 'PRO', 'PRA', 'PARA', 'O', 'A', 'OS', 'AS', 'E', 'EU',
   'TIME', 'POSICAO', 'JOGAR', 'JOGO', 'VOU', 'QUERO', 'SER', 'SOU', 'EM', 'UM', 'UMA', 'NESSA', 'NESSE', 'POR', 'FAVOR', 'PFV', 'PF',
+  // "Arara FC", "Tucano EC": o sufixo do clube não muda o Time.
+  'FC', 'EC',
 ]);
 
 /**

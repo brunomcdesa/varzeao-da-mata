@@ -64,6 +64,8 @@ export function interpretar(texto: string): Comando {
   const palavras = normalizar(texto)
     // "meu nome é Fulano": o nome não é Time nem posição, e não atrapalha o pedido.
     .replace(/\b(MEU NOME (E |EH )?|ME CHAMO |AQUI E (O |A )?)\S+/g, ' ')
+    // "bote o meu, goleiro, onça": o "meu" de quem pede para pôr o próprio boneco.
+    .replace(/\b(BOTA|BOTE|COLOCA|COLOQUE|POE) (O )?MEU\b/g, '$1')
     .split(' ')
     .filter((p) => p && p !== CONTA_DA_LIGA);
   const prefixo = palavras[0];
@@ -131,10 +133,12 @@ const PEDIDO = new Set([
   'ENTRAR', 'ENTRANDO', 'ENTRA', 'ME', 'INSCREVE', 'INSCREVER', 'INSCRICAO', 'BORA', 'VAMOS', 'VAMO', 'BOTA', 'COLOCA', 'POE',
   'AI', 'AQUI', 'SIM', 'OPA', 'OI', 'OLA', 'TO', 'TOU', 'ESTOU', 'DENTRO', 'QUERIA', 'GOSTARIA', 'DE', 'PO', 'MANO',
   'VAGA', 'VAGAS', 'UMA', 'TEM', 'COMENTE', 'COMENTO', 'ENTRO', 'ENTROU', 'QUER', 'ESQUERDA', 'ESQUERDO', 'DIREITA', 'DIREITO', 'FIZ', 'LA', 'JA', 'TAMBEM', 'TB', 'TBM', 'ENTAO', 'BLZ', 'BELEZA', 'VALEU', 'OBRIGADO', 'OBRIGADA', 'POSSO', 'PODE', 'SERIA',
+  // Vistos nos pedidos de 10/11: "mim bota nesse time", "cuida mano bote o meu", "na primeira partida".
+  'MIM', 'BOTE', 'COLOQUE', 'CUIDA', 'PRIMEIRA', 'PARTIDA',
 ]);
 
 /** Palavras que, sozinhas com um Time, já são pedido para entrar. */
-const PEDIDO_EXPLICITO = new Set(['VAGA', 'ENTRO', 'ENTROU', 'QUER', 'SOU', 'SER', 'QUERO', 'QUERIA', 'ENTRAR', 'ENTRA', 'ENTRANDO', 'COLOCA', 'BOTA', 'POE', 'INSCREVE', 'INSCREVER', 'JOGAR', 'ME']);
+const PEDIDO_EXPLICITO = new Set(['VAGA', 'ENTRO', 'ENTROU', 'QUER', 'SOU', 'SER', 'QUERO', 'QUERIA', 'ENTRAR', 'ENTRA', 'ENTRANDO', 'COLOCA', 'BOTA', 'POE', 'INSCREVE', 'INSCREVER', 'JOGAR', 'ME', 'MIM', 'BOTE', 'COLOQUE']);
 
 /**
  * Sem ENTRO: vale como Inscrição só quando o comentário é um pedido curto, com exatamente um
@@ -142,7 +146,8 @@ const PEDIDO_EXPLICITO = new Set(['VAGA', 'ENTRO', 'ENTROU', 'QUER', 'SOU', 'SER
  * capivara de goleiro"). Frase comentando o jogo ("o atacante da onça jogou muito") não entra.
  */
 function semPrefixo(palavras: string[]): Comando {
-  if (palavras.length > 9 || palavras.some((p) => p.startsWith('@'))) return { tipo: 'IGNORADO' };
+  // O limite é folgado: quem decide é a regra de baixo (só Time, posição e palavras de pedido).
+  if (palavras.length > 16 || palavras.some((p) => p.startsWith('@'))) return { tipo: 'IGNORADO' };
   const { times, posicoes, outras } = analisar(palavras);
   if (times.size !== 1 || posicoes.size > 1) return { tipo: 'IGNORADO' };
   if (!outras.every((p) => PALAVRAS_DE_LIGACAO.has(p) || PEDIDO.has(p))) return { tipo: 'IGNORADO' };
