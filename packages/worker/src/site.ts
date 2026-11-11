@@ -8,6 +8,7 @@
  * Escalações aparecem assim que existem (a partir do Corte).
  */
 import { IDENTIDADE, TIMES, duracaoAoVivoMs, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2 } from '@liga/shared';
+import { fundadorDe } from './rebalanceamento.js';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { seriesDaTemporada, type SeriesDaTemporada } from './series.js';
@@ -212,6 +213,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     ).rows.map((r) => r.jogador_id),
   );
   const comRegrasT2 = temporada !== undefined && temRegrasT2(temporada.numero);
+  // Fundadores (ADR-0036): só existem a partir da T2, e só aparecem no site da T2.
+  const fundadores = comRegrasT2 ? await fundadorDe(banco) : new Map<string, { time: TimeId; temporada: number }>();
   const porJogador = new Map<string, JogadorPublico>();
   const resumido = (id: string): JogadorResumido | null => {
     const j = porJogador.get(id);
@@ -238,6 +241,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       numero: j.numero ?? null,
       // Temporada 2 (ADR-0023): só aparece quando a Temporada atual tem as regras novas.
       ...(comRegrasT2 ? { especializacao: j.especializacao ?? null, treino: j.treino ?? null } : {}),
+      ...(fundadores.has(j.id) ? { fundador: fundadores.get(j.id)! } : {}),
       ...estatisticasVazias(),
       vezesCandidato: 0,
       craqueDaRodada: 0,

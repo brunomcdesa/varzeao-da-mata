@@ -179,6 +179,8 @@ export interface JogadorPublico {
   visual: Aparencia | null;
   /** Número da camisa escolhido pelo dono. */
   numero: number | null;
+  /** Fundador de um Time da Série B (ADR-0036): só existe a partir da Temporada 2. */
+  fundador?: { time: TimeId; temporada: number };
   /** Números da carreira (todas as Temporadas); `nestaTemporada` só a atual. */
   jogos: number;
   gols: number;

@@ -4,7 +4,7 @@
  * Só existe a partir da Temporada 2: na T1 a Carreira é uma Temporada só, e a página do
  * Jogador já mostra tudo.
  */
-import { NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, nomeVisivel, temRegrasT2, type TipoTrofeu } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, nomeVisivel, temRegrasT2, type JogadorPublico, type TipoTrofeu } from '@liga/shared';
 import { jogadores, liga } from '../dados.js';
 import { bonecoImg, curto, escudoImg, html, nota, NOME_DA_POSICAO, type Html } from '../ui.js';
 import type { Pagina } from './tipos.js';
@@ -17,7 +17,14 @@ const NOME_DO_TROFEU: Record<TipoTrofeu, [string, string]> = {
   REI_DO_CLASSICO: ['Rei do Clássico', 'Reis do Clássico'],
 };
 
-function cartaoDaTemporada(t: TemporadaDaCarreira, atual: boolean): Html {
+/** Selo de Fundador (ADR-0036), nas cores do Time. Só existe a partir da T2. */
+function seloFundador(f: NonNullable<JogadorPublico['fundador']>, completo: boolean): Html {
+  const id = IDENTIDADE[f.time];
+  const nome = FALA_DO_TIME[f.time];
+  return html`<span class="selo-fundador" style="--fundador-cor: ${id.primaria}; --fundador-borda: ${id.secundaria}">${escudoImg(f.time, 1)}<span>${completo ? `Fundador ${nome.artigo === 'a' ? 'da' : 'do'} ${nome.curto}` : 'Fundador'}</span></span>`;
+}
+
+function cartaoDaTemporada(t: TemporadaDaCarreira, atual: boolean, fundador?: JogadorPublico['fundador']): Html {
   const delta = t.ovrInicio !== null && t.ovrFim !== null ? t.ovrFim - t.ovrInicio : 0;
   return html`<li class="temporada-carreira placa">
     <header>
@@ -37,6 +44,7 @@ function cartaoDaTemporada(t: TemporadaDaCarreira, atual: boolean): Html {
           ${t.amarelos || t.expulsoes ? html`<div><dt>Cartões</dt><dd>${t.amarelos ? html`<span class="mini-cartao amarelo" aria-label="amarelos"></span>${t.amarelos}` : ''} ${t.expulsoes ? html`<span class="mini-cartao vermelho" aria-label="vermelhos"></span>${t.expulsoes}` : ''}</dd></div>` : ''}
         </dl>`
       : html`<p class="vazio-pequeno">Ainda não jogou nesta Temporada.</p>`}
+    ${fundador?.temporada === t.numero ? html`<p class="trofeus-carreira">${seloFundador(fundador, true)}</p>` : ''}
     ${t.trofeus.length ? html`<p class="trofeus-carreira">${t.trofeus.map(([tipo, n]) => html`<span class="selo">${n > 1 ? `${n} ` : ''}${NOME_DO_TROFEU[tipo][n > 1 ? 1 : 0]}</span>`)}</p>` : ''}
   </li>`;
 }
@@ -57,12 +65,13 @@ export const paginaCarreira: Pagina = async (main, [id]) => {
       <div>
         <p class="tabua-titulo">Carreira</p>
         <h1><a href="#/jogador/${j.id}">${nomeVisivel(j)}</a></h1>
+        ${j.fundador ? html`<p class="linha-fundador">${seloFundador(j.fundador, true)} <small>desde a Temporada ${j.fundador.temporada}</small></p>` : ''}
         <p>${NOME_DA_POSICAO[j.posicao]} do ${curto(j.time)} · OVR ${j.ovr} · ${j.temporadas} ${j.temporadas === 1 ? 'Temporada' : 'Temporadas'} · ${j.jogos} jogos, ${j.gols} gols</p>
         ${j.especializacao || j.treino
           ? html`<p class="legenda">${j.especializacao ? `Especialização: ${NOME_DA_ESPECIALIZACAO[j.especializacao]}` : ''}${j.especializacao && j.treino ? ' · ' : ''}${j.treino ? `Treino: ${NOME_DA_HABILIDADE[j.treino]}` : ''}</p>`
           : ''}
       </div>
     </header>
-    <ol class="lista-carreira">${temporadas.map((t) => cartaoDaTemporada(t, t.numero === atual))}</ol>
+    <ol class="lista-carreira">${temporadas.map((t) => cartaoDaTemporada(t, t.numero === atual, j.fundador))}</ol>
   </article>`.s;
 };

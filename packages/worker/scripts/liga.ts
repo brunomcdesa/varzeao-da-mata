@@ -4,6 +4,7 @@
  *   pnpm liga temporada [--inicio 2026-11-07]        cria a Temporada (7 Rodadas, 12h/14h/16h/18h)
  *   USUARIO=fulano pnpm liga remover               remove um Jogador que ainda não jogou
  *   USUARIO=fulano TIME=onca POSICAO=zagueiro pnpm liga mover   muda o Time à mão (ADR-0029)
+ *   pnpm liga rebalancear [--gravar]                Rebalanceamento da T2 (ADR-0036); sem --gravar só mostra o plano
  *   USUARIO=fulano pnpm liga vincular-conta        liga o Jogador da DM (id provisório) à conta do Instagram
  *   pnpm liga corrigir-trocas-de-posicao            devolve o OVR de quem trocou de posição pela regra antiga (ADR-0030)
  *   pnpm liga comentarios                          os comentários lidos e o resultado de cada um
@@ -36,6 +37,8 @@ import {
   fecharRodada,
   processarComentario,
   moverJogador,
+  rebalancear,
+  avisoDoRemanejado,
   vincularConta,
   corrigirTrocasDePosicao,
   jogadorPeloUsername,
@@ -69,6 +72,7 @@ const { values: args, positionals } = parseArgs({
     pasta: { type: 'string', default: join(homedir(), 'varzeao-videos') },
     previa: { type: 'string' },
     agora: { type: 'string' },
+    gravar: { type: 'boolean', default: false },
   },
 });
 const [comando, ...resto] = positionals;
@@ -278,6 +282,24 @@ async function main(): Promise<void> {
         if (!usuario || pedido.tipo !== 'INSCRICAO') throw new Error('Use: USUARIO=fulano TIME=onca POSICAO=zagueiro pnpm liga mover');
         const r = await moverJogador(banco, usuario, pedido.time, pedido.posicao, process.env.ID || undefined);
         console.log(`Movido: @${usuario} de ${r.de} para ${r.posicao} do ${r.para}, OVR ${r.ovr}.${r.perdeuCamisa ? ' A camisa já tinha dono no Time novo e foi liberada.' : ''}`);
+        break;
+      }
+
+      case 'rebalancear': {
+        // Rebalanceamento da T2 (ADR-0036). Sem --gravar é a simulação: mostra o plano e os avisos.
+        const r = await rebalancear(banco, { gravar: args.gravar });
+        console.log(`Temporada ${r.temporada}: ${r.plano.remanejados.length} Jogador(es) remanejado(s).${r.gravado ? '' : ' SIMULAÇÃO: nada foi gravado.'}`);
+        for (const x of r.plano.remanejados) {
+          console.log(`  @${x.jogador.username}: ${x.jogador.posicao} ${nomeCurto(x.jogador.time)} → ${nomeCurto(x.para)}${x.noPrimo ? '' : ' (Time Primo cheio na posição)'}`);
+        }
+        console.log('Elencos depois:');
+        for (const [time, elenco] of Object.entries(r.plano.elencos)) {
+          const conta = (['GOL', 'ZAG', 'MEI', 'ATA'] as Posicao[]).map((p) => `${p} ${elenco.filter((j) => j.posicao === p).length}`).join(' · ');
+          console.log(`  ${nomeCurto(time as TimeId).padEnd(17)} ${String(elenco.length).padStart(2)}  (${conta})`);
+        }
+        console.log('Rascunhos dos avisos (só saem com aprovação):');
+        for (const x of r.plano.remanejados) console.log(`  ${avisoDoRemanejado(x)}`);
+        if (r.gravado) console.log(`Gravado. ${r.fundadores} Fundador(es) marcados.`);
         break;
       }
 

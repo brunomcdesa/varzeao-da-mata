@@ -2,8 +2,9 @@
  * Perfil do Jogador escolhido pelo dono no site (ADR-0013): visual do boneco (pele, cor e
  * corte do cabelo) e número da camisa. Os valores possíveis são os do desenho do boneco.
  */
-import { aparenciaValida, apelidoLiberaEm, chaveDoApelido, podeTrocarApelido, validarApelido, type Aparencia } from '@liga/shared';
+import { aparenciaValida, apelidoLiberaEm, chaveDoApelido, podeTrocarApelido, validarApelido, type Aparencia, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
+import { recusaDaCamisaNaPreTemporada } from './rebalanceamento.js';
 
 type Visual = Required<Aparencia>;
 
@@ -33,6 +34,9 @@ export async function aplicarPerfil(b: Banco, jogadorId: string, p: { visual?: u
   if (p.numero !== undefined) {
     const n = Number(p.numero);
     if (!Number.isInteger(n) || n < 1 || n > 99) return { ok: false, mensagem: 'O número da camisa vai de 1 a 99.' };
+    // ADR-0036: na Pré-temporada da T2, os Fundadores do Time escolhem primeiro.
+    const recusa = await recusaDaCamisaNaPreTemporada(b, jogadorId, j.time_id as TimeId);
+    if (recusa) return { ok: false, mensagem: recusa };
     const dono = (await b.query<{ username: string }>(`SELECT username FROM jogador WHERE time_id = $1 AND numero = $2 AND id <> $3 AND NOT banido`, [j.time_id, n, jogadorId])).rows[0];
     if (dono) return { ok: false, mensagem: `A camisa ${n} já é de @${dono.username} no seu time. Escolha outro número.` };
     try {
