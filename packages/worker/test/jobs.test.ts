@@ -7,14 +7,14 @@ import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
 import type { Comentario } from '../src/coletar.js';
 import type { Instagram } from '../src/instagram.js';
-import { jobColetar, jobPartida, jobResumo, sincronizarPublicados, type ContextoDoJob } from '../src/jobs.js';
+import { CAPA_DO_RESUMO_MS, jobColetar, jobPartida, jobResumo, sincronizarPublicados, type ContextoDoJob } from '../src/jobs.js';
 import { AgendaNaMemoria, CHAVE_TOKEN, PastaLocal, type ItemDaAgenda } from '../src/nuvem.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 
 /** Instagram de mentira: posts com comentários, containers que ficam prontos na hora. */
 class InstagramFalso {
   comentariosPorMidia = new Map<string, Comentario[]>();
-  containers: { id: string; videoUrl: string; legenda: string }[] = [];
+  containers: { id: string; videoUrl: string; legenda: string; capaEmMs?: number; capaUrl?: string }[] = [];
   token = 'T0';
   renovacoes = 0;
   /** Posts antigos: existem, mas já não aparecem em midiasDesde. */
@@ -25,7 +25,7 @@ class InstagramFalso {
   async comentarios(id: string) {
     return this.comentariosPorMidia.get(id) ?? [];
   }
-  async criarReels(o: { videoUrl: string; legenda: string }) {
+  async criarReels(o: { videoUrl: string; legenda: string; capaEmMs?: number; capaUrl?: string }) {
     const id = `C${this.containers.length + 1}`;
     this.containers.push({ id, ...o });
     return id;
@@ -190,6 +190,8 @@ describe('jobs', () => {
     expect(resumo).toMatchObject({ tipo: 'RESUMO', publicarEm: '2026-11-07T22:00:00.000Z' });
     expect(ig.containers.at(-1)!.legenda).toMatch(/só o número/);
     expect(ig.containers.at(-1)!.legenda).not.toMatch(/@/);
+    // Capa: o quadro com o título da abertura, não o campo vazio do começo.
+    expect(ig.containers.at(-1)!.capaEmMs).toBe(CAPA_DO_RESUMO_MS);
     expect(await jobResumo(ctx)).toBeNull();
   });
 });

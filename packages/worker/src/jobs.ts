@@ -273,8 +273,14 @@ async function guardarPartidaPrivada(c: ContextoDoJob, partidaId: number, apito:
   if (completa) await c.armazenamento.enviar('privado', `partidas/${partidaId}.json`, JSON.stringify(completa), { tipo: 'application/json' });
 }
 
+/**
+ * Capa do Reels do Resumo (e do fim da Temporada): o quadro da abertura com o título
+ * ("Resumo da Rodada 3"). O quadro 0 é só o campo, e a abertura acaba aos 3 s.
+ */
+export const CAPA_DO_RESUMO_MS = 2000;
+
 /** Cria (ou reaproveita) o container e grava na agenda. Devolve o item agendado. */
-async function agendar(c: ContextoDoJob, o: { tipo: ItemDaAgenda['tipo']; ref: number; videoUrl: string; capaUrl?: string; legenda: string; containerAtual: string | null; publicarEm: Date; salvarContainer: (id: string) => Promise<void> }): Promise<ItemDaAgenda | null> {
+async function agendar(c: ContextoDoJob, o: { tipo: ItemDaAgenda['tipo']; ref: number; videoUrl: string; capaUrl?: string; capaEmMs?: number; legenda: string; containerAtual: string | null; publicarEm: Date; salvarContainer: (id: string) => Promise<void> }): Promise<ItemDaAgenda | null> {
   if (!c.ig) {
     logDe(c)(`${o.tipo} ${o.ref}: sem Instagram configurado, não agendou.`);
     return null;
@@ -285,7 +291,7 @@ async function agendar(c: ContextoDoJob, o: { tipo: ItemDaAgenda['tipo']; ref: n
     if (status === 'ERROR' || status === 'EXPIRED') container = null;
   }
   if (!container) {
-    container = await c.ig.criarReels({ videoUrl: o.videoUrl, legenda: o.legenda, ...(o.capaUrl ? { capaUrl: o.capaUrl } : {}) });
+    container = await c.ig.criarReels({ videoUrl: o.videoUrl, legenda: o.legenda, ...(o.capaUrl ? { capaUrl: o.capaUrl } : {}), ...(o.capaEmMs !== undefined ? { capaEmMs: o.capaEmMs } : {}) });
     await o.salvarContainer(container);
   }
   await c.ig.esperarContainer(container);
@@ -544,6 +550,7 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
         tipo: 'CRAQUE',
         ref: t.id,
         videoUrl: c.armazenamento.urlPublica(chave),
+        capaEmMs: CAPA_DO_RESUMO_MS,
         legenda: legendaDoFimDaTemporada(t.numero, historia, { username: s.username, time: s.time_id, jogos: Number(s.jogos), gols, media: Number(s.media), votos: Number(s.votos) }, proxima, craqueB),
         containerAtual: null,
         publicarEm,
@@ -669,6 +676,7 @@ export async function jobResumo(c: ContextoDoJob): Promise<number | null> {
       tipo: 'RESUMO',
       ref: r.id,
       videoUrl: c.armazenamento.urlPublica(chave),
+      capaEmMs: CAPA_DO_RESUMO_MS,
       legenda: legendaDoResumo(dados),
       containerAtual: null,
       publicarEm,

@@ -57,4 +57,4 @@ const fim: DadosDoResumo = {
   fimDaTemporada: { proxima: { numero: 3, inicio: '2026-12-01' } },
 };
 
-await gravarResumo(process.argv.includes('--fim') ? fim : dados, { saida: resolve(pasta, 'resumo.mp4'), previa: pasta });
+await gravarResumo(process.argv.includes('--fim') ? fim : dados, { saida: resolve(pasta, 'resumo.mp4'), previa: pasta, instantes: [2] } /* t-002.0 = capa do Reels (CAPA_DO_RESUMO_MS) */);

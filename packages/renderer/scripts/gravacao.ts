@@ -263,7 +263,7 @@ export async function gravarResumo(dados: DadosDoResumo, o: OpcoesGravacao): Pro
     const { duracao, totalQuadros } = await pagina.evaluate(([d, m, f]) => window.varzea.prepararResumo(d, m, f), [dados, minimos, fps] as const);
     console.log(`Resumo da Rodada ${dados.rodada} · ${duracao.toFixed(1)} s · ${totalQuadros} quadros a ${fps} fps`);
     if (o.previa) {
-      await gravarPrevia(pagina, o.previa, fps);
+      await gravarPrevia(pagina, o.previa, fps, o.instantes);
       return { duracao };
     }
     await codificar(pagina, totalQuadros, audio!, o.saida, fps, crf);
