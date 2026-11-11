@@ -11,6 +11,13 @@ import { capitaoEmCampo, confirmados, suspensos } from './temporada2.js';
 
 export const CORTE_MINUTOS = 30;
 
+/**
+ * Limite de Partidas Fora (ADR-0043): quem ficou esse número de Partidas seguidas do próprio
+ * Time fora da Escalação, contando só as Partidas depois da Inscrição, passa na frente no
+ * rodízio, no mesmo nível da Presença.
+ */
+export const LIMITE_FORA = 2;
+
 export interface EscalacaoMontada {
   escalacao: Escalacao;
   /** @ de cada lugar; null = Jogador da Base. */
@@ -29,6 +36,8 @@ interface Disponivel {
   jogos: number;
   ultimo: Date | null;
   inscritoEm: Date;
+  /** Partidas seguidas do Time fora da Escalação, desde a última jogada (ou desde a Inscrição). */
+  fora?: number;
   /** T2: escolhas do site na hora da Escalação. */
   especializacao?: Especializacao | null;
   treino?: HabilidadeId | null;
@@ -43,7 +52,8 @@ export interface RegrasDaEscalacao {
 
 /**
  * Ordem do rodízio, por Posição: Craque da Rodada anterior primeiro; depois quem tem
- * prioridade (na T2: Presença, ADR-0023, ou Resenha no Clássico, ADR-0039), no mesmo nível; depois
+ * prioridade (Limite de Partidas Fora, ADR-0043; na T2 também Presença, ADR-0023, ou Resenha no
+ * Clássico, ADR-0039), no mesmo nível; depois
  * quem jogou menos na Temporada; empate, quem jogou há mais tempo (ou nunca); depois quem
  * se inscreveu antes.
  */
@@ -70,15 +80,24 @@ export async function montarEscalacao(
   o: { time: TimeId; temporadaId: number; corte: Date; craque?: string | null; t2?: RegrasDaEscalacao; resenha?: ReadonlySet<string>; classico?: boolean },
 ): Promise<EscalacaoMontada> {
   const disponiveis = (
-    await banco.query<{ id: string; username: string; apelido: string | null; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; jogos: string; ultimo: string | Date | null; inscrito_em: string | Date; especializacao: Especializacao | null; treino: HabilidadeId | null; canto: Canto | null }>(
-      `SELECT j.id::text AS id, j.username, j.apelido, j.posicao, j.ovr, j.habilidades, j.inscrito_em, j.especializacao, j.treino, j.canto,
-              count(p.id) AS jogos, max(p.apito_inicial) AS ultimo
-       FROM jogador j
-       LEFT JOIN escalacao e ON e.jogador_id = j.id
-       LEFT JOIN partida p ON p.id = e.partida_id
-         AND p.rodada_id IN (SELECT id FROM rodada WHERE temporada_id = $2)
-       WHERE j.time_id = $1 AND NOT j.banido AND j.inscrito_em <= $3
-       GROUP BY j.id`,
+    await banco.query<{ id: string; username: string; apelido: string | null; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; jogos: string; ultimo: string | Date | null; inscrito_em: string | Date; fora: string; especializacao: Especializacao | null; treino: HabilidadeId | null; canto: Canto | null }>(
+      `WITH base AS (
+         SELECT j.id, j.username, j.apelido, j.posicao, j.ovr, j.habilidades, j.inscrito_em, j.especializacao, j.treino, j.canto,
+                count(p.id) AS jogos, max(p.apito_inicial) AS ultimo
+         FROM jogador j
+         LEFT JOIN escalacao e ON e.jogador_id = j.id
+         LEFT JOIN partida p ON p.id = e.partida_id
+           AND p.rodada_id IN (SELECT id FROM rodada WHERE temporada_id = $2)
+         WHERE j.time_id = $1 AND NOT j.banido AND j.inscrito_em <= $3
+         GROUP BY j.id)
+       SELECT b.id::text AS id, b.username, b.apelido, b.posicao, b.ovr, b.habilidades, b.inscrito_em, b.especializacao, b.treino, b.canto,
+              b.jogos, b.ultimo,
+              (SELECT count(*) FROM partida q JOIN rodada r ON r.id = q.rodada_id
+               WHERE r.temporada_id = $2 AND (q.mandante_id = $1 OR q.visitante_id = $1)
+                 AND q.status <> 'PENDENTE' AND q.apito_inicial < $3
+                 AND q.apito_inicial - interval '${CORTE_MINUTOS} minutes' >= b.inscrito_em
+                 AND (b.ultimo IS NULL OR q.apito_inicial > b.ultimo)) AS fora
+       FROM base b`,
       [o.time, o.temporadaId, o.corte.toISOString()],
     )
   ).rows.map(
@@ -92,12 +111,17 @@ export async function montarEscalacao(
       jogos: Number(r.jogos),
       ultimo: r.ultimo ? new Date(r.ultimo) : null,
       inscritoEm: new Date(r.inscrito_em),
+      fora: Number(r.fora),
       ...(o.t2 ? { especializacao: r.especializacao, treino: r.treino, canto: r.canto } : {}),
     }),
   ).filter((d) => !o.t2?.suspensos.has(d.id));
 
-  // Prioridade no rodízio (T2): Presença sempre; Resenha só no Clássico (ADR-0039). Mesmo nível.
-  const prioridade = new Set([...(o.classico ? (o.resenha ?? []) : []), ...(o.t2?.confirmados ?? [])]);
+  // Prioridade no rodízio, mesmo nível: Limite de Partidas Fora (ADR-0043); na T2, Presença sempre e Resenha só no Clássico (ADR-0039).
+  const prioridade = new Set([
+    ...disponiveis.filter((d) => (d.fora ?? 0) >= LIMITE_FORA).map((d) => d.id),
+    ...(o.classico ? (o.resenha ?? []) : []),
+    ...(o.t2?.confirmados ?? []),
+  ]);
   const porPosicao = new Map<Posicao, Disponivel[]>();
   for (const d of disponiveis) porPosicao.set(d.posicao, [...(porPosicao.get(d.posicao) ?? []), d]);
   for (const lista of porPosicao.values()) lista.sort((a, b) => ordemDoRodizio(a, b, o.craque ?? null, prioridade));

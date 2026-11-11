@@ -216,6 +216,10 @@ _Avoid_: gancho, punição
 A confirmação, feita pelo site ou comentando CONFIRMO até o Corte, de que o Jogador quer jogar o próximo jogo do Time. Quem confirmou passa na frente no rodízio da Escalação. ADR-0023.
 _Avoid_: check-in, convocação
 
+**Partidas Fora**:
+As Partidas seguidas do próprio Time em que o Jogador ficou fora da Escalação, contadas desde a última que jogou (ou desde a Inscrição). Quem chega a 2 Partidas Fora passa na frente no rodízio da Escalação, no mesmo nível da Presença. ADR-0043.
+_Avoid_: banco, jejum, tempo parado
+
 **Especialização**:
 A função que o Jogador escolhe dentro da sua Posição (por exemplo Artilheiro, Volante, Xerife ou Paredão), que dá um bônus num Duelo e um custo pequeno em outro. São 3 por Posição, no máximo uma valendo em cada jogo, trocada uma vez por Rodada. ADR-0023.
 _Avoid_: estilo, classe, perfil, função
