@@ -144,31 +144,44 @@ describe('Resenha (ADR-0034)', () => {
     expect(resenhaDe(await escalarPartida(banco, await novaPartida('CAP', 'ARA', hora(18))), 'mandante')).toEqual(['@a1']);
   });
 
-  it('quem tem Resenha passa na frente no rodízio da Posição (ADR-0039)', async () => {
+  it('no Clássico, quem tem Resenha passa na frente no rodízio da Posição (ADR-0039)', async () => {
     for (const a of ['a1', 'a2', 'a3']) await inscrever(a, 'ENTRO CAPIVARA ATA');
-    const p1 = await novaPartida('CAP', 'ONC', hora(12));
+    const p1 = await novaPartida('CAP', 'TAT', hora(12));
     expect((await escalarPartida(banco, p1)).nomes.mandante.slice(5)).toEqual(['@a1', '@a2']);
     await publicar(p1, 'reels1');
-    // Sem Resenha, o rodízio poria a3 e a1. a2 comentou e passa na frente de a1.
+    // Sem Resenha, o rodízio poria a3 e a1. a2 comentou e passa na frente de a1 no Clássico.
     await comentar('a2', 'reels1', hora(13));
-    const p2 = await escalarPartida(banco, await novaPartida('CAP', 'TAT', hora(16)));
+    const p2 = await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(16)));
     expect(p2.nomes.mandante.slice(5)).toEqual(['@a2', '@a3']);
     expect(resenhaDe(p2, 'mandante')).toEqual(['@a2']);
   });
 
-  it('entre os que têm Resenha vale o rodízio, e o Craque continua na frente', async () => {
+  it('fora do Clássico, a Resenha não mexe no rodízio (só na evolução)', async () => {
+    for (const a of ['a1', 'a2', 'a3']) await inscrever(a, 'ENTRO CAPIVARA ATA');
+    const p1 = await novaPartida('CAP', 'TAT', hora(12));
+    await escalarPartida(banco, p1);
+    await publicar(p1, 'reels1');
+    await comentar('a2', 'reels1', hora(13));
+    const p2 = await escalarPartida(banco, await novaPartida('CAP', 'TUC', hora(16)));
+    expect(p2.nomes.mandante.slice(5)).toEqual(['@a3', '@a1']);
+    expect(resenhaDe(p2, 'mandante')).toEqual([]); // a2 ficou fora e não guarda o bônus
+  });
+
+  it('no Clássico, entre os que têm Resenha vale o rodízio, e o Craque continua na frente', async () => {
     for (const a of ['a1', 'a2', 'a3', 'a4']) await inscrever(a, 'ENTRO CAPIVARA ATA');
-    const p1 = await novaPartida('CAP', 'ONC', hora(12));
+    const p1 = await novaPartida('CAP', 'TAT', hora(12));
     await escalarPartida(banco, p1); // a1 e a2 jogam
     await publicar(p1, 'reels1');
     for (const a of ['a1', 'a2', 'a3']) await comentar(a, 'reels1', hora(13));
     // a1, a2 e a3 comentaram: entre eles, a3 (jogou menos) primeiro, depois a1.
-    const p2 = await escalarPartida(banco, await novaPartida('CAP', 'TAT', hora(16)));
+    const p2 = await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(16)));
     expect(p2.nomes.mandante.slice(5)).toEqual(['@a3', '@a1']);
     // O Craque da Rodada anterior (a4, sem Resenha) continua garantido antes de todos.
+    await publicar(p2.partidaId, 'reels2');
+    for (const a of ['a1', 'a2', 'a3']) await comentar(a, 'reels2', hora(17));
     const craque = (await banco.query<{ id: string }>(`SELECT id::text AS id FROM jogador WHERE username = 'a4'`)).rows[0]!.id;
-    const p3 = await escalarPartida(banco, await novaPartida('CAP', 'TUC', hora(18)), { craque });
-    expect(p3.nomes.mandante[5]).toBe('@a4');
+    const p3 = await escalarPartida(banco, await novaPartida('ONC', 'CAP', hora(18)), { craque });
+    expect(p3.nomes.visitante[5]).toBe('@a4');
   });
 
   it('na simulação, quem tem Resenha evolui pelo menos tanto quanto sem ela', async () => {
