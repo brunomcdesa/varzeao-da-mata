@@ -63,7 +63,7 @@ describe('Resumo da Rodada', () => {
   });
 });
 
-describe('Destaques por Posição no Resumo (ADR-0041)', () => {
+describe('Seleção da Rodada no Resumo (ADR-0041)', () => {
   const destaques: NonNullable<DadosDoResumo['destaques']> = [
     { posicao: 'GOL', username: 'muro', time: 'ONC', nota: 9.1, numero: { valor: 6, legenda: 'defesas' } },
     { posicao: 'ZAG', username: 'zaga', time: 'TAT', nota: 8.0, numero: { valor: 4, legenda: 'desarmes' } },

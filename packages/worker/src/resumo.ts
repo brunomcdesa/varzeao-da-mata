@@ -151,7 +151,7 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
   // Anúncio do Craque da Rodada anterior, um por Série (ADR-0017).
   const craqueAnterior = await anuncioDoCraque(banco, r.temporada_id, r.numero, 'A');
   const craqueAnteriorB = comSeries ? await anuncioDoCraque(banco, r.temporada_id, r.numero, 'B') : null;
-  // Destaques por Posição da Rodada (ADR-0041), a partir da T2.
+  // Seleção da Rodada (ADR-0041), a partir da T2.
   const destaques = await destaquesDaRodadaNoBanco(banco, rodadaId, r.temporada, comSeries);
   return {
     ...(final ? { votacao: 'TEMPORADA' as const } : {}),

@@ -1,5 +1,5 @@
 /**
- * Destaques por Posição (ADR-0041): busca os desempenhos da Rodada ou da Temporada e monta o
+ * Seleção da Rodada e da Temporada (ADR-0041): busca os desempenhos da Rodada ou da Temporada e monta o
  * que o Resumo mostra. Só a partir da Temporada 2.
  */
 import { destaquesDaRodada, destaquesDaTemporada, type Destaque, type DesempenhoParaDestaque, type Posicao, type Serie, type TimeId } from '@liga/shared';

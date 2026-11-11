@@ -125,9 +125,9 @@ function medalhas(j: JogadorPublico): [string, number][] {
 const NOME_DO_TROFEU: Record<TipoTrofeu, string> = {
   CAMPEAO: 'Campeão',
   CRAQUE_TEMPORADA: 'Craque da Temporada',
-  DESTAQUE_TEMPORADA: 'Destaque da Temporada',
+  SELECAO_TEMPORADA: 'Seleção da Temporada',
   CRAQUE_RODADA: 'Craque da Rodada',
-  DESTAQUE_RODADA: 'Destaque da Rodada',
+  SELECAO_RODADA: 'Seleção da Rodada',
   REI_DO_CLASSICO: 'Rei do Clássico',
 };
 
@@ -136,7 +136,7 @@ function salaDeTrofeus(j: JogadorPublico): Html {
   const tipos = ORDEM_DOS_TROFEUS.filter((t) => j.trofeus.some((x) => x.tipo === t));
   const quando = (t: Trofeu) =>
     (t.posicao ? `${DESTAQUE_DA_POSICAO[t.posicao]} · ` : '') +
-    (t.tipo === 'CAMPEAO' || t.tipo === 'CRAQUE_TEMPORADA' || t.tipo === 'DESTAQUE_TEMPORADA' ? `Temporada ${t.temporada}` : `${t.rodada && t.fase ? nomeDaEtapa(t.fase, t.rodada) : ''}, T${t.temporada}`);
+    (t.tipo === 'CAMPEAO' || t.tipo === 'CRAQUE_TEMPORADA' || t.tipo === 'SELECAO_TEMPORADA' ? `Temporada ${t.temporada}` : `${t.rodada && t.fase ? nomeDaEtapa(t.fase, t.rodada) : ''}, T${t.temporada}`);
   return html`<section class="sala" aria-labelledby="titulo-sala">
     <h2 id="titulo-sala" class="secao">Sala de troféus</h2>
     <ul class="sala-lista">${tipos.map((tipo) => {

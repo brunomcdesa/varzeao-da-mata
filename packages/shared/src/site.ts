@@ -143,9 +143,9 @@ export interface Estatisticas {
   derrotas: number;
 }
 
-export type TipoTrofeu = 'CAMPEAO' | 'CRAQUE_TEMPORADA' | 'DESTAQUE_TEMPORADA' | 'CRAQUE_RODADA' | 'DESTAQUE_RODADA' | 'REI_DO_CLASSICO';
+export type TipoTrofeu = 'CAMPEAO' | 'CRAQUE_TEMPORADA' | 'SELECAO_TEMPORADA' | 'CRAQUE_RODADA' | 'SELECAO_RODADA' | 'REI_DO_CLASSICO';
 /** Ordem em que os troféus aparecem no site. */
-export const ORDEM_DOS_TROFEUS: readonly TipoTrofeu[] = ['CAMPEAO', 'CRAQUE_TEMPORADA', 'DESTAQUE_TEMPORADA', 'CRAQUE_RODADA', 'DESTAQUE_RODADA', 'REI_DO_CLASSICO'];
+export const ORDEM_DOS_TROFEUS: readonly TipoTrofeu[] = ['CAMPEAO', 'CRAQUE_TEMPORADA', 'SELECAO_TEMPORADA', 'CRAQUE_RODADA', 'SELECAO_RODADA', 'REI_DO_CLASSICO'];
 
 export interface Trofeu {
   tipo: TipoTrofeu;

@@ -54,8 +54,8 @@ export interface DadosDoResumo {
   /** Craque da Rodada anterior na Série B, quando há (ADR-0017). */
   craqueDaRodadaB?: { rodada: number; fase: 'LIGA' | 'MATA_MATA'; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number; gols: number; votos: number };
   /**
-   * Destaques por Posição (ADR-0041), da T2 em diante: Muralha, Carrapato, Garçom e Matador,
-   * um por Posição em cada Série. No Resumo da Temporada (`fimDaTemporada`), são os da Temporada.
+   * Seleção da Rodada (ADR-0041), da T2 em diante: Muralha, Carrapato, Garçom e Matador,
+   * um por Posição em cada Série. No Resumo da Temporada (`fimDaTemporada`), é a Seleção da Temporada.
    */
   destaques?: { posicao: Posicao; serie?: Serie; username: string; time: TimeId; nota: number; numero: { valor: number; legenda: string } }[];
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
@@ -222,7 +222,7 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
       case 'POSICOES': {
         // Pela Posição e pelo Time, nunca pelo @ (o apelido fica para gols e Craque).
         const quem = (x.destaques ?? []).map((j) => `${DESTAQUE_DA_POSICAO[j.posicao]}: o ${POSICAO_FALADA[j.posicao]} ${doTime(j.time)}`);
-        texto = `${s.serie ? `Na Série ${s.serie}, os` : 'Os'} destaques ${d.fimDaTemporada ? 'da Temporada' : 'da Rodada'}, um por posição! ${quem.join('. ')}.`;
+        texto = `${s.serie ? `Na Série ${s.serie}, a` : 'A'} Seleção ${d.fimDaTemporada ? 'da Temporada' : 'da Rodada'}, a maior nota de cada posição! ${quem.join('. ')}.`;
         break;
       }
       case 'PLACARES':
@@ -574,7 +574,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       break;
     }
     case 'POSICOES': {
-      titulo(d.fimDaTemporada ? 'Destaques da Temporada' : 'Destaques da Rodada');
+      titulo(d.fimDaTemporada ? 'Seleção da Temporada' : 'Seleção da Rodada');
       const fase = Math.floor(tVideo * 3);
       (ds.destaques ?? []).forEach((j, k) => {
         const a = aparece(k, 0.5, 0.5);

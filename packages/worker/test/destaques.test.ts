@@ -5,7 +5,7 @@ const d = (jogadorId: string | null, posicao: Posicao, nota: number, extra: Part
   jogadorId, posicao, nota, gols: 0, assistencias: 0, desarmes: 0, bloqueios: 0, defesas: 0, golsSofridos: 0, ...extra,
 });
 
-describe('Destaques por Posição (ADR-0041)', () => {
+describe('Seleção da Rodada e da Temporada (ADR-0041)', () => {
   it('escolhe a maior Nota de cada Posição, inclusive goleiro e zagueiro', () => {
     const r = destaquesDaRodada([
       d('1', 'ATA', 8.9, { gols: 2 }),

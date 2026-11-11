@@ -345,13 +345,13 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     }
   }
 
-  // Destaques por Posição (ADR-0041), da T2 em diante: da Rodada depois que o Resumo dela foi ao
+  // Seleção da Rodada e da Temporada (ADR-0041), da T2 em diante: da Rodada depois que o Resumo dela foi ao
   // ar; da Temporada depois do anúncio do Craque da Temporada (o mesmo Reels).
   for (const t of temporadas) {
     if (t.numero < TEMPORADA_DOS_DESTAQUES) continue;
     const series = comSeries(t.id);
     const ps = todas.filter((p) => p.temporada_id === t.id && p.resultado && encerrada(p));
-    const dar = (tipo: 'DESTAQUE_RODADA' | 'DESTAQUE_TEMPORADA', destaques: Destaque[], desempenhos: ReturnType<typeof desempenhosDasPartidas>, rodada?: Pick<LinhaPartida, 'rodada' | 'fase'>) => {
+    const dar = (tipo: 'SELECAO_RODADA' | 'SELECAO_TEMPORADA', destaques: Destaque[], desempenhos: ReturnType<typeof desempenhosDasPartidas>, rodada?: Pick<LinhaPartida, 'rodada' | 'fase'>) => {
       for (const d of destaques) {
         const j = porJogador.get(d.jogadorId);
         const time = [...desempenhos].reverse().find((x) => x.jogadorId === d.jogadorId && x.posicao === d.posicao)?.time;
@@ -363,11 +363,11 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       const doDia = ps.filter((p) => p.rodada_id === rodadaId);
       if (doDia[0]!.resumo_status !== 'PUBLICADO') continue;
       const ds = desempenhosDasPartidas(doDia.map((p) => ({ resultado: p.resultado!, serie: p.serie })), series);
-      dar('DESTAQUE_RODADA', destaquesDaRodada(ds), ds, doDia[0]!);
+      dar('SELECAO_RODADA', destaquesDaRodada(ds), ds, doDia[0]!);
     }
     if (t.craque_revelado_em) {
       const ds = desempenhosDasPartidas(ps.map((p) => ({ resultado: p.resultado!, serie: p.serie })), series);
-      dar('DESTAQUE_TEMPORADA', destaquesDaTemporada(ds), ds);
+      dar('SELECAO_TEMPORADA', destaquesDaTemporada(ds), ds);
     }
   }
 

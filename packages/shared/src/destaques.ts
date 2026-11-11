@@ -1,6 +1,6 @@
 /**
- * Destaques por Posição (ADR-0041): o Jogador de maior Nota em cada Posição, na Rodada (por
- * Série) e na Temporada (maior Nota média). Premia goleiros e zagueiros tanto quanto quem faz
+ * Seleção da Rodada e da Temporada (ADR-0041): o Jogador de maior Nota em cada Posição, na
+ * Rodada (por Série) e na Temporada (maior Nota média). Cada um é um Destaque da Seleção. Premia goleiros e zagueiros tanto quanto quem faz
  * gol, porque a Nota já é medida contra a expectativa da Posição e do OVR (ADR-0004).
  * Não mexe na Escalação nem na simulação: é reconhecimento (Resumo e Carreira).
  */

@@ -557,7 +557,7 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
   const b = craqueB ? await numerosDoCraque(c.banco, t.id, t.final_id, craqueB.id) : null;
   const publicarEm = new Date(Math.max(Date.UTC(a, m - 1, d + 1, HORA_DO_RESUMO - FUSO_BRASILIA), agora.getTime()));
   // Campeão, vice, artilheiro e melhor goleiro: os mesmos números da página de História.
-  // Destaques por Posição da Temporada (ADR-0041): com eles, o melhor goleiro vira a Muralha.
+  // Seleção da Temporada (ADR-0041): com ela, o melhor goleiro vira a Muralha.
   const destaques = await destaquesDaTemporadaNoBanco(c.banco, t.id, t.numero, (await seriesDaTemporada(c.banco, t.id)).B.length > 0);
   const historia = ((await exportarSite(c.banco, agora)).arquivos.get('liga.json') as LigaPublica).temporadas.find((x) => x.numero === t.numero);
   const dados: DadosDoResumo = {
