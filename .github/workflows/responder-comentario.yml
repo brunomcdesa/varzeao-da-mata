@@ -1,0 +1,30 @@
+# Responde um comentário no Instagram com um texto aprovado pelo dono (ex.: avisar quem foi
+# inscrito à mão pelo inscrever-jogador). Só à mão: Actions → responder-comentario → Run workflow.
+# O id do comentário aparece no workflow "comentarios" com um @ (linhas ACHEI).
+name: responder-comentario
+on:
+  workflow_dispatch:
+    inputs:
+      comentario:
+        description: 'Id do comentário (só números)'
+        required: true
+      texto:
+        description: 'Texto da resposta (público)'
+        required: true
+jobs:
+  responder:
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 5
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      IG_APP_ID: ${{ vars.IG_APP_ID }}
+      IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
+      COMENTARIO_ID: ${{ inputs.comentario }}
+      TEXTO: ${{ inputs.texto }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+      - run: pnpm liga responder

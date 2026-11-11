@@ -258,6 +258,19 @@ async function main(): Promise<void> {
         break;
       }
 
+      case 'responder': {
+        // Responde um comentário no Instagram, à mão (workflow responder-comentario). Só com a
+        // aprovação do dono: o texto vai a público.
+        const comentario = (process.env.COMENTARIO_ID ?? '').trim();
+        const texto = (process.env.TEXTO ?? '').trim();
+        if (!/^\d+$/.test(comentario) || !texto) throw new Error('Use: COMENTARIO_ID=123 TEXTO="..." pnpm liga responder');
+        const token = (await tokenGuardado(banco))?.token ?? process.env.IG_ACCESS_TOKEN;
+        if (!process.env.IG_USER_ID || !token) throw new Error('Instagram não configurado (IG_USER_ID e token).');
+        const id = await new Instagram({ userId: process.env.IG_USER_ID, token }).responder(comentario, texto);
+        console.log(`Respondido: ${comentario} → resposta ${id}`);
+        break;
+      }
+
       case 'mover': {
         // Muda o Time (e a posição, se vier) à mão, sem gastar a Transferência (ADR-0029).
         const usuario = (process.env.USUARIO ?? '').replace(/^@/, '').trim();
