@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CHAVE_PENDENCIAS } from '@liga/shared';
 import { CHAVE_PROXIMA, CHAVE_VOTACAO, dispararJobs, jobsDoMinuto, VOTOS_POR_IP, publicarVencidos, responder, type Env, type ItemDaAgenda } from '../src/index.js';
 
 function kv() {
@@ -131,6 +132,8 @@ describe('voto pelo site', () => {
     // Segundo voto do mesmo aparelho não troca o primeiro.
     expect(await (await votar(env, { rodada: 3, numero: 4, aparelho: aparelho(1) })).json()).toEqual({ ok: true, numero: 2, jaVotou: true });
     expect(AGENDA.meta.get(`voto-site/3/${aparelho(1)}`)).toMatchObject({ numero: 2 });
+    // Marca o voto novo para a coleta listar os votos (ADR-0035), uma vez só.
+    expect(await AGENDA.get(CHAVE_PENDENCIAS, 'json')).toEqual({ votos: '2026-11-07T20:00:00.000Z' });
   });
 
   it('com duas Séries, o mesmo aparelho vota uma vez na A e uma na B (ADR-0017)', async () => {

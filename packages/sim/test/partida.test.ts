@@ -203,7 +203,7 @@ describe('calibração', () => {
     expect(gols / N).toBeLessThan(3.4);
   });
 
-  it('time bem mais forte (+15 de OVR) vence por volta de 82–87% das vezes (ADR-0033)', () => {
+  it('time bem mais forte (+15 de OVR) vence por volta de 82–87% das vezes (ADR-0035)', () => {
     const taxa = taxaDoForte(80, 65);
     expect(taxa).toBeGreaterThan(0.8);
     expect(taxa).toBeLessThan(0.89);
@@ -219,7 +219,7 @@ describe('calibração', () => {
     expect(taxaDoForte(75, 65)).toBeLessThan(0.8);
   });
 
-  it('trava de goleada (ADR-0033): mesmo com +15 de OVR, a Goleada fica abaixo de 35%', () => {
+  it('trava de goleada (ADR-0035): mesmo com +15 de OVR, a Goleada fica abaixo de 35%', () => {
     let goleadas = 0;
     for (let seed = 1; seed <= N; seed++) {
       const r = simularPartida({ ...base, mandante: escalacao('CAP', 80), visitante: escalacao('TAT', 65), seed });

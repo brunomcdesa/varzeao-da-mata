@@ -2,7 +2,7 @@ import { mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { TIMES_FUNDADORES as TIMES, TIMES_NOVOS } from '@liga/shared';
+import { CHAVE_PENDENCIAS, TIMES_FUNDADORES as TIMES, TIMES_NOVOS } from '@liga/shared';
 import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
 import type { Comentario } from '../src/coletar.js';
@@ -114,6 +114,7 @@ describe('jobs', () => {
     await agenda.gravar('agenda/2026-11-07T22:00:00.000Z/apresentacao-1', {
       tipo: 'APRESENTACAO', ref: 1, containerId: 'C9', publicarEm: '2026-11-07T22:00:00.000Z', publicadoEm: '2026-11-07T22:00:05.000Z', mediaId: 'apresentacao',
     } satisfies ItemDaAgenda);
+    await agenda.gravar(CHAVE_PENDENCIAS, { publicados: '2026-11-07T22:00:05.000Z' }); // a borda marca (ADR-0035)
     const rel = await jobColetar(ctx);
     expect(rel.publicados).toBe(1);
     expect(rel.resultados.INSCRITO).toBe(1);
