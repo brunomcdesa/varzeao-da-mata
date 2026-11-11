@@ -1,3 +1,4 @@
+import type { MomentosDoAoVivo } from './avisos.js';
 /**
  * Formato dos dados públicos do site (gerados pelo worker, lidos pelo site).
  * Regra: nada que revele o resultado de uma Partida antes do seu Apito Inicial.
@@ -244,4 +245,6 @@ export interface PartidaPublica {
   narracao: string | null;
   /** Temporada 2: tamanho de cada Elenco, para a Arquibancada. Ausente nas Partidas da T1. */
   torcida?: Record<'mandante' | 'visitante', number>;
+  /** Só no arquivo privado (job partida): quando cada gol aparece no Ao Vivo, para os Avisos do App (ADR-0041). */
+  momentos?: MomentosDoAoVivo;
 }

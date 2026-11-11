@@ -24,7 +24,9 @@ const html = (await readFile(resolve(raiz, 'public/index.html'), 'utf8'))
   .replace('content="./dados/"', `content="${process.env.LIGA_DADOS_URL ?? './dados/'}"`)
   .replace('name="liga-api" content=""', `name="liga-api" content="${process.env.LIGA_API_URL ?? ''}"`)
   .replace('name="liga-instagram" content=""', `name="liga-instagram" content="${process.env.LIGA_INSTAGRAM ?? ''}"`)
-  .replace('name="liga-turnstile" content=""', `name="liga-turnstile" content="${process.env.LIGA_TURNSTILE_SITEKEY ?? ''}"`);
+  .replace('name="liga-turnstile" content=""', `name="liga-turnstile" content="${process.env.LIGA_TURNSTILE_SITEKEY ?? ''}"`)
+  // Avisos do App (ADR-0041): chave pública VAPID; não é segredo.
+  .replace('name="liga-vapid" content=""', `name="liga-vapid" content="${process.env.LIGA_VAPID_PUBLICA ?? ''}"`);
 await writeFile(resolve(saida, 'index.html'), html);
 
 const opcoes = {

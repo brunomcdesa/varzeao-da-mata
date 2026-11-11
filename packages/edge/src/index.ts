@@ -6,6 +6,7 @@
  * - GET /partidas/:id — a Partida completa (com lances) do bucket privado, só depois do
  *   Apito Inicial; antes responde 425 com o horário. É o que alimenta o Ao Vivo do site.
  * - GET /dados/* — os JSON do site, do bucket público, com CORS (o site fica em outro domínio).
+ * - POST /avisos e /avisos/desativar — Avisos do App (ADR-0041); o cron manda as notificações.
  * - POST /votos — voto do Craque pelo site, um por aparelho (ADR-0011). O job coletar traz
  *   os votos do KV para o banco e mantém `votacao-aberta` em dia.
  */
@@ -17,6 +18,7 @@ import { aplicarPerfil } from '../../worker/src/perfil.js';
 import { aplicarEscolha, capitaniaDoJogador, type Escolha } from '../../worker/src/temporada2.js';
 import { comBanco } from './banco.js';
 import { rotasDoVinculo, sessaoDe } from './vinculo.js';
+import { rodarAvisos, rotaDosAvisos } from './avisos.js';
 
 export interface Env {
   AGENDA: KVNamespace;
@@ -32,6 +34,12 @@ export interface Env {
   GH_REPOSITORIO?: string;
   /** Banco (Neon): a borda aplica na hora a Transferência e o perfil pedidos pelo site. */
   DATABASE_URL?: string;
+  /** Avisos do App (ADR-0041): chave pública VAPID (não é segredo; o site usa a mesma). */
+  VAPID_PUBLICA?: string;
+  /** Chave privada VAPID. Segredo; sem ela, os Avisos ficam desligados. */
+  VAPID_PRIVADA?: string;
+  /** Contato que vai no pedido ao serviço de notificação (mailto: ou URL). */
+  VAPID_CONTATO?: string;
 }
 
 export interface ItemDaAgenda {
@@ -157,6 +165,8 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   const { pathname } = new URL(req.url);
   if (pathname === '/votos' && req.method === 'POST') return votar(req, env, agora, f);
+  const avisos = await rotaDosAvisos(req, env, (fn) => comBanco(env.DATABASE_URL!, fn), CORS).catch((e: Error) => json({ erro: `Não deu agora: ${e.message.slice(0, 200)}` }, 502));
+  if (avisos) return avisos;
   const vinculo = await rotasDoVinculo(
     req,
     env,
@@ -351,6 +361,13 @@ export default {
       dispararJobs(env, agora).then((jobs) => {
         if (jobs.length) console.log(`disparados: ${jobs.join(', ')}`);
       }),
+    );
+    ctx.waitUntil(
+      rodarAvisos(env, agora, (fn) => comBanco(env.DATABASE_URL!, fn))
+        .then((n) => {
+          if (n) console.log(`avisos enviados: ${n}`);
+        })
+        .catch((e: Error) => console.error(`avisos: ${e.message}`)),
     );
   },
 } satisfies ExportedHandler<Env>;

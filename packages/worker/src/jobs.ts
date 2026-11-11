@@ -14,7 +14,8 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, IDENTIDADE, doTime, RODADA_DA_FINAL, type LigaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, doTime, RODADA_DA_FINAL, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { momentosDoAoVivo } from '@liga/renderer';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA, criarTemporada, somarDias } from './calendario.js';
 import { processarComentario, type Comentario, type Resultado } from './coletar.js';
@@ -274,8 +275,12 @@ async function existe(caminho: string): Promise<boolean> {
 /** Sobe a Partida completa (com lances) para o bucket privado: a borda só entrega depois do Apito. */
 async function guardarPartidaPrivada(c: ContextoDoJob, partidaId: number, apito: Date): Promise<void> {
   const { arquivos } = await exportarSite(c.banco, new Date(apito.getTime() + duracaoAoVivoMs('MATA_MATA') + 60_000));
-  const completa = arquivos.get(`partidas/${partidaId}.json`);
-  if (completa) await c.armazenamento.enviar('privado', `partidas/${partidaId}.json`, JSON.stringify(completa), { tipo: 'application/json' });
+  const completa = arquivos.get(`partidas/${partidaId}.json`) as PartidaPublica | undefined;
+  if (!completa) return;
+  // Avisos do App (ADR-0041): a borda manda o aviso de gol só depois que ele aparece no Ao Vivo.
+  const momentos = momentosDoAoVivo(completa);
+  if (momentos) completa.momentos = momentos;
+  await c.armazenamento.enviar('privado', `partidas/${partidaId}.json`, JSON.stringify(completa), { tipo: 'application/json' });
 }
 
 /**

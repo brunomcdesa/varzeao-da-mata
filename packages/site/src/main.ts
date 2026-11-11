@@ -7,6 +7,7 @@ import { paginaHistoria } from './paginas/historia.js';
 import { paginaPartida } from './paginas/partida.js';
 import { paginaCarreira } from './paginas/carreira.js';
 import { paginaTemporada } from './paginas/temporada.js';
+import { paginaAvisos } from './paginas/avisos.js';
 import type { Pagina } from './paginas/tipos.js';
 import { html } from './ui.js';
 import { prepararApp } from './appInstalavel.js';
@@ -24,6 +25,7 @@ const ROTAS: { padrao: RegExp; pagina: Pagina; secao: string; titulo: string }[]
   { padrao: /^\/comparar\/(\d+)\/(\d+)$/, pagina: paginaComparar, secao: 'jogadores', titulo: 'Comparar' },
   { padrao: /^\/partida\/(\d+)$/, pagina: paginaPartida, secao: 'jogos', titulo: 'Partida' },
   { padrao: /^\/historia$/, pagina: paginaHistoria, secao: 'historia', titulo: 'História' },
+  { padrao: /^\/avisos$/, pagina: paginaAvisos, secao: 'avisos', titulo: 'Avisos de jogo' },
 ];
 
 const main = document.getElementById('conteudo')!;

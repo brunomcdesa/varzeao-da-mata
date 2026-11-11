@@ -244,3 +244,4 @@ export * from './aparencia.js';
 export * from './apelido.js';
 export * from './forca.js';
 export * from './pendencias.js';
+export * from './avisos.js';

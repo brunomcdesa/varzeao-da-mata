@@ -59,6 +59,9 @@ async function api<T>(caminho: string, corpo: unknown): Promise<{ status: number
   return { status: r.status, dados: (await r.json().catch(() => ({}))) as T };
 }
 
+/** O Jogador vinculado neste navegador, se houver (os Avisos já vêm com o Time dele marcado). */
+export const jogadorVinculado = (): string | null => ler<Guardado>(CHAVE)?.jogadorId ?? null;
+
 export const vinculoDisponivel = () => Boolean(BASE_API);
 
 /** Lugar na página do Jogador; `ligarMeuPersonagem` preenche. */

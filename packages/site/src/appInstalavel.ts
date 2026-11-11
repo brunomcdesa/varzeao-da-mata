@@ -5,9 +5,11 @@
  */
 import { liga } from './dados.js';
 import { appLiberado, comoInstalar, type ComoInstalar } from './instalacao.js';
+import { suporteAosAvisos, timesComAviso } from './avisosApp.js';
 import { html, type Html } from './ui.js';
 
 const CHAVE_DISPENSA = 'varzeao:instalar-dispensado';
+const CHAVE_DISPENSA_AVISOS = 'varzeao:avisos-dispensado';
 const VOLTA_EM_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface PedidoDeInstalacao extends Event {
@@ -20,18 +22,18 @@ let pedido: PedidoDeInstalacao | null = null;
 const abertoComoApp = (): boolean =>
   matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
-function dispensadoRecente(): boolean {
+function dispensadoRecente(chave = CHAVE_DISPENSA): boolean {
   try {
-    const quando = Number(localStorage.getItem(CHAVE_DISPENSA) ?? 0);
+    const quando = Number(localStorage.getItem(chave) ?? 0);
     return Date.now() - quando < VOLTA_EM_MS;
   } catch {
     return false;
   }
 }
 
-function dispensar(): void {
+function dispensar(chave = CHAVE_DISPENSA): void {
   try {
-    localStorage.setItem(CHAVE_DISPENSA, String(Date.now()));
+    localStorage.setItem(chave, String(Date.now()));
   } catch {
     /* sem armazenamento: some só nesta visita */
   }
@@ -70,6 +72,21 @@ function desenhar(): void {
     temPedidoNativo: pedido !== null,
     pontosDeToque: navigator.maxTouchPoints ?? 0,
   });
+  const naPaginaDosAvisos = location.hash.startsWith('#/avisos');
+  if (modo === 'instalado' && !naPaginaDosAvisos && suporteAosAvisos() === 'ok' && timesComAviso() === null && !dispensadoRecente(CHAVE_DISPENSA_AVISOS)) {
+    // Já no App: o convite agora é para os Avisos de jogo.
+    lugar.innerHTML = html`<section class="placa instalar" aria-labelledby="instalar-titulo">
+      <div class="instalar-topo"><img src="icones/icone-192.png" alt="" width="44" height="44" /><h2 id="instalar-titulo">Avisos de jogo</h2></div>
+      <p>Saiba na hora quando sai a Escalação, quando começa o jogo e cada gol do seu Time.</p>
+      <div class="instalar-acoes"><a class="botao" href="#/avisos">Ativar avisos</a><button type="button" class="botao secundario" data-dispensar>Agora não</button></div>
+    </section>`.s;
+    lugar.hidden = false;
+    lugar.querySelector('[data-dispensar]')?.addEventListener('click', () => {
+      dispensar(CHAVE_DISPENSA_AVISOS);
+      desenhar();
+    });
+    return;
+  }
   if (modo === null || modo === 'instalado' || dispensadoRecente()) {
     lugar.hidden = true;
     lugar.innerHTML = '';
@@ -105,6 +122,11 @@ export async function prepararApp(): Promise<void> {
     link.href = 'manifest.webmanifest';
     document.head.append(link);
   }
+  // Link fixo para os Avisos no rodapé.
+  const rodape = document.querySelector('.rodape');
+  if (rodape && !rodape.querySelector('.rodape-avisos')) {
+    rodape.insertAdjacentHTML('afterbegin', html`<p class="rodape-avisos"><a href="#/avisos">Avisos de jogo no celular</a></p>`.s);
+  }
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch((e) => console.warn('Service worker não registrou', e));
   }
@@ -113,6 +135,8 @@ export async function prepararApp(): Promise<void> {
     pedido = e as PedidoDeInstalacao;
     desenhar();
   });
+  // Na página dos Avisos o convite some; ao voltar (ou depois de ativar), ele se recalcula.
+  window.addEventListener('hashchange', () => desenhar());
   window.addEventListener('appinstalled', () => {
     pedido = null;
     desenhar();

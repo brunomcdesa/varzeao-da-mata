@@ -22,6 +22,7 @@ jobs:
           LIGA_API_URL: ${{ vars.LIGA_EDGE_URL }}
           LIGA_TURNSTILE_SITEKEY: ${{ vars.LIGA_TURNSTILE_SITEKEY }}
           LIGA_INSTAGRAM: ${{ vars.LIGA_INSTAGRAM }}
+          LIGA_VAPID_PUBLICA: ${{ vars.LIGA_VAPID_PUBLICA }}
       - run: rm -rf packages/site/dist/dados
       - run: pnpm --filter @liga/edge exec wrangler pages deploy ../site/dist --project-name=${{ vars.CF_PAGES_PROJETO }} --branch=master
         env:

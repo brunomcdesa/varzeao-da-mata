@@ -29,6 +29,9 @@ importers:
       '@neondatabase/serverless':
         specifier: 1.1.0
         version: 1.1.0
+      web-push-neo:
+        specifier: 0.1.2
+        version: 0.1.2
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 5.20261019.1
@@ -1054,6 +1057,9 @@ packages:
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
 
+  jose@6.2.17:
+    resolution: {integrity: sha512-wOuK9V1yujQFH5S0ZWmLcDZN7+IKh9bUCC2ZPCf2HDlol3WWHy+PPyNjEI75FXRLMp3vDKQcupP59xhVU95hcg==}
+
   kleur@4.1.5:
     resolution: {integrity: sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==}
     engines: {node: '>=6'}
@@ -1297,6 +1303,10 @@ packages:
         optional: true
       jsdom:
         optional: true
+
+  web-push-neo@0.1.2:
+    resolution: {integrity: sha512-gl9uLsps1+6cmvdrAC61XSFqV2Gk3ue3BfPf/ofCODMOp5hQvyIX6LM6kL/PvvieFscQlTxz3cKmscXGw7JWcg==}
+    engines: {node: '>=20'}
 
   why-is-node-running@2.3.0:
     resolution: {integrity: sha512-hUrmaWBdVDcxvYqnyh09zunKzROWjbZTiNy8dBEjkS7ehEDQibXJ7XvlmtbwuTclUiIyN+CyXQD4Vmko8fNm8w==}
@@ -1995,6 +2005,8 @@ snapshots:
   fsevents@2.3.3:
     optional: true
 
+  jose@6.2.17: {}
+
   kleur@4.1.5: {}
 
   loupe@3.2.1: {}
@@ -2256,6 +2268,10 @@ snapshots:
       - sugarss
       - supports-color
       - terser
+
+  web-push-neo@0.1.2:
+    dependencies:
+      jose: 6.2.17
 
   why-is-node-running@2.3.0:
     dependencies:

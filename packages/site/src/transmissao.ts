@@ -3,25 +3,18 @@
  * Ao Vivo segue o relógio (90 min de jogo em 4 min 30 s, ninguém adianta); o Replay deixa
  * pausar, pular e acelerar.
  */
-import { DURACAO_JOGO, Timeline, VELOCIDADE_AO_VIVO, desenharQuadro } from '@liga/renderer';
-import { habilidadesDoPerfil, type Escalacao, type EscalacaoPublica, type PartidaPublica } from '@liga/shared';
+import { DURACAO_JOGO, Timeline, VELOCIDADE_AO_VIVO, desenharQuadro, timelineDaPartida } from '@liga/renderer';
+import type { EscalacaoPublica, PartidaPublica } from '@liga/shared';
 import type { Lado, ResultadoPartida } from '@liga/sim';
 
 export interface Transmissao {
   parar(): void;
 }
 
-const paraEscalacao = (e: EscalacaoPublica): Escalacao => ({
-  time: e.time,
-  jogadores: [...e.jogadores].sort((a, b) => a.lugar - b.lugar).map((j) => ({ jogadorId: j.jogadorId, posicao: j.posicao, ovr: j.ovr, habilidades: j.habilidades ?? habilidadesDoPerfil(j.posicao, j.ovr) })),
-});
 const nomesDe = (e: EscalacaoPublica) => [...e.jogadores].sort((a, b) => a.lugar - b.lugar).map((j) => (j.username ? `@${j.username}` : null));
 const apelidosDe = (e: EscalacaoPublica) => [...e.jogadores].sort((a, b) => a.lugar - b.lugar).map((j) => j.apelido ?? null);
 
-export function montarTimeline(p: PartidaPublica): Timeline | null {
-  if (!p.resultado || !p.escalacoes) return null;
-  return new Timeline(p.resultado as ResultadoPartida, { mandante: paraEscalacao(p.escalacoes.mandante), visitante: paraEscalacao(p.escalacoes.visitante) }, p.torcida ? { torcida: p.torcida } : {});
-}
+export const montarTimeline = (p: PartidaPublica): Timeline | null => timelineDaPartida(p);
 
 /** Segundos de jogo agora, para uma Partida ao vivo. */
 export const tempoAoVivo = (apito: string, fim = DURACAO_JOGO, agora = Date.now()) => Math.min(fim, ((agora - Date.parse(apito)) / 1000) * VELOCIDADE_AO_VIVO);
