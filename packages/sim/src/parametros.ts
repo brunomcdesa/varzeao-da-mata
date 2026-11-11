@@ -2,7 +2,7 @@
  * Botões de calibração do motor. Mudar qualquer valor muda resultados de seeds
  * antigas, então exige subir VERSAO_SIM (ADR-0002).
  */
-export const VERSAO_SIM = 10;
+export const VERSAO_SIM = 11;
 
 export const PARAMETROS = {
   /** Lances de ataque de referência: a média das retas de EXPECTATIVA da Nota (ADR-0004). */
@@ -75,7 +75,7 @@ export const PARAMETROS = {
 } as const;
 
 /**
- * Regras da Temporada 2 (VERSAO_SIM 10; eram a 8 antes do ADR-0035). Só valem com `entrada.t2`;
+ * Regras da Temporada 2 (VERSAO_SIM 11 com a Formação, ADR-0044; 10 antes dela; 8 antes do ADR-0035). Só valem com `entrada.t2`;
  * sem elas, a Partida sai com as regras da Temporada 1 (VERSAO_SIM_T1, a 9).
  */
 export const VERSAO_SIM_T1 = 9;
@@ -117,6 +117,31 @@ export const PARAMETROS_T2 = {
   defendidoForaDoCanto: 0.25,
   /** Treino (ADR-0023): ganhos na Habilidade de foco. */
   multiplicadorTreino: 1.5,
+  /**
+   * Formação (ADR-0044): o custo de cada desenho, do mesmo jeito que a Postura (soma à chance de
+   * quem ataca). O 2-3-1 expõe a defesa; o 3-2-1 perde força no ataque; o 3-1-2 perde a posse.
+   */
+  formacaoAtaque: { '2-2-2': 0, '2-3-1': 0, '3-2-1': -0.05, '3-1-2': 0 },
+  formacaoDefesa: { '2-2-2': 0, '2-3-1': 0.04, '3-2-1': 0, '3-1-2': 0 },
+  /** Soma à chance do meia com a bola na posse, pela Formação de cada lado (o rival entra com sinal trocado). */
+  formacaoPosse: { '2-2-2': 0, '2-3-1': 0.02, '3-2-1': 0, '3-1-2': -0.01 },
+  /** Postura + Formação somam, mas cada lado (ataque e defesa) fica entre −limite e +limite. */
+  limiteTatico: 0.06,
+  /** Tabela (2-3-1): chance de o criador tabelar com outro meia, e quanto a tabela soma à criação. */
+  chanceTabela: 0.35,
+  bonusTabela: 0.07,
+  /** 2-3-1: com três meias, um deles aparece mais para chutar de fora. */
+  meiaFinalizaNoTresMeias: 0.1,
+  /** Cobertura (3-2-1): chance de o 3º zagueiro chegar depois do drible, e a base do Duelo (Drible × Defesa). */
+  chanceCobertura: 0.7,
+  baseCobertura: 0.55,
+  /**
+   * Ligação direta (3-1-2): chance de um zagueiro lançar direto (fora do contra-ataque), a base do
+   * lançamento (Passe × Defesa do 1º zagueiro rival) e quanto o 2 contra 1 soma contra o marcador.
+   */
+  chanceLigacao: 0.35,
+  baseLigacao: 0.62,
+  bonusLigacao: 0.12,
 } as const;
 
 /**

@@ -12,7 +12,10 @@ import {
 import { simularPartida, chanceDeFora, chanceDeDriblar, ritmoDaPartida } from '../src/partida.js';
 import { notaDaPartida } from '../src/nota.js';
 import { evoluir, fatorDeGanho, fatorDePerda, zeradas } from '../src/evolucao.js';
-import { escalacao } from './fabricas.js';
+import { escalacao, escalacaoNa } from './fabricas.js';
+import { FORMACOES, type Formacao } from '@liga/shared';
+import { validarEscalacao } from '../src/partida.js';
+import { confronto } from '../scripts/formacoes.js';
 import type { SlotRef } from '../src/tipos.js';
 
 const base = { fase: 'LIGA' as const };
@@ -340,15 +343,15 @@ describe('trava da Temporada 1', () => {
   });
 });
 
-describe('regras da Temporada 2 (VERSAO_SIM 10)', () => {
+describe('regras da Temporada 2 (VERSAO_SIM 11)', () => {
   const neutra = { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const;
   /** `t2`: null joga com as regras da T1. */
   const jogo = (seed: number, t2: Parameters<typeof simularPartida>[0]['t2'] | null = neutra, a = escalacao('CAP', 70), b = escalacao('ONC', 70, 'R')) =>
     simularPartida({ mandante: a, visitante: b, seed, fase: 'LIGA', ...(t2 ? { t2 } : {}) });
 
-  it('com as regras da T2 a Partida é da versão 10, guarda Postura e Ritmo e é determinística', () => {
+  it('com as regras da T2 a Partida é da versão 11, guarda Postura e Ritmo e é determinística', () => {
     const r = jogo(11);
-    expect(r.versaoSim).toBe(10);
+    expect(r.versaoSim).toBe(11);
     expect(r.postura).toEqual(neutra.postura);
     expect(r.ritmo).toBeGreaterThanOrEqual(6);
     expect(jogo(11)).toEqual(r);
@@ -497,5 +500,109 @@ describe('expulsões em série (T2)', () => {
     const neutra = { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const;
     const r = simularPartida({ ...base, mandante: escalacao('TAT', 65), visitante: escalacao('CAP', 75), seed: 3359, t2: neutra });
     expect(r.desempenhos.filter((d) => d.expulso).length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('Formação (ADR-0044)', () => {
+  const postura = { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } as const;
+  const jogo = (seed: number, a: Formacao, b: Formacao, ovrA = 70, ovrB = 70) =>
+    simularPartida({ ...base, seed, mandante: escalacaoNa(a, 'CAP', ovrA), visitante: escalacaoNa(b, 'ONC', ovrB, 'R'), t2: { postura, formacao: { mandante: a, visitante: b } } });
+
+  it('2-2-2 escolhido joga igual a não escolher: mesmos lances e placar', () => {
+    for (let seed = 1; seed <= 60; seed++) {
+      const sem = simularPartida({ ...base, seed, mandante: escalacaoNa('2-2-2', 'CAP', 70), visitante: escalacaoNa('2-2-2', 'ONC', 70, 'R'), t2: { postura } });
+      const com = jogo(seed, '2-2-2', '2-2-2');
+      expect(com.lances).toEqual(sem.lances);
+      expect(com.gols).toEqual(sem.gols);
+      expect(com.formacao).toEqual({ mandante: '2-2-2', visitante: '2-2-2' });
+    }
+  });
+
+  it('a Escalação tem que ter as vagas da Formação', () => {
+    expect(() => validarEscalacao(escalacaoNa('3-2-1', 'CAP', 70), '3-2-1')).not.toThrow();
+    expect(() => validarEscalacao(escalacaoNa('3-2-1', 'CAP', 70))).toThrow(/ZAG/);
+    expect(() => simularPartida({ ...base, seed: 1, mandante: escalacaoNa('2-3-1', 'CAP', 70), visitante: escalacaoNa('2-2-2', 'ONC', 70), t2: { postura } })).toThrow();
+  });
+
+  it('todas as Formações jogam entre si sem quebrar, inclusive com expulsões', () => {
+    for (const a of FORMACOES) for (const b of FORMACOES) for (let seed = 1; seed <= 150; seed++) {
+      const r = jogo(seed, a, b, 60 + (seed % 20), 70);
+      expect(r.lances.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('Tabela só no 2-3-1: o apoio é outro meia do Time que ataca', () => {
+    let tabelas = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+      for (const l of jogo(seed, '2-3-1', '2-2-2').lances) {
+        if (l.jogadaDaFormacao !== 'TABELA') continue;
+        tabelas++;
+        expect(l.ataque).toBe('mandante');
+        expect(l.apoio).toBeDefined();
+        expect(l.apoio!.indice).not.toBe(l.criador.indice);
+        expect(escalacaoNa('2-3-1', 'CAP', 70).jogadores[l.apoio!.indice]!.posicao).toBe('MEI');
+      }
+    }
+    expect(tabelas).toBeGreaterThan(200);
+  });
+
+  it('Ligação direta só no 3-1-2, fora do contra-ataque: quem lança é um zagueiro e quem finaliza é atacante', () => {
+    const esc = escalacaoNa('3-1-2', 'CAP', 70);
+    let ligacoes = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+      for (const l of jogo(seed, '3-1-2', '2-2-2').lances) {
+        if (l.jogadaDaFormacao !== 'LIGACAO_DIRETA') continue;
+        ligacoes++;
+        expect(l.ataque).toBe('mandante');
+        expect(l.contraAtaque).toBeUndefined();
+        expect(esc.jogadores[l.criador.indice]!.posicao).toBe('ZAG');
+        if (l.finalizador) expect(esc.jogadores[l.finalizador.indice]!.posicao).toBe('ATA');
+      }
+    }
+    expect(ligacoes).toBeGreaterThan(200);
+  });
+
+  it('Cobertura só no 3-2-1 que defende: vem depois do drible, e o zagueiro da sobra não é o marcador', () => {
+    const def = escalacaoNa('3-2-1', 'ONC', 70, 'R');
+    let coberturas = 0;
+    let desarmes = 0;
+    for (let seed = 1; seed <= 300; seed++) {
+      for (const l of jogo(seed, '2-2-2', '3-2-1').lances) {
+        if (!l.cobertura) continue;
+        coberturas++;
+        expect(l.ataque).toBe('mandante');
+        expect(l.jogadaDaFormacao).toBe('COBERTURA');
+        expect(l.drible).toBe(true);
+        expect(def.jogadores[l.cobertura.indice]!.posicao).toBe('ZAG');
+        expect(l.cobertura.indice).not.toBe(l.marcador!.indice);
+        if (l.tipo === 'DESARME') {
+          desarmes++;
+          expect(l.defensor).toEqual(l.cobertura);
+        }
+      }
+    }
+    expect(coberturas).toBeGreaterThan(150);
+    expect(desarmes).toBeGreaterThan(0);
+    expect(desarmes).toBeLessThan(coberturas);
+  });
+
+  it('jogador fora de posição joga a vaga: a Nota e o OVR saem pela Posição da vaga', () => {
+    const a = escalacaoNa('3-2-1', 'CAP', 70);
+    const meiaNaZaga = { ...a, jogadores: a.jogadores.map((j, i) => (i === 3 ? { ...j, posicaoDeOrigem: 'MEI' as const } : j)) };
+    const r = simularPartida({ ...base, seed: 5, mandante: meiaNaZaga, visitante: escalacaoNa('2-2-2', 'ONC', 70), t2: { postura, formacao: { mandante: '3-2-1', visitante: '2-2-2' } } });
+    expect(r.desempenhos.find((d) => d.slot.lado === 'mandante' && d.slot.indice === 3)!.posicao).toBe('ZAG');
+  });
+
+  it('equilíbrio: entre Times iguais, nenhuma Formação ganha mais de 3,5 pontos de vitória a mais que a outra', () => {
+    for (const [a, b] of [['2-3-1', '2-2-2'], ['3-2-1', '2-2-2'], ['3-1-2', '2-2-2'], ['2-3-1', '3-2-1'], ['3-1-2', '3-2-1'], ['2-3-1', '3-1-2']] as const) {
+      const r = confronto(a, b, 3000);
+      expect(Math.abs(r.v - r.d), `${a} x ${b}`).toBeLessThan(0.035 * 2);
+    }
+  });
+
+  it('o 3-2-1 deixa o jogo mais travado e o 2-3-1 mais aberto', () => {
+    const espelho = (f: Formacao) => { const r = confronto(f, f, 2000); return r.golsA + r.golsB; };
+    expect(espelho('3-2-1')).toBeLessThan(espelho('2-2-2') - 0.4);
+    expect(espelho('2-3-1')).toBeGreaterThan(espelho('2-2-2') + 0.2);
   });
 });
