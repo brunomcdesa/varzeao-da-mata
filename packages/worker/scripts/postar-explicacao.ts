@@ -83,7 +83,7 @@ if (args.gravar) {
     const token = (await tokenGuardado(banco))?.token ?? process.env.IG_ACCESS_TOKEN;
     if (!process.env.IG_USER_ID || !token) sair('Faltam IG_USER_ID e IG_ACCESS_TOKEN.');
     const ig = new Instagram({ userId: process.env.IG_USER_ID!, token: token! });
-    const container = await ig.criarReels({ videoUrl: args.video!, legenda: LEGENDA_DA_EXPLICACAO, capaEmMs: 2500 });
+    const container = await ig.criarReels({ videoUrl: args.video!, legenda: LEGENDA_DA_EXPLICACAO, capaEmMs: 2000 });
     await ig.esperarContainer(container);
     const mediaId = await ig.publicar(container);
     console.log(`Publicado: ${(await ig.linkDaMidia(mediaId)) ?? mediaId}`);
