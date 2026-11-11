@@ -148,7 +148,7 @@ export function desenharClimaNoAr(pin: Pincel, e: EstadoQuadro): void {
 export function desenharCartao(pin: Pincel, e: EstadoQuadro, noCampo: (p: { x: number; y: number }) => { x: number; y: number }): void {
   const d = e.destaque;
   if (!d || d.tipo !== 'FALTA' || !d.cartao || d.progresso > 0.8) return;
-  // Com o juiz em campo (ADR-0040), é ele quem levanta o cartão.
+  // Com o juiz em campo (ADR-0041), é ele quem levanta o cartão.
   if (e.juiz) return;
   const j = e.jogadores.find((x) => x.slot.lado === d.protagonista.lado && x.slot.indice === d.protagonista.indice);
   if (!j) return;

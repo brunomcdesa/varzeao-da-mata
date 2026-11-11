@@ -86,7 +86,7 @@ export interface EstadoQuadro {
   penaltis: EstadoPenaltis | null;
   /** Temporada 2: Clima, segundo uniforme e Arquibancada (null nas Partidas da T1). */
   t2: InfoT2 | null;
-  /** Temporada 2 (ADR-0040): o juiz em campo, só visual (null nas Partidas da T1). */
+  /** Temporada 2 (ADR-0041): o juiz em campo, só visual (null nas Partidas da T1). */
   juiz: JuizNoQuadro | null;
 }
 

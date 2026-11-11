@@ -17,7 +17,7 @@ function timeline(seed: number, t2: boolean) {
   return new Timeline(resultado, escalacoes);
 }
 
-describe('Juiz (ADR-0040)', () => {
+describe('Juiz (ADR-0041)', () => {
   it('usa o preto quando nenhum Time se parece com ele', () => {
     expect(uniformeDoJuiz({ mandante: 'CAP', visitante: 'TAM' }, null)).toBe('PRETO');
   });

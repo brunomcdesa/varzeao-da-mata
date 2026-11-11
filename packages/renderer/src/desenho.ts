@@ -53,7 +53,7 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
   // Sombras primeiro, depois Jogadores de cima para baixo (quem está mais embaixo fica na frente).
   const fase = Math.floor(estado.t / 1.1);
   const ordem = [...estado.jogadores].sort((a, b) => a.pos.y - b.pos.y);
-  // O juiz (T2, ADR-0040) entra na mesma ordem de profundidade, com a sua sombra.
+  // O juiz (T2, ADR-0041) entra na mesma ordem de profundidade, com a sua sombra.
   const juiz = estado.juiz;
   for (const p of [...ordem.map((j) => noCampo(j.pos)), ...(juiz ? [noCampo(juiz.pos)] : [])]) {
     pin.r(p.x - 6, p.y - 1, 12, 3, 'rgba(0,0,0,0.28)');

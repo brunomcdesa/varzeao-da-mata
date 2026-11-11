@@ -1,5 +1,5 @@
 /**
- * Juiz em campo (Temporada 2, ADR-0040): só visual. Não muda nada da simulação; acompanha o
+ * Juiz em campo (Temporada 2, ADR-0041): só visual. Não muda nada da simulação; acompanha o
  * lance na diagonal, corre até a falta, apita e mostra o cartão, e volta ao meio depois do gol.
  */
 import { IDENTIDADE, type TimeId } from '@liga/shared';
