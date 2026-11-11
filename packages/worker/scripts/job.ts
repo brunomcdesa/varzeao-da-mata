@@ -11,7 +11,7 @@
  */
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AgendaNaMemoria, Instagram, PastaLocal, conectar, jobBoasVindas, jobColetar, postsDeInscricao, jobPartida, jobResumo, nuvemDoAmbiente, prepararBanco, tokenGuardado, type ContextoDoJob } from '../src/index.js';
+import { AgendaNaMemoria, Instagram, PastaLocal, conectar, jobBoasVindas, jobColetar, jobEscalar, postsDeInscricao, jobPartida, jobResumo, nuvemDoAmbiente, prepararBanco, tokenGuardado, type ContextoDoJob } from '../src/index.js';
 import { bancoLocal } from './banco-local.js';
 
 const raizRepo = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -22,7 +22,7 @@ try {
 }
 
 const [qual, ...flags] = process.argv.slice(2);
-if (!['coletar', 'partida', 'resumo', 'boas-vindas', 'procurar', 'mensagens'].includes(qual ?? '')) {
+if (!['coletar', 'escalar', 'partida', 'resumo', 'boas-vindas', 'procurar', 'mensagens'].includes(qual ?? '')) {
   console.log('Uso: pnpm job coletar | partida [--sem-esperar] | resumo | boas-vindas [--enviar]');
   process.exit(1);
 }
@@ -81,6 +81,7 @@ try {
     console.log(`${total} comentário(s) no total.`);
   } else if (qual === 'boas-vindas') await jobBoasVindas(ctx, { enviar: flags.includes('--enviar') });
   else if (qual === 'coletar') await jobColetar(ctx);
+  else if (qual === 'escalar') await jobEscalar(ctx, { esperarCorte: !flags.includes('--sem-esperar') });
   else if (qual === 'partida') await jobPartida(ctx, { esperarCorte: !flags.includes('--sem-esperar') });
   else await jobResumo(ctx);
 } finally {

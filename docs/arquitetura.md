@@ -28,10 +28,10 @@ O **GitHub Actions** (repositório privado) faz o trabalho pesado sem pressa. O 
 | Horário | Quem | O quê |
 |---|---|---|
 | a cada hora (:17) | Actions `coletar` | Lê Comandos, cria Jogadores, registra votos, atualiza o JSON do site |
-| 11h30 | Actions `partida` | Fecha a votação do Craque da Rodada anterior. Corte, simulação e render da Partida das 12h (o Reels abre com a revelação do Craque) |
+| 11h30 | Actions `escalar` e `partida` | Fecha a votação do Craque da Rodada anterior. Corte, simulação e render da Partida das 12h (o Reels abre com a revelação do Craque) |
 | 12h00 | Worker | Libera os lances; a Partida começa Ao Vivo no site |
 | 12h06 | Worker | Publica o Reels da Partida |
-| 13h30 · 15h30 · 17h30 | Actions `partida` | O mesmo ciclo para as Partidas das 14h, 16h e 18h |
+| 13h30 · 15h30 · 17h30 | Actions `escalar` e `partida` | O mesmo ciclo para as Partidas das 14h, 16h e 18h |
 | 18h10 | Actions `resumo` | Tabela, Candidatos a Craque e render do Resumo; cria o container |
 | 19h00 | Worker | Publica o Resumo da Rodada; a votação do Craque começa |
 
@@ -44,7 +44,7 @@ No Mata-mata, as Partidas ocupam os últimos horários: semifinais às 16h e 18h
 | `shared` | Tipos de domínio, Times, Clássicos, regras puras (rodízio, tabela, Mata-mata e duração do Ao Vivo) e parser de Comandos |
 | `sim` | Motor determinístico: recebe Escalações, seed e fase; devolve lances, placar, pênaltis e Notas. Sem `Math.random` nem relógio |
 | `renderer` | Animação 2D (Canvas/Phaser) que reproduz os lances da `sim`. Roda em dois modos: **quadro a quadro**, no Actions, para o vídeo, e **tempo de relógio**, no site, para Ao Vivo e Replay |
-| `worker` (Actions) | Jobs `coletar`, `partida` e `resumo`: banco, Graph API, Playwright, ffmpeg, Gemini TTS (ADR-0009), R2 e KV |
+| `worker` (Actions) | Jobs `coletar`, `escalar`, `partida` e `resumo`: banco, Graph API, Playwright, ffmpeg, Gemini TTS (ADR-0009), R2 e KV |
 | `edge` (Cloudflare Worker) | Cron de 1 minuto que lê a agenda e publica Reels; `GET /partidas/:id`, que só responde depois do Apito Inicial; `GET /dados/*` para o site |
 | `site` | Site estático (Cloudflare Pages): Rodada, jogos, tabela, Times e elencos, ranking e Card dos Jogadores, comparação, Escalações, Ao Vivo e Replay |
 
@@ -84,6 +84,8 @@ erDiagram
 5. Exporta o JSON público do site para o R2 (`dados/liga.json`, `dados/jogadores.json`, `dados/partidas/<id>.json`). Escalações aparecem a partir do Corte; o lance a lance, a partir do Apito; placar, tabela e Card, só quando o Ao Vivo termina.
 
 ## Job `partida` (no Corte, 30 min antes de cada Apito Inicial)
+
+O job leve `escalar` roda junto e faz só as etapas 1 e 2, a guarda da Partida para o Ao Vivo e o site, sem instalar Chromium nem ffmpeg. Assim, as Escalações saem no Corte mesmo se o `partida` atrasar. Quem chegar primeiro escala e simula; o outro encontra a Partida simulada e segue (ADR-0038).
 
 Cada etapa só roda se o status da Partida ainda não passou dela; reexecutar retoma de onde parou. O orçamento é de 36 minutos até o Worker publicar o Reels.
 

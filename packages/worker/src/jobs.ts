@@ -1,10 +1,12 @@
 /**
- * Os três jobs do GitHub Actions (docs/arquitetura.md). Tudo é retomável: rodar de novo
+ * Os jobs do GitHub Actions (docs/arquitetura.md). Tudo é retomável: rodar de novo
  * continua de onde parou e nunca publica duas vezes.
  *
  *   coletar  (de hora em hora)  renova o token, sincroniza o que a borda publicou, lê os
  *                               comentários (ENTRO / voto por número), traz os votos do site e atualiza os dados do site.
- *   partida  (35 min antes)     espera o Corte, escala, simula, grava o Reels, sobe para o
+ *   escalar  (35 min antes)     espera o Corte, escala, simula, guarda para o Ao Vivo e publica
+ *                               as Escalações no site, sem vídeo (ADR-0038).
+ *   partida  (35 min antes)     espera o Corte (escala se o escalar não fez), grava o Reels, sobe para o
  *                               R2, cria o container e agenda a publicação para o fim do Ao Vivo.
  *   resumo   (18h10)            fecha a Rodada, grava o Resumo e agenda para as 19h.
  */
@@ -309,43 +311,76 @@ async function craqueDaVez(banco: Banco, p: LinhaJob): Promise<{ id: string } | 
   return anterior ? craqueDaRodada(banco, anterior.id, p.serie) : null;
 }
 
-export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; esperarCorte?: boolean } = {}): Promise<number[]> {
+/**
+ * A etapa do Corte (ADR-0038): espera o Corte, lê os comentários, os votos e os pedidos do site
+ * feitos até ele, escala, simula e guarda todas as Partidas pendentes do horário de `p` e publica
+ * o site, para as Escalações aparecerem já no Corte. Não grava vídeo. Devolve false se o Corte
+ * ainda não chegou e `esperarCorte` é false. Pode rodar em dois jobs ao mesmo tempo (escalar e
+ * partida): a Escalação e a simulação travam a Partida no banco e a segunda vê o que a primeira fez.
+ */
+async function etapaDoCorte(c: ContextoDoJob, pendentes: LinhaJob[], p: LinhaJob, o: { esperarCorte?: boolean }): Promise<boolean> {
   const log = logDe(c);
   const dormir = c.dormir ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  const apito = new Date(p.apito_inicial);
+  const corte = new Date(apito.getTime() - CORTE_MINUTOS * 60_000);
+  const falta = corte.getTime() - agoraDe(c).getTime();
+  if (falta > 0) {
+    if (o.esperarCorte === false) {
+      log(`Partida ${p.id}: ainda não chegou o Corte (${corte.toISOString()}).`);
+      return false;
+    }
+    log(`Partida ${p.id}: esperando o Corte (${Math.ceil(falta / 60_000)} min).`);
+    await dormir(falta + 5_000);
+  }
+  const coments = await coletarComentarios(c, { dias: 1 });
+  const votacao = { ...(await contextoDaVotacao(c.banco)), responder: responderComentario(c) };
+  for (const com of coments) await processarComentario(c.banco, com, votacao);
+  // Últimos votos do site antes de a votação fechar (ela fecha quando este jogo é escalado).
+  if (votacao.rodadaEmVotacao !== null) await importarVotosDoSite(c.banco, c.agenda, votacao.rodadaEmVotacao);
+  // Transferências pedidas pelo site até o Corte entram nesta Escalação.
+  await processarPedidosDoSite(c.banco, c.agenda, agoraDe(c));
+  // Com duas Séries há duas Partidas no mesmo horário: as duas ficam prontas antes de qualquer
+  // Reels ser gravado, para estarem no Ao Vivo no Apito Inicial (ADR-0017).
+  for (const q of pendentes) {
+    if (q.status !== 'PENDENTE' || new Date(q.apito_inicial).getTime() !== apito.getTime()) continue;
+    await rodarPartida(c.banco, q.id, { craque: (await craqueDaVez(c.banco, q))?.id ?? null, vinculos: await jogadoresComVinculo(c.agenda) });
+    await guardarPartidaPrivada(c, q.id, apito);
+    q.status = 'SIMULADA';
+    log(`Partida ${q.id}: escalada e simulada.`);
+  }
+  await publicarSite(c); // as Escalações aparecem no site já no Corte
+  return true;
+}
+
+/**
+ * Job leve do Corte (ADR-0038): só a etapa do Corte, sem Chromium nem ffmpeg. As Escalações e o
+ * Ao Vivo saem no horário mesmo se a instalação ou a gravação do vídeo falharem; o job partida
+ * grava os Reels depois e, se este job não tiver rodado, faz a etapa do Corte ele mesmo.
+ */
+export async function jobEscalar(c: ContextoDoJob, o: { janelaMin?: number; esperarCorte?: boolean } = {}): Promise<number[]> {
+  const pendentes = await partidasPendentes(c.banco, agoraDe(c), o.janelaMin ?? 60);
+  const p = pendentes.find((q) => q.status === 'PENDENTE');
+  if (!p) {
+    logDe(c)('escalar: nada a fazer agora.');
+    return [];
+  }
+  if (!(await etapaDoCorte(c, pendentes, p, o))) return [];
+  const apito = new Date(p.apito_inicial).getTime();
+  return pendentes.filter((q) => q.status === 'SIMULADA' && new Date(q.apito_inicial).getTime() === apito).map((q) => q.id);
+}
+
+export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; esperarCorte?: boolean } = {}): Promise<number[]> {
+  const log = logDe(c);
   const feitas: number[] = [];
   const pendentes = await partidasPendentes(c.banco, agoraDe(c), o.janelaMin ?? 60);
   if (!pendentes.length) log('partida: nada a fazer agora.');
   for (const p of pendentes) {
     const apito = new Date(p.apito_inicial);
-    const corte = new Date(apito.getTime() - CORTE_MINUTOS * 60_000);
-    // Só escala depois do Corte, com os comentários feitos até ele.
-    if (p.status === 'PENDENTE') {
-      const falta = corte.getTime() - agoraDe(c).getTime();
-      if (falta > 0) {
-        if (o.esperarCorte === false) {
-          log(`Partida ${p.id}: ainda não chegou o Corte (${corte.toISOString()}).`);
-          continue;
-        }
-        log(`Partida ${p.id}: esperando o Corte (${Math.ceil(falta / 60_000)} min).`);
-        await dormir(falta + 5_000);
-      }
-      const coments = await coletarComentarios(c, { dias: 1 });
-      const votacao = { ...(await contextoDaVotacao(c.banco)), responder: responderComentario(c) };
-      for (const com of coments) await processarComentario(c.banco, com, votacao);
-      // Últimos votos do site antes de a votação fechar (ela fecha quando este jogo é escalado).
-      if (votacao.rodadaEmVotacao !== null) await importarVotosDoSite(c.banco, c.agenda, votacao.rodadaEmVotacao);
-      // Transferências pedidas pelo site até o Corte entram nesta Escalação.
-      await processarPedidosDoSite(c.banco, c.agenda, agoraDe(c));
-      // Com duas Séries há outra Partida no mesmo horário: escala, simula e guarda agora, antes
-      // de gravar este Reels, para ela também estar pronta no Apito Inicial (ADR-0017).
-      for (const q of pendentes) {
-        if (q === p || q.status !== 'PENDENTE' || new Date(q.apito_inicial).getTime() !== apito.getTime()) continue;
-        await rodarPartida(c.banco, q.id, { craque: (await craqueDaVez(c.banco, q))?.id ?? null, vinculos: await jogadoresComVinculo(c.agenda) });
-        await guardarPartidaPrivada(c, q.id, apito);
-        q.status = 'SIMULADA';
-        log(`Partida ${q.id}: escalada e simulada junto com a ${p.id}.`);
-      }
-    }
+    // Só escala depois do Corte, com os comentários feitos até ele (se o job escalar ainda não fez).
+    if (p.status === 'PENDENTE' && !(await etapaDoCorte(c, pendentes, p, o))) continue;
+    // O job escalar pode ter simulado depois da leitura acima: o status certo vem do banco.
+    const agoraNoBanco = (await c.banco.query<{ status: LinhaJob['status'] }>(`SELECT status FROM partida WHERE id = $1`, [p.id])).rows[0]?.status;
+    if (agoraNoBanco) p.status = agoraNoBanco;
 
     const craque = await craqueDaVez(c.banco, p);
 

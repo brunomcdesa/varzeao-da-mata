@@ -1,0 +1,39 @@
+# Job leve do Corte (ADR-0038): 35 min antes de cada jogo espera o Corte, escala, simula,
+# guarda a Partida para o Ao Vivo e publica as Escalações no site. Não instala nem grava
+# vídeo: as Escalações saem no horário mesmo se o job partida atrasar ou falhar.
+name: escalar
+on:
+  schedule:
+    - cron: '25 14,16,18,20 * * *'
+  # A borda (Cloudflare) dispara este workflow junto com o partida, com origem=borda; o cron
+  # acima é a reserva, porque o do GitHub atrasa e às vezes pula.
+  workflow_dispatch:
+    inputs:
+      origem:
+        description: 'Quem disparou (manual roda sempre; borda só com LIGA_ATIVA=sim)'
+        default: manual
+concurrency: escalar
+jobs:
+  escalar:
+    if: vars.LIGA_ATIVA == 'sim' || (github.event_name == 'workflow_dispatch' && inputs.origem != 'borda')
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      IG_APP_ID: ${{ vars.IG_APP_ID }}
+      IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET_PUBLICO: ${{ vars.R2_BUCKET_PUBLICO }}
+      R2_BUCKET_PRIVADO: ${{ vars.R2_BUCKET_PRIVADO }}
+      R2_URL_PUBLICA: ${{ vars.R2_URL_PUBLICA }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+      - run: pnpm job escalar

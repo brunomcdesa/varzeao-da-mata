@@ -7,7 +7,7 @@ import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
 import type { Comentario } from '../src/coletar.js';
 import type { Instagram } from '../src/instagram.js';
-import { CAPA_DO_RESUMO_MS, jobColetar, jobPartida, jobResumo, sincronizarPublicados, type ContextoDoJob } from '../src/jobs.js';
+import { CAPA_DO_RESUMO_MS, jobColetar, jobEscalar, jobPartida, jobResumo, sincronizarPublicados, type ContextoDoJob } from '../src/jobs.js';
 import { AgendaNaMemoria, CHAVE_TOKEN, PastaLocal, type ItemDaAgenda } from '../src/nuvem.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 
@@ -148,6 +148,57 @@ describe('jobs', () => {
     await agenda.gravar(chave!, { ...item, publicadoEm: '2026-11-07T15:06:30Z', mediaId: 'M1' });
     expect(await sincronizarPublicados(ctx)).toBe(1);
     expect(await status(id!)).toBe('PUBLICADA');
+  });
+
+  it('escalar: no Corte escala, simula, guarda e publica o site sem gravar; o partida depois só grava (ADR-0038)', async () => {
+    await jobColetar(ctx);
+    const gravadosAntes = gravados.length;
+    agora = new Date('2026-11-07T14:25:00Z');
+    const [id] = await jobEscalar(ctx);
+    expect(id).toBeDefined();
+    expect(agora.getTime()).toBeGreaterThanOrEqual(Date.parse('2026-11-07T14:30:00Z')); // esperou o Corte
+    expect(await status(id!)).toBe('SIMULADA');
+    expect(gravados).toHaveLength(gravadosAntes);
+    expect(ig.containers).toHaveLength(0);
+    // Ao Vivo pronto (bucket privado) e Escalação no site, sem o resultado.
+    expect(JSON.parse(await readFile(join(pasta, 'privado/partidas', `${id}.json`), 'utf8')).resultado.lances.length).toBeGreaterThan(0);
+    const publica = JSON.parse(await readFile(join(pasta, 'publico/dados/partidas', `${id}.json`), 'utf8'));
+    expect(publica.escalacoes).not.toBeNull();
+    expect(publica.resultado).toBeNull();
+    const antes = (await banco.query<{ seed: number; resultado: unknown }>(`SELECT seed, resultado FROM partida WHERE id = $1`, [id])).rows[0]!;
+
+    // Rodar de novo não refaz nada.
+    expect(await jobEscalar(ctx)).toEqual([]);
+
+    // O partida grava e agenda o Reels com a mesma simulação.
+    expect(await jobPartida(ctx)).toEqual([id]);
+    expect(await status(id!)).toBe('AGENDADA');
+    expect(ig.containers).toHaveLength(1);
+    const depois = (await banco.query<{ seed: number; resultado: unknown }>(`SELECT seed, resultado FROM partida WHERE id = $1`, [id])).rows[0]!;
+    expect(depois).toEqual(antes);
+  });
+
+  it('escalar: antes do Corte, sem esperar, não escala', async () => {
+    await jobColetar(ctx);
+    agora = new Date('2026-11-07T14:25:00Z');
+    expect(await jobEscalar(ctx, { esperarCorte: false })).toEqual([]);
+    const pendentes = await banco.query(`SELECT 1 FROM partida WHERE status <> 'PENDENTE'`);
+    expect(pendentes.rows).toHaveLength(0);
+  });
+
+  it('escalar e partida ao mesmo tempo terminam com um Reels só e o OVR da simulação gravada (ADR-0038)', async () => {
+    await jobColetar(ctx);
+    agora = new Date('2026-11-07T14:31:00Z'); // depois do Corte
+    const ovrs = async () => (await banco.query<{ id: string; ovr: number }>(`SELECT id, ovr FROM jogador ORDER BY id`)).rows;
+    const [escaladas, feitas] = await Promise.all([jobEscalar(ctx), jobPartida(ctx)]);
+    expect(escaladas.length + feitas.length).toBeGreaterThan(0);
+    const [id] = feitas;
+    expect(await status(id!)).toBe('AGENDADA');
+    // O OVR de cada Jogador bate com o "depois" da única simulação gravada.
+    const linhas = (await banco.query<{ jogador_id: string | null; ovr_depois: number }>(`SELECT jogador_id, ovr_depois FROM escalacao WHERE partida_id = $1`, [id])).rows;
+    const atual = new Map((await ovrs()).map((j) => [j.id, j.ovr]));
+    for (const l of linhas) if (l.jogador_id) expect(atual.get(l.jogador_id)).toBe(l.ovr_depois);
+    expect(ig.containers).toHaveLength(1);
   });
 
   it('partida: com duas Séries, simula as duas do horário antes de gravar o primeiro Reels (ADR-0017)', async () => {

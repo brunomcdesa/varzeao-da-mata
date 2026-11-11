@@ -158,7 +158,7 @@ describe('voto pelo site', () => {
 
 describe('relógio dos jobs', () => {
   it('dispara coletar a cada 10 min (:07, :17…), partida às 11h25/13h25/15h25/17h25 e resumo às 18h10 (Brasília)', () => {
-    expect(jobsDoMinuto(new Date('2026-11-08T14:25:30Z'))).toEqual(['partida']); // 11h25
+    expect(jobsDoMinuto(new Date('2026-11-08T14:25:30Z'))).toEqual(['escalar', 'partida']); // 11h25
     expect(jobsDoMinuto(new Date('2026-11-08T14:17:00Z'))).toEqual(['coletar']);
     expect(jobsDoMinuto(new Date('2026-11-08T15:05:10Z'))).toEqual(['coletar']); // 12h05: fim do Ao Vivo
     expect(jobsDoMinuto(new Date('2026-11-08T15:15:10Z'))).toEqual([]);
@@ -177,8 +177,8 @@ describe('relógio dos jobs', () => {
     }) as typeof fetch;
     expect(await dispararJobs(env, new Date('2026-11-08T14:25:00Z'), f)).toEqual([]);
     const comToken = { ...env, GH_DISPARO_TOKEN: 'x', GH_REPOSITORIO: 'dono/repo' } as Env;
-    expect(await dispararJobs(comToken, new Date('2026-11-08T14:25:00Z'), f)).toEqual(['partida']);
-    expect(chamadas[0]!.url).toBe('https://api.github.com/repos/dono/repo/actions/workflows/partida.yml/dispatches');
+    expect(await dispararJobs(comToken, new Date('2026-11-08T14:25:00Z'), f)).toEqual(['escalar', 'partida']);
+    expect(chamadas.map((c) => c.url)).toEqual(['escalar', 'partida'].map((j) => `https://api.github.com/repos/dono/repo/actions/workflows/${j}.yml/dispatches`));
     expect(JSON.parse(chamadas[0]!.corpo)).toEqual({ ref: 'master', inputs: { origem: 'borda' } });
   });
 });

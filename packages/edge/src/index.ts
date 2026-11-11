@@ -304,7 +304,9 @@ export function jobsDoMinuto(agora: Date): string[] {
   if (m % 10 === 7) jobs.push('coletar');
   // Logo depois do fim do Ao Vivo (5 min depois do apito): placar, tabela e Card no site.
   else if (m === 5 && [12, 14, 16, 18].includes(h)) jobs.push('coletar');
-  if (m === 25 && [11, 13, 15, 17].includes(h)) jobs.push('partida');
+  // No mesmo minuto, os dois esperam o Corte (às :30): o escalar é leve e publica as Escalações
+  // logo; o partida instala o vídeo e grava os Reels (ADR-0038).
+  if (m === 25 && [11, 13, 15, 17].includes(h)) jobs.push('escalar', 'partida');
   if (m === 10 && h === 18) jobs.push('resumo');
   return jobs;
 }
