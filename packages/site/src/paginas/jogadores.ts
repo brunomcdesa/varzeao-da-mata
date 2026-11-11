@@ -1,5 +1,5 @@
 /** Jogadores: busca e ranking, o Card de cada um e a comparação lado a lado. */
-import { IDENTIDADE, nomeVisivel, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId, temRegrasT2 } from '@liga/shared';
+import { DESTAQUE_DA_POSICAO, IDENTIDADE, ORDEM_DOS_TROFEUS, nomeVisivel, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId, temRegrasT2 } from '@liga/shared';
 import { jogadores, liga, timesAtivos } from '../dados.js';
 import { bonecoImg, comCamisa, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html, faixaC } from '../ui.js';
 import type { Pagina } from './tipos.js';
@@ -125,15 +125,18 @@ function medalhas(j: JogadorPublico): [string, number][] {
 const NOME_DO_TROFEU: Record<TipoTrofeu, string> = {
   CAMPEAO: 'Campeão',
   CRAQUE_TEMPORADA: 'Craque da Temporada',
+  DESTAQUE_TEMPORADA: 'Destaque da Temporada',
   CRAQUE_RODADA: 'Craque da Rodada',
+  DESTAQUE_RODADA: 'Destaque da Rodada',
   REI_DO_CLASSICO: 'Rei do Clássico',
 };
 
 function salaDeTrofeus(j: JogadorPublico): Html {
   if (!j.trofeus.length) return html``;
-  const tipos = (['CAMPEAO', 'CRAQUE_TEMPORADA', 'CRAQUE_RODADA', 'REI_DO_CLASSICO'] as TipoTrofeu[]).filter((t) => j.trofeus.some((x) => x.tipo === t));
+  const tipos = ORDEM_DOS_TROFEUS.filter((t) => j.trofeus.some((x) => x.tipo === t));
   const quando = (t: Trofeu) =>
-    t.tipo === 'CAMPEAO' || t.tipo === 'CRAQUE_TEMPORADA' ? `Temporada ${t.temporada}` : `${t.rodada && t.fase ? nomeDaEtapa(t.fase, t.rodada) : ''}, T${t.temporada}`;
+    (t.posicao ? `${DESTAQUE_DA_POSICAO[t.posicao]} · ` : '') +
+    (t.tipo === 'CAMPEAO' || t.tipo === 'CRAQUE_TEMPORADA' || t.tipo === 'DESTAQUE_TEMPORADA' ? `Temporada ${t.temporada}` : `${t.rodada && t.fase ? nomeDaEtapa(t.fase, t.rodada) : ''}, T${t.temporada}`);
   return html`<section class="sala" aria-labelledby="titulo-sala">
     <h2 id="titulo-sala" class="secao">Sala de troféus</h2>
     <ul class="sala-lista">${tipos.map((tipo) => {

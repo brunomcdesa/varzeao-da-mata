@@ -74,3 +74,34 @@ describe('Craque da Temporada e troféus', () => {
     expect(jogadores.reduce((s, j) => s + j.craqueDaRodada, 0)).toBe(8);
   }, 60_000);
 });
+
+describe('Destaques por Posição no site (ADR-0041)', () => {
+  it('na T1 não há Destaques', async () => {
+    await jogarRodada(1);
+    await banco.query(`UPDATE rodada SET resumo_status = 'PUBLICADO'`);
+    const jogadores = (await exportarSite(banco, new Date('2026-11-08T12:00:00Z'))).arquivos.get('jogadores.json') as JogadorPublico[];
+    expect(jogadores.flatMap((j) => j.trofeus).some((t) => t.tipo === 'DESTAQUE_RODADA')).toBe(false);
+  }, 60_000);
+
+  it('da T2 em diante, cada Posição ganha um Destaque da Rodada depois que o Resumo vai ao ar', async () => {
+    await banco.query(`UPDATE temporada SET numero = 2 WHERE id = $1`, [temporada]);
+    await jogarRodada(1);
+    const antes = (await exportarSite(banco, new Date('2026-11-08T12:00:00Z'))).arquivos.get('jogadores.json') as JogadorPublico[];
+    expect(antes.flatMap((j) => j.trofeus).some((t) => t.tipo === 'DESTAQUE_RODADA')).toBe(false);
+    await banco.query(`UPDATE rodada SET resumo_status = 'PUBLICADO' WHERE numero = 1`);
+    const { arquivos } = await exportarSite(banco, new Date('2026-11-08T12:00:00Z'));
+    const destaques = (arquivos.get('jogadores.json') as JogadorPublico[]).flatMap((j) => j.trofeus.filter((t) => t.tipo === 'DESTAQUE_RODADA').map((t) => ({ ...t, posicaoDoJogador: j.posicao })));
+    // Os inscritos são GOL, MEI e ATA (zagueiros são da Base, que não concorre).
+    expect(destaques.map((t) => t.posicao).sort()).toEqual(['ATA', 'GOL', 'MEI']);
+    expect(destaques.every((t) => t.temporada === 2 && t.rodada === 1 && t.posicao === t.posicaoDoJogador)).toBe(true);
+    if (process.env.SALVAR_DADOS) {
+      const { mkdir, writeFile } = await import('node:fs/promises');
+      const { dirname, join } = await import('node:path');
+      for (const [nome, conteudo] of arquivos) {
+        const caminho = join(process.env.SALVAR_DADOS, nome);
+        await mkdir(dirname(caminho), { recursive: true });
+        await writeFile(caminho, JSON.stringify(conteudo));
+      }
+    }
+  }, 60_000);
+});

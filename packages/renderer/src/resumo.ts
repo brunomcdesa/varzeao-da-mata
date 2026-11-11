@@ -4,7 +4,7 @@
  * narrada pelo Locutor da Liga; cada cartela estica até a sua fala caber inteira.
  */
 import { desenharCompartilhe } from './anuncio.js';
-import { FALA_DO_TIME, IDENTIDADE, TIMES_QUE_TROCAM_DE_SERIE, doTime, nomeDaRodada, type Posicao, type Serie, type TimeId, type Aparencia } from '@liga/shared';
+import { DESTAQUE_DA_POSICAO, FALA_DO_TIME, IDENTIDADE, TIMES_QUE_TROCAM_DE_SERIE, doTime, nomeDaRodada, type Posicao, type Serie, type TimeId, type Aparencia } from '@liga/shared';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, plaquinha } from './desenho.js';
 import { apelidoFalavel, type Fala } from './narracao.js';
@@ -53,11 +53,16 @@ export interface DadosDoResumo {
   craqueDaRodada?: { rodada: number; fase: 'LIGA' | 'MATA_MATA'; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number; gols: number; votos: number };
   /** Craque da Rodada anterior na Série B, quando há (ADR-0017). */
   craqueDaRodadaB?: { rodada: number; fase: 'LIGA' | 'MATA_MATA'; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number; gols: number; votos: number };
+  /**
+   * Destaques por Posição (ADR-0041), da T2 em diante: Muralha, Carrapato, Garçom e Matador,
+   * um por Posição em cada Série. No Resumo da Temporada (`fimDaTemporada`), são os da Temporada.
+   */
+  destaques?: { posicao: Posicao; serie?: Serie; username: string; time: TimeId; nota: number; numero: { valor: number; legenda: string } }[];
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
 }
 
-export type Cartela = 'ABERTURA' | 'PLACARES' | 'CAMPEAO' | 'TABELA' | 'NOVOS' | 'CANDIDATOS' | 'CRAQUE' | 'DESTAQUES' | 'CHAMADA' | 'COMPARTILHE';
+export type Cartela = 'ABERTURA' | 'PLACARES' | 'CAMPEAO' | 'TABELA' | 'NOVOS' | 'CANDIDATOS' | 'CRAQUE' | 'DESTAQUES' | 'POSICOES' | 'CHAMADA' | 'COMPARTILHE';
 
 /**
  * Segmento do Roteiro com a cartela que ele mostra (tipo 'ABERTURA' = trilha cheia na mixagem).
@@ -66,19 +71,20 @@ export type Cartela = 'ABERTURA' | 'PLACARES' | 'CAMPEAO' | 'TABELA' | 'NOVOS' |
 export type SegmentoResumo = Segmento & { cartela: Cartela; serie?: Serie };
 
 /** Cartelas que se repetem por Série quando a Temporada tem Série B. */
-const POR_SERIE: ReadonlySet<Cartela> = new Set(['PLACARES', 'TABELA', 'CANDIDATOS']);
+const POR_SERIE: ReadonlySet<Cartela> = new Set(['PLACARES', 'TABELA', 'POSICOES', 'CANDIDATOS']);
 
 /** Com Série B, os dados de uma cartela são só os da Série dela. */
-export function dadosDaSerie(d: DadosDoResumo, serie: Serie | undefined): Pick<DadosDoResumo, 'placares' | 'tabela' | 'candidatos'> {
+export function dadosDaSerie(d: DadosDoResumo, serie: Serie | undefined): Pick<DadosDoResumo, 'placares' | 'tabela' | 'candidatos' | 'destaques'> {
   if (!serie) return d;
   return {
+    destaques: (d.destaques ?? []).filter((x) => (x.serie ?? 'A') === serie),
     placares: d.placares.filter((p) => (p.serie ?? 'A') === serie),
     tabela: serie === 'B' ? (d.tabelaB ?? []) : d.tabela,
     candidatos: d.candidatos.filter((c) => (c.serie ?? 'A') === serie),
   };
 }
 
-const DURACAO_BASE: Record<Cartela, number> = { ABERTURA: 3, PLACARES: 5, CAMPEAO: 6, TABELA: 6, NOVOS: 4, CANDIDATOS: 7, CRAQUE: 7, DESTAQUES: 6, CHAMADA: 5, COMPARTILHE: 6 };
+const DURACAO_BASE: Record<Cartela, number> = { ABERTURA: 3, PLACARES: 5, CAMPEAO: 6, TABELA: 6, NOVOS: 4, CANDIDATOS: 7, CRAQUE: 7, DESTAQUES: 6, POSICOES: 7, CHAMADA: 5, COMPARTILHE: 6 };
 const CORTE = 0.3;
 
 export class RoteiroResumo {
@@ -95,6 +101,7 @@ export class RoteiroResumo {
       if (dados.fimDaTemporada && dados.campeao) cartelas.push('CAMPEAO');
       if (dados.craqueDaTemporada) cartelas.push('CRAQUE');
       if (dados.fimDaTemporada?.artilheiro || dados.fimDaTemporada?.goleiro) cartelas.push('DESTAQUES');
+      if (dados.fimDaTemporada && dados.destaques?.length) cartelas.push('POSICOES');
     }
     else {
       if (dados.craqueDaRodada || dados.craqueDaRodadaB) cartelas.push('CRAQUE');
@@ -102,16 +109,17 @@ export class RoteiroResumo {
       if (dados.campeao) cartelas.push('CAMPEAO');
       if (dados.fase === 'LIGA') cartelas.push('TABELA');
       if (dados.totalNovos > 0) cartelas.push('NOVOS');
+      if (dados.destaques?.length) cartelas.push('POSICOES');
       if (dados.candidatos.length) cartelas.push('CANDIDATOS');
     }
     cartelas.push('CHAMADA', 'COMPARTILHE');
     // Com Série B: cada cartela por Série vira duas, a da A e a da B (se a B tiver o que mostrar).
-    const comSeries = !!dados.tabelaB;
+    const comSeries = !!dados.tabelaB || !!dados.destaques?.some((x) => x.serie === 'B');
     const lista: { cartela: Cartela; serie?: Serie }[] = cartelas.flatMap((cartela) => {
       if (!comSeries || !POR_SERIE.has(cartela)) return [{ cartela }];
       return (['A', 'B'] as const).filter((serie) => {
         const x = dadosDaSerie(dados, serie);
-        return cartela === 'PLACARES' ? x.placares.length > 0 : cartela === 'TABELA' ? x.tabela.length > 0 : x.candidatos.length > 0;
+        return cartela === 'PLACARES' ? x.placares.length > 0 : cartela === 'TABELA' ? x.tabela.length > 0 : cartela === 'POSICOES' ? (x.destaques?.length ?? 0) > 0 : x.candidatos.length > 0;
       }).map((serie) => ({ cartela, serie }));
     });
     // Campeão e Craque da Temporada: com Série B, uma cartela para cada Série.
@@ -209,6 +217,12 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
         if (f.artilheiro) partes.push(`O artilheiro foi ${apelidoFalavel(f.artilheiro.apelido) ?? `o ${POSICAO_FALADA[f.artilheiro.posicao]} ${doTime(f.artilheiro.time)}`}, com ${f.artilheiro.gols} ${f.artilheiro.gols === 1 ? 'gol' : 'gols'}.`);
         if (f.goleiro) partes.push(`E o melhor goleiro foi o ${doTime(f.goleiro.time)}, nota média ${f.goleiro.notaMedia.toFixed(1).replace('.', ',')}.`);
         texto = partes.join(' ');
+        break;
+      }
+      case 'POSICOES': {
+        // Pela Posição e pelo Time, nunca pelo @ (o apelido fica para gols e Craque).
+        const quem = (x.destaques ?? []).map((j) => `${DESTAQUE_DA_POSICAO[j.posicao]}: o ${POSICAO_FALADA[j.posicao]} ${doTime(j.time)}`);
+        texto = `${s.serie ? `Na Série ${s.serie}, os` : 'Os'} destaques ${d.fimDaTemporada ? 'da Temporada' : 'da Rodada'}, um por posição! ${quem.join('. ')}.`;
         break;
       }
       case 'PLACARES':
@@ -557,6 +571,48 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       let k = 0;
       if (f.artilheiro) cartao(k++, 'Artilheiro', f.artilheiro, String(f.artilheiro.gols), f.artilheiro.gols === 1 ? 'gol' : 'gols');
       if (f.goleiro) cartao(k++, 'Melhor goleiro', { ...f.goleiro, posicao: 'GOL' }, f.goleiro.notaMedia.toFixed(1).replace('.', ','), 'nota média');
+      break;
+    }
+    case 'POSICOES': {
+      titulo(d.fimDaTemporada ? 'Destaques da Temporada' : 'Destaques da Rodada');
+      const fase = Math.floor(tVideo * 3);
+      (ds.destaques ?? []).forEach((j, k) => {
+        const a = aparece(k, 0.5, 0.5);
+        if (a <= 0) return;
+        const y = 88 + k * 86;
+        const dx = (1 - a) * COLUNAS;
+        const id = IDENTIDADE[j.time];
+        pin.ctx.save();
+        pin.ctx.translate(dx * pin.px, 0);
+        pin.tabua(12, y, 246, 78);
+        // Nome do Destaque em cima, como uma faixa.
+        pin.placa(18, y - 6, 92, 20, { fundo: COR.amarelo, luz: '#FFE07A', sombra: '#B88600' });
+        pin.texto(DESTAQUE_DA_POSICAO[j.posicao], 64, y + 4, pin.caber(DESTAQUE_DA_POSICAO[j.posicao], 84, 15, display), display, COR.tinta);
+        pin.placa(18, y + 16, 46, 56, { fundo: COR.placa, luz: '#FFF8E6', sombra: COR.placaSombra });
+        pin.r(21, y + 56, 40, 13, '#7FB069');
+        const goleiro = j.posicao === 'GOL';
+        const visual = {
+          camisa: goleiro ? id.secundaria : id.primaria,
+          detalhe: goleiro ? id.primaria : id.secundaria,
+          calcao: goleiro ? '#2B2B2B' : id.secundaria,
+          meiao: goleiro ? id.secundaria : id.primaria,
+          ...aparencia(`@${j.username}`),
+        };
+        const pose = (fase + k) % 2 === 0 ? 'FRENTE_COMEMORA' : 'FRENTE_PARADO';
+        pin.ctx.drawImage(sprite(pose, visual), 23 * pin.px, (y + 19) * pin.px, 36 * pin.px, 48 * pin.px);
+        desenharEscudo(pin, j.time, 50, y + 14, 0.7);
+        const nome = `@${j.username}`;
+        pin.texto(nome, 72, y + 31, pin.caber(nome, 112, 11, texto, 700), texto, '#FFFFFF', { alinhar: 'left', peso: 700 });
+        const info = `${POSICAO_FALADA[j.posicao]}, ${curto(j.time)}`;
+        pin.texto(info, 72, y + 46, pin.caber(info, 112, 7.5, texto, 500), texto, COR.placaSombra, { alinhar: 'left', peso: 500 });
+        const nota = `nota ${j.nota.toFixed(1).replace('.', ',')}${d.fimDaTemporada ? ' média' : ''}`;
+        pin.texto(nota, 72, y + 61, 7.5, texto, COR.placa, { alinhar: 'left', peso: 600 });
+        // O número da Posição, grande, à direita.
+        pin.texto(String(j.numero.valor), 222, y + 37, 30, display, COR.amarelo, { contorno: COR.contorno, espessura: 1.5 });
+        pin.texto(j.numero.legenda, 222, y + 60, pin.caber(j.numero.legenda, 66, 8, texto, 600), texto, COR.placa, { peso: 600 });
+        pin.ctx.restore();
+        pin.r(12 + dx + 4, y + 75, 238, 2, contraste(id.primaria) === '#FFFFFF' ? id.primaria : id.secundaria);
+      });
       break;
     }
     case 'COMPARTILHE':
