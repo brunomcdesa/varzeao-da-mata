@@ -51,9 +51,14 @@ export const estiloDe = (tom: Tom, voz: string, jeito?: string) =>
  * "Varzeadão"; com o circunflexo ("Varzêão") acertam. A voz pronta (Lumi, o Beto Bola)
  * lê certo como se escreve, e com o circunflexo puxava para "Varzeaão" (ouvido em 08/11).
  * Na tela e nas legendas é sempre "Varzeão".
+ *
+ * "OVR" se fala "ôver" (como "over") em qualquer voz. Na tela e nas legendas é sempre "OVR".
  */
-export const paraFalar = (texto: string, voz: string) =>
-  process.env.SEM_GRAFIA === '1' || !voz.startsWith('voice_') ? texto : texto.replace(/Varzeão/g, 'Varzêão').replace(/VARZEÃO/g, 'VARZÊÃO');
+export const paraFalar = (texto: string, voz: string) => {
+  if (process.env.SEM_GRAFIA === '1') return texto;
+  const t = texto.replace(/\bOVR\b/g, 'ôver');
+  return voz.startsWith('voice_') ? t.replace(/Varzeão/g, 'Varzêão').replace(/VARZEÃO/g, 'VARZÊÃO') : t;
+};
 
 export function pedidoGemini(texto: string, tom: Tom, voz: string, modelo: string, jeito?: string): unknown {
   return {

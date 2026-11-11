@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 // Nos testes não há limite real de pedidos por minuto.
 process.env.GEMINI_TTS_RPM = '10000';
 import { codificarWav, lerWavMono } from '../src/audio.js';
-import { CotaDiariaEsgotada, ESTILO, ESTILO_CURTO, estiloDe, dividirPorSilencio, falarLoteGemini, falarVariasGemini, pedidoGeminiVarias, esperaPedida, extrairAudio, para48k, pedidoGemini } from '../scripts/gemini.js';
+import { CotaDiariaEsgotada, ESTILO, ESTILO_CURTO, estiloDe, dividirPorSilencio, falarLoteGemini, falarVariasGemini, pedidoGeminiVarias, esperaPedida, extrairAudio, para48k, pedidoGemini, paraFalar } from '../scripts/gemini.js';
 
 describe('Gemini TTS', () => {
   it('monta o pedido com voz, estilo do tom e texto separados', () => {
@@ -159,5 +159,19 @@ describe('Um pedido por vídeo', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe('Grafia para a voz', () => {
+  it('"OVR" é falado "ôver" em qualquer voz, e só a palavra inteira', () => {
+    expect(paraFalar('Quer ver o seu OVR subir?', 'Lumi')).toBe('Quer ver o seu ôver subir?');
+    expect(paraFalar('O OVR é a média. OVR!', 'voice_abc')).toBe('O ôver é a média. ôver!');
+    expect(paraFalar('OVRX e SOVR', 'Lumi')).toBe('OVRX e SOVR');
+    expect(JSON.stringify(pedidoGemini('Subiu o OVR', 'normal', 'Lumi', 'm'))).toContain('Subiu o ôver');
+  });
+
+  it('"Varzeão" continua com a grafia especial só nas vozes do Voice design', () => {
+    expect(paraFalar('Bola rolando no Varzeão', 'Lumi')).toBe('Bola rolando no Varzeão');
+    expect(paraFalar('Bola rolando no Varzeão', 'voice_abc')).toBe('Bola rolando no Varzêão');
   });
 });
