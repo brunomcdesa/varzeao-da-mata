@@ -1,5 +1,5 @@
 /**
- * Como instalar o App (ADR-0037): o site é uma PWA e cada aparelho instala de um jeito.
+ * Como instalar o App (ADR-0040): o site é uma PWA e cada aparelho instala de um jeito.
  * Regra pura, sem DOM, para ser testada.
  */
 

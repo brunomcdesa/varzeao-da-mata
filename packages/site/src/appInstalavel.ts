@@ -1,5 +1,5 @@
 /**
- * O App (ADR-0037): registra o service worker e mostra, no topo do site, a placa
+ * O App (ADR-0040): registra o service worker e mostra, no topo do site, a placa
  * "Tenha o Varzeão no celular" com o jeito certo de instalar em cada aparelho.
  * Some quando o site já está aberto como App ou quando a pessoa dispensa (volta em 7 dias).
  */

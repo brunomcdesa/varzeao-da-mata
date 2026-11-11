@@ -1,5 +1,5 @@
 /*
- * Service worker do App (ADR-0037). Só cuida dos arquivos do próprio site:
+ * Service worker do App (ADR-0040). Só cuida dos arquivos do próprio site:
  * sempre tenta a rede primeiro (o App nunca fica com versão velha) e, sem conexão,
  * abre o que foi guardado da última visita. Os dados da Liga (R2) e a API da borda
  * vêm de outra origem e passam direto, sem cache aqui.
