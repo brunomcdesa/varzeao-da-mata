@@ -66,6 +66,9 @@ async function lerPartida(b: Banco, id: number): Promise<LinhaPartida> {
  */
 export async function simular(banco: Banco, partidaId: number, escalada: PartidaEscalada, o: { seed?: number } = {}): Promise<ResultadoPartida> {
   return banco.transacao(async (b) => {
+    // Trava a Partida: o job escalar e o job partida podem simular ao mesmo tempo (ADR-0038);
+    // o segundo espera o primeiro terminar e devolve o resultado dele.
+    await b.query(`SELECT 1 FROM partida WHERE id = $1 FOR UPDATE`, [partidaId]);
     const p = await lerPartida(b, partidaId);
     if (passou(p.status, 'SIMULADA')) return p.resultado!;
     if (p.status !== 'ESCALADA') throw new Error(`Partida ${partidaId} precisa estar ESCALADA para simular (está ${p.status})`);
