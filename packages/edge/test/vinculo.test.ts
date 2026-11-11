@@ -151,4 +151,21 @@ describe('Vínculo pela DM (ADR-0013)', () => {
     expect(await r!.json()).toMatchObject({ capitania: { eu: false, capitao: 'beltrano', postura: 'OFENSIVA' } });
     expect(perguntados).toEqual(['7']);
   });
+
+  it('a Formação vai como escolha do site (ADR-0044) e precisa de valor', async () => {
+    const t = montar([]);
+    const sessao = 'd'.repeat(43);
+    const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sessao)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+    await t.AGENDA.put(`vinculo/sessao/${h}`, JSON.stringify({ jogadorId: '7', username: 'Fulano_10', vinculadoEm: agora.toISOString() }));
+    const pedidos: unknown[] = [];
+    const aplicar = async (p: unknown) => {
+      pedidos.push(p);
+      return { resultado: 'SALVO', mensagem: 'Formação 3-2-1 no próximo jogo.' };
+    };
+    const sem = await rotasDoVinculo(new Request('https://borda/escolha', { method: 'POST', body: JSON.stringify({ sessao, tipo: 'FORMACAO', valor: '' }) }), t.env, agora, async () => ({}) as never, async () => true, aplicar);
+    expect(sem!.status).toBe(400);
+    const r = await rotasDoVinculo(new Request('https://borda/escolha', { method: 'POST', body: JSON.stringify({ sessao, tipo: 'FORMACAO', valor: '3-2-1' }) }), t.env, agora, async () => ({}) as never, async () => true, aplicar);
+    expect(await r!.json()).toMatchObject({ ok: true, pedido: { resultado: 'SALVO' } });
+    expect(pedidos).toEqual([{ tipo: 'ESCOLHA', jogadorId: '7', escolha: { tipo: 'FORMACAO', valor: '3-2-1' } }]);
+  });
 });

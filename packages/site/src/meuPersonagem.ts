@@ -5,7 +5,8 @@
  *
  * A sessão é um segredo que só este navegador guarda (localStorage); a borda guarda o hash.
  */
-import { CANTOS, DESCRICAO_DA_ESPECIALIZACAO, ESPECIALIZACOES, HABILIDADES, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, POSTURAS, type Canto, type Especializacao, type HabilidadeId, type Postura } from '@liga/shared';
+import { CANTOS, DESCRICAO_DA_ESPECIALIZACAO, DESCRICAO_DA_FORMACAO, ESPECIALIZACOES, FORMACOES, FORMACAO_PADRAO, HABILIDADES, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, POSTURAS, ehFormacao, type Canto, type Especializacao, type Formacao, type HabilidadeId, type Postura } from '@liga/shared';
+import { desenhoDaFormacao } from './formacao.js';
 import { APELIDO_MAX, apelidoLiberaEm, podeTrocarApelido, CABELOS, NOME_DO_PENTEADO, validarApelido, PELES, PENTEADOS, TIMES, type Aparencia, type JogadorPublico, type Penteado, type Posicao, type TimeId } from '@liga/shared';
 import { ALTURA_SPRITE, LARGURA_SPRITE, aparencia, sprite, visualDoJogador, type Pose } from '@liga/renderer';
 import { BASE_API, INSTAGRAM, ajustarLocalmente } from './dados.js';
@@ -232,7 +233,7 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
     });
   }
 
-  // ---- Temporada 2: Presença, Postura (Capitão), Especialização, Treino e Canto
+  // ---- Temporada 2: Presença, Postura e Formação (Capitão), Especialização, Treino e Canto
   let especializacao: Especializacao | null = j.especializacao ?? null;
   let treino: HabilidadeId | null = j.treino ?? null;
   let canto: Canto | null = null;
@@ -295,34 +296,45 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
     </details>`;
   }
 
-  /** Só o Capitão vê a escolha de Postura; os outros veem quem ele é (ADR-0020). */
-  function blocoCapitania(c: { eu: boolean; capitao: string | null; postura: string } | null) {
+  /** Só o Capitão vê a escolha de Postura e Formação; os outros veem quem ele é (ADRs 0020 e 0044). */
+  function blocoCapitania(c: { eu: boolean; capitao: string | null; postura: string; formacao?: string } | null) {
     if (!c) return html``;
     const atual = (POSTURAS as readonly string[]).includes(c.postura) ? (c.postura as Postura) : 'EQUILIBRADA';
+    const formacao: Formacao = ehFormacao(c.formacao) ? c.formacao : FORMACAO_PADRAO;
     if (!c.eu) {
-      return html`<p class="legenda capitania">${c.capitao ? html`Capitão do ${curto(j.time)} no próximo jogo: <strong>@${c.capitao}</strong>. Só ele escolhe a Postura (agora: ${NOME_DA_POSTURA[atual]}).` : html`Postura do ${curto(j.time)} no próximo jogo: ${NOME_DA_POSTURA[atual]}.`}</p>`;
+      const agora = html`${NOME_DA_POSTURA[atual]}, no ${formacao}`;
+      return html`<p class="legenda capitania">${c.capitao ? html`Capitão do ${curto(j.time)} no próximo jogo: <strong>@${c.capitao}</strong>. Só ele escolhe a Postura e a Formação (agora: ${agora}).` : html`Postura e Formação do ${curto(j.time)} no próximo jogo: ${agora}.`}</p>`;
     }
     const radio = (valor: Postura) =>
       html`<label class="opcao-t2"><input type="radio" name="valor" value="${valor}" ${valor === atual ? 'checked' : ''} /><span><strong>${NOME_DA_POSTURA[valor]}</strong><small>${DESCRICAO_DA_POSTURA[valor]}</small></span></label>`;
+    const opcaoFormacao = (f: Formacao) => {
+      const d = DESCRICAO_DA_FORMACAO[f];
+      return html`<label class="opcao-t2 opcao-formacao"><input type="radio" name="valor" value="${f}" ${f === formacao ? 'checked' : ''} />${desenhoDaFormacao(f)}<span><strong>${d.nome}${d.jogada ? html` <em class="jogada-formacao">${d.jogada}</em>` : ''}</strong><small>${d.linha}</small></span></label>`;
+    };
     return html`<form class="escolha-t2" data-tipo="POSTURA">
       <p><strong>Você é o Capitão do ${curto(j.time)}</strong> no próximo jogo. Escolha como o Time joga; dá para mudar até o Corte.</p>
       <fieldset class="opcoes-t2">${POSTURAS.map(radio)}</fieldset>
       <p><button type="submit" class="botao">Escolher a Postura</button></p>
+      <p class="estado-escolha" role="status" aria-live="polite"></p>
+    </form>
+    <form class="escolha-t2" data-tipo="FORMACAO">
+      <p><strong>Formação</strong>: quantos jogam atrás, no meio e na frente. Quem ficar fora porque a Formação cortou a vaga passa na frente no jogo seguinte. Faltando gente numa Posição, alguém de outra joga fora de posição.</p>
+      <fieldset class="opcoes-t2 formacoes">${FORMACOES.map(opcaoFormacao)}</fieldset>
+      <p><button type="submit" class="botao">Escolher a Formação</button></p>
       <p class="estado-escolha" role="status" aria-live="polite"></p>
     </form>`;
   }
 
   function ligarEscolhas(g: Guardado) {
     // O canto não é público: vem do último pedido deste navegador (borda).
-    void api<Record<string, { escolha?: { valor?: Canto | null }; resultado?: string } | null> & { capitania?: { eu: boolean; capitao: string | null; postura: string } | null }>('escolha/estado', { sessao: g.sessao })
+    void api<Record<string, { escolha?: { valor?: Canto | null }; resultado?: string } | null> & { capitania?: { eu: boolean; capitao: string | null; postura: string; formacao?: string } | null }>('escolha/estado', { sessao: g.sessao })
       .then((r) => {
         const lugar = caixa.querySelector<HTMLElement>('[data-capitania]');
         if (lugar) {
           lugar.innerHTML = blocoCapitania(r.dados.capitania ?? null).s;
-          const form = lugar.querySelector<HTMLFormElement>('form.escolha-t2');
-          if (form) ligarBloco(form);
+          for (const form of lugar.querySelectorAll<HTMLFormElement>('form.escolha-t2')) ligarBloco(form);
           const resumo = caixa.querySelector('[data-resumo-jogo]');
-          if (resumo && r.dados.capitania?.eu) resumo.textContent = 'presença e Postura';
+          if (resumo && r.dados.capitania?.eu) resumo.textContent = 'presença, Postura e Formação';
         }
         const c = r.dados.CANTO;
         if (c && c.resultado !== 'RECUSADO' && c.escolha) {

@@ -119,6 +119,15 @@ const BASE_POR_POSICAO: Record<Posicao, Ponto[]> = {
   MEI: [{ x: 0.36, y: 0.62 }, { x: 0.64, y: 0.62 }],
   ATA: [{ x: 0.4, y: 0.44 }, { x: 0.6, y: 0.44 }],
 };
+/**
+ * Formação (ADR-0044): com um ou três numa linha, o desenho muda. Um fica no meio; três abrem,
+ * e o do meio fica um pouco atrás (o zagueiro da sobra, o volante do 2-3-1).
+ */
+const BASE_POR_QUANTIDADE: Partial<Record<Posicao, Record<number, Ponto[]>>> = {
+  ZAG: { 3: [{ x: 0.24, y: 0.78 }, { x: 0.5, y: 0.82 }, { x: 0.76, y: 0.78 }] },
+  MEI: { 1: [{ x: 0.5, y: 0.62 }], 3: [{ x: 0.24, y: 0.6 }, { x: 0.5, y: 0.65 }, { x: 0.76, y: 0.6 }] },
+  ATA: { 1: [{ x: 0.5, y: 0.42 }] },
+};
 
 const espelhar = (p: Ponto, lado: Lado): Ponto => (lado === 'mandante' ? p : { x: 1 - p.x, y: 1 - p.y });
 const lerp = (a: number, b: number, f: number): number => a + (b - a) * f;
@@ -567,10 +576,12 @@ export class Timeline {
   }
 }
 
-function posicoesBase(escalacao: Escalacao, lado: Lado): Ponto[] {
+export function posicoesBase(escalacao: Escalacao, lado: Lado): Ponto[] {
   const usados: Record<Posicao, number> = { GOL: 0, ZAG: 0, MEI: 0, ATA: 0 };
+  const quantos = (p: Posicao) => escalacao.jogadores.filter((j) => j.posicao === p).length;
   return escalacao.jogadores.map((j) => {
-    const ponto = BASE_POR_POSICAO[j.posicao][usados[j.posicao]++] ?? BASE_POR_POSICAO[j.posicao][0]!;
+    const linha = BASE_POR_QUANTIDADE[j.posicao]?.[quantos(j.posicao)] ?? BASE_POR_POSICAO[j.posicao];
+    const ponto = linha[usados[j.posicao]++] ?? linha[0]!;
     return espelhar(ponto, lado);
   });
 }
