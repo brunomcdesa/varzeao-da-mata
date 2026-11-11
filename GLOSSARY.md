@@ -266,6 +266,10 @@ _Avoid_: torcida virtual, plateia, galera
 O canto próprio de cada Time, que a Arquibancada entoa depois de um gol do Time.
 _Avoid_: hino, música, cântico
 
+**Juiz**:
+O boneco que apita as Partidas da T2: acompanha o lance, apita a falta e mostra o Cartão. É só visual e não tem nome escrito.
+_Avoid_: árbitro, apitador
+
 **Clima**:
 O tempo da Partida (sol, chuva ou lama), sorteado para cada Partida. Muda o visual e a fala do Narrador, e não decide nenhum lance.
 _Avoid_: tempo, condição do campo

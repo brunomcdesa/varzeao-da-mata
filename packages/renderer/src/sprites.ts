@@ -14,7 +14,8 @@ export type Pose =
   | 'FRENTE_PARADO' | 'FRENTE_CORRE_A' | 'FRENTE_CORRE_B' | 'FRENTE_COMEMORA'
   | 'COSTAS_PARADO' | 'COSTAS_CORRE_A' | 'COSTAS_CORRE_B'
   | 'LADO_PARADO' | 'LADO_CORRE_A' | 'LADO_CORRE_B' | 'LADO_CHUTE'
-  | 'MERGULHO';
+  | 'MERGULHO'
+  | 'FRENTE_APITO';
 
 const CABECA_FRENTE = [
   '....KKKK....',
@@ -109,6 +110,23 @@ const POSES: Record<Pose, string[]> = {
     '...KMK..KKKK',
     '..KMK.......',
     '.KKK........',
+  ],
+  // Juiz (ADR-0040): de frente, com o braço direito levantado (apito ou cartão na mão).
+  FRENTE_APITO: [
+    '....KKKK..S.',
+    '...KHHHHKKS.',
+    '..KHHHHHHKC.',
+    '..KHSSSSHKC.',
+    '..KSKSSKSKC.',
+    '..KSSSSSSKC.',
+    '...KSSSSKKK.',
+    '..KCCCCCCK..',
+    '.KCCCccCCK..',
+    '.KSCCccCCK..',
+    '.KSKCCCCKK..',
+    '..KKBBBBKK..',
+    '...KBBBBK...',
+    ...PERNAS_PARADO,
   ],
   // Goleiro esticado no ar, de lado (para a direita).
   MERGULHO: [
@@ -252,5 +270,8 @@ export function escolherPose(acao: AcaoJogador, vel: { x: number; y: number }, o
     }
   }
 }
+
+/** Pixel (coluna, linha) da mão levantada na pose FRENTE_APITO: onde o cartão aparece. */
+export const MAO_DO_APITO = { x: 10, y: 0 } as const;
 
 export const TODAS_AS_POSES = Object.keys(POSES) as Pose[];

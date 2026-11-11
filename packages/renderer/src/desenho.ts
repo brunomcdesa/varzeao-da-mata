@@ -10,8 +10,9 @@ import type { Lado } from '@liga/sim';
 import { CAMPO, cenario } from './cenario.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
 import { ALTURA_ESCUDO, LARGURA_ESCUDO, escudo } from './escudos.js';
-import { ALTURA_SPRITE, LARGURA_SPRITE, aparencia, escolherPose, sprite, type Visual } from './sprites.js';
+import { ALTURA_SPRITE, LARGURA_SPRITE, MAO_DO_APITO, aparencia, escolherPose, sprite, type Pose, type Visual } from './sprites.js';
 import type { EstadoQuadro, JogadorNoQuadro, Ponto } from './timeline.js';
+import { visualDoJuiz, type JuizNoQuadro } from './juiz.js';
 import { desenharArquibancada, desenharCartao, desenharClimaNoAr, desenharClimaNoChao, desenharCloseDaTorcida } from './arquibancada.js';
 import { segundoUniforme } from './clima.js';
 
@@ -52,8 +53,9 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
   // Sombras primeiro, depois Jogadores de cima para baixo (quem está mais embaixo fica na frente).
   const fase = Math.floor(estado.t / 1.1);
   const ordem = [...estado.jogadores].sort((a, b) => a.pos.y - b.pos.y);
-  for (const j of ordem) {
-    const p = noCampo(j.pos);
+  // O juiz (T2, ADR-0040) entra na mesma ordem de profundidade, com a sua sombra.
+  const juiz = estado.juiz;
+  for (const p of [...ordem.map((j) => noCampo(j.pos)), ...(juiz ? [noCampo(juiz.pos)] : [])]) {
     pin.r(p.x - 6, p.y - 1, 12, 3, 'rgba(0,0,0,0.28)');
   }
   const bolaChao = noCampo(estado.bola);
@@ -61,10 +63,19 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
 
   const bolaAlta = estado.bolaAltura > 0.08;
   if (!bolaAlta) desenharBola(pin, bolaChao, 0);
-  for (const j of ordem) desenharJogador(pin, j, o, fase, estado);
+  let juizDesenhado = !juiz;
+  for (const j of ordem) {
+    if (!juizDesenhado && juiz!.pos.y < j.pos.y) {
+      desenharJuiz(pin, juiz!, o, fase, estado);
+      juizDesenhado = true;
+    }
+    desenharJogador(pin, j, o, fase, estado);
+  }
+  if (!juizDesenhado) desenharJuiz(pin, juiz!, o, fase, estado);
   // Na disputa de pênaltis, só o nome de quem está na área (cobrador e goleiro): a roda fica limpa.
   for (const j of ordem) if (!estado.penaltis || j.pos.y < 0.3) desenharNome(pin, j, o, texto);
   if (bolaAlta) desenharBola(pin, bolaChao, estado.bolaAltura);
+  if (juiz) desenharCartaoDoJuiz(pin, juiz);
   if (estado.t2) {
     desenharCartao(pin, estado, noCampo);
     desenharClimaNoAr(pin, estado);
@@ -119,6 +130,48 @@ function desenharJogador(pin: Pincel, j: JogadorNoQuadro, o: OpcoesDesenho, fase
     c.drawImage(img, x, y, LARGURA_SPRITE * s, ALTURA_SPRITE * s);
   }
   c.restore();
+}
+
+/** Canto superior esquerdo do boneco na grade lógica (o pé fica em `p`). */
+function cantoDoBoneco(pin: Pincel, p: Ponto, pulo: number): { x: number; y: number; s: number } {
+  const s = pin.px * ESCALA_BONECO;
+  return { x: Math.round(p.x * pin.px - (LARGURA_SPRITE / 2) * s), y: Math.round((p.y + 1) * pin.px - ALTURA_SPRITE * s - pulo * s), s };
+}
+
+/** O juiz: corre como os Jogadores e, na falta, vira de frente com o braço levantado. */
+function desenharJuiz(pin: Pincel, j: JuizNoQuadro, o: OpcoesDesenho, fase: number, e: EstadoQuadro): void {
+  const p = noCampo(j.pos);
+  const visual = visualDoJuiz(o.times, e.t2?.segundoUniforme ?? null, j.seed);
+  const gesto = j.acao === 'APITO' || j.acao === 'CARTAO';
+  const olhar = { x: j.olhar.x - j.pos.x, y: j.olhar.y - j.pos.y };
+  const { pose, espelhar, pulo } = gesto
+    ? { pose: 'FRENTE_APITO' as Pose, espelhar: false, pulo: 0 }
+    : escolherPose(j.acao === 'CORRENDO' ? 'CORRENDO' : 'PARADO', j.vel, olhar, fase + 3);
+  const img = sprite(pose, visual);
+  const { x, y, s } = cantoDoBoneco(pin, p, pulo);
+  const c = pin.ctx;
+  c.save();
+  if (espelhar) {
+    c.translate(x + LARGURA_SPRITE * s, y);
+    c.scale(-1, 1);
+    c.drawImage(img, 0, 0, LARGURA_SPRITE * s, ALTURA_SPRITE * s);
+  } else {
+    c.drawImage(img, x, y, LARGURA_SPRITE * s, ALTURA_SPRITE * s);
+  }
+  c.restore();
+}
+
+/** Cartão na mão levantada do juiz, desenhado por cima de todos (não some atrás de ninguém). */
+function desenharCartaoDoJuiz(pin: Pincel, j: JuizNoQuadro): void {
+  if (j.acao !== 'CARTAO' || !j.cartao) return;
+  const { x, y } = cantoDoBoneco(pin, noCampo(j.pos), 0);
+  {
+    const mx = x / pin.px + MAO_DO_APITO.x * ESCALA_BONECO - 1.5;
+    const my = y / pin.px + MAO_DO_APITO.y * ESCALA_BONECO - 9;
+    pin.r(mx - 1, my - 1, 7, 10, COR.contorno);
+    pin.r(mx, my, 5, 8, j.cartao === 'VERMELHO' ? '#D7263D' : '#F6D02F');
+    pin.r(mx, my, 5, 1, 'rgba(255,255,255,0.5)');
+  }
 }
 
 /** O nome escrito na tela: o apelido, senão o @ (null = Jogador da Base). */
