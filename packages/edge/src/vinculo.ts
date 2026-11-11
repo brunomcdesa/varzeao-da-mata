@@ -17,6 +17,7 @@
  * Só a própria conta consegue mandar DM com o próprio @, então o código prova o dono.
  */
 import { TIMES } from '@liga/shared';
+import { marcarPendencia } from './pendencias.js';
 
 export interface EnvVinculo {
   AGENDA: KVNamespace;
@@ -189,6 +190,7 @@ export async function rotasDoVinculo(
 
     const sessao: SessaoVinculada = { jogadorId: pendente.jogadorId, username: pendente.username, vinculadoEm: agora.toISOString() };
     await env.AGENDA.put(`vinculo/sessao/${h}`, JSON.stringify(sessao));
+    await marcarPendencia(env.AGENDA, 'vinculos', agora);
     await env.AGENDA.delete(`vinculo/codigo/${codigo}`);
     // Confirmação na DM (se a API não deixar, o site já mostra que deu certo).
     await graph('POST', `${env.IG_USER_ID}/messages`, {
@@ -203,6 +205,7 @@ export async function rotasDoVinculo(
     if (!sessaoValida(c?.sessao)) return json({ erro: 'Sessão inválida' }, 400);
     if (pathname === '/vinculo/sair') {
       await env.AGENDA.delete(`vinculo/sessao/${await hash(c.sessao)}`);
+      await marcarPendencia(env.AGENDA, 'vinculos', agora);
       return json({ ok: true });
     }
     const s = await sessaoDe(env, c.sessao);
@@ -228,6 +231,7 @@ export async function rotasDoVinculo(
     const feito = await aplicar({ tipo: 'PERFIL', ...pedido }).catch(() => null);
     const registro = feito ? { ...pedido, resultado: feito.resultado, mensagem: feito.mensagem, processadoEm: agora.toISOString() } : pedido;
     await env.AGENDA.put(chave, JSON.stringify(registro), { expirationTtl: 7 * 86400 });
+    if (!feito) await marcarPendencia(env.AGENDA, 'perfis', agora);
     const disparou = await disparar('coletar').catch(() => false);
     return json({ ok: true, pedido: registro, disparou });
   }
@@ -254,6 +258,7 @@ export async function rotasDoVinculo(
     const feito = await aplicar({ tipo: 'ESCOLHA', jogadorId: s.jogadorId, escolha }).catch(() => null);
     const registro = feito ? { ...base, resultado: feito.resultado, mensagem: feito.mensagem, processadoEm: agora.toISOString() } : base;
     await env.AGENDA.put(`escolha-site/${s.jogadorId}/${tipo}`, JSON.stringify(registro), { expirationTtl: 7 * 86400 });
+    if (!feito) await marcarPendencia(env.AGENDA, 'escolhas', agora);
     const disparou = feito ? false : await disparar('coletar').catch(() => false);
     return json({ ok: true, pedido: registro, disparou });
   }
@@ -277,6 +282,7 @@ export async function rotasDoVinculo(
     const feito = await aplicar(base).catch(() => null);
     const pedido: PedidoDoSite = feito ? { ...base, resultado: feito.resultado, mensagem: feito.mensagem, processadoEm: agora.toISOString() } : base;
     await env.AGENDA.put(chave, JSON.stringify(pedido), { expirationTtl: 7 * 86400 });
+    if (!feito) await marcarPendencia(env.AGENDA, 'pedidos', agora);
     // A coleta aplica o pedido; dispara agora para a resposta vir em 1 a 2 minutos.
     const disparou = await disparar('coletar').catch(() => false);
     return json({ ok: true, pedido, disparou });

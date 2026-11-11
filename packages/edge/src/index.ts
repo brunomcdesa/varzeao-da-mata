@@ -11,6 +11,7 @@
  */
 
 import { serieDoCandidato, type Posicao, type TimeId } from '@liga/shared';
+import { marcarPendencia } from './pendencias.js';
 import { transferirJogador } from '../../worker/src/coletar.js';
 import { aplicarPerfil } from '../../worker/src/perfil.js';
 import { aplicarEscolha, capitaniaDoJogador, type Escolha } from '../../worker/src/temporada2.js';
@@ -123,6 +124,7 @@ async function publicarDaLista(env: Env, agora: Date, f: Fetch): Promise<string[
         throw new Error(`container ${st.status_code}`);
       }
       await env.AGENDA.put(chave, JSON.stringify({ ...item, publicadoEm: agora.toISOString(), mediaId }));
+      await marcarPendencia(env.AGENDA, 'publicados', agora);
       feitas.push(chave);
     } catch (e) {
       await env.AGENDA.put(chave, JSON.stringify({ ...item, erro: String((e as Error).message), tentativas: (item.tentativas ?? 0) + 1 }));
@@ -264,6 +266,7 @@ async function votar(req: Request, env: Env, agora: Date, f: Fetch): Promise<Res
     const s = await sessaoDe(env, corpo.sessao);
     if (s) {
       await env.AGENDA.put(`voto-vinculado/${rodada}/${s.jogadorId}${sufixoDaSerie(numero)}`, '', { metadata: { numero, em: agora.toISOString() }, expirationTtl: 14 * 86400 });
+      await marcarPendencia(env.AGENDA, 'votos', agora);
       return json({ ok: true, numero, comoArroba: s.username });
     }
   }
@@ -280,6 +283,7 @@ async function votar(req: Request, env: Env, agora: Date, f: Fetch): Promise<Res
   const fimTtl = 14 * 86400;
   await env.AGENDA.put(chave, '', { metadata: { numero, em: agora.toISOString() }, expirationTtl: fimTtl });
   await env.AGENDA.put(chaveIp, String(daRede + 1), { expirationTtl: fimTtl });
+  await marcarPendencia(env.AGENDA, 'votos', agora);
   return json({ ok: true, numero });
 }
 

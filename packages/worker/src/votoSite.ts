@@ -77,9 +77,10 @@ export async function importarVotosVinculados(banco: Banco, agenda: Agenda, roda
  * Importa os votos do site da votação aberta e avisa a borda qual votação está aberta agora
  * (só grava no KV quando muda: o plano grátis tem 1.000 gravações por dia).
  */
-export async function sincronizarVotacao(banco: Banco, agenda: Agenda): Promise<{ rodada: number | null; importados: number }> {
+export async function sincronizarVotacao(banco: Banco, agenda: Agenda, o: { importar?: boolean } = {}): Promise<{ rodada: number | null; importados: number }> {
   const rodada = await rodadaEmVotacao(banco);
-  const importados = rodada === null ? 0 : await importarVotosDoSite(banco, agenda, rodada);
+  // Sem voto novo marcado pela borda, não lista os votos (ADR-0035).
+  const importados = rodada === null || o.importar === false ? 0 : await importarVotosDoSite(banco, agenda, rodada);
   const atual = await agenda.ler<VotacaoAberta>(CHAVE_VOTACAO);
   if (rodada === null) {
     if (atual) await agenda.apagar(CHAVE_VOTACAO);

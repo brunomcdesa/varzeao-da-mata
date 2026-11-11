@@ -172,13 +172,26 @@ export async function capitaniaDoJogador(b: Banco, jogadorId: string, agora: Dat
   return { eu: id === jogadorId, capitao, postura };
 }
 
-/** Os Jogadores com Vínculo (sessões do site guardadas na Agenda pela borda, ADR-0013). */
-export async function jogadoresComVinculo(agenda: Agenda): Promise<Set<string>> {
+/** Cópia da lista de quem tem Vínculo, para não listar as sessões a cada coleta (ADR-0035). */
+export const CHAVE_VINCULOS = 'vinculos-cache';
+
+/**
+ * Os Jogadores com Vínculo (sessões do site guardadas na Agenda pela borda, ADR-0013). Com
+ * `recarregar: false`, usa a cópia guardada (uma leitura) e só lista se ela não existir.
+ */
+export async function jogadoresComVinculo(agenda: Agenda, o: { recarregar?: boolean } = {}): Promise<Set<string>> {
+  if (o.recarregar === false) {
+    const copia = await agenda.ler<string[]>(CHAVE_VINCULOS);
+    if (copia) return new Set(copia);
+  }
   const ids = new Set<string>();
   for (const chave of await agenda.listar('vinculo/sessao/')) {
     const s = await agenda.ler<{ jogadorId?: string }>(chave);
     if (s?.jogadorId) ids.add(s.jogadorId);
   }
+  const lista = [...ids].sort();
+  const anterior = await agenda.ler<string[]>(CHAVE_VINCULOS);
+  if (!anterior || anterior.join(',') !== lista.join(',')) await agenda.gravar(CHAVE_VINCULOS, lista);
   return ids;
 }
 

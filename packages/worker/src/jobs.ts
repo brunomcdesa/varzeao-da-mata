@@ -27,6 +27,7 @@ import { exportarSite } from './site.js';
 import { jogadoresComVinculo } from './temporada2.js';
 import { contextoDaVotacao, importarVotosDoSite, sincronizarVotacao } from './votoSite.js';
 import { processarPedidosDoSite } from './pedidosSite.js';
+import { tomarPendencias } from './pendencias.js';
 import { aparenciasEscolhidas } from './perfil.js';
 
 export interface ContextoDoJob {
@@ -173,8 +174,8 @@ export async function coletarComentarios(c: ContextoDoJob, o: { dias?: number } 
   return todos;
 }
 
-export async function publicarSite(c: ContextoDoJob): Promise<number> {
-  const { arquivos } = await exportarSite(c.banco, agoraDe(c), { vinculos: await jogadoresComVinculo(c.agenda) });
+export async function publicarSite(c: ContextoDoJob, o: { recarregarVinculos?: boolean } = {}): Promise<number> {
+  const { arquivos } = await exportarSite(c.banco, agoraDe(c), { vinculos: await jogadoresComVinculo(c.agenda, { recarregar: o.recarregarVinculos ?? true }) });
   for (const [caminho, conteudo] of arquivos) {
     await c.armazenamento.enviar('publico', `dados/${caminho}`, JSON.stringify(conteudo), { tipo: 'application/json', cache: 'public, max-age=60' });
   }
@@ -183,7 +184,9 @@ export async function publicarSite(c: ContextoDoJob): Promise<number> {
 
 export async function jobColetar(c: ContextoDoJob): Promise<RelatorioColeta> {
   await renovarTokenSePreciso(c);
-  const publicados = await sincronizarPublicados(c);
+  // Só lista no KV o que a borda marcou; uma vez por hora, tudo (ADR-0035).
+  const pendente = await tomarPendencias(c.banco, c.agenda, agoraDe(c));
+  const publicados = pendente('publicados') ? await sincronizarPublicados(c) : 0;
   const comentarios = await coletarComentarios(c);
   const resultados: RelatorioColeta['resultados'] = {};
   const votacao = { ...(await contextoDaVotacao(c.banco)), responder: responderComentario(c) };
@@ -191,9 +194,9 @@ export async function jobColetar(c: ContextoDoJob): Promise<RelatorioColeta> {
     const r = await processarComentario(c.banco, com, votacao);
     resultados[r] = (resultados[r] ?? 0) + 1;
   }
-  const { importados } = await sincronizarVotacao(c.banco, c.agenda);
-  const pedidosDoSite = await processarPedidosDoSite(c.banco, c.agenda, agoraDe(c));
-  const arquivosDoSite = await publicarSite(c);
+  const { importados } = await sincronizarVotacao(c.banco, c.agenda, { importar: pendente('votos') });
+  const pedidosDoSite = await processarPedidosDoSite(c.banco, c.agenda, agoraDe(c), pendente);
+  const arquivosDoSite = await publicarSite(c, { recarregarVinculos: pendente('vinculos') });
   const rel = { comentarios: comentarios.length, resultados, votosDoSite: importados, pedidosDoSite, publicados, arquivosDoSite };
   logDe(c)(`coletar: ${JSON.stringify(rel)}`);
   return rel;
