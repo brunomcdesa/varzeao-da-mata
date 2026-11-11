@@ -16,7 +16,7 @@ function partida(seed: number, fase: 'LIGA' | 'MATA_MATA' = 'LIGA') {
     seed,
     fase,
   });
-  return { resultado, escalacoes, fase, torcida: undefined };
+  return { resultado, escalacoes, fase };
 }
 
 describe('momentosDoAoVivo (Avisos do App)', () => {
