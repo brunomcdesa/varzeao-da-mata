@@ -2,7 +2,8 @@
  * Botões de calibração do motor. Mudar qualquer valor muda resultados de seeds
  * antigas, então exige subir VERSAO_SIM (ADR-0002).
  */
-export const VERSAO_SIM = 10;
+/** Temporada 2. A Temporada 1 usa VERSAO_SIM_T1 (abaixo). */
+export const VERSAO_SIM = 12;
 
 export const PARAMETROS = {
   /** Lances de ataque de referência: a média das retas de EXPECTATIVA da Nota (ADR-0004). */
@@ -31,6 +32,14 @@ export const PARAMETROS = {
   chanceMeiaFinaliza: 0.3,
   /** Base da posse: o meia com a bola (Passe) contra o meia rival (Defesa). */
   basePosse: 0.5,
+  /** Duelo de Posse na saída de bola depois do gol: quem sofreu tem a bola e a vantagem (ADR-0043). */
+  basePosseNaSaida: 0.8,
+  /** Marcação dupla (ADR-0043): chance de o 1º zagueiro dobrar no finalizador. */
+  chanceMarcacaoDupla: 0.25,
+  /** Quanto a dobra tira da chance do finalizador no duelo com a zaga. */
+  penalidadeMarcacaoDupla: 0.15,
+  /** Duelo do passe (Passe × Defesa) para achar o companheiro livre na dobra. */
+  baseSaidaDaDobra: 0.35,
   /** Base da criação: meia (Passe) contra o 1º zagueiro (Defesa). */
   baseCriacao: 0.52,
   /** Base do drible: finalizador (Drible) contra o marcador (Defesa). */
@@ -75,10 +84,11 @@ export const PARAMETROS = {
 } as const;
 
 /**
- * Regras da Temporada 2 (VERSAO_SIM 10; eram a 8 antes do ADR-0035). Só valem com `entrada.t2`;
- * sem elas, a Partida sai com as regras da Temporada 1 (VERSAO_SIM_T1, a 9).
+ * Regras da Temporada 2 (VERSAO_SIM 12; eram a 10 antes do ADR-0043 e a 8 antes do ADR-0035).
+ * Só valem com `entrada.t2`; sem elas, a Partida sai com as regras da Temporada 1
+ * (VERSAO_SIM_T1, a 11; era a 9). A 11/12 trouxe a saída de bola de quem sofreu o gol.
  */
-export const VERSAO_SIM_T1 = 9;
+export const VERSAO_SIM_T1 = 11;
 
 export const PARAMETROS_T2 = {
   /**

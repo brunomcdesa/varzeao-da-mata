@@ -333,26 +333,26 @@ describe('Ritmo da Partida (ADR-0016)', () => {
 });
 
 describe('trava da Temporada 1', () => {
-  it('sem as regras da T2, a simulação dá exatamente os resultados da VERSAO_SIM 9', async () => {
+  it('sem as regras da T2, a simulação dá exatamente os resultados da VERSAO_SIM_T1 (11)', async () => {
     const { CASOS, impressao } = await import('./regressao-t1.js');
     const esperado = JSON.parse(readFileSync(new URL('./regressao-t1.json', import.meta.url), 'utf8')) as string[];
     expect(CASOS.map(impressao)).toEqual(esperado);
   });
 });
 
-describe('regras da Temporada 2 (VERSAO_SIM 10)', () => {
+describe('regras da Temporada 2 (VERSAO_SIM 12)', () => {
   const neutra = { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const;
   /** `t2`: null joga com as regras da T1. */
   const jogo = (seed: number, t2: Parameters<typeof simularPartida>[0]['t2'] | null = neutra, a = escalacao('CAP', 70), b = escalacao('ONC', 70, 'R')) =>
     simularPartida({ mandante: a, visitante: b, seed, fase: 'LIGA', ...(t2 ? { t2 } : {}) });
 
-  it('com as regras da T2 a Partida é da versão 10, guarda Postura e Ritmo e é determinística', () => {
+  it('com as regras da T2 a Partida é da versão 12, guarda Postura e Ritmo e é determinística', () => {
     const r = jogo(11);
-    expect(r.versaoSim).toBe(10);
+    expect(r.versaoSim).toBe(12);
     expect(r.postura).toEqual(neutra.postura);
     expect(r.ritmo).toBeGreaterThanOrEqual(6);
     expect(jogo(11)).toEqual(r);
-    expect(jogo(11, null).versaoSim).toBe(9);
+    expect(jogo(11, null).versaoSim).toBe(11);
   });
 
   it('na T1, Especialização, Treino e Canto não mudam nada', () => {
@@ -495,7 +495,106 @@ describe('Resenha (ADR-0034)', () => {
 describe('expulsões em série (T2)', () => {
   it('com três expulsos no mesmo Time a Partida termina (os atacantes recuam)', () => {
     const neutra = { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const;
-    const r = simularPartida({ ...base, mandante: escalacao('TAT', 65), visitante: escalacao('CAP', 75), seed: 3359, t2: neutra });
+    const r = simularPartida({ ...base, mandante: escalacao('TAT', 65), visitante: escalacao('CAP', 75), seed: 164685, t2: neutra });
     expect(r.desempenhos.filter((d) => d.expulso).length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('saída de bola depois do gol (ADR-0043)', () => {
+  const seeds = Array.from({ length: 400 }, (_, i) => 7 + i * 104729);
+  /** Pares (gol, lance seguinte) sem bola parada no meio, em muitas Partidas. */
+  const depoisDoGol = (t2?: { postura: { mandante: 'EQUILIBRADA'; visitante: 'EQUILIBRADA' } }) =>
+    seeds.flatMap((seed) => {
+      const r = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('ONC', 70), seed, ...(t2 ? { t2 } : {}) });
+      return r.lances.flatMap((l, i) => (l.tipo === 'GOL' && r.lances[i + 1] && !r.lances[i + 1]!.bolaParada ? [{ gol: l, proximo: r.lances[i + 1]! }] : []));
+    });
+
+  it.each([
+    ['T1', undefined],
+    ['T2', { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const],
+  ])('na %s, quem sofreu o gol quase sempre ataca no lance seguinte', (_, t2) => {
+    const pares = depoisDoGol(t2);
+    expect(pares.length).toBeGreaterThan(200);
+    const deQuemSofreu = pares.filter((p) => p.proximo.ataque !== p.gol.ataque).length / pares.length;
+    // Duelo de Posse com base 0,8 entre iguais: ~80%, e não os 50% de antes.
+    expect(deQuemSofreu).toBeGreaterThan(0.7);
+    expect(deQuemSofreu).toBeLessThan(0.9);
+  });
+
+  it('as versões da simulação subiram: T1 na 11 e T2 na 12', () => {
+    const t1 = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('ONC', 70), seed: 1 });
+    const t2 = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('ONC', 70), seed: 1, t2: { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } });
+    expect(t1.versaoSim).toBe(11);
+    expect(t2.versaoSim).toBe(12);
+  });
+});
+
+describe('lances até o fim do jogo (ADR-0043)', () => {
+  const partidas = Array.from({ length: 300 }, (_, i) =>
+    simularPartida({ ...base, mandante: escalacao('TAT', 70), visitante: escalacao('TAM', 70), seed: 11 + i * 15485863 }),
+  );
+  it('o último lance de ataque cai perto do apito, mesmo nos jogos travados', () => {
+    for (const r of partidas) {
+      const ultimo = Math.max(...r.lances.map((l) => l.minuto));
+      expect(ultimo).toBeGreaterThanOrEqual(ritmoDaPartida(r.seed) <= 8 ? 78 : 84);
+      expect(r.lances.every((l) => l.minuto >= 1 && l.minuto <= 90)).toBe(true);
+    }
+  });
+  it('sai gol entre o 82\' e o 90\'', () => {
+    const golsNoFim = partidas.flatMap((r) => r.lances.filter((l) => l.tipo === 'GOL' && l.minuto >= 82)).length;
+    const gols = partidas.flatMap((r) => r.lances.filter((l) => l.tipo === 'GOL')).length;
+    // A fatia final (9 de 90 minutos) leva uma parte justa dos gols.
+    expect(golsNoFim / gols).toBeGreaterThan(0.07);
+  });
+  it('os minutos dos lances de ataque nunca andam para trás', () => {
+    for (const r of partidas) {
+      const ataques = r.lances.filter((l) => !l.bolaParada);
+      for (let i = 1; i < ataques.length; i++) expect(ataques[i]!.minuto).toBeGreaterThanOrEqual(ataques[i - 1]!.minuto);
+    }
+  });
+});
+
+describe('marcação dupla (ADR-0043)', () => {
+  const partidas = Array.from({ length: 300 }, (_, i) =>
+    simularPartida({ ...base, mandante: escalacao('PRE', 70), visitante: escalacao('SAG', 70), seed: 23 + i * 7907 }),
+  );
+  const lances = partidas.flatMap((r) => r.lances);
+  const comDobra = lances.filter((l) => l.dobra);
+
+  it('aparece em cerca de 1 a cada 4 lances que chegam ao duelo com a zaga', () => {
+    const chegaram = lances.filter((l) => !l.bolaParada && l.finalizador && !l.contraAtaque);
+    const taxa = chegaram.filter((l) => l.dobra).length / chegaram.length;
+    expect(taxa).toBeGreaterThan(0.18);
+    expect(taxa).toBeLessThan(0.32);
+  });
+
+  it('quem dobra é do time que defende e quem recebe a dobra é do time que ataca', () => {
+    for (const l of comDobra) {
+      expect(l.dobra!.zagueiro.lado).not.toBe(l.ataque);
+      expect(l.dobra!.sobre.lado).toBe(l.ataque);
+    }
+  });
+
+  it('com o passe, quem chuta é o companheiro livre, sem marcador e sem desarme ou bloqueio', () => {
+    const passes = comDobra.filter((l) => l.dobra!.passe);
+    expect(passes.length).toBeGreaterThan(30);
+    for (const l of passes) {
+      expect(l.finalizador!.indice).not.toBe(l.dobra!.sobre.indice);
+      expect(l.marcador).toBeUndefined();
+      expect(['GOL', 'DEFESA', 'FORA']).toContain(l.tipo);
+    }
+  });
+
+  it('sem o passe, o finalizador encara os dois e para mais vezes na zaga', () => {
+    const paradoNaZaga = (ls: typeof lances) => ls.filter((l) => l.tipo === 'DESARME' || l.tipo === 'BLOQUEIO').length / ls.length;
+    const semPasse = comDobra.filter((l) => !l.dobra!.passe);
+    const normais = lances.filter((l) => !l.dobra && !l.bolaParada && l.finalizador && !l.contraAtaque);
+    expect(paradoNaZaga(semPasse)).toBeGreaterThan(paradoNaZaga(normais));
+  });
+
+  it('a média de gols segue a mesma faixa', () => {
+    const media = partidas.reduce((s, r) => s + r.gols.mandante + r.gols.visitante, 0) / partidas.length;
+    expect(media).toBeGreaterThan(2.5);
+    expect(media).toBeLessThan(4.5);
   });
 });

@@ -256,6 +256,12 @@ _Avoid_: jogo, match
 Lance logo depois de o rival perder a bola com gente adiantada. Se a defesa não recompõe, o 1º zagueiro (ou, depois de escanteio, também o marcador) fica fora do lance (ADR-0015).
 _Evite_: contragolpe
 
+**Saída de bola**:
+O recomeço depois de um gol: um Jogador do Time que sofreu toca a bola no meio de campo. Quem sofreu fica com a bola na maioria das vezes, mas pode perdê-la no Duelo de Posse logo depois. ADR-0043.
+
+**Marcação dupla**:
+Quando os dois zagueiros vão juntos no mesmo finalizador. O Duelo fica mais difícil para quem ataca, mas um companheiro fica livre; se o passe sai, ele chuta sem marcador. ADR-0043.
+
 ### Espetáculo
 
 **App**:

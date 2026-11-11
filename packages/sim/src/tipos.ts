@@ -64,6 +64,12 @@ export interface Lance {
    * (criação garantida) e, se quase todos tinham subido (escanteio), também o marcador.
    */
   contraAtaque?: { recomposto: boolean; adiantados: number };
+  /**
+   * Marcação dupla (VERSAO_SIM 11/12, ADR-0043): o 1º zagueiro (`zagueiro`) voltou e dobrou a
+   * marcação em `sobre`. Com `passe`, `sobre` achou o companheiro livre, que é o finalizador
+   * (chute sem marcador); sem `passe`, `sobre` é o finalizador e o duelo foi contra os dois.
+   */
+  dobra?: { zagueiro: SlotRef; sobre: SlotRef; passe?: boolean };
   /** T2: no lance FALTA, quem fez a falta, onde e o cartão (se houve). */
   falta?: { autor: SlotRef; local: LocalDaFalta; cartao?: 'AMARELO' | 'VERMELHO'; segundoAmarelo?: boolean };
   /** T2: na FALTA_DIRETA, os defensores na barreira. */
