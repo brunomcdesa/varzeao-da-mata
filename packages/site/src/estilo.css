@@ -3550,3 +3550,49 @@ a.jogo:hover {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Fundador (ADR-0036): selo nas cores do Time da Série B, só a partir da T2. */
+.linha-fundador {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 4px !important;
+}
+.linha-fundador small {
+  color: var(--tinta-fraca);
+}
+.selo-fundador {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 3px 6px;
+  font: 400 1.25rem/1 var(--display);
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: var(--fundador-cor, var(--madeira));
+  box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.28), inset 0 0 0 2px var(--fundador-borda, var(--amarelo));
+  clip-path: var(--canto);
+  text-shadow: 1px 1px 0 rgb(0 0 0 / 0.45);
+}
+.selo-fundador img {
+  image-rendering: pixelated;
+}
+/* No cartão da Temporada, o selo fica do tamanho dos troféus, mas nas cores do Time. */
+.trofeus-carreira .selo-fundador {
+  background: var(--fundador-cor);
+  color: #fff;
+  font: 400 1rem/1 var(--display);
+  padding: 3px 8px 2px 4px;
+}
+.trofeus-carreira .selo-fundador span {
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  clip-path: none;
+}
+.trofeus-carreira .selo-fundador img {
+  width: 16px;
+  height: auto;
+}

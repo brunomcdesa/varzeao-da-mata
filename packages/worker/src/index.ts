@@ -14,3 +14,4 @@ export * from './nuvem.js';
 export * from './jobs.js';
 export * from './mataMata.js';
 export * from './apresentacao.js';
+export * from './rebalanceamento.js';
