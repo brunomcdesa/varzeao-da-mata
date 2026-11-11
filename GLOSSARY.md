@@ -258,6 +258,10 @@ _Evite_: contragolpe
 
 ### Espetáculo
 
+**App**:
+O site da Liga instalado no celular (PWA), com ícone na tela inicial e tela cheia. É o mesmo site, não um aplicativo de loja (ADR-0037).
+_Avoid_: aplicativo, app nativo, baixar da loja
+
 **Arquibancada**:
 A torcida de madeira nas laterais do campo, nas cores de cada Time, que reage aos lances da Partida. Cresce com o tamanho do Elenco. É só espetáculo: não decide nenhum lance.
 _Avoid_: torcida virtual, plateia, galera

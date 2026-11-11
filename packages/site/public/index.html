@@ -2,7 +2,7 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#132A1C" />
     <title>Varzeão da Mata</title>
@@ -14,6 +14,11 @@
     <!-- Chave pública do Cloudflare Turnstile (anti-robô do voto); vazia = sem desafio -->
     <meta name="liga-turnstile" content="" />
     <link rel="icon" href="escudo.png" />
+    <!-- App (PWA, ADR-0037): o manifesto entra pelo app.js a partir da Temporada 2 -->
+    <link rel="apple-touch-icon" href="icones/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Varzeão" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="stylesheet" href="estilo.css" />
     <script type="module" src="app.js"></script>
   </head>
@@ -36,6 +41,7 @@
         </nav>
       </div>
     </header>
+    <div id="instalar" class="instalar-lugar" hidden></div>
     <main id="conteudo" tabindex="-1"><p class="carregando">Carregando…</p></main>
     <footer class="rodape"><p id="atualizado"></p></footer>
   </body>
