@@ -32,6 +32,7 @@ import {
 
 export type { Ponto, AcaoJogador, EstiloJogada } from './jogada.js';
 import { climaDaPartida, ehT2, quemUsaSegundoUniforme, type Clima } from './clima.js';
+import { JUIZ_NO_APITO_INICIAL, RITMO_DO_JUIZ, acaoNaFalta, alvoDoJuiz, type JuizNoQuadro, type MomentoDoJuiz } from './juiz.js';
 import { F_RESOLUCAO_PENALTI, estadoDaDisputa, instanteDaCobranca, montarDisputa, quadroDaDisputa, resultadoDaCobranca, type Disputa, type EstadoPenaltis } from './penaltis.js';
 export type { Disputa, EstadoPenaltis, MarcaDePenalti } from './penaltis.js';
 
@@ -85,6 +86,8 @@ export interface EstadoQuadro {
   penaltis: EstadoPenaltis | null;
   /** Temporada 2: Clima, segundo uniforme e Arquibancada (null nas Partidas da T1). */
   t2: InfoT2 | null;
+  /** Temporada 2 (ADR-0040): o juiz em campo, só visual (null nas Partidas da T1). */
+  juiz: JuizNoQuadro | null;
 }
 
 /** Temporada 2 (ADR-0019): o que só aparece nas Partidas com as regras da T2. */
@@ -125,6 +128,8 @@ const limitar = (x: number, min = 0, max = 1): number => Math.min(max, Math.max(
 /** 0 fora de [a, d]; sobe de a até b; 1 de b até c; desce de c até d. */
 const trapezio = (f: number, a: number, b: number, c: number, d: number): number =>
   f <= a || f >= d ? 0 : f < b ? suave((f - a) / (b - a)) : f <= c ? 1 : suave((d - f) / (d - c));
+/** Onde o juiz fica na disputa de pênaltis: ao lado da área, fora da roda. */
+const JUIZ_NOS_PENALTIS: Ponto = { x: 0.74, y: 0.2 };
 const chave = (s: SlotRef) => `${s.lado}:${s.indice}`;
 
 
@@ -142,6 +147,8 @@ export class Timeline {
   readonly t2: InfoT2 | null;
   /** Temporada 2: instante (s de jogo) em que cada expulso deixa o campo. */
   private readonly saidas: Map<string, number>;
+  /** Temporada 2: corrida do juiz (x, y intercalados a cada FISICA.dt); null na T1. */
+  private readonly corridaDoJuiz: Float32Array | null;
 
   constructor(
     readonly resultado: ResultadoPartida,
@@ -193,6 +200,81 @@ export class Timeline {
     this.saidas = new Map(
       this.janelas.flatMap((j) => (j.lance.falta?.cartao === 'VERMELHO' ? [[chave(j.lance.falta.autor), j.resolucao + DURACAO_DESTAQUE.FALTA * 0.7] as [string, number]] : [])),
     );
+    this.corridaDoJuiz = this.t2 ? this.simularJuiz() : null;
+  }
+
+  /** O que o juiz está fazendo em t: acompanhando a bola, indo à falta ou voltando depois do gol. */
+  private momentoDoJuiz(t: number, bola: Ponto): MomentoDoJuiz {
+    for (let i = this.janelas.length - 1; i >= 0; i--) {
+      const j = this.janelas[i]!;
+      if (t < j.resolucao) continue;
+      const tipo = j.lance.tipo;
+      if (tipo === 'FALTA' && j.lance.falta && t < j.resolucao + DURACAO_DESTAQUE.FALTA) return { tipo: 'FALTA', autor: this.corridaEm(j.lance.falta.autor, t) };
+      if (tipo === 'GOL' && t < j.resolucao + DURACAO_DESTAQUE.GOL) return { tipo: 'GOL' };
+      break;
+    }
+    return { tipo: 'JOGO', bola };
+  }
+
+  /** Integra a corrida do juiz com a mesma física dos Jogadores, um pouco mais lento. */
+  private simularJuiz(): Float32Array {
+    const n = Math.ceil(DURACAO_JOGO / FISICA.dt) + 1;
+    const saida = new Float32Array(n * 2);
+    const p = { ...JUIZ_NO_APITO_INICIAL };
+    const v = { x: 0, y: 0 };
+    for (let k = 0; k < n; k++) {
+      const t = Math.min(k * FISICA.dt, DURACAO_JOGO);
+      if (k > 0) {
+        const alvo = alvoDoJuiz(this.momentoDoJuiz(t, this.bolaEm(t, this.indiceEm(t)).pos));
+        const dx = alvo.pos.x - p.x;
+        const dy = alvo.pos.y - p.y;
+        const dist = Math.hypot(dx, dy);
+        // Longe do lance, o juiz dispara para alcançar; perto, acompanha trotando.
+        const teto = (alvo.naJogada || dist > 0.2 ? FISICA.sprint : FISICA.trote) * RITMO_DO_JUIZ;
+        const rapidez = Math.min(teto, dist / FISICA.chegada);
+        const desejada = dist > 1e-6 ? { x: (dx / dist) * rapidez, y: (dy / dist) * rapidez } : { x: 0, y: 0 };
+        let ax = desejada.x - v.x;
+        let ay = desejada.y - v.y;
+        const a = Math.hypot(ax, ay);
+        const amax = FISICA.aceleracao * FISICA.dt;
+        if (a > amax) {
+          ax *= amax / a;
+          ay *= amax / a;
+        }
+        v.x += ax;
+        v.y += ay;
+        p.x += v.x * FISICA.dt;
+        p.y += v.y * FISICA.dt;
+      }
+      saida[k * 2] = p.x;
+      saida[k * 2 + 1] = p.y;
+    }
+    return saida;
+  }
+
+  /** Posição do juiz em t (interpolada entre os passos). */
+  private juizEm(t: number): Ponto {
+    const arr = this.corridaDoJuiz!;
+    const u = limitar(t, 0, DURACAO_JOGO) / FISICA.dt;
+    const k = Math.min(Math.floor(u), arr.length / 2 - 2);
+    const r = u - k;
+    return { x: limitar(lerp(arr[k * 2]!, arr[k * 2 + 2]!, r), 0.03, 0.97), y: limitar(lerp(arr[k * 2 + 1]!, arr[k * 2 + 3]!, r), 0.02, 0.98) };
+  }
+
+  /** O juiz no quadro: posição, para onde corre e o gesto (apito ou cartão) na falta. */
+  private juizNoQuadro(t: number, bola: Ponto, destaque: Destaque | null, jogadores: JogadorNoQuadro[]): JuizNoQuadro | null {
+    if (!this.corridaDoJuiz) return null;
+    const pos = this.juizEm(t);
+    const antes = this.juizEm(Math.max(0, t - DT_VEL));
+    const vel = { x: (pos.x - antes.x) / DT_VEL, y: (pos.y - antes.y) / DT_VEL };
+    const correndo = Math.hypot(vel.x, vel.y) > 0.0016;
+    if (destaque?.tipo === 'FALTA') {
+      const autor = jogadores.find((j) => j.slot.lado === destaque.protagonista.lado && j.slot.indice === destaque.protagonista.indice);
+      const dist = autor ? Math.hypot(autor.pos.x - pos.x, autor.pos.y - pos.y) : 0;
+      const gesto = acaoNaFalta(destaque.progresso, destaque.cartao, dist);
+      if (gesto) return { pos, vel, seed: this.resultado.seed, olhar: autor?.pos ?? bola, acao: gesto, ...(gesto === 'CARTAO' && destaque.cartao ? { cartao: destaque.cartao } : {}) };
+    }
+    return { pos, vel, seed: this.resultado.seed, olhar: bola, acao: correndo ? 'CORRENDO' : 'PARADO' };
   }
 
   /** Integra as corridas do jogo todo (uma vez, na criação): alvo = coreografia, passo = física. */
@@ -294,6 +376,7 @@ export class Timeline {
       // T2: o expulso não volta mais ao campo.
       .filter((j) => t < (this.saidas.get(chave(j.slot)) ?? Infinity));
 
+    const destaque = this.destaqueEm(t);
     return {
       t,
       minuto: Math.min(90, Math.floor(t / 60) + 1),
@@ -301,12 +384,13 @@ export class Timeline {
       bola,
       bolaAltura: altura,
       jogadores,
-      destaque: this.destaqueEm(t),
+      destaque,
       lanceAtual: indice,
       estilo: plano?.estilo ?? null,
       encerrada: t >= DURACAO_JOGO && !this.disputa,
       penaltis: null,
       t2: this.t2,
+      juiz: this.juizNoQuadro(t, bola, destaque, jogadores),
     };
   }
 
@@ -349,6 +433,8 @@ export class Timeline {
       encerrada: t >= d.fim,
       penaltis: pen,
       t2: this.t2,
+      // Na disputa de pênaltis, o juiz fica parado ao lado da área, olhando a cobrança.
+      juiz: this.t2 ? { pos: JUIZ_NOS_PENALTIS, vel: { x: 0, y: 0 }, seed, olhar: agora.bola, acao: 'PARADO' } : null,
     };
   }
 
