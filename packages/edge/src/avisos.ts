@@ -4,7 +4,7 @@
  * - POST /avisos — o App manda o endereço de notificação do aparelho e os Times escolhidos.
  * - DELETE /avisos — desativa.
  * - Cron: perto dos jogos, decide o que avisar no minuto e manda. Escalação (a partir do Corte),
- *   Apito Inicial, cada gol (no minuto seguinte ao que ele aparece no Ao Vivo, nunca antes) e
+ *   5 min antes do Apito Inicial, cada gol (no minuto seguinte ao que ele aparece no Ao Vivo, nunca antes) e
  *   o fim do Ao Vivo com o placar.
  *
  * Cifra no padrão aes128gcm (RFC 8291) com a biblioteca web-push-neo, que roda na borda (WebCrypto).
@@ -26,6 +26,8 @@ import type { Banco } from '../../worker/src/banco.js';
 
 /** Minutos antes do Apito em que a Escalação pode sair (o Corte é 30 min antes). */
 const ESCALACAO_DESDE_MIN = 30;
+/** O aviso do jogo sai antes do Apito, para a pessoa pegar o Ao Vivo desde o começo. */
+export const AVISO_ANTES_DO_APITO_MIN = 5;
 /** O Ao Vivo do Mata-mata dura 7 min; folga de 2. */
 const DEPOIS_DO_APITO_MIN = 9;
 export const ENVIOS_POR_MINUTO = 40;
@@ -79,8 +81,8 @@ export function avisosDoMinuto(
     if (p.escalada && agora.getTime() < apito && !escalacaoAvisada.has(p.id)) {
       avisos.push({ ...base, tipo: 'ESCALACAO', titulo: 'Saiu a Escalação', corpo: `${confronto(p)}, às ${horaLocal(p.apito)}. Veja quem entra em campo.` });
     }
-    if (dentro(apito)) {
-      avisos.push({ ...base, tipo: 'APITO', titulo: `Começou! ${confronto(p)}`, corpo: 'Assista Ao Vivo no App.' });
+    if (dentro(apito - AVISO_ANTES_DO_APITO_MIN * 60_000)) {
+      avisos.push({ ...base, tipo: 'APITO', titulo: `Daqui a ${AVISO_ANTES_DO_APITO_MIN} min: ${confronto(p)}`, corpo: 'Abra o App para ver o Ao Vivo desde o Apito Inicial.' });
     }
     const m = momentos.get(p.id);
     if (!m) continue;

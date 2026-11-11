@@ -7,7 +7,7 @@ Quem instalou o App (ADR-0040) pode ativar os **Avisos**: notificações no celu
 Para cada Partida de um Time seguido:
 
 - **Escalação:** quando ela sai (a partir do Corte), uma vez por Partida.
-- **Apito Inicial:** no minuto do Apito.
+- **Começa já:** 5 minutos antes do Apito Inicial, para a pessoa abrir o App e pegar o Ao Vivo desde o começo.
 - **Gol:** no minuto seguinte ao que o gol aparece no Ao Vivo. Nunca antes, para não estragar quem está assistindo.
 - **Fim de jogo:** quando o Ao Vivo acaba, com o placar (e os pênaltis no Mata-mata).
 

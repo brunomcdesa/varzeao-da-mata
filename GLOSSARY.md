@@ -263,7 +263,7 @@ O site da Liga instalado no celular (PWA), com ícone na tela inicial e tela che
 _Avoid_: aplicativo, app nativo, baixar da loja
 
 **Avisos**:
-As notificações de jogo que o App manda no celular para quem ativou e escolheu os Times: Escalação, Apito Inicial, gols e fim de jogo (ADR-0042).
+As notificações de jogo que o App manda no celular para quem ativou e escolheu os Times: Escalação, aviso 5 min antes do Apito Inicial, gols e fim de jogo (ADR-0042).
 _Avoid_: assinatura, push, inscrição nos avisos
 
 **Arquibancada**:

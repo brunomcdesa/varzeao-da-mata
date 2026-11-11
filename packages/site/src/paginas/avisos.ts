@@ -36,7 +36,7 @@ export const paginaAvisos: Pagina = async (main) => {
     const ligado = timesComAviso() !== null;
     main.innerHTML = html`<section class="placa avisos">
       <h1>Avisos de jogo</h1>
-      <p>Receba no celular a Escalação, o Apito Inicial, cada gol e o placar final dos Times que você segue.</p>
+      <p>Receba no celular a Escalação, um aviso 5 min antes do Apito Inicial, cada gol e o placar final dos Times que você segue.</p>
       ${suporte === 'ok' ? html`` : html`<p class="avisos-alerta">${AVISO_DO_SUPORTE[suporte]}</p>`}
       <fieldset class="avisos-times" ${suporte === 'ok' ? '' : 'disabled'}>
         <legend>Times que você segue</legend>

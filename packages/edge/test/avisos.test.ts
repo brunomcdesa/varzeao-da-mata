@@ -49,10 +49,12 @@ describe('avisosDoMinuto', () => {
     expect(avisosDoMinuto([partida()], em(-45), new Map(), new Set())).toEqual([]);
   });
 
-  it('avisa o Apito Inicial no minuto em que ele acontece', () => {
-    const avisos = avisosDoMinuto([partida()], em(0), new Map(), new Set([7]));
+  it('avisa o jogo 5 min antes do Apito, para pegar o Ao Vivo desde o começo', () => {
+    const avisos = avisosDoMinuto([partida()], em(-5), new Map(), new Set([7]));
     expect(avisos.map((a) => a.tipo)).toEqual(['APITO']);
-    expect(avisos[0]!.titulo).toBe('Começou! Capivara × Onça');
+    expect(avisos[0]!.titulo).toBe('Daqui a 5 min: Capivara × Onça');
+    expect(avisosDoMinuto([partida()], em(-4), new Map(), new Set([7]))).toEqual([]);
+    expect(avisosDoMinuto([partida()], em(0), new Map(), new Set([7]))).toEqual([]);
   });
 
   it('avisa o gol no minuto seguinte ao que ele aparece no Ao Vivo, nunca antes', () => {

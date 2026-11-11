@@ -77,7 +77,7 @@ function desenhar(): void {
     // Já no App: o convite agora é para os Avisos de jogo.
     lugar.innerHTML = html`<section class="placa instalar" aria-labelledby="instalar-titulo">
       <div class="instalar-topo"><img src="icones/icone-192.png" alt="" width="44" height="44" /><h2 id="instalar-titulo">Avisos de jogo</h2></div>
-      <p>Saiba na hora quando sai a Escalação, quando começa o jogo e cada gol do seu Time.</p>
+      <p>Saiba quando sai a Escalação, 5 min antes do jogo começar e a cada gol do seu Time.</p>
       <div class="instalar-acoes"><a class="botao" href="#/avisos">Ativar avisos</a><button type="button" class="botao secundario" data-dispensar>Agora não</button></div>
     </section>`.s;
     lugar.hidden = false;
