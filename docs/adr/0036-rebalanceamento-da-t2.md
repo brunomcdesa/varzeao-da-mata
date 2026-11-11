@@ -44,4 +44,4 @@ Motivo: na B, o Jogador joga todas as Partidas, com Reels próprio. A mudança �
 - É preciso um job de rebalanceamento que rode uma vez, ao fechar a Janela, com modo de simulação (lista quem sai e para onde) para o dono aprovar antes de gravar.
 - A página de Carreira ganha o título de Fundador. É uma mudança visual e precisa de prévia.
 - O número da camisa precisa de uma ordem de escolha na B durante a Pré-temporada.
-- O Reels e o comentário de anúncio da Janela precisam de rascunho aprovado.
+- O Reels e o comentário de anúncio da Janela precisam de rascunho aprovado. Eles só são publicados depois do fim da Temporada 1, junto com o anúncio das novidades da T2 ou logo depois dele.
