@@ -245,6 +245,6 @@ export interface PartidaPublica {
   narracao: string | null;
   /** Temporada 2: tamanho de cada Elenco, para a Arquibancada. Ausente nas Partidas da T1. */
   torcida?: Record<'mandante' | 'visitante', number>;
-  /** Só no arquivo privado (job partida): quando cada gol aparece no Ao Vivo, para os Avisos do App (ADR-0041). */
+  /** Só no arquivo privado (job partida): quando cada gol aparece no Ao Vivo, para os Avisos do App (ADR-0042). */
   momentos?: MomentosDoAoVivo;
 }

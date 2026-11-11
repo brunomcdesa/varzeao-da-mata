@@ -202,7 +202,7 @@ O repositório **privado** tem 2.000 minutos por mês no plano grátis, e a Liga
 | Neon, Cloudflare (R2, KV, Workers, Pages) | dentro do grátis |
 | Instagram API | grátis |
 
-## Avisos do App (ADR-0041)
+## Avisos do App (ADR-0042)
 
 Os Avisos ficam desligados até as chaves existirem. Para ligar:
 

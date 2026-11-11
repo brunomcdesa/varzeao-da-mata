@@ -1,5 +1,5 @@
 /**
- * Avisos do App (ADR-0041): liga e desliga as notificações deste aparelho.
+ * Avisos do App (ADR-0042): liga e desliga as notificações deste aparelho.
  * O navegador cria o endereço de notificação; a borda guarda o endereço e os Times escolhidos.
  */
 import type { TimeId } from '@liga/shared';

@@ -6,7 +6,7 @@
  * - GET /partidas/:id — a Partida completa (com lances) do bucket privado, só depois do
  *   Apito Inicial; antes responde 425 com o horário. É o que alimenta o Ao Vivo do site.
  * - GET /dados/* — os JSON do site, do bucket público, com CORS (o site fica em outro domínio).
- * - POST /avisos e /avisos/desativar — Avisos do App (ADR-0041); o cron manda as notificações.
+ * - POST /avisos e /avisos/desativar — Avisos do App (ADR-0042); o cron manda as notificações.
  * - POST /votos — voto do Craque pelo site, um por aparelho (ADR-0011). O job coletar traz
  *   os votos do KV para o banco e mantém `votacao-aberta` em dia.
  */
@@ -34,7 +34,7 @@ export interface Env {
   GH_REPOSITORIO?: string;
   /** Banco (Neon): a borda aplica na hora a Transferência e o perfil pedidos pelo site. */
   DATABASE_URL?: string;
-  /** Avisos do App (ADR-0041): chave pública VAPID (não é segredo; o site usa a mesma). */
+  /** Avisos do App (ADR-0042): chave pública VAPID (não é segredo; o site usa a mesma). */
   VAPID_PUBLICA?: string;
   /** Chave privada VAPID. Segredo; sem ela, os Avisos ficam desligados. */
   VAPID_PRIVADA?: string;

@@ -1,5 +1,5 @@
 /**
- * Avisos do App (ADR-0041): notificações no celular de quem ativou os Avisos de um Time.
+ * Avisos do App (ADR-0042): notificações no celular de quem ativou os Avisos de um Time.
  *
  * - POST /avisos — o App manda o endereço de notificação do aparelho e os Times escolhidos.
  * - DELETE /avisos — desativa.

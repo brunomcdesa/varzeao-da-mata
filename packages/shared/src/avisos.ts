@@ -1,5 +1,5 @@
 /**
- * Avisos do App (ADR-0041): notificações no celular de quem ativou os Avisos para um Time.
+ * Avisos do App (ADR-0042): notificações no celular de quem ativou os Avisos para um Time.
  * O job partida grava, no arquivo privado da Partida, em que instante do Ao Vivo cada gol
  * aparece; a borda manda o Aviso no minuto seguinte (nunca antes do que está na tela).
  */

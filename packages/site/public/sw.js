@@ -44,7 +44,7 @@ self.addEventListener('fetch', (e) => {
 });
 
 /*
- * Avisos do App (ADR-0041): a borda manda { titulo, corpo, url, partidaId } e o service worker
+ * Avisos do App (ADR-0042): a borda manda { titulo, corpo, url, partidaId } e o service worker
  * mostra. A mesma Partida usa a mesma tag: o aviso novo substitui o anterior na bandeja.
  */
 self.addEventListener('push', (e) => {

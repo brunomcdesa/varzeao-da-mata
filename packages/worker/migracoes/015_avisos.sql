@@ -1,4 +1,4 @@
--- Avisos do App (ADR-0041): cada aparelho que ativou os Avisos, com os Times que segue.
+-- Avisos do App (ADR-0042): cada aparelho que ativou os Avisos, com os Times que segue.
 -- O endpoint é o endereço que o próprio navegador criou para receber notificações; as chaves
 -- servem para cifrar o conteúdo. Não há @ nem nada do Jogador aqui.
 CREATE TABLE IF NOT EXISTS aviso_aparelho (

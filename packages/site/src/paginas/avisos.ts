@@ -1,4 +1,4 @@
-/** #/avisos — liga, troca os Times ou desliga os Avisos do App neste aparelho (ADR-0041). */
+/** #/avisos — liga, troca os Times ou desliga os Avisos do App neste aparelho (ADR-0042). */
 import type { TimeId } from '@liga/shared';
 import { ativarAvisos, desativarAvisos, suporteAosAvisos, timesComAviso, type SuporteAosAvisos } from '../avisosApp.js';
 import { jogadores, liga, timesAtivos } from '../dados.js';

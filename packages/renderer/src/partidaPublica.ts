@@ -20,7 +20,7 @@ export function timelineDaPartida(p: Pick<PartidaPublica, 'resultado' | 'escalac
 
 /**
  * Em que instante do Ao Vivo cada gol aparece na tela, o fim do Ao Vivo e o placar final.
- * É o que a borda usa para os Avisos do App (ADR-0041).
+ * É o que a borda usa para os Avisos do App (ADR-0042).
  */
 export function momentosDoAoVivo(p: Pick<PartidaPublica, 'resultado' | 'escalacoes' | 'torcida' | 'fase'>): MomentosDoAoVivo | null {
   const tl = timelineDaPartida(p);

@@ -263,7 +263,7 @@ main:focus {
   margin-top: 12px;
 }
 
-/* Avisos de jogo (ADR-0041) */
+/* Avisos de jogo (ADR-0042) */
 .botao:disabled {
   opacity: 0.5;
   cursor: not-allowed;
