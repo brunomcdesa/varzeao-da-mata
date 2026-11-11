@@ -62,7 +62,8 @@ describe('Inscrição', () => {
 
   it('respeita o limite de equilíbrio entre Times', async () => {
     for (let i = 0; i < FOLGA_DE_ELENCO; i++) {
-      expect(await processarComentario(banco, comentario(`cap${i}`, 'ENTRO CAPIVARA ATA'), semVotacao)).toBe('INSCRITO');
+      // Posições variadas, para não esbarrar no Limite por Posição (ADR-0037).
+      expect(await processarComentario(banco, comentario(`cap${i}`, `ENTRO CAPIVARA ${['ATA', 'MEI', 'ZAG'][i % 3]}`), semVotacao)).toBe('INSCRITO');
     }
     expect(await processarComentario(banco, comentario('cap-cheio', 'ENTRO CAPIVARA ATA'), { ...semVotacao, realocar: false })).toBe('TIME_CHEIO');
     // Time cheio: entra no Time mais vazio, na mesma posição, e recebe uma resposta explicando.
@@ -306,7 +307,7 @@ describe('Transferência (ADR-0012)', () => {
   });
 
   it('não vai para um Time cheio (mesma folga da Inscrição)', async () => {
-    for (let i = 0; i < FOLGA_DE_ELENCO; i++) await processarComentario(banco, comentario(`a${i}`, 'ENTRO ARARA ATA'), { ...ctx, realocar: false });
+    for (let i = 0; i < FOLGA_DE_ELENCO; i++) await processarComentario(banco, comentario(`a${i}`, `ENTRO ARARA ${['ATA', 'MEI', 'ZAG'][i % 3]}`), { ...ctx, realocar: false });
     await processarComentario(banco, comentario('u1', 'ENTRO ONCA MEIA'), ctx);
     expect(await processarComentario(banco, comentario('u1', 'TRANSFERIR arara'), ctx)).toBe('DESTINO_CHEIO');
     expect((await time('u1')).time_id).toBe('ONC');

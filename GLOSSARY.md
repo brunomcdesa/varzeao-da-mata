@@ -236,6 +236,10 @@ _Avoid_: lado, direção
 O período da Pré-temporada em que qualquer Jogador pode trocar para qualquer Time, de qualquer Série, desde que o destino não fique desequilibrado. Não gasta a Transferência da Temporada.
 _Avoid_: mercado, janela de inverno
 
+**Limite por Posição**:
+O máximo de Jogadores de uma Posição num Time: o dobro das vagas da Escalação (2 goleiros, 4 zagueiros, 4 meias, 4 atacantes). Quem pede uma Posição cheia vai para outro Time com vaga nela, ou espera (ADR-0037).
+_Avoid_: teto, cota de posição
+
 **Rebalanceamento**:
 A redistribuição dos Elencos entre a Série A e a Série B na Pré-temporada da T2, para que todos os inscritos joguem. Primeiro entram os voluntários. Se faltar gente, saem os inscritos mais recentes de cada Time da A (ADR-0036).
 _Avoid_: rebaixamento, corte, remoção

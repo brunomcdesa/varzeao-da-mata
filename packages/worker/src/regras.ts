@@ -25,6 +25,15 @@ export const REALOCAR_QUANDO_CHEIO = true;
 /** A Escalação de futebol society: 7 lugares, nesta ordem. */
 export const FORMACAO: readonly Posicao[] = ['GOL', 'ZAG', 'ZAG', 'MEI', 'MEI', 'ATA', 'ATA'];
 
+/**
+ * Limite por Posição (ADR-0037): cada Time aceita até o dobro das vagas da Escalação em cada
+ * Posição (2 goleiros, 4 zagueiros, 4 meias, 4 atacantes). Vale para novas Inscrições e
+ * Transferências; quem já passou do limite fica onde está.
+ */
+export const LIMITE_POR_POSICAO: Readonly<Record<Posicao, number>> = Object.fromEntries(
+  (['GOL', 'ZAG', 'MEI', 'ATA'] as const).map((p) => [p, 2 * FORMACAO.filter((x) => x === p).length]),
+) as Record<Posicao, number>;
+
 /** Sorteio determinístico do OVR a partir do id do comentário (reprocessar dá o mesmo OVR). */
 export function sortearOvrInicial(semente: string): number {
   return OVR_INICIAL.min + (hash(semente) % (OVR_INICIAL.max - OVR_INICIAL.min + 1));

@@ -9,7 +9,7 @@ import type { Banco } from './banco.js';
 import { CONTA_DA_LIGA, citacoes, interpretar, type Comando } from './comandos.js';
 import { timesAtivos } from './series.js';
 import { aplicarEscolha } from './temporada2.js';
-import { FOLGA_DE_ELENCO, FORMACAO, REALOCAR_QUANDO_CHEIO, habilidadesDe, perfilNaPosicao, sortearHabilidadesIniciais } from './regras.js';
+import { FOLGA_DE_ELENCO, FORMACAO, LIMITE_POR_POSICAO, REALOCAR_QUANDO_CHEIO, habilidadesDe, perfilNaPosicao, sortearHabilidadesIniciais } from './regras.js';
 import { normalizar } from './vocabulario.js';
 import { CORTE_MINUTOS } from './escalacao.js';
 
@@ -36,6 +36,8 @@ export type Resultado =
   | 'TIME_ESTREANTE'
   /** O Time pedido estava cheio: entrou no mais vazio, na mesma posição. */
   | 'REALOCADO'
+  /** A Posição pedida está cheia em todos os Times (ADR-0037): o pedido espera e é relido. */
+  | 'POSICAO_CHEIA'
   | 'NOME_BLOQUEADO'
   | 'VOTO_REGISTRADO'
   | 'VOTO_ANTIGO'
@@ -84,7 +86,8 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
       const antes = (await b.query<{ tipo: string | null; resultado: string | null }>(`SELECT tipo, resultado FROM comando WHERE ig_comment_id = $1`, [c.igCommentId])).rows[0];
       // TIME_CHEIO também: quando outros Times recebem gente, abre vaga e a pessoa entra sozinha.
       // TIME_ESTREANTE também: quando a Temporada do Time novo começa, a pessoa entra nele.
-      const releitura = antes?.tipo === 'IGNORADO' || ['SEM_POSICAO', 'SEM_TIME', 'TIME_CHEIO', 'TIME_ESTREANTE'].includes(antes?.resultado ?? '');
+      // POSICAO_CHEIA também: quando abre vaga na Posição (ex.: Série B), a pessoa entra sozinha.
+      const releitura = antes?.tipo === 'IGNORADO' || ['SEM_POSICAO', 'SEM_TIME', 'TIME_CHEIO', 'TIME_ESTREANTE', 'POSICAO_CHEIA'].includes(antes?.resultado ?? '');
       if (!releitura || `@${c.username}`.toUpperCase() === CONTA_DA_LIGA) return 'REPETIDO';
       const inscrito = (await b.query<{ inscrito_em: Date | string }>(`SELECT inscrito_em FROM jogador WHERE ig_user_id = $1`, [c.igUserId])).rows[0];
       const agoraLe = interpretar(c.texto).tipo;
@@ -127,12 +130,12 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
         await ctx.responder?.(c.igCommentId, `@${c.username} tem sim! Comente TRANSFERIR e o time (e a posição, se quiser), por exemplo: TRANSFERIR Preguiça zagueiro. Vale uma vez por temporada, na Fase de Liga, para um time que não fique desequilibrado. ⚽`);
       }
     }
-    else if (comando.tipo === 'INSCRICAO') resultado = jogador ? await jaInscrito(b, c, comando, ctx) : await inscrever(b, c, comando.time, comando.posicao, ctx);
+    else if (comando.tipo === 'INSCRICAO') resultado = jogador ? await jaInscrito(b, c, comando, ctx) : await inscrever(b, c, comando.time, comando.posicao, ctx, novo.rows.length > 0);
     else if (comando.tipo === 'TRANSFERENCIA') {
       // Quem ainda não joga e pede para "ir pra Preguiça" quer entrar: vira Inscrição.
       if (jogador) resultado = await transferir(b, c, jogador.id, comando, ctx);
       else if (comando.times.length === 1) {
-        resultado = await inscrever(b, c, comando.times[0]!, comando.posicao, ctx);
+        resultado = await inscrever(b, c, comando.times[0]!, comando.posicao, ctx, novo.rows.length > 0);
         comando = { tipo: 'INSCRICAO', time: comando.times[0]!, ...(comando.posicao ? { posicao: comando.posicao } : {}) };
       } else resultado = 'IGNORADO';
     } else if (comando.tipo === 'PRESENCA') {
@@ -202,7 +205,41 @@ export async function posicaoMaisVazia(b: Banco, time: TimeId): Promise<Posicao>
   return ordem.reduce((melhor, p) => ((contagem.get(p) ?? 0) / vagas(p) < (contagem.get(melhor) ?? 0) / vagas(melhor) ? p : melhor));
 }
 
-async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posicao | undefined, ctx: Contexto): Promise<Resultado> {
+/** Quantos Jogadores cada Time ativo tem numa Posição (sem contar o Jogador `menos`). */
+async function naPosicaoPorTime(b: Banco, ativos: readonly TimeId[], posicao: Posicao, menos?: string): Promise<Map<TimeId, number>> {
+  const contagem = new Map<TimeId, number>(ativos.map((t) => [t, 0]));
+  for (const r of (
+    await b.query<{ time_id: TimeId; n: string }>(`SELECT time_id, count(*) AS n FROM jogador WHERE NOT banido AND posicao = $1 AND id <> $2 GROUP BY time_id`, [posicao, menos ?? '-1'])
+  ).rows) {
+    if (contagem.has(r.time_id)) contagem.set(r.time_id, Number(r.n));
+  }
+  return contagem;
+}
+
+/**
+ * Times que ainda aceitam alguém nesta Posição (ADR-0037): abaixo do Limite por Posição e sem
+ * passar o limite de equilíbrio de Elencos. Em ordem: menos gente na Posição, depois Elenco menor.
+ */
+async function timesComVagaNaPosicao(b: Banco, ativos: readonly TimeId[], posicao: Posicao, menos?: string): Promise<TimeId[]> {
+  const elenco = await elencos(b, ativos, menos);
+  const menor = Math.min(...elenco.values());
+  const naPosicao = await naPosicaoPorTime(b, ativos, posicao, menos);
+  return ativos
+    .filter((t) => naPosicao.get(t)! < LIMITE_POR_POSICAO[posicao] && elenco.get(t)! < menor + FOLGA_DE_ELENCO)
+    .sort((x, y) => naPosicao.get(x)! - naPosicao.get(y)! || elenco.get(x)! - elenco.get(y)!);
+}
+
+/** As Posições em que algum Time ainda tem vaga, para sugerir a quem pediu uma cheia. */
+async function posicoesComVaga(b: Banco, ativos: readonly TimeId[]): Promise<Posicao[]> {
+  const ordem: Posicao[] = ['GOL', 'ZAG', 'MEI', 'ATA'];
+  const livres: Posicao[] = [];
+  for (const p of ordem) if ((await timesComVagaNaPosicao(b, ativos, p)).length) livres.push(p);
+  return livres;
+}
+
+const PLURAL_DA_POSICAO: Record<Posicao, string> = { GOL: 'goleiros', ZAG: 'zagueiros', MEI: 'meias', ATA: 'atacantes' };
+
+async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posicao | undefined, ctx: Contexto, primeiraLeitura = true): Promise<Resultado> {
   if (await usernameBloqueado(b, c.username)) return 'NOME_BLOQUEADO';
 
   // Só os Times que jogam a Temporada (com a Série B, os 16; antes dela, os fundadores).
@@ -213,13 +250,32 @@ async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posica
   const menor = Math.min(...contagem.values());
   // Time cheio: entra no mais vazio (empate decidido pelo id do comentário, para espalhar),
   // na posição pedida, e recebe uma resposta explicando.
-  let time = pedido;
+  let time: TimeId = pedido;
   if (!ctx.forcar && contagem.get(pedido)! >= menor + FOLGA_DE_ELENCO) {
     if (!(ctx.realocar ?? REALOCAR_QUANDO_CHEIO)) return 'TIME_CHEIO';
     const vazios = ativos.filter((t) => contagem.get(t) === menor);
     time = vazios[hashSimples(c.igCommentId) % vazios.length]!;
   }
   const posicao = pedida ?? (await posicaoMaisVazia(b, time));
+
+  // Limite por Posição (ADR-0037): Posição cheia no Time escolhido vai para o Time com mais
+  // vaga nela; cheia em todos, o pedido espera (é relido a cada coleta) e a pessoa é avisada uma vez.
+  let posicaoCheia = false;
+  if (!ctx.forcar && (await naPosicaoPorTime(b, [time], posicao)).get(time)! >= LIMITE_POR_POSICAO[posicao]) {
+    const destino = (await timesComVagaNaPosicao(b, ativos, posicao))[0];
+    if (!destino) {
+      if (primeiraLeitura) {
+        const livres = (await posicoesComVaga(b, ativos)).map((p) => NOME_DA_POSICAO_FALADO[p]);
+        await ctx.responder?.(
+          c.igCommentId,
+          `@${c.username} todos os times já estão cheios de ${PLURAL_DA_POSICAO[posicao]}. ${livres.length ? `Ainda tem vaga de ${livres.join(', ')}: se quiser, comente ENTRO com o time e uma dessas posições. ` : ''}Seu pedido fica guardado e você entra sozinho quando abrir vaga de ${NOME_DA_POSICAO_FALADO[posicao]}. ⚽`,
+        );
+      }
+      return 'POSICAO_CHEIA';
+    }
+    posicaoCheia = destino !== pedido;
+    time = destino;
+  }
 
   const { ovr, habilidades } = sortearHabilidadesIniciais(c.igCommentId, posicao as Posicao);
   await b.query(
@@ -232,7 +288,9 @@ async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posica
     c.igCommentId,
     time === pedido
       ? `@${c.username} você entrou no Varzeão da Mata! Agora é ${vaga}. Seu boneco já está no site (link na bio). ⚽`
-      : `@${c.username} o time ${doTime(pedido)} encheu, então você entrou no time ${doTime(time)} para equilibrar a Liga. Agora é ${vaga}. Bem-vindo ao Varzeão! ⚽`,
+      : posicaoCheia
+        ? `@${c.username} o time ${doTime(pedido)} já tem ${PLURAL_DA_POSICAO[posicao]} demais, então você entrou no time ${doTime(time)}, que precisava. Agora é ${vaga}. Bem-vindo ao Varzeão! ⚽`
+        : `@${c.username} o time ${doTime(pedido)} encheu, então você entrou no time ${doTime(time)} para equilibrar a Liga. Agora é ${vaga}. Bem-vindo ao Varzeão! ⚽`,
   );
   return time === pedido ? 'INSCRITO' : 'REALOCADO';
 }
@@ -318,6 +376,17 @@ export async function transferirJogador(
     if (contagem.get(destino)! >= menor + FOLGA_DE_ELENCO) {
       const vazios = ativos.filter((t) => contagem.get(t) === menor && t !== j.time_id).map((t) => doTime(t).replace(/^d[oa] /, ''));
       return { resultado: 'DESTINO_CHEIO', mensagem: `o time ${doTime(destino)} está cheio agora, então a transferência não deu. Times com vaga: ${vazios.join(', ')}. ⚽` };
+    }
+  }
+  // Limite por Posição (ADR-0037): o destino (ou a Posição nova no mesmo Time) precisa ter vaga.
+  if (destino !== j.time_id || posicao !== j.posicao) {
+    const naPosicao = (await naPosicaoPorTime(b, [destino], posicao, jogadorId)).get(destino)!;
+    if (naPosicao >= LIMITE_POR_POSICAO[posicao]) {
+      const comVaga = (await timesComVagaNaPosicao(b, await timesAtivos(b), posicao, jogadorId)).filter((t) => t !== j.time_id).map((t) => doTime(t).replace(/^d[oa] /, ''));
+      return {
+        resultado: 'DESTINO_CHEIO',
+        mensagem: `o time ${doTime(destino)} já tem ${PLURAL_DA_POSICAO[posicao]} demais, então a transferência não deu.${comVaga.length ? ` Times com vaga de ${NOME_DA_POSICAO_FALADO[posicao]}: ${comVaga.join(', ')}.` : ''} ⚽`,
+      };
     }
   }
 
