@@ -1,7 +1,7 @@
 /**
  * Escalação de uma Partida (job `partida`, passo 1): 7 lugares por Time na FORMACAO, com
  * rodízio do Elenco, Craque da Rodada anterior garantido, prioridade para quem confirmou
- * Presença (T2) e, no Clássico, para quem tem Resenha, e Jogadores da Base completando as vagas. Só conta quem se
+ * Presença (T2) e, no Clássico da T2, para quem tem Resenha, e Jogadores da Base completando as vagas. Só conta quem se
  * inscreveu até o Corte (30 min antes do Apito Inicial).
  */
 import { ehClassico, habilidadesDoPerfil, temRegrasT2, type Canto, type Escalacao, type Especializacao, type HabilidadeId, type Habilidades, type Posicao, type TimeId } from '@liga/shared';
@@ -43,7 +43,7 @@ export interface RegrasDaEscalacao {
 
 /**
  * Ordem do rodízio, por Posição: Craque da Rodada anterior primeiro; depois quem tem
- * prioridade (Presença na T2, ADR-0023, ou Resenha no Clássico, ADR-0039), no mesmo nível; depois
+ * prioridade (na T2: Presença, ADR-0023, ou Resenha no Clássico, ADR-0039), no mesmo nível; depois
  * quem jogou menos na Temporada; empate, quem jogou há mais tempo (ou nunca); depois quem
  * se inscreveu antes.
  */
@@ -96,7 +96,7 @@ export async function montarEscalacao(
     }),
   ).filter((d) => !o.t2?.suspensos.has(d.id));
 
-  // Prioridade no rodízio: Presença (T2) sempre; Resenha só no Clássico (ADR-0039). Mesmo nível.
+  // Prioridade no rodízio (T2): Presença sempre; Resenha só no Clássico (ADR-0039). Mesmo nível.
   const prioridade = new Set([...(o.classico ? (o.resenha ?? []) : []), ...(o.t2?.confirmados ?? [])]);
   const porPosicao = new Map<Posicao, Disponivel[]>();
   for (const d of disponiveis) porPosicao.set(d.posicao, [...(porPosicao.get(d.posicao) ?? []), d]);
@@ -131,7 +131,7 @@ export async function montarEscalacao(
 /**
  * Resenha (ADRs 0034 e 0039): os Jogadores do Time que comentaram, até o Corte, no Reels do
  * último jogo do Time que foi ao ar antes desta Partida. Qualquer comentário vale, e um basta.
- * Dá evolução mais rápida para quem é escalado e, no Clássico, prioridade no rodízio.
+ * Dá evolução mais rápida para quem é escalado e, no Clássico da T2, prioridade no rodízio.
  */
 export async function comResenha(b: Banco, time: TimeId, apito: Date, corte: Date): Promise<Set<string>> {
   const linhas = (
@@ -180,8 +180,8 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
       temRegrasT2(p.numero) ? { suspensos: await suspensos(b, time, partidaId), confirmados: await confirmados(b, partidaId) } : undefined;
     const regrasM = await regras(p.mandante_id);
     const regrasV = await regras(p.visitante_id);
-    // Resenha (ADRs 0034 e 0039): vale nas duas Temporadas; no Clássico, também dá prioridade no rodízio.
-    const classico = ehClassico(p.mandante_id, p.visitante_id);
+    // Resenha (ADRs 0034 e 0039): a evolução vale nas duas Temporadas; a prioridade no rodízio, só no Clássico da T2.
+    const classico = temRegrasT2(p.numero) && ehClassico(p.mandante_id, p.visitante_id);
     const apito = new Date(p.apito_inicial);
     const resenhaM = await comResenha(b, p.mandante_id, apito, corte);
     const resenhaV = await comResenha(b, p.visitante_id, apito, corte);

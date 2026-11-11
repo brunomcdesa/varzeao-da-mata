@@ -144,7 +144,10 @@ describe('Resenha (ADR-0034)', () => {
     expect(resenhaDe(await escalarPartida(banco, await novaPartida('CAP', 'ARA', hora(18))), 'mandante')).toEqual(['@a1']);
   });
 
-  it('no Clássico, quem tem Resenha passa na frente no rodízio da Posição (ADR-0039)', async () => {
+  const virarT2 = () => banco.query(`UPDATE temporada SET numero = 2`);
+
+  it('no Clássico da T2, quem tem Resenha passa na frente no rodízio da Posição (ADR-0039)', async () => {
+    await virarT2();
     for (const a of ['a1', 'a2', 'a3']) await inscrever(a, 'ENTRO CAPIVARA ATA');
     const p1 = await novaPartida('CAP', 'TAT', hora(12));
     expect((await escalarPartida(banco, p1)).nomes.mandante.slice(5)).toEqual(['@a1', '@a2']);
@@ -156,7 +159,18 @@ describe('Resenha (ADR-0034)', () => {
     expect(resenhaDe(p2, 'mandante')).toEqual(['@a2']);
   });
 
+  it('na T1, a Resenha não mexe no rodízio nem no Clássico (só na evolução)', async () => {
+    for (const a of ['a1', 'a2', 'a3']) await inscrever(a, 'ENTRO CAPIVARA ATA');
+    const p1 = await novaPartida('CAP', 'TAT', hora(12));
+    await escalarPartida(banco, p1);
+    await publicar(p1, 'reels1');
+    await comentar('a2', 'reels1', hora(13));
+    const p2 = await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(16)));
+    expect(p2.nomes.mandante.slice(5)).toEqual(['@a3', '@a1']);
+  });
+
   it('fora do Clássico, a Resenha não mexe no rodízio (só na evolução)', async () => {
+    await virarT2();
     for (const a of ['a1', 'a2', 'a3']) await inscrever(a, 'ENTRO CAPIVARA ATA');
     const p1 = await novaPartida('CAP', 'TAT', hora(12));
     await escalarPartida(banco, p1);
@@ -167,7 +181,8 @@ describe('Resenha (ADR-0034)', () => {
     expect(resenhaDe(p2, 'mandante')).toEqual([]); // a2 ficou fora e não guarda o bônus
   });
 
-  it('no Clássico, entre os que têm Resenha vale o rodízio, e o Craque continua na frente', async () => {
+  it('no Clássico da T2, entre os que têm Resenha vale o rodízio, e o Craque continua na frente', async () => {
+    await virarT2();
     for (const a of ['a1', 'a2', 'a3', 'a4']) await inscrever(a, 'ENTRO CAPIVARA ATA');
     const p1 = await novaPartida('CAP', 'TAT', hora(12));
     await escalarPartida(banco, p1); // a1 e a2 jogam
