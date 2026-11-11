@@ -3,7 +3,8 @@
  * "Tenha o Varzeão no celular" com o jeito certo de instalar em cada aparelho.
  * Some quando o site já está aberto como App ou quando a pessoa dispensa (volta em 7 dias).
  */
-import { comoInstalar, type ComoInstalar } from './instalacao.js';
+import { liga } from './dados.js';
+import { appLiberado, comoInstalar, type ComoInstalar } from './instalacao.js';
 import { html, type Html } from './ui.js';
 
 const CHAVE_DISPENSA = 'varzeao:instalar-dispensado';
@@ -95,11 +96,17 @@ function desenhar(): void {
   });
 }
 
-export function prepararApp(): void {
+export async function prepararApp(): Promise<void> {
+  const l = await liga().catch(() => null);
+  if (!appLiberado(l?.temporada?.numero)) return;
+  if (!document.querySelector('link[rel="manifest"]')) {
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = 'manifest.webmanifest';
+    document.head.append(link);
+  }
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch((e) => console.warn('Service worker não registrou', e));
-    });
+    navigator.serviceWorker.register('sw.js').catch((e) => console.warn('Service worker não registrou', e));
   }
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();

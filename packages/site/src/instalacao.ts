@@ -41,3 +41,10 @@ export function comoInstalar(a: Aparelho): ComoInstalar {
   if (/Android/i.test(a.userAgent)) return 'android';
   return null;
 }
+
+/** O App estreia na Temporada 2: antes disso, nem manifesto, nem service worker, nem placa. */
+export const TEMPORADA_DO_APP = 2;
+
+export function appLiberado(numeroDaTemporada: number | null | undefined): boolean {
+  return (numeroDaTemporada ?? 0) >= TEMPORADA_DO_APP;
+}

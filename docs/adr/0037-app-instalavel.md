@@ -10,6 +10,7 @@ Para a Temporada 2, quem acompanha a Liga pode ter o Varzeão como App no celula
 
 ## Como funciona
 
+0. **Só a partir da Temporada 2.** Enquanto o `liga.json` mostrar uma Temporada anterior, o site não coloca o manifesto, não registra o service worker e não mostra a placa (`appLiberado` em `site/src/instalacao.ts`). O código vai para o master antes, mas o App só aparece quando a T2 for criada.
 1. `manifest.webmanifest` com nome, ícones (feitos a partir do escudo, incluindo a versão com margem para ícone recortado) e `display: standalone`.
 2. `sw.js` cuida só dos arquivos do próprio site: rede primeiro (o App nunca fica com versão velha) e, sem conexão, abre a última versão guardada. Os dados da Liga (R2) e a API da borda passam direto, sem cache.
 3. No topo do site aparece a placa **"Tenha o Varzeão no celular"**, com o jeito certo para cada aparelho (`comoInstalar` em `site/src/instalacao.ts`):

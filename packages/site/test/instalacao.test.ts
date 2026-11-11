@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { comoInstalar, ehIos, type Aparelho } from '../src/instalacao.js';
+import { appLiberado, comoInstalar, ehIos, type Aparelho } from '../src/instalacao.js';
 
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1';
 const IPAD = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15';
@@ -50,5 +50,14 @@ describe('ehIos', () => {
   it('reconhece o iPad que se apresenta como Mac pelo toque', () => {
     expect(ehIos({ userAgent: IPAD, pontosDeToque: 5 })).toBe(true);
     expect(ehIos({ userAgent: IPAD, pontosDeToque: 0 })).toBe(false);
+  });
+});
+
+describe('appLiberado', () => {
+  it('só a partir da Temporada 2', () => {
+    expect(appLiberado(null)).toBe(false);
+    expect(appLiberado(1)).toBe(false);
+    expect(appLiberado(2)).toBe(true);
+    expect(appLiberado(3)).toBe(true);
   });
 });

@@ -72,7 +72,7 @@ window.addEventListener('hashchange', () => {
 });
 document.addEventListener('submit', (e) => e.preventDefault());
 void navegar();
-prepararApp();
+void prepararApp();
 
 // Rodapé: quando os dados foram gerados.
 void liga()
