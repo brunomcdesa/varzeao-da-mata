@@ -1,0 +1,49 @@
+# Confere a instalação do vídeo (ffmpeg e Chromium) sem tocar na Liga: nada de banco,
+# Instagram ou nuvem. Roda quando o preparar muda e pode ser rodado à mão.
+name: preparar
+on:
+  push:
+    paths:
+      - .github/actions/preparar/**
+      - .github/workflows/preparar.yml
+  workflow_dispatch:
+jobs:
+  preparar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+        with:
+          video: 'true'
+      - name: ffmpeg faz o que a gravação usa
+        shell: bash
+        run: |
+          set -x
+          for e in libx264 aac libmp3lame pcm_s16le; do ffmpeg -hide_banner -encoders | grep -E " $e " >/dev/null || { echo "::error::falta o encoder $e"; exit 1; }; done
+          ffmpeg -hide_banner -decoders | grep -E " mjpeg " >/dev/null || { echo "::error::falta o decoder mjpeg"; exit 1; }
+          ffmpeg -hide_banner -filters | grep -E " atempo " >/dev/null || { echo "::error::falta o filtro atempo"; exit 1; }
+          d=$(mktemp -d)
+          # Mesmo caminho do gravarReels: quadros JPEG pela entrada + áudio, saída H.264/AAC.
+          ffmpeg -y -hide_banner -loglevel error -f lavfi -i testsrc=size=1080x1920:rate=30 -t 2 -c:v mjpeg -f image2pipe - \
+            | ffmpeg -y -hide_banner -loglevel error -f image2pipe -c:v mjpeg -framerate 30 -i - \
+                -f lavfi -i sine=frequency=440:duration=2 -map 0:v -map 1:a -shortest \
+                -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p -profile:v high \
+                -c:a aac -b:a 128k -ar 48000 -movflags +faststart "$d/teste.mp4"
+          ffmpeg -y -hide_banner -loglevel error -f lavfi -i sine=duration=1 -filter:a atempo=1.1 -c:a libmp3lame "$d/teste.mp3"
+          ls -l "$d"
+      - name: Chromium do Playwright abre sem as dependências do apt
+        shell: bash
+        working-directory: packages/renderer
+        run: |
+          node -e "
+            const { chromium } = require('playwright');
+            (async () => {
+              const b = await chromium.launch();
+              const p = await b.newPage();
+              await p.setContent('<h1>Varzeão</h1>');
+              await p.screenshot({ path: '/tmp/teste.png' });
+              await b.close();
+              console.log('Chromium ok');
+            })().catch((e) => { console.error(e); process.exit(1); });
+          "

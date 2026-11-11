@@ -14,30 +14,49 @@ runs:
         cache: pnpm
     - run: pnpm install --frozen-lockfile
       shell: bash
+
+    # ---- vídeo sem apt (ADR-0037): o espelho do apt travou a Partida das 12h de 11/11. O ffmpeg
+    # vem do PyPI (versão fixa, conferida pelo sha256) e o Chromium do Playwright vai sem
+    # --with-deps (o runner já traz o Google Chrome e as bibliotecas dele). Os dois ficam em cache.
     - if: inputs.video == 'true'
-      # O apt-get update já travou o job inteiro (11/11): tudo aqui tem limite de tempo e,
-      # se o espelho do apt não responder, segue com o que o runner já tem.
-      run: |
-        APT="-o Acquire::Retries=2 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20"
-        APT_OK=sim
-        timeout 180 sudo apt-get update -qq $APT || { APT_OK=nao; echo "::warning::apt-get update não respondeu; seguindo sem o apt"; }
-        if ! command -v ffmpeg >/dev/null; then
-          if [ "$APT_OK" = nao ] || ! timeout 180 sudo apt-get install -y -qq $APT ffmpeg; then
-            # Plano B: ffmpeg estático das releases do GitHub, sem depender do espelho do apt.
-            echo "::warning::ffmpeg pelo apt falhou; baixando o estático"
-            curl -fsSL --retry 3 --max-time 180 -o /tmp/ffmpeg.tar.xz \
-              https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-linux64-gpl-9.0.tar.xz
-            mkdir -p /tmp/ffmpeg && tar -xJf /tmp/ffmpeg.tar.xz -C /tmp/ffmpeg --strip-components=1
-            echo /tmp/ffmpeg/bin >> "$GITHUB_PATH"
-            export PATH="/tmp/ffmpeg/bin:$PATH"
-          fi
-        fi
-        ffmpeg -version | sed -n 1p
-        if [ "$APT_OK" = sim ] && timeout 300 pnpm --filter @liga/renderer exec playwright install --with-deps chromium; then :; else
-          echo "::warning::instalando só o Chromium, sem as dependências do sistema"
-          pnpm --filter @liga/renderer exec playwright install chromium
-        fi
+      id: versoes
       shell: bash
+      run: |
+        echo "playwright=$(node -p "const p=require('./packages/renderer/package.json'); (p.dependencies||{}).playwright||(p.devDependencies||{}).playwright")" >> "$GITHUB_OUTPUT"
+    - if: inputs.video == 'true'
+      id: cache-ffmpeg
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ffmpeg-estatico
+        key: ffmpeg-imageio-0.7.0-linux64
+    - if: inputs.video == 'true' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
+      name: Baixar o ffmpeg estático (imageio-ffmpeg 0.7.0 do PyPI)
+      shell: bash
+      env:
+        RODA: https://files.pythonhosted.org/packages/04/96/15fe7ef562f7494c358cbd9b521d2da82d7a331b5513703756166478bd5f/imageio_ffmpeg-0.7.0-py3-none-manylinux2014_x86_64.whl
+        SHA256: 4e1f36bef7bedd4bc5dc25f60a8345d88f57133fa1e754f09b411ac61b854408
+      run: |
+        tmp=$(mktemp -d)
+        curl -fsSL --retry 4 --retry-all-errors --connect-timeout 20 --max-time 180 -o "$tmp/ff.whl" "$RODA"
+        echo "$SHA256  $tmp/ff.whl" | sha256sum -c -
+        python3 -m zipfile -e "$tmp/ff.whl" "$tmp/x"
+        mkdir -p ~/.cache/ffmpeg-estatico
+        install -m 755 "$tmp"/x/imageio_ffmpeg/binaries/ffmpeg-* ~/.cache/ffmpeg-estatico/ffmpeg
+    - if: inputs.video == 'true'
+      shell: bash
+      run: |
+        echo "$HOME/.cache/ffmpeg-estatico" >> "$GITHUB_PATH"
+        "$HOME/.cache/ffmpeg-estatico/ffmpeg" -hide_banner -version | sed -n 1p
+    - if: inputs.video == 'true'
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ steps.versoes.outputs.playwright }}-chromium
+    - if: inputs.video == 'true'
+      shell: bash
+      # Com o cache, só confere; sem ele, baixa do CDN do Playwright (não usa o apt).
+      run: timeout 600 pnpm --filter @liga/renderer exec playwright install chromium
+
     # Cache de falas do Narrador (ADR-0018): as falas do Gemini TTS ficam guardadas entre as
     # execuções e são reaproveitadas, para caber na cota com 8 Partidas por dia. Cada execução
     # restaura o cache mais recente e, no fim, salva uma versão nova com as falas que ganhou.
