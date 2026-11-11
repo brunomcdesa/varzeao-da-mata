@@ -201,3 +201,14 @@ O repositório **privado** tem 2.000 minutos por mês no plano grátis, e a Liga
 | Gemini TTS | cerca de US$ 2–3, pré-pago |
 | Neon, Cloudflare (R2, KV, Workers, Pages) | dentro do grátis |
 | Instagram API | grátis |
+
+## Avisos do App (ADR-0042)
+
+Os Avisos ficam desligados até as chaves existirem. Para ligar:
+
+1. Na sua máquina: `pnpm --filter @liga/edge chaves-vapid`. Ele mostra a chave pública e a privada.
+2. Borda: `pnpm --filter @liga/edge exec wrangler secret put VAPID_PUBLICA` e depois `... secret put VAPID_PRIVADA` (cole quando ele pedir; não mande em chat). Opcional: `VAPID_CONTATO` (um `https://` ou `mailto:`); sem ele vai o endereço do site.
+3. GitHub (ambiente PROD): variável `LIGA_VAPID_PUBLICA` com a chave **pública**, para o site.
+4. A tabela `aviso_aparelho` (migração 015) é criada no próximo job que abrir o banco.
+
+Trocar as chaves invalida os Avisos de todo mundo: cada um precisa ativar de novo.

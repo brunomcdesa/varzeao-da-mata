@@ -4,7 +4,7 @@
  * abre o que foi guardado da última visita. Os dados da Liga (R2) e a API da borda
  * vêm de outra origem e passam direto, sem cache aqui.
  */
-const CACHE = 'varzeao-app-v1';
+const CACHE = 'varzeao-app-v2';
 const ESSENCIAIS = ['./', './index.html', './app.js', './estilo.css', './escudo.png', './manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
@@ -40,5 +40,40 @@ self.addEventListener('fetch', (e) => {
         return resposta;
       })
       .catch(async () => (await caches.match(pedido)) ?? (pedido.mode === 'navigate' ? caches.match('./index.html') : Response.error())),
+  );
+});
+
+/*
+ * Avisos do App (ADR-0042): a borda manda { titulo, corpo, url, partidaId } e o service worker
+ * mostra. A mesma Partida usa a mesma tag: o aviso novo substitui o anterior na bandeja.
+ */
+self.addEventListener('push', (e) => {
+  let a = {};
+  try {
+    a = e.data ? e.data.json() : {};
+  } catch {
+    a = { corpo: e.data ? e.data.text() : '' };
+  }
+  e.waitUntil(
+    self.registration.showNotification(a.titulo || 'Varzeão da Mata', {
+      body: a.corpo || '',
+      icon: 'icones/icone-192.png',
+      badge: 'icones/icone-192.png',
+      tag: a.partidaId ? `partida-${a.partidaId}` : 'varzeao',
+      renotify: true,
+      data: { url: a.url || '#/' },
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const destino = new URL(e.notification.data?.url || '#/', self.registration.scope).href;
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((janelas) => {
+      const aberta = janelas.find((j) => j.url.startsWith(self.registration.scope));
+      if (aberta) return aberta.navigate(destino).then((j) => (j || aberta).focus());
+      return self.clients.openWindow(destino);
+    }),
   );
 });

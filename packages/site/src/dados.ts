@@ -13,6 +13,7 @@ export const BASE_DADOS = comBarra(meta('liga-dados') || './dados/');
 export const BASE_API = comBarra(meta('liga-api'));
 export const INSTAGRAM = meta('liga-instagram').replace(/^@/, '');
 export const TURNSTILE = meta('liga-turnstile');
+export const VAPID_PUBLICA = meta('liga-vapid');
 
 
 const cache = new Map<string, { quando: number; valor: Promise<unknown> }>();

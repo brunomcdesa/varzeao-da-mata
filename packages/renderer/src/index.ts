@@ -11,3 +11,4 @@ export { COR } from './pixel.js';
 export * from './penaltis.js';
 export { NARRADORES, narradorDa, type Narrador } from './narradores.js';
 export { apelidoFalavel } from './narracao.js';
+export { timelineDaPartida, paraEscalacao, momentosDoAoVivo } from './partidaPublica.js';

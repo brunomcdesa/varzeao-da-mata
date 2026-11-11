@@ -235,7 +235,8 @@ main:focus {
   line-height: 1;
   margin: 0;
 }
-.placa.instalar .botao.secundario {
+.placa.instalar .botao.secundario,
+.placa.avisos .botao.secundario {
   background: var(--madeira);
   color: var(--placa);
   box-shadow: inset 0 -4px 0 var(--madeira-escura);
@@ -260,6 +261,59 @@ main:focus {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
+}
+
+/* Avisos de jogo (ADR-0042) */
+.botao:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.avisos-alerta {
+  padding: 8px 10px;
+  background: var(--placa-sombra, rgba(0, 0, 0, 0.08));
+}
+.avisos-times {
+  border: 0;
+  margin: 12px 0 0;
+  padding: 0;
+}
+.avisos-times legend {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.avisos-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 8px;
+}
+.aviso-time {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px 6px;
+  font: inherit;
+  font-size: 0.875rem;
+  color: inherit;
+  background: transparent;
+  border: 2px dashed currentColor;
+  opacity: 0.55;
+  cursor: pointer;
+}
+.aviso-time[aria-pressed='true'] {
+  opacity: 1;
+  border-style: solid;
+  background: var(--madeira);
+  color: var(--placa);
+}
+.avisos-times[disabled] .aviso-time {
+  cursor: not-allowed;
+}
+.avisos-status:empty {
+  display: none;
+}
+.rodape-avisos a {
+  color: inherit;
 }
 
 /* ------------------------------------------------------------ títulos */
