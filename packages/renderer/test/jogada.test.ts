@@ -129,4 +129,26 @@ describe('Jogadas', () => {
     }
     expect(bloqueios).toBeGreaterThan(0);
   });
+
+  it('marcação dupla: os dois zagueiros chegam junto em quem recebeu a dobra (ADR-0043)', () => {
+    let vistos = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const tl = timeline(seed);
+      tl.janelas.forEach((j) => {
+        const l = j.lance;
+        if (!l.dobra) return;
+        const def = l.ataque === 'mandante' ? 'visitante' : 'mandante';
+        // Com o passe, o cerco é antes do passe; sem passe, no duelo (perto da resolução).
+        const f = l.dobra.passe ? 0.6 : l.tipo === 'DESARME' ? 0.6 : 0.7;
+        const e = tl.estado(j.inicio + f * (j.fim - j.inicio));
+        const alvo = e.jogadores.find((x) => x.slot.lado === l.dobra!.sobre.lado && x.slot.indice === l.dobra!.sobre.indice)!.pos;
+        const zags = e.jogadores.filter((x) => x.slot.lado === def && x.posicao === 'ZAG');
+        if (zags.length < 2) return;
+        for (const z of zags) expect(dist(z.pos, alvo), `seed ${seed} lance ${l.numero}`).toBeLessThan(0.12);
+        vistos++;
+      });
+    }
+    expect(vistos).toBeGreaterThan(20);
+  });
 });
+

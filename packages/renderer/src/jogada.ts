@@ -89,6 +89,8 @@ export interface Continuidade {
   saida?: Ponto;
   /** O próximo lance é escanteio: a defesa ou o bloqueio manda a bola para a linha de fundo, aqui. */
   escanteio?: Ponto;
+  /** Ritmo novo (ADR-0043): no gol, a bola fica na rede (quem sofreu vai buscá-la no toque de bola). */
+  golFicaNaRede?: boolean;
 }
 
 /** Bandeirinha do escanteio do lance (o lado sai do número do lance: sempre o mesmo). */
@@ -283,7 +285,34 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
   let finalizacao: Ponto; // onde o finalizador está quando chuta
   const lateral = cx < 0.5 ? -1 : 1;
 
-  switch (estilo) {
+  // Zagueiros do Time que defende (para a marcação dupla).
+  const zagueiros: SlotRef[] = escalacoes[def].jogadores.flatMap((j, indice) => (j.posicao === 'ZAG' ? [{ lado: def, indice }] : []));
+  const mesmoSlot = (a: SlotRef, b: SlotRef) => a.lado === b.lado && a.indice === b.indice;
+
+  if (lance.dobra?.passe) {
+    // Marcação dupla com passe (ADR-0043): o criador acha o companheiro (A), os dois zagueiros
+    // fecham nele, e A toca para o finalizador, que entra livre na área e bate.
+    const A = lance.dobra.sobre;
+    const ax = bases[A.lado][A.indice]!.x;
+    const cerco = P(lerp(ax, 0.5, 0.3), 0.21);
+    const fArea = lerp(fx, 0.5, 0.5);
+    finalizacao = P(fArea, 0.11);
+    ator(C, [[0, null], [0.08, P(cx, 0.5)], [0.25, P(cx, 0.42)], [0.45, null]]);
+    ator(A, [[0, null], [0.2, P(ax, 0.36)], [0.33, P(ax, 0.33)], [0.55, cerco], [0.62, cerco], [0.8, null]]);
+    ator(F, [[0, null], [0.3, P(fx, 0.3)], [0.62, P(lerp(fx, fArea, 0.6), 0.16)], [0.7, finalizacao], [0.78, finalizacao], [0.95, P(fArea, 0.15)], [1, null]]);
+    zagueiros.slice(0, 2).forEach((z, k) => {
+      const lado = k === 0 ? 1 : -1;
+      const ponto = { x: cerco.x + lado * 0.028, y: cerco.y + dir * 0.03 };
+      ator(z, [[0, null], [0.36, null], [0.56, ponto], [0.7, ponto], [0.88, null]]);
+    });
+    posse(0.08, 0.25, C);
+    passe(0.25, 0.33, C, A);
+    posse(0.33, 0.6, A);
+    passe(0.6, 0.68, A, F);
+    posse(0.68, 0.7, F);
+    inicioChute = 0.7;
+    alturaChute = porCima ? 0.6 : 0.06;
+  } else switch (estilo) {
     case 'TABELA': {
       const cMeio = lerp(cx, 0.5, 0.5);
       const fArea = lerp(fx, 0.5, 0.5);
@@ -357,6 +386,15 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
     }
   }
 
+  // Marcação dupla sem passe (ADR-0043): o outro zagueiro também fecha no finalizador.
+  if (lance.dobra && !lance.dobra.passe && lance.marcador) {
+    const segundo = zagueiros.find((z) => !mesmoSlot(z, lance.marcador!));
+    if (segundo) {
+      const ponto: Ponto = { x: finalizacao.x - lateral * 0.03, y: finalizacao.y + dir * 0.035 };
+      ator(segundo, [[0, null], [Math.max(0.1, inicioChute - 0.28), null], [Math.max(0.12, inicioChute - 0.04), ponto], [0.86, ponto], [1, null]]);
+    }
+  }
+
   // Chute marcado: o marcador fecha o espaço entre o finalizador e o gol.
   if (lance.marcador && lance.drible === false) {
     const M = lance.marcador;
@@ -403,7 +441,7 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
   // Depois da finalização.
   if (lance.tipo === 'GOL') {
     bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.9, tipo: 'PARADA', ponto: destino });
-    bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ponto: destino }, destino: { ponto: MEIO }, altura: 0.3 });
+    bola.push(cont.golFicaNaRede ? { de: 0.9, ate: 1, tipo: 'PARADA', ponto: destino } : { de: 0.9, ate: 1, tipo: 'VOO', origem: { ponto: destino }, destino: { ponto: MEIO }, altura: 0.3 });
     acao(F, F_RESOLUCAO_CHUTE + 0.01, 0.97, 'COMEMORANDO');
     acao(C, F_RESOLUCAO_CHUTE + 0.04, 0.95, 'COMEMORANDO');
   } else if (lance.tipo === 'DEFESA' && cont.escanteio) {
@@ -448,6 +486,14 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
         { slot: l.criador, quadros: [[0, null], [0.08, Pt(x, 0.5)], [0.3, Pt(x, 0.42)], [0.6, null]] },
         { slot: Fd, quadros: [[0, null], [0.3, Pt(fxd, 0.33)], [0.36, Pt(fxd, 0.31)], [F_RESOLUCAO_DESARME, Pt(bote.x - lat * 0.02, 0.23)], [0.72, Pt(bote.x - lat * 0.04, 0.25)], [0.9, null]] },
         { slot: D, quadros: [[0, null], [0.36, null], [F_RESOLUCAO_DESARME, bote], [0.75, Pt(bote.x, 0.27)], [1, null]] },
+        // Marcação dupla (ADR-0043): o outro zagueiro chega junto no bote.
+        ...(l.dobra
+          ? escalacoes[D.lado].jogadores.flatMap((j, indice): Plano['atores'] =>
+              j.posicao === 'ZAG' && indice !== D.indice
+                ? [{ slot: { lado: D.lado, indice }, quadros: [[0, null], [0.36, null], [F_RESOLUCAO_DESARME - 0.02, Pt(bote.x + lat * 0.035, 0.2)], [0.75, Pt(bote.x + lat * 0.03, 0.24)], [1, null]] }]
+                : [],
+            ).slice(0, 1)
+          : []),
       ],
       bola: [
         { de: 0, ate: 0.08, tipo: 'VOO', origem: { ponto: entrada }, destino: { ator: l.criador }, altura: 0 },
@@ -547,7 +593,7 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
     acao(Ge, 0.72, F_RESOLUCAO_CHUTE + 0.06, 'MERGULHO');
     if (lance.tipo === 'GOL') {
       bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.9, tipo: 'PARADA', ponto: alvoCabeceio });
-      bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ponto: alvoCabeceio }, destino: { ponto: MEIO }, altura: 0.3 });
+      bola.push(cont.golFicaNaRede ? { de: 0.9, ate: 1, tipo: 'PARADA', ponto: alvoCabeceio } : { de: 0.9, ate: 1, tipo: 'VOO', origem: { ponto: alvoCabeceio }, destino: { ponto: MEIO }, altura: 0.3 });
       acao(Fe, F_RESOLUCAO_CHUTE + 0.01, 0.97, 'COMEMORANDO');
       acao(C, F_RESOLUCAO_CHUTE + 0.04, 0.95, 'COMEMORANDO');
     } else if (lance.tipo === 'DEFESA') {
@@ -777,7 +823,7 @@ function planoCobranca(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: R
   if (lance.tipo !== 'FORA' || lance.bolaParada === 'PENALTI') acao(G, 0.62, R + 0.06, 'MERGULHO');
   if (lance.tipo === 'GOL') {
     bola.push({ de: R, ate: 0.9, tipo: 'PARADA', ponto: destino });
-    bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ponto: destino }, destino: { ponto: MEIO }, altura: 0.3 });
+    bola.push(cont.golFicaNaRede ? { de: 0.9, ate: 1, tipo: 'PARADA', ponto: destino } : { de: 0.9, ate: 1, tipo: 'VOO', origem: { ponto: destino }, destino: { ponto: MEIO }, altura: 0.3 });
     acao(F, R + 0.01, 0.97, 'COMEMORANDO');
   } else if (lance.tipo === 'DEFESA' && cont.escanteio) {
     bola.push({ de: R, ate: 0.9, tipo: 'VOO', origem: { ponto: destino }, destino: { ponto: cont.escanteio }, altura: 0.35 });

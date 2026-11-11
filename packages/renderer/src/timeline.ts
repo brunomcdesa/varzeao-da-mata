@@ -8,12 +8,13 @@
  * A coreografia de cada lance (quem passa para quem, de onde sai o chute) fica em jogada.ts.
  */
 import type { Escalacao, Posicao } from '@liga/shared';
-import type { Lado, Lance, ResultadoPartida, SlotRef } from '@liga/sim';
+import { criarRng, type Lado, type Lance, type ResultadoPartida, type SlotRef } from '@liga/sim';
 import {
   FISICA,
   F_RESOLUCAO_CHUTE,
   F_RESOLUCAO_DESARME,
   MEIO,
+  golAlvo,
   montarPlano,
   COBRANCAS_DE_FALTA,
   pontoDaFalta,
@@ -28,6 +29,7 @@ import {
   type Plano,
   type Ponto,
   type QuadroAtor,
+  type TrechoBola,
 } from './jogada.js';
 
 export type { Ponto, AcaoJogador, EstiloJogada } from './jogada.js';
@@ -39,6 +41,20 @@ export type { Disputa, EstadoPenaltis, MarcaDePenalti } from './penaltis.js';
 export const DURACAO_JOGO = 90 * 60;
 /** Velocidade do Ao Vivo: 90 minutos de jogo em 4 min 30 s (ADR-0005; era 15×, 6 min). */
 export const VELOCIDADE_AO_VIVO = 20;
+
+/**
+ * Ritmo novo (ADR-0043, VERSAO_SIM 11+): a jogada tem duração fixa, no ritmo do Reels, e o resto
+ * do tempo entre os lances (e até o apito) é toque de bola. Partidas antigas ficam como eram.
+ */
+export const ritmoNovo = (r: Pick<ResultadoPartida, 'versaoSim'>): boolean => r.versaoSim >= 11;
+/** Duração de uma jogada no ritmo novo (s de jogo): ~7,5 s no Ao Vivo, como no Reels. */
+export const DURACAO_JOGADA = 150;
+/** Depois de gol (e no Apito Inicial), tempo mínimo para a comemoração e a saída de bola. */
+const RESERVA_SAIDA = 70;
+/** Velocidade da bola no toque de bola (campo por s de jogo) e limites de cada passe (s). */
+const VEL_PASSE = 0.025;
+const PASSE_MIN = 3;
+const PASSE_MAX = 12;
 
 export type TipoDestaque = 'GOL' | 'DEFESA' | 'BLOQUEIO' | 'DESARME' | 'FORA' | 'FALTA';
 
@@ -107,6 +123,30 @@ interface Janela {
   resolucao: number;
 }
 
+/**
+ * Trecho contínuo da Timeline com um Plano: a jogada de um lance ou um intervalo de toque de bola
+ * (só no ritmo novo). Nas partidas antigas, as faixas são as próprias janelas dos lances.
+ */
+interface Faixa {
+  inicio: number;
+  fim: number;
+  plano: Plano;
+  trilhas: Map<string, QuadroAtor[]>;
+  /** Índice do lance (em `lances`), ou -1 no toque de bola. */
+  indiceLance: number;
+  lance?: Lance;
+  proximo?: Lance;
+  /** Toque de bola: quem está com a bola (o Time que ataca no lance seguinte). */
+  toque?: { posse: Lado };
+}
+
+/** Intervalo de toque de bola antes do lance `antes` (ou depois do último, se `antes` = nº de lances). */
+interface Intervalo {
+  inicio: number;
+  fim: number;
+  antes: number;
+}
+
 /** Por quantos segundos de jogo um destaque fica na tela. */
 const DURACAO_DESTAQUE: Record<TipoDestaque, number> = { GOL: 75, DEFESA: 40, BLOQUEIO: 35, DESARME: 25, FORA: 30, FALTA: 45 };
 /** Intervalo (s de jogo) usado para medir a velocidade de cada Jogador. */
@@ -140,6 +180,10 @@ export class Timeline {
   readonly disputa: Disputa | null;
   private readonly bases: Record<Lado, Ponto[]>;
   private readonly trilhas: Map<string, QuadroAtor[]>[];
+  /** Jogadas e intervalos de toque de bola, em ordem (ADR-0043). */
+  private readonly faixas: Faixa[];
+  /** Ritmo novo (ADR-0043): jogada de duração fixa e toque de bola entre os lances. */
+  readonly novo: boolean;
   /** Posições depois da física, a cada FISICA.dt (x, y intercalados), por slot. */
   private readonly corridas: Map<string, Float32Array>;
 
@@ -159,10 +203,19 @@ export class Timeline {
       mandante: posicoesBase(escalacoes.mandante, 'mandante'),
       visitante: posicoesBase(escalacoes.visitante, 'visitante'),
     };
-    this.janelas = montarJanelas(resultado.lances);
+    this.novo = ritmoNovo(resultado);
+    const lances = resultado.lances;
+    const cheias = montarJanelas(lances);
+    const encaixe = this.novo ? encaixarJogadas(cheias, lances) : { janelas: cheias, intervalos: [] as Intervalo[] };
+    this.janelas = encaixe.janelas;
+    // O expulso sai do campo depois que o cartão aparece.
+    this.saidas = new Map(
+      this.janelas.flatMap((j) => (j.lance.falta?.cartao === 'VERMELHO' ? [[chave(j.lance.falta.autor), j.resolucao + DURACAO_DESTAQUE.FALTA * 0.7] as [string, number]] : [])),
+    );
+    /** Antes destes lances há toque de bola (ritmo novo): a jogada começa com a bola no criador. */
+    const comToqueAntes = new Set(encaixe.intervalos.map((x) => x.antes));
     // Jogo contínuo: a bola só volta ao meio depois de gol. Nos outros lances ela termina
     // com quem começa o próximo ataque (passe ou chutão recuperado) e o próximo sai dali.
-    const lances = resultado.lances;
     // Bola parada: antes de um escanteio a bola sai pela linha de fundo; antes de um lateral,
     // pela linha lateral, onde o próximo lance é cobrado.
     const saida = (i: number): Ponto => {
@@ -175,7 +228,7 @@ export class Timeline {
     };
     this.planos = lances.map((l, i) => {
       const proximo = lances[i + 1];
-      return montarPlano(l, this.bases, escalacoes, resultado.seed, {
+      const plano = montarPlano(l, this.bases, escalacoes, resultado.seed, {
         duracao: this.janelas[i]!.fim - this.janelas[i]!.inicio,
         entrada: i === 0 ? MEIO : saida(i - 1),
         saida: saida(i),
@@ -183,9 +236,34 @@ export class Timeline {
         ...(proximo?.bolaParada && l.tipo !== 'GOL'
           ? { cobrancaSeguinte: { slot: cobradorDaBolaParada(proximo, this.bases, escalacoes), ponto: pontoDoCobrador(proximo, this.bases) } }
           : {}),
+        // Ritmo novo: depois do gol a bola fica na rede; quem sofreu vai buscá-la no toque de bola.
+        ...(this.novo && l.tipo === 'GOL' ? { golFicaNaRede: true } : {}),
       });
+      // Ritmo novo: depois do toque de bola, a jogada começa com a bola já no pé do criador.
+      return this.novo && comToqueAntes.has(i) ? comecaNoCriador(plano, l.criador) : plano;
     });
     this.trilhas = this.planos.map((p) => new Map(p.atores.map((a) => [chave(a.slot), a.quadros])));
+    const faixasDosLances: Faixa[] = this.janelas.map((j, i) => ({
+      inicio: j.inicio,
+      fim: j.fim,
+      plano: this.planos[i]!,
+      trilhas: this.trilhas[i]!,
+      indiceLance: i,
+      lance: j.lance,
+      ...(this.janelas[i + 1] ? { proximo: this.janelas[i + 1]!.lance } : {}),
+    }));
+    const faixasDoToque: Faixa[] = encaixe.intervalos.map((iv) => {
+      const plano = this.planoDoToque(iv, lances, resultado.seed);
+      return {
+        inicio: iv.inicio,
+        fim: iv.fim,
+        plano,
+        trilhas: new Map(plano.atores.map((a) => [chave(a.slot), a.quadros])),
+        indiceLance: -1,
+        toque: { posse: this.posseNoToque(iv, lances) },
+      };
+    });
+    this.faixas = [...faixasDosLances, ...faixasDoToque].sort((x, y) => x.inicio - y.inicio);
     this.disputa = montarDisputa(resultado, DURACAO_JOGO);
     this.corridas = this.simularCorridas();
     const torcidaPadrao = (lado: Lado) => 4 + 2 * escalacoes[lado].jogadores.filter((j) => j.jogadorId !== null).length;
@@ -196,10 +274,6 @@ export class Timeline {
           torcida: extras.torcida ?? { mandante: torcidaPadrao('mandante'), visitante: torcidaPadrao('visitante') },
         }
       : null;
-    // O expulso sai do campo depois que o cartão aparece.
-    this.saidas = new Map(
-      this.janelas.flatMap((j) => (j.lance.falta?.cartao === 'VERMELHO' ? [[chave(j.lance.falta.autor), j.resolucao + DURACAO_DESTAQUE.FALTA * 0.7] as [string, number]] : [])),
-    );
     this.corridaDoJuiz = this.t2 ? this.simularJuiz() : null;
   }
 
@@ -225,7 +299,7 @@ export class Timeline {
     for (let k = 0; k < n; k++) {
       const t = Math.min(k * FISICA.dt, DURACAO_JOGO);
       if (k > 0) {
-        const alvo = alvoDoJuiz(this.momentoDoJuiz(t, this.bolaEm(t, this.indiceEm(t)).pos));
+        const alvo = alvoDoJuiz(this.momentoDoJuiz(t, this.bolaEm(t, this.faixaEm(t)).pos));
         const dx = alvo.pos.x - p.x;
         const dy = alvo.pos.y - p.y;
         const dist = Math.hypot(dx, dy);
@@ -282,11 +356,11 @@ export class Timeline {
     const n = Math.ceil(DURACAO_JOGO / FISICA.dt) + 1;
     const slots: SlotRef[] = (['mandante', 'visitante'] as const).flatMap((lado) => this.escalacoes[lado].jogadores.map((_, indice) => ({ lado, indice })));
     const saida = new Map(slots.map((s) => [chave(s), new Float32Array(n * 2)]));
-    const pos = slots.map((s) => ({ ...this.alvoDe(s, 0, this.indiceEm(0), 0, MEIO).pos }));
+    const pos = slots.map((s) => ({ ...this.alvoDe(s, 0, this.faixaEm(0), 0, MEIO).pos }));
     const vel = slots.map(() => ({ x: 0, y: 0 }));
     for (let k = 0; k < n; k++) {
       const t = Math.min(k * FISICA.dt, DURACAO_JOGO);
-      const indice = this.indiceEm(t);
+      const indice = this.faixaEm(t);
       const f = indice >= 0 ? this.fracao(indice, t) : 0;
       const bola = this.bolaEm(t, indice, true).pos;
       slots.forEach((s, i) => {
@@ -356,14 +430,13 @@ export class Timeline {
   estado(tBruto: number): EstadoQuadro {
     if (this.disputa && tBruto > DURACAO_JOGO) return this.estadoDaDisputa(Math.min(tBruto, this.disputa.fim));
     const t = limitar(tBruto, 0, DURACAO_JOGO);
-    const indice = this.indiceEm(t);
-    const { pos: bola, altura } = this.bolaEm(t, indice);
-    const agora = this.posicoesEm(t, indice, bola);
-    const tAntes = Math.max(0, t - DT_VEL);
-    const iAntes = this.indiceEm(tAntes);
-    const antes = this.posicoesEm(tAntes, iAntes, this.bolaEm(tAntes, iAntes).pos);
-    const plano = indice >= 0 ? this.planos[indice]! : null;
-    const f = indice >= 0 ? this.fracao(indice, t) : 0;
+    const k = this.faixaEm(t);
+    const indice = k >= 0 ? this.faixas[k]!.indiceLance : -1;
+    const { pos: bola, altura } = this.bolaEm(t, k);
+    const agora = this.posicoesEm(t);
+    const antes = this.posicoesEm(Math.max(0, t - DT_VEL));
+    const plano = k >= 0 ? this.faixas[k]!.plano : null;
+    const f = k >= 0 ? this.fracao(k, t) : 0;
 
     const jogadores: JogadorNoQuadro[] = agora
       .map((j, k) => {
@@ -386,7 +459,7 @@ export class Timeline {
       jogadores,
       destaque,
       lanceAtual: indice,
-      estilo: plano?.estilo ?? null,
+      estilo: indice >= 0 ? this.planos[indice]!.estilo : null,
       encerrada: t >= DURACAO_JOGO && !this.disputa,
       penaltis: null,
       t2: this.t2,
@@ -438,13 +511,178 @@ export class Timeline {
     };
   }
 
-  private indiceEm(t: number): number {
-    return this.janelas.findIndex((j) => t >= j.inicio && t < j.fim);
+  /** Faixa (jogada ou toque de bola) em andamento em t, ou -1 (antes do 1º lance ou depois do último, nas partidas antigas). */
+  private faixaEm(t: number): number {
+    const k = this.faixas.findIndex((j) => t >= j.inicio && t < j.fim);
+    // Ritmo novo: no apito (t = 90 min) vale a última faixa, sem a bola pular para o meio.
+    if (k < 0 && this.novo && this.faixas.length && t >= this.faixas[this.faixas.length - 1]!.fim) return this.faixas.length - 1;
+    return k;
   }
 
-  private fracao(indice: number, t: number): number {
-    const j = this.janelas[indice]!;
+  private fracao(faixa: number, t: number): number {
+    const j = this.faixas[faixa]!;
     return (t - j.inicio) / (j.fim - j.inicio);
+  }
+
+  /** Quem fica com a bola no toque de bola: quem ataca no lance seguinte; no fim, quem defendeu o último. */
+  private posseNoToque(iv: Intervalo, lances: readonly Lance[]): Lado {
+    const proximo = lances[iv.antes];
+    if (proximo) return proximo.ataque;
+    const ultimo = lances[lances.length - 1];
+    return ultimo ? outroLado(ultimo.ataque) : 'mandante';
+  }
+
+  /**
+   * Toque de bola (ADR-0043): o Time com a bola troca passes até o lance seguinte (ou até o apito).
+   * Depois de gol, e no Apito Inicial, vem antes a saída de bola: o goleiro tira a bola da rede e
+   * devolve para o meio, e um Jogador do Time que sofreu corre até ela e toca; a bola só anda
+   * depois desse toque. Termina com a bola no criador do lance seguinte.
+   */
+  private planoDoToque(iv: Intervalo, lances: readonly Lance[], seed: number): Plano {
+    const dur = iv.fim - iv.inicio;
+    const rng = criarRng(((seed >>> 0) ^ Math.imul(iv.antes + 1, 0x9e3779b1)) >>> 0);
+    const anterior = lances[iv.antes - 1];
+    const proximo = lances[iv.antes];
+    const posse = this.posseNoToque(iv, lances);
+    const alvoFinal = proximo ? proximo.criador : null;
+    const emCampo = (s: SlotRef) => (this.saidas.get(chave(s)) ?? Infinity) > iv.inicio;
+    const doTime = (lado: Lado, ...posicoes: Posicao[]): SlotRef[] =>
+      this.escalacoes[lado].jogadores.flatMap((j, indice) => (posicoes.includes(j.posicao) && emCampo({ lado, indice }) ? [{ lado, indice }] : []));
+    const base = (s: SlotRef) => this.bases[s.lado][s.indice]!;
+    const distancia = (a: Ponto, b: Ponto) => Math.hypot(a.x - b.x, a.y - b.y);
+    const tempoDoPasse = (a: Ponto, b: Ponto) => limitar(distancia(a, b) / VEL_PASSE, PASSE_MIN, PASSE_MAX);
+    const F = (seg: number) => limitar(seg / dur);
+    const bola: TrechoBola[] = [];
+    const atores: Plano['atores'] = [];
+    const acoes: Plano['acoes'] = [];
+    const mesmo = (a: SlotRef, b: SlotRef) => a.lado === b.lado && a.indice === b.indice;
+    const passe = (de: number, ate: number, a: SlotRef, b: SlotRef) => {
+      bola.push({ de: F(de), ate: F(ate), tipo: 'VOO', origem: { ator: a }, destino: { ator: b }, altura: distancia(base(a), base(b)) > 0.3 ? 0.25 : 0 });
+      acoes.push({ slot: a, de: F(de - 0.4), ate: F(de + 0.6), acao: 'PASSE' });
+    };
+    const posseDe = (de: number, ate: number, s: SlotRef) => {
+      if (ate > de) bola.push({ de: F(de), ate: F(ate), tipo: 'POSSE', ator: s });
+    };
+    const fechar = (): Plano => {
+      if (!bola.length) bola.push({ de: 0, ate: 1, tipo: 'PARADA', ponto: MEIO });
+      return { estilo: 'TABELA', atores, bola, acoes };
+    };
+    let tau = 0;
+    let X: SlotRef;
+
+    if (!anterior || anterior.tipo === 'GOL') {
+      // Saída de bola: quem sofreu o gol (no Apito Inicial, quem ataca primeiro).
+      const time: Lado = anterior ? outroLado(anterior.ataque) : posse;
+      let livre = 2; // instante (s) a partir do qual a saída pode ser cobrada
+      if (anterior) {
+        const janela = this.janelas[iv.antes - 1]!;
+        const rede = fimDaBola(this.planos[iv.antes - 1]!) ?? { x: 0.5, y: golAlvo(anterior.ataque) };
+        const fimDaFesta = Math.max(4, janela.resolucao + DURACAO_DESTAQUE.GOL * 0.8 - iv.inicio);
+        // O goleiro que sofreu tira a bola da rede e manda para o meio.
+        const G = anterior.defensor;
+        const pegada: Ponto = { x: rede.x, y: rede.y + (rede.y < 0.5 ? 0.025 : -0.025) };
+        const pega = Math.min(Math.max(3, fimDaFesta * 0.5), dur * 0.3);
+        const voo = limitar(distancia(pegada, MEIO) / (VEL_PASSE * 1.6), 4, 10);
+        atores.push({ slot: G, quadros: [[0, null], [F(Math.max(0, pega - 6)), null], [F(pega), pegada], [F(pega + 3), pegada], [F(pega + 12), null]] });
+        bola.push({ de: 0, ate: F(pega + 1), tipo: 'PARADA', ponto: rede });
+        posseDe(pega + 1, pega + 3, G);
+        bola.push({ de: F(pega + 3), ate: F(pega + 3 + voo), tipo: 'VOO', origem: { ator: G }, destino: { ponto: MEIO }, altura: 0.55 });
+        acoes.push({ slot: G, de: F(pega + 2.6), ate: F(pega + 3.6), acao: 'PASSE' });
+        tau = pega + 3 + voo;
+        livre = Math.max(tau + 2, fimDaFesta);
+      }
+      const atacantes = doTime(time, 'ATA');
+      const candidatosK = atacantes.length ? atacantes : doTime(time, 'MEI', 'ZAG');
+      const K = candidatosK.reduce((a, b) => (distancia(base(b), MEIO) < distancia(base(a), MEIO) ? b : a));
+      const meias = doTime(time, 'MEI').filter((m) => !mesmo(m, K));
+      const R = meias.length ? meias[Math.floor(rng.next() * meias.length)]! : (doTime(time, 'ZAG')[0] ?? K);
+      const pR = tempoDoPasse(MEIO, base(R));
+      // Só toca depois de chegar à bola (na velocidade da física), com folga.
+      const chegada = distancia(base(K), MEIO) / (FISICA.sprint * 0.85) + 4;
+      const tk = Math.max(tau + 1, Math.min(Math.max(livre, chegada), dur - pR - 2));
+      const lugar: Ponto = { x: 0.5, y: 0.5 - sentido(time) * 0.016 };
+      atores.push({ slot: K, quadros: [[0, null], [F(Math.max(0, tk - chegada - 1)), null], [F(tk - 0.5), lugar], [F(tk + 0.5), lugar], [F(tk + 8), null]] });
+      bola.push({ de: F(tau), ate: F(tk), tipo: 'PARADA', ponto: MEIO });
+      bola.push({ de: F(tk), ate: F(tk + pR), tipo: 'VOO', origem: { ponto: MEIO }, destino: { ator: R }, altura: 0 });
+      acoes.push({ slot: K, de: F(tk - 0.4), ate: F(tk + 0.6), acao: 'PASSE' });
+      tau = tk + pR;
+      X = R;
+      if (time !== posse) {
+        // Quem marcou rouba a bola logo depois da saída.
+        const S = alvoFinal ?? doTime(posse, 'MEI')[0] ?? doTime(posse, 'ZAG', 'ATA')[0]!;
+        const perto = lerpP(base(R), base(S), 0.3);
+        // O ladrão sai correndo quando a saída é cobrada e só rouba quando chega.
+        const corrida = distancia(base(S), perto) / (FISICA.sprint * 0.85) + 3;
+        const rouba = Math.min(Math.max(tau + 3, tk + corrida), dur - 6);
+        posseDe(tau, rouba, R);
+        atores.push({ slot: S, quadros: [[0, null], [F(tk), null], [F(rouba), perto], [F(rouba + 2.5), perto], [F(rouba + 12), null]] });
+        bola.push({ de: F(rouba), ate: F(rouba + 2.5), tipo: 'VOO', origem: { ator: R }, destino: { ator: S }, altura: 0 });
+        acoes.push({ slot: S, de: F(rouba - 0.5), ate: F(rouba + 1.5), acao: 'CARRINHO' });
+        tau = rouba + 2.5;
+        X = S;
+      }
+    } else {
+      // A bola chega de onde o lance anterior a deixou (o goleiro repõe, o zagueiro afasta...).
+      const entrada = fimDaBola(this.planos[iv.antes - 1]!) ?? MEIO;
+      const perto = doTime(posse, 'ZAG', 'MEI');
+      X = alvoFinal ?? (perto.length ? perto.reduce((a, b) => (distancia(base(b), entrada) < distancia(base(a), entrada) ? b : a)) : doTime(posse, 'GOL', 'ATA')[0]!);
+      // Tempo de sobra: quem recebe pode estar longe da posição dele (acabou de atacar).
+      const v = Math.max(Math.min(3, dur * 0.5), Math.min(12, dur * 0.3));
+      bola.push({ de: 0, ate: F(v), tipo: 'VOO', origem: { ponto: entrada }, destino: { ator: X }, altura: 0 });
+      tau = v;
+    }
+
+    // Troca de passes. Os meias e zagueiros tocam mais; o goleiro e os atacantes, às vezes.
+    const peso: Record<Posicao, number> = { ZAG: 3, MEI: 3, ATA: 1, GOL: 0.5 };
+    const candidatos = doTime(posse, 'ZAG', 'MEI', 'ATA', 'GOL');
+    const posicaoDe = (s: SlotRef) => this.escalacoes[s.lado].jogadores[s.indice]!.posicao;
+    const passeFinal = (de: SlotRef) => (alvoFinal && !mesmo(de, alvoFinal) ? tempoDoPasse(base(de), base(alvoFinal)) : 0);
+    for (let guarda = 0; guarda < 300; guarda++) {
+      const segura = 2 + rng.next() * 4;
+      const restante = dur - tau;
+      const opcoes = candidatos.filter((c) => !mesmo(c, X));
+      let Y: SlotRef | null = null;
+      if (opcoes.length) {
+        const pesos = opcoes.map((c) => peso[posicaoDe(c)] / (0.06 + distancia(base(X), base(c))));
+        let sorte = rng.next() * pesos.reduce((a, b) => a + b, 0);
+        Y = opcoes[opcoes.length - 1]!;
+        for (let k = 0; k < opcoes.length; k++) {
+          sorte -= pesos[k]!;
+          if (sorte <= 0) {
+            Y = opcoes[k]!;
+            break;
+          }
+        }
+      }
+      const pY = Y ? tempoDoPasse(base(X), base(Y)) : 0;
+      if (!Y || restante < segura + pY + 2 + passeFinal(Y)) {
+        const pf = passeFinal(X);
+        if (pf > 0 && restante > pf + 0.5) {
+          posseDe(tau, dur - pf, X);
+          passe(dur - pf, dur, X, alvoFinal!);
+        } else if (pf > 0) passe(tau, dur, X, alvoFinal!);
+        else posseDe(tau, dur, X);
+        break;
+      }
+      posseDe(tau, tau + segura, X);
+      passe(tau + segura, tau + segura + pY, X, Y);
+      tau += segura + pY;
+      X = Y;
+    }
+    return fechar();
+  }
+
+  /** Posição no toque de bola: quem tem a bola sobe um pouco; quem defende fecha na bola e pressiona. */
+  private posicaoNoToque(slot: SlotRef, t: number, posse: Lado, bola: Ponto | null): Ponto {
+    const base = this.bases[slot.lado][slot.indice]!;
+    const posicao = this.escalacoes[slot.lado].jogadores[slot.indice]!.posicao;
+    const balanco = Math.sin(t / 9 + slot.indice * 1.7 + (slot.lado === 'mandante' ? 0 : 3)) * 0.012;
+    let pos: Ponto = { x: base.x + balanco, y: base.y + Math.cos(t / 11 + slot.indice) * 0.008 };
+    if (slot.lado === posse) return posicao === 'GOL' ? pos : { x: pos.x, y: pos.y + sentido(posse) * 0.03 };
+    if (!bola) return pos;
+    if (posicao === 'GOL') return { x: lerp(base.x, bola.x, 0.4), y: pos.y };
+    pos = lerpP(pos, bola, posicao === 'ATA' ? 0.3 : posicao === 'MEI' ? 0.2 : 0.08);
+    return pos;
   }
 
   /** Posição normal na formação: bloco sobe ao atacar, recua ao defender, com leve balanço. */
@@ -469,7 +707,15 @@ export class Timeline {
     if (bola && lance) {
       if (posicao === 'GOL' && lance.ataque !== slot.lado) pos = { x: lerp(base.x, bola.x, 0.55), y: pos.y };
       // Quem defende fecha um pouco na direção da bola.
-      else if (lance.ataque !== slot.lado && posicao !== 'GOL') pos = lerpP(pos, bola, 0.12 * avanco);
+      else if (lance.ataque !== slot.lado && posicao !== 'GOL') {
+        pos = lerpP(pos, bola, 0.12 * avanco);
+        // Ritmo novo (ADR-0043): o zagueiro que não está no lance faz a cobertura, entre a bola
+        // e o gol, do lado dele, em vez de ficar parado olhando.
+        if (this.novo && posicao === 'ZAG') {
+          const cobertura = lerpP(bola, { x: 0.5, y: golAlvo(lance.ataque) }, 0.55);
+          pos = lerpP(pos, { x: cobertura.x + (base.x < 0.5 ? -0.05 : 0.05), y: cobertura.y }, 0.45 * avanco);
+        }
+      }
     }
     return pos;
   }
@@ -479,9 +725,10 @@ export class Timeline {
    * na jogada (corre em disparada) ou só acompanhando (trota).
    */
   private alvoDe(slot: SlotRef, t: number, indice: number, f: number, bola: Ponto | null): { pos: Ponto; naJogada: boolean } {
-    const lance = indice >= 0 ? this.janelas[indice]!.lance : undefined;
-    const normal = () => this.posicaoNormal(slot, t, lance, f, bola, indice >= 0 ? this.janelas[indice + 1]?.lance : undefined);
-    const trilha = indice >= 0 ? this.trilhas[indice]!.get(chave(slot)) : undefined;
+    const faixa = indice >= 0 ? this.faixas[indice]! : undefined;
+    const lance = faixa?.lance;
+    const normal = () => (faixa?.toque ? this.posicaoNoToque(slot, t, faixa.toque.posse, bola) : this.posicaoNormal(slot, t, lance, f, bola, faixa?.proximo));
+    const trilha = faixa?.trilhas.get(chave(slot));
     if (!trilha) return { pos: normal(), naJogada: false };
     if (f <= trilha[0]![0] || f >= trilha[trilha.length - 1]![0]) return { pos: normal(), naJogada: false };
     for (let k = 1; k < trilha.length; k++) {
@@ -501,8 +748,7 @@ export class Timeline {
     return this.alvoDe(slot, t, indice, f, bola).pos;
   }
 
-  private posicoesEm(t: number, indice: number, bola: Ponto): Omit<JogadorNoQuadro, 'vel' | 'olhar' | 'acao'>[] {
-    const f = indice >= 0 ? this.fracao(indice, t) : 0;
+  private posicoesEm(t: number): Omit<JogadorNoQuadro, 'vel' | 'olhar' | 'acao'>[] {
     const lista: Omit<JogadorNoQuadro, 'vel' | 'olhar' | 'acao'>[] = [];
     for (const lado of ['mandante', 'visitante'] as const) {
       this.escalacoes[lado].jogadores.forEach((jogador, i) => {
@@ -518,10 +764,10 @@ export class Timeline {
   private bolaEm(t: number, indice: number, bruta = false): { pos: Ponto; altura: number } {
     if (indice < 0) return { pos: MEIO, altura: 0 };
     const f = this.fracao(indice, t);
-    const plano = this.planos[indice]!;
+    const plano = this.faixas[indice]!.plano;
     // O trecho em andamento; num intervalo sem trecho, vale o último que começou.
     const trecho = plano.bola.find((b) => f >= b.de && f < b.ate) ?? [...plano.bola].reverse().find((b) => f >= b.de) ?? plano.bola[0]!;
-    const janela = this.janelas[indice]!;
+    const janela = this.faixas[indice]!;
     // Posição de um ator num instante f' da mesma janela (sem depender da bola, para não haver ciclo).
     const ator = (s: SlotRef, fx: number) => {
       const tx = janela.inicio + fx * (janela.fim - janela.inicio);
@@ -565,6 +811,65 @@ export class Timeline {
     }
     return null;
   }
+}
+
+const outroLado = (l: Lado): Lado => (l === 'mandante' ? 'visitante' : 'mandante');
+
+/** Onde a bola termina num plano (ponto fixo), se termina parada ou voando para um ponto. */
+function fimDaBola(plano: Plano): Ponto | null {
+  const ultimo = plano.bola[plano.bola.length - 1];
+  if (!ultimo) return null;
+  if (ultimo.tipo === 'PARADA') return ultimo.ponto;
+  if (ultimo.tipo === 'VOO' && 'ponto' in ultimo.destino) return ultimo.destino.ponto;
+  return null;
+}
+
+/** Depois do toque de bola, a jogada começa com a bola saindo do criador (e não de um ponto do campo). */
+function comecaNoCriador(plano: Plano, criador: SlotRef): Plano {
+  return {
+    ...plano,
+    bola: plano.bola.map((b): TrechoBola => (b.de === 0 && b.tipo === 'VOO' && 'ponto' in b.origem ? { ...b, origem: { ator: criador } } : b)),
+  };
+}
+
+/**
+ * Ritmo novo (ADR-0043): dentro do tempo que a sim dá a cada lance, a jogada dura DURACAO_JOGADA e
+ * fica no fim (resolve perto do minuto do lance); o que sobra antes vira toque de bola. Bola parada
+ * e contra-ataque vêm colados no lance anterior (sem toque no meio): o grupo inteiro fica no fim.
+ * Depois de gol (e no Apito Inicial) sobra pelo menos RESERVA_SAIDA para a saída de bola, e do
+ * último lance até o apito é toque de bola.
+ */
+function encaixarJogadas(cheias: readonly Janela[], lances: readonly Lance[]): { janelas: Janela[]; intervalos: Intervalo[] } {
+  const imediato = (l: Lance) => Boolean(l.bolaParada || l.contraAtaque);
+  const janelas: Janela[] = [];
+  const intervalos: Intervalo[] = [];
+  let g0 = 0;
+  while (g0 < lances.length) {
+    let g1 = g0;
+    while (g1 + 1 < lances.length && imediato(lances[g1 + 1]!)) g1++;
+    const inicio = cheias[g0]!.inicio;
+    const espaco = cheias[g1]!.fim - inicio;
+    const n = g1 - g0 + 1;
+    const reserva = g0 === 0 || lances[g0 - 1]!.tipo === 'GOL' ? RESERVA_SAIDA : 0;
+    let dur = Math.min(DURACAO_JOGADA, Math.max((espaco - reserva) / n, Math.min(60, espaco / n)));
+    let toque = espaco - n * dur;
+    if (toque < 1) {
+      toque = 0;
+      dur = espaco / n;
+    }
+    if (toque > 0) intervalos.push({ inicio, fim: inicio + toque, antes: g0 });
+    let cursor = inicio + toque;
+    for (let i = g0; i <= g1; i++) {
+      const lance = lances[i]!;
+      const fRes = lance.tipo === 'DESARME' || lance.tipo === 'FALTA' ? F_RESOLUCAO_DESARME : F_RESOLUCAO_CHUTE;
+      janelas.push({ lance, inicio: cursor, fim: cursor + dur, resolucao: cursor + dur * fRes });
+      cursor += dur;
+    }
+    g0 = g1 + 1;
+  }
+  const fim = janelas[janelas.length - 1]?.fim ?? 0;
+  if (fim < DURACAO_JOGO - 1) intervalos.push({ inicio: fim, fim: DURACAO_JOGO, antes: lances.length });
+  return { janelas, intervalos };
 }
 
 function posicoesBase(escalacao: Escalacao, lado: Lado): Ponto[] {
