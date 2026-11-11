@@ -10,6 +10,7 @@ import {
   lerAtivacao,
   pertoDeUmJogo,
   rodarAvisos,
+  rotaDosAvisos,
   type AmbienteDosAvisos,
 } from '../src/avisos.js';
 
@@ -145,7 +146,7 @@ describe('rodarAvisos', () => {
     const AGENDA = kv();
     const env = {
       AGENDA,
-      PUBLICO: r2({ 'dados/liga.json': { calendario: [partida()] } }),
+      PUBLICO: r2({ 'dados/liga.json': { temporada: { numero: 2 }, calendario: [partida()] } }),
       PRIVADO: r2({ 'partidas/7.json': { momentos } }),
       DATABASE_URL: 'postgres://x',
       VAPID_PUBLICA: c.publica,
@@ -186,5 +187,33 @@ describe('rodarAvisos', () => {
   it('sem a chave VAPID, fica desligado', async () => {
     const env = { AGENDA: kv(), PUBLICO: r2({}), PRIVADO: r2({}) } as unknown as AmbienteDosAvisos;
     expect(await rodarAvisos(env, em(2), async () => [] as never)).toBe(0);
+  });
+});
+
+describe('só a partir da Temporada 2', () => {
+  const env = (numero: number) =>
+    ({
+      AGENDA: kv(),
+      PUBLICO: r2({ 'dados/liga.json': { temporada: { numero }, calendario: [partida()] } }),
+      PRIVADO: r2({ 'partidas/7.json': { momentos } }),
+      DATABASE_URL: 'postgres://x',
+      VAPID_PUBLICA: 'pub',
+      VAPID_PRIVADA: 'priv',
+    }) as unknown as AmbienteDosAvisos;
+
+  it('na T1, o cron não manda nada nem abre o banco', async () => {
+    let abriu = false;
+    const n = await rodarAvisos(env(1), em(2), async () => {
+      abriu = true;
+      return [] as never;
+    });
+    expect(n).toBe(0);
+    expect(abriu).toBe(false);
+  });
+
+  it('na T1, a ativação é recusada', async () => {
+    const req = new Request('https://borda/avisos', { method: 'POST', body: JSON.stringify({ assinatura: { endpoint: 'https://push.exemplo.com/1', keys: { p256dh: 'B', auth: 'A' } }, times: ['ONC'] }) });
+    const r = await rotaDosAvisos(req, env(1), async () => undefined as never, {});
+    expect(r!.status).toBe(409);
   });
 });

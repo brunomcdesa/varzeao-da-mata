@@ -39,3 +39,10 @@ export function timesValidos(times: unknown, existentes: readonly string[]): Tim
   if (!unicos.every((t): t is TimeId => typeof t === 'string' && existentes.includes(t))) return null;
   return unicos;
 }
+
+/** O App e os Avisos estreiam na Temporada 2 (ADR-0040, ADR-0042): antes disso, nada aparece nem é mandado. */
+export const TEMPORADA_DO_APP = 2;
+
+export function appLiberado(numeroDaTemporada: number | null | undefined): boolean {
+  return (numeroDaTemporada ?? 0) >= TEMPORADA_DO_APP;
+}
