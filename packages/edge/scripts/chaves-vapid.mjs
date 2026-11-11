@@ -1,6 +1,6 @@
 // Gera o par de chaves VAPID dos Avisos do App (ADR-0042). Rode na sua máquina; nada sai daqui.
-// A pública vai em vars.LIGA_VAPID_PUBLICA (GitHub) e no segredo VAPID_PUBLICA da borda;
-// a privada só no segredo VAPID_PRIVADA da borda. Não cole a privada em chat nem commite.
+// No GitHub, ambiente PROD: a pública na variável LIGA_VAPID_PUBLICA e a privada no segredo
+// VAPID_PRIVADA. O workflow borda repassa as duas para a borda. Não cole a privada em chat nem commite.
 import { generateVAPIDKeys } from 'web-push-neo';
 
 const { publicKey, privateKey } = await generateVAPIDKeys();
