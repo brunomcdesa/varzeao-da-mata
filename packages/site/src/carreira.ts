@@ -2,7 +2,7 @@
  * Página de Carreira (ADR-0025): agrupa o histórico do Jogador por Temporada. Sem DOM, para
  * ser testado.
  */
-import type { JogadorPublico, TimeId, TipoTrofeu } from '@liga/shared';
+import { ORDEM_DOS_TROFEUS, type JogadorPublico, type TimeId, type TipoTrofeu } from '@liga/shared';
 
 type Jogo = JogadorPublico['historico'][number];
 
@@ -64,7 +64,7 @@ export function temporadasDaCarreira(j: JogadorPublico): TemporadaDaCarreira[] {
         ovrFim: jogos.at(-1)?.ovr ?? null,
         amarelos: jogos.reduce((s, h) => s + (h.amarelos ?? 0), 0),
         expulsoes: jogos.filter((h) => h.expulso).length,
-        trofeus: (['CAMPEAO', 'CRAQUE_TEMPORADA', 'CRAQUE_RODADA', 'REI_DO_CLASSICO'] as TipoTrofeu[]).filter((t) => contagem.has(t)).map((t) => [t, contagem.get(t)!]),
+        trofeus: ORDEM_DOS_TROFEUS.filter((t) => contagem.has(t)).map((t) => [t, contagem.get(t)!]),
       };
     });
 }

@@ -7,8 +7,9 @@
  * aparecem depois do Apito (o lance a lance) ou do fim do Ao Vivo (placar, tabela, Card).
  * Escalações aparecem assim que existem (a partir do Corte).
  */
-import { IDENTIDADE, TIMES, duracaoAoVivoMs, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2 } from '@liga/shared';
+import { IDENTIDADE, TIMES, duracaoAoVivoMs, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
 import { fundadorDe } from './rebalanceamento.js';
+import { TEMPORADA_DOS_DESTAQUES, desempenhosDasPartidas } from './destaques.js';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { seriesDaTemporada, type SeriesDaTemporada } from './series.js';
@@ -341,6 +342,32 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
           j.trofeus.push({ tipo: 'CRAQUE_RODADA', temporada: numero, rodada: r.numero, fase: r.fase, time: craque.time, ...(serie === 'B' ? { serie } : {}) });
         }
       }
+    }
+  }
+
+  // Seleção da Rodada e da Temporada (ADR-0041), da T2 em diante: da Rodada depois que o Resumo dela foi ao
+  // ar; da Temporada depois do anúncio do Craque da Temporada (o mesmo Reels).
+  for (const t of temporadas) {
+    if (t.numero < TEMPORADA_DOS_DESTAQUES) continue;
+    const series = comSeries(t.id);
+    const ps = todas.filter((p) => p.temporada_id === t.id && p.resultado && encerrada(p));
+    const dar = (tipo: 'SELECAO_RODADA' | 'SELECAO_TEMPORADA', destaques: Destaque[], desempenhos: ReturnType<typeof desempenhosDasPartidas>, rodada?: Pick<LinhaPartida, 'rodada' | 'fase'>) => {
+      for (const d of destaques) {
+        const j = porJogador.get(d.jogadorId);
+        const time = [...desempenhos].reverse().find((x) => x.jogadorId === d.jogadorId && x.posicao === d.posicao)?.time;
+        if (!j || !time) continue;
+        j.trofeus.push({ tipo, temporada: t.numero, posicao: d.posicao, time, ...(rodada ? { rodada: rodada.rodada, fase: rodada.fase } : {}), ...(d.serie === 'B' ? { serie: d.serie } : {}) });
+      }
+    };
+    for (const rodadaId of new Set(ps.map((p) => p.rodada_id))) {
+      const doDia = ps.filter((p) => p.rodada_id === rodadaId);
+      if (doDia[0]!.resumo_status !== 'PUBLICADO') continue;
+      const ds = desempenhosDasPartidas(doDia.map((p) => ({ resultado: p.resultado!, serie: p.serie })), series);
+      dar('SELECAO_RODADA', destaquesDaRodada(ds), ds, doDia[0]!);
+    }
+    if (t.craque_revelado_em) {
+      const ds = desempenhosDasPartidas(ps.map((p) => ({ resultado: p.resultado!, serie: p.serie })), series);
+      dar('SELECAO_TEMPORADA', destaquesDaTemporada(ds), ds);
     }
   }
 

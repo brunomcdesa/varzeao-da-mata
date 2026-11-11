@@ -2312,6 +2312,7 @@ a.jogo:hover {
   color: var(--cal);
 }
 .sala-craque_rodada .estrela,
+.sala-selecao_rodada .estrela,
 .sala-rei_do_classico .estrela {
   background: var(--cal-fraca);
 }

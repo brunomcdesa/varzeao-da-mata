@@ -23,6 +23,7 @@ import { CORTE_MINUTOS } from './escalacao.js';
 import { Instagram, ErroInstagram } from './instagram.js';
 import { CHAVE_TOKEN, gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
 import { avancarMataMata } from './mataMata.js';
+import { destaquesDaTemporadaNoBanco } from './destaques.js';
 import { seriesDaTemporada } from './series.js';
 import { rodarPartida, type DadosDoVideo } from './partida.js';
 import { craqueDaRodada, dadosDoResumo, fecharRodada, HORA_DO_RESUMO, type DadosDoResumo } from './resumo.js';
@@ -561,6 +562,8 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
   const b = craqueB ? await numerosDoCraque(c.banco, t.id, t.final_id, craqueB.id) : null;
   const publicarEm = new Date(Math.max(Date.UTC(a, m - 1, d + 1, HORA_DO_RESUMO - FUSO_BRASILIA), agora.getTime()));
   // Campeão, vice, artilheiro e melhor goleiro: os mesmos números da página de História.
+  // Seleção da Temporada (ADR-0041): com ela, o melhor goleiro vira a Muralha.
+  const destaques = await destaquesDaTemporadaNoBanco(c.banco, t.id, t.numero, (await seriesDaTemporada(c.banco, t.id)).B.length > 0);
   const historia = ((await exportarSite(c.banco, agora)).arquivos.get('liga.json') as LigaPublica).temporadas.find((x) => x.numero === t.numero);
   const dados: DadosDoResumo = {
     temporada: t.numero,
@@ -576,9 +579,10 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
     ...(b ? { craqueDaTemporadaB: { username: b.s.username, apelido: b.s.apelido ?? null, time: b.s.time_id, posicao: b.s.posicao, notaMedia: Number(b.s.media), gols: b.gols, jogos: Number(b.s.jogos), votos: Number(b.s.votos) } } : {}),
     fimDaTemporada: {
       ...(historia?.artilheiro ? { artilheiro: { username: historia.artilheiro.username, apelido: historia.artilheiro.apelido ?? null, time: historia.artilheiro.time, posicao: historia.artilheiro.posicao, gols: historia.artilheiro.gols } } : {}),
-      ...(historia?.goleiro ? { goleiro: { username: historia.goleiro.username, time: historia.goleiro.time, notaMedia: historia.goleiro.notaMedia } } : {}),
+      ...(historia?.goleiro && !destaques.length ? { goleiro: { username: historia.goleiro.username, time: historia.goleiro.time, notaMedia: historia.goleiro.notaMedia } } : {}),
       proxima,
     },
+    ...(destaques.length ? { destaques } : {}),
     craqueDaTemporada: { username: s.username, apelido: s.apelido ?? null, time: s.time_id, posicao: s.posicao, notaMedia: Number(s.media), gols, jogos: Number(s.jogos), votos: Number(s.votos) },
   };
   let item: ItemDaAgenda | null = null;

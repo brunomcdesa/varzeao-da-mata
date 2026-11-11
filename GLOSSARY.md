@@ -110,7 +110,11 @@ _Avoid_: indicados, finalistas, top 5
 
 **Craque da Rodada**:
 O Candidato a Craque mais votado pelo público em cada Série, revelado no Reels da primeira Partida do dia seguinte. Cada Candidato tem a letra da Série e um número (A1 a A5 e B1 a B5, da maior Nota para a menor). Vota-se comentando o número no Resumo da Rodada (um voto por @, vale o último, inclusive em si mesmo) ou clicando no site (um voto por aparelho, vale o primeiro). Os dois somam.
-_Avoid_: MVP, melhor em campo, destaque
+_Avoid_: MVP, melhor em campo, destaque (e não confundir com a Seleção da Rodada, que é por Posição e não tem voto)
+
+**Seleção da Rodada**:
+O time ideal da Rodada em cada Série: o Jogador de maior Nota em cada Posição, chamado de Muralha (goleiro), Carrapato (zagueiro), Garçom (meia) e Matador (atacante). Sai automática no Resumo da Rodada, sem voto, e não mexe na Escalação: vira troféu na Carreira. A Seleção da Temporada usa a maior Nota média (com pelo menos 3 jogos na Posição) e sai no Resumo da Temporada. Desde a Temporada 2. ADR-0041.
+_Avoid_: destaque da rodada, time da rodada, melhores da posição
 
 **Craque da Temporada**:
 O melhor Jogador da Temporada em cada Série, eleito pelo público entre os 5 da Série com a maior nota média (com pelo menos 3 jogos). A votação abre no Resumo da Final e fecha às 18h do dia seguinte; o anúncio sai às 19h, num Reels próprio.
