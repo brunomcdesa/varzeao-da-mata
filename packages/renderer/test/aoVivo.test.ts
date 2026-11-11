@@ -32,4 +32,24 @@ describe('narração do Ao Vivo', () => {
       expect(res.filter((f) => agenda.some((a) => a.id === f.id)).length / res.length).toBeGreaterThan(0.9);
     }
   });
+
+  it('memória da Partida: as falas de enchimento quase não se repetem (ADR-0043)', () => {
+    for (let seed = 1; seed <= 10; seed++) {
+      const e = { mandante: esc('CAP'), visitante: esc('ONC') };
+      const tl = new Timeline(simularPartida({ ...e, seed, fase: 'LIGA' }), e);
+      const falas = roteiroAoVivo(tl);
+      const dur = (id: string) => estimarDuracao(falas.find((f) => f.id === id)!.texto);
+      const ditas = agendarAoVivo(falas, dur)
+        .map((a) => falas.find((f) => f.id === a.id)!)
+        .filter((f) => f.tipo === 'enchimento')
+        // As de placar e minuto e as curtas de tapa-buraco mudam pouco e podem voltar.
+        .map((f) => f.texto)
+        .filter((t) => !/\d/.test(t) && !/^(Segue o jogo|Bola rolando|Vamos lá|Que partida!)/.test(t) && !/zero a zero|Tudo igual,/.test(t));
+      const vezes = new Map<string, number>();
+      for (const t of ditas) vezes.set(t, (vezes.get(t) ?? 0) + 1);
+      const repetidas = [...vezes.values()].filter((n) => n > 1).length;
+      expect(repetidas / vezes.size, `seed ${seed}`).toBeLessThan(0.15);
+    }
+  });
 });
+

@@ -127,6 +127,15 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
       INDIVIDUAL: [`${cap(f)} parte pra cima do zagueiro...`, `${cap(f)} limpa a marcação...`, `${cap(f)} vai no drible...`],
       DESARME: [`${cap(c)} conduz ${doTime(time(atq))}...`, `Vem ${doTime(time(atq))} pelo meio...`, `${cap(c)} tenta a jogada...`],
     };
+    // Frases aprovadas em 11/11 (ADR-0043): mais opções de construção.
+    const chegando = [`${cap(FALA_DO_TIME[time(atq)].artigo)} ${curto(atq)} vem trabalhando a bola...`, `${cap(c)} carrega pelo meio...`, `Olha ${FALA_DO_TIME[time(atq)].artigo} ${curto(atq)} chegando!`];
+    for (const k of ['TABELA', 'LANCAMENTO', 'CRUZAMENTO', 'DESARME']) construcao[k] = [...construcao[k]!, ...chegando];
+    // Marcação dupla com passe (ADR-0043): os dois zagueiros fecham e a bola sai para quem está livre.
+    if (lance.dobra?.passe) {
+      for (const k of Object.keys(construcao)) construcao[k] = [`Dobraram a marcação... e a bola sai pro companheiro livre!`, `Dois zagueiros em cima... tocou ${pro(pf)}, livre!`];
+    } else if (lance.dobra && !lance.bolaParada) {
+      construcao[plano.estilo] = [...construcao[plano.estilo]!, `A zaga ${doTime(time(lance.dobra.zagueiro.lado))} dobra a marcação ${f.replace(/^o /, 'no ')}!`];
+    }
     // Contra-ataque: o rival perdeu a bola com gente na frente.
     if (lance.contraAtaque) {
       const linhas = lance.contraAtaque.recomposto
@@ -175,20 +184,30 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
         [`Defesaça! ${cap(def)} fecha o gol!`, 'animado'],
         [`Pegou! ${cap(def)} tá atento!`, 'animado'],
         [`Espalmou ${def}!`, 'animado'],
+        [`Que reflexo ${def.replace(/^o /, 'do ')}!`, 'animado'],
+        [`Mãos firmes! ${cap(posicao(lance, 'defensor'))} segura.`, 'animado'],
       ],
       FORA: [
         [`Pra fora! Passou perto!`, 'animado'],
         [`Uuuh! Tirou tinta da trave!`, 'animado'],
         [`Isolou! Lá pro mato!`, 'animado'],
+        [`Chutou com vontade, mas foi pra fora!`, 'animado'],
+        // Só quando a bola foi por cima (a tela mostra).
+        ...(plano.bola.some((b) => b.tipo === 'VOO' && b.chute && b.altura >= 0.5) ? [[`Passou raspando o travessão!`, 'animado'] as [string, Tom]] : []),
       ],
       BLOQUEIO: [
         [`Bloqueou! ${cap(def)} se jogou na frente!`, 'animado'],
         [`Travou o chute! Que corte ${def.replace(/^o /, 'do ')}!`, 'animado'],
         [`Na zaga! ${cap(def)} bloqueia!`, 'animado'],
+        [`Bloqueou com o corpo! Que coragem ${def.replace(/^o /, 'do ')}!`, 'animado'],
+        [`Parou na zaga!`, 'animado'],
       ],
       DESARME: [
         [`Desarmou! ${cap(def)} chega firme.`, 'normal'],
         [`Roubou a bola ${def.replace(/^o /, 'o ')}!`, 'normal'],
+        [`Chegou na hora certa! Bola recuperada.`, 'normal'],
+        [`Bote perfeito ${def.replace(/^o /, 'do ')}!`, 'normal'],
+        [`Tomou a bola no tempo certo!`, 'normal'],
       ],
     };
     if (lance.tipo === 'FALTA') {
@@ -245,6 +264,9 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
         FALA_DO_TIME[time(atq)].bordao,
         `${cap(f)} não perdoa!`,
         `${curto('mandante')} ${placar.mandante}, ${curto('visitante')} ${placar.visitante}.`,
+        `Explode a torcida ${doTime(time(atq))}!`,
+        `Comemora ${f}!`,
+        `Que golaço no Varzeão!`,
       ];
       falas.push({ id: `lance-${s.lance}-c`, texto: escolher(rng, extras), inicio: s.resolucao! + 1.3, limite: s.fim - 0.05, tom: 'animado', segmento: indice, parte: 'depois' });
     }
