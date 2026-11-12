@@ -26,7 +26,7 @@ async function horasPorSerie(temporadaId: number): Promise<Record<string, number
   return porSerie;
 }
 
-describe('Horários por Série (ADR-0049)', () => {
+describe('Horários por Série (ADR-0050)', () => {
   it('com duas Séries, um jogo por hora: a B das 11h às 14h, a A das 15h às 18h', async () => {
     const t2 = await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-19', seed: 8, series: { A: TIMES_FUNDADORES, B: TIMES_NOVOS } });
     expect(await horasPorSerie(t2)).toEqual({ B: [11, 12, 13, 14], A: [15, 16, 17, 18] });

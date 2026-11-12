@@ -1,4 +1,4 @@
-# 0049 — Com duas Séries, um jogo por hora (a B antes da A)
+# 0050 — Com duas Séries, um jogo por hora (a B antes da A)
 
 - Status: aceito
 - Data: 2026-11-12

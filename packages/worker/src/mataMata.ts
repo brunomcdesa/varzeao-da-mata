@@ -2,7 +2,7 @@
  * Mata-mata: depois da 7ª Rodada, os 4 melhores da Fase de Liga jogam as Semifinais no dia
  * seguinte (1º × 4º às 14h, 2º × 3º às 16h) e a Final no
  * outro dia, às 18h. Empate em qualquer jogo do Mata-mata vai para os pênaltis. O melhor colocado é o mandante.
- * Com duas Séries, cada uma tem o seu Mata-mata, e a B joga antes da A (ADR-0049).
+ * Com duas Séries, cada uma tem o seu Mata-mata, e a B joga antes da A (ADR-0050).
  *
  * `avancarMataMata` é idempotente: o job `resumo` chama todo dia e ela só faz o próximo passo
  * quando ele está pronto.
@@ -17,7 +17,7 @@ import { tabela } from './tabela.js';
 export const HORARIOS_DAS_SEMIFINAIS = [14, 16] as const;
 export const HORARIO_DA_FINAL = 18;
 
-/** Com duas Séries (ADR-0049), a B joga antes: Semis B 13h e 14h, A 15h e 16h; Finais B 16h, A 18h. */
+/** Com duas Séries (ADR-0050), a B joga antes: Semis B 13h e 14h, A 15h e 16h; Finais B 16h, A 18h. */
 export function horariosDasSemifinais(serie: Serie, comSeries: boolean): readonly number[] {
   if (!comSeries) return HORARIOS_DAS_SEMIFINAIS;
   return serie === 'B' ? [13, 14] : [15, 16];

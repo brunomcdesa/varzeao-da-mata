@@ -201,7 +201,7 @@ describe('jobs', () => {
     expect(ig.containers).toHaveLength(1);
   });
 
-  it('partida: com duas Séries, cada horário tem uma Partida só e o job grava o Reels dela (ADR-0049)', async () => {
+  it('partida: com duas Séries, cada horário tem uma Partida só e o job grava o Reels dela (ADR-0050)', async () => {
     const t2 = await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-20', seed: 4, series: { A: TIMES, B: TIMES_NOVOS } });
     await banco.query(`UPDATE partida SET status = 'PUBLICADA' WHERE rodada_id IN (SELECT id FROM rodada WHERE temporada_id <> $1)`, [t2]);
     // O jogo das 11h já saiu; às 11h25 o job pega só o das 12h (o segundo da Série B).

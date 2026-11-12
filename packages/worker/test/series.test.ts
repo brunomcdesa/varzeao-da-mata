@@ -48,7 +48,7 @@ describe('Série A e Série B (ADR-0017)', () => {
     expect(liga.calendario.every((p) => p.serie === undefined)).toBe(true);
   });
 
-  it('depois da Temporada 1, os fundadores ficam na A e os Times novos formam a B, um jogo por hora com a B antes da A (ADR-0049)', async () => {
+  it('depois da Temporada 1, os fundadores ficam na A e os Times novos formam a B, um jogo por hora com a B antes da A (ADR-0050)', async () => {
     const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
     await jogarTemporada(t1);
     const t2 = await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-18', seed: 8 });
