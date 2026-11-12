@@ -251,6 +251,8 @@ export interface PartidaPublica {
   narracao: string | null;
   /** Temporada 2: tamanho de cada Elenco, para a Arquibancada. Ausente nas Partidas da T1. */
   torcida?: Record<'mandante' | 'visitante', number>;
+  /** Mata-mata (ADR-0048): Semifinal ou Final, Temporada e Série. No fim mostra quem foi pra Final ou o campeão. */
+  mataMata?: import('./rodada.js').MataMataDaPartida;
   /** Só no arquivo privado (job partida): quando cada gol aparece no Ao Vivo, para os Avisos do App (ADR-0042). */
   momentos?: MomentosDoAoVivo;
 }

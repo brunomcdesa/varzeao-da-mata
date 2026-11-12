@@ -110,6 +110,7 @@ async function preparar(dados: PartidaParaVideo, quadrosPorSegundo = 30): Promis
     ...(dados.apelidos ? { apelidos: dados.apelidos } : {}),
     escudo,
     ...(dados.subtitulo ? { subtitulo: dados.subtitulo } : {}),
+    ...(dados.mataMata ? { mataMata: dados.mataMata } : {}),
   };
   return { duracao: roteiro.duracao, totalQuadros: roteiro.totalQuadros(fps) };
 }

@@ -4,7 +4,7 @@
  *
  * Regra do glossário: o Locutor fala dos Jogadores pela Posição e pelo Time, nunca pelo @.
  */
-import { FALA_DO_TIME, doTime, ehGoleada, nomeDoClassico, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, doTime, ehGoleada, nomeDoClassico, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, type Lado, type Lance } from '@liga/sim';
 import { narradorDa } from './narradores.js';
 import { F_CHUTE_PENALTI, instanteDaCobranca, resultadoDaCobranca } from './penaltis.js';
@@ -61,7 +61,12 @@ export function apelidoFalavel(a: string | null | undefined): string | null {
  * `apelidos`: o apelido de cada lugar na Escalação (ADR-0014). O narrador fala o nome só nos
  * gols; no resto, pela posição e pelo Time.
  */
-export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string | null)[]>): Fala[] {
+export interface OpcoesNarracao {
+  /** Partida do Mata-mata: abertura e fim falam da Semifinal ou da Final (ADR-0048). */
+  mataMata?: MataMataDaPartida | null;
+}
+
+export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string | null)[]>, o: OpcoesNarracao = {}): Fala[] {
   const tl = roteiro.timeline;
   const r = tl.resultado;
   const esc = tl.escalacoes;
@@ -97,7 +102,11 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
   falas.push({
     id: 'abertura',
     texto: `${narrador.apresentacao} ${
-      classico ? `É o ${classico}! ${curto('mandante')} contra ${curto('visitante')}!` : `Bola rolando no Varzeão da Mata! ${curto('mandante')} contra ${curto('visitante')}!`
+      o.mataMata
+        ? aberturaDoMataMata(o.mataMata, r.times.mandante, r.times.visitante, r.seed)
+        : classico
+          ? `É o ${classico}! ${curto('mandante')} contra ${curto('visitante')}!`
+          : `Bola rolando no Varzeão da Mata! ${curto('mandante')} contra ${curto('visitante')}!`
     }${tl.t2 ? ` ${FALA_DO_CLIMA[tl.t2.clima]}` : ''}`,
     inicio: 0.25,
     limite: segs[0]!.fim,
@@ -345,7 +354,8 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
   const vencedor = r.penaltis && r.vencedor
     ? `${cap(artigoDe(time(r.vencedor)))} ${curto(r.vencedor)} venceu nos pênaltis!`
     : r.vencedor ? vitoria(r.vencedor) : 'Tudo igual no Varzeão!';
-  falas.push({ id: 'fim', texto: `Fim de jogo! ${placar}. ${vencedor} Curtiu? Compartilha com a galera! ${narrador.despedida}`, inicio: fim.inicio + 0.35, limite: fim.fim, tom: 'animado', segmento: segs.length - 1, parte: 'antes' });
+  const consequencia = o.mataMata && r.vencedor ? ` ${desfechoDoMataMata(o.mataMata, time(r.vencedor))}` : '';
+  falas.push({ id: 'fim', texto: `Fim de jogo! ${placar}. ${vencedor}${consequencia} Curtiu? Compartilha com a galera! ${narrador.despedida}`, inicio: fim.inicio + 0.35, limite: fim.fim, tom: 'animado', segmento: segs.length - 1, parte: 'antes' });
   return falas;
 }
 
@@ -404,6 +414,35 @@ const FALA_DO_CLIMA = {
   LAMA: 'Muita lama no gramado hoje!',
 } as const;
 const artigoDe = (t: TimeId) => FALA_DO_TIME[t].artigo;
+
+/** "da Série B" quando a Temporada tem duas Séries; vazio com Série única. */
+const daSerie = (m: MataMataDaPartida) => (m.serie ? ` da Série ${m.serie}` : '');
+
+/**
+ * Abertura de uma Partida do Mata-mata (ADR-0048). A tela mostra "Semifinal" ou "Final" no
+ * subtítulo da abertura; o Clássico, quando é, também aparece.
+ */
+export function aberturaDoMataMata(m: MataMataDaPartida, mandante: TimeId, visitante: TimeId, seed: number): string {
+  const rng = criarRng(((seed >>> 0) ^ 0x27d4eb2f) >>> 0);
+  const confronto = `${FALA_DO_TIME[mandante].curto} contra ${FALA_DO_TIME[visitante].curto}`;
+  const classico = nomeDoClassico(mandante, visitante);
+  if (m.etapa === 'SEMIFINAL') {
+    if (classico) return `É o ${classico}, valendo vaga na Final${daSerie(m)}! ${confronto}!`;
+    return rng.pick([
+      `Começou o Mata-mata! Semifinal${daSerie(m)} no Varzeão: ${confronto}! Quem vencer vai pra Final!`,
+      `É Semifinal${daSerie(m)} no Varzeão da Mata! ${confronto}! Perdeu, tá fora!`,
+    ]);
+  }
+  const titulo = `o título${daSerie(m)} da Temporada ${m.temporada}`;
+  if (classico) return `É o ${classico} na Final${daSerie(m)}! ${confronto}, valendo ${titulo}!`;
+  return rng.pick([`É a Final${daSerie(m)} do Varzeão da Mata! ${confronto}, valendo ${titulo}!`, `Chegou o grande dia! Final${daSerie(m)} no Varzeão: ${confronto}! Vale ${titulo}!`]);
+}
+
+/** O que a vitória vale, no fim da Partida do Mata-mata: vaga na Final ou o Título. */
+export function desfechoDoMataMata(m: MataMataDaPartida, vencedor: TimeId): string {
+  const quem = `${cap(artigoDe(vencedor))} ${FALA_DO_TIME[vencedor].curto}`;
+  return m.etapa === 'SEMIFINAL' ? `${quem} está na Final${daSerie(m)}!` : `${quem} é campeão${daSerie(m)} da Temporada ${m.temporada} do Varzeão da Mata!`;
+}
 
 export function montarEventos(roteiro: Roteiro): EventoSonoro[] {
   const tl = roteiro.timeline;

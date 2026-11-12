@@ -41,6 +41,10 @@ const { values: args } = parseArgs({
     vitrine: { type: 'boolean' },
     /** Na prévia, instantes extras em segundos, separados por vírgula. */
     instantes: { type: 'string' },
+    /** Mata-mata (ADR-0048): semifinal ou final, com --temporada N e, se houver Séries, --serie A|B. */
+    etapa: { type: 'string' },
+    temporada: { type: 'string', default: '1' },
+    serie: { type: 'string' },
   },
 });
 
@@ -66,6 +70,15 @@ async function main(): Promise<void> {
     console.log(`seed ${s - 1}: ${partida.resultado.gols.mandante}x${partida.resultado.gols.visitante}`);
   } else if (args.seed) partida = partidaDeTeste(Number(args.seed), args.mandante as TimeId, args.visitante as TimeId, args.subtitulo, 'LIGA', !!args.t2);
   else throw new Error('informe --entrada partida.json, --seed N ou --escudos pasta');
+  if (args.etapa) {
+    const etapa = args.etapa.toUpperCase();
+    if (etapa !== 'SEMIFINAL' && etapa !== 'FINAL') throw new Error('--etapa: semifinal ou final');
+    if (!args.entrada && !args.penaltis) {
+      // Mata-mata sem empate no fim: refaz no modo do Mata-mata (pênaltis se empatar).
+      partida = partidaDeTeste(Number(args.seed ?? 1), args.mandante as TimeId, args.visitante as TimeId, args.subtitulo ?? (etapa === 'FINAL' ? 'Final, jogo das 18h' : 'Semifinal, jogo das 14h'), 'MATA_MATA');
+    }
+    partida.mataMata = { etapa, temporada: Number(args.temporada), serie: args.serie === 'A' || args.serie === 'B' ? args.serie : null };
+  }
   await gravarReels(partida, {
     saida: resolve(process.cwd(), args.saida!),
     fps: Number(args.fps),

@@ -4,6 +4,7 @@ import type { Desempenho, Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { contagem, diaLongo, hora, jogadores, partida, situacaoAgora } from '../dados.js';
 import { DURACAO_JOGO, narradorDa, resultadoDaCobranca } from '@liga/renderer';
 import { montarTimeline, transmitir } from '../transmissao.js';
+import { desfechoDoMataMata } from '../mataMata.js';
 import { REACOES, entrarNaSala } from '../reacoes.js';
 import type { Timeline } from '@liga/renderer';
 import { bonecoImg, campinho, curto, duelaDeForcas, escudoImg, html, jogadorLink, nota, NOME_DA_POSICAO, rotuloClassico, type Html, comCamisa, comFaixa } from '../ui.js';
@@ -144,6 +145,7 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
     visitante: [...(p.escalacoes?.visitante.jogadores ?? [])].sort((a, b) => a.lugar - b.lugar).map((j) => (j.username ? j.apelido || `@${j.username}` : null)),
   };
   const mostrarFinal = s === 'ENCERRADA' && r;
+  const desfecho = r && p.mataMata ? desfechoDoMataMata(p, r) : null;
   const placar = mostrarFinal
     ? html`<span class="gols">${r.gols.mandante}</span><span class="x">×</span><span class="gols">${r.gols.visitante}</span>`
     : s === 'AO_VIVO' && timeline
@@ -163,6 +165,9 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
               ? html`<span class="penaltis-placa">${curto(r.times[r.vencedor])} venceu nos pênaltis, ${r.penaltis.placar[r.vencedor]} a ${r.penaltis.placar[r.vencedor === 'mandante' ? 'visitante' : 'mandante']}</span>`
               : ''}
             ${s === 'AO_VIVO' && timeline?.disputa ? html`<span class="penaltis-placa" data-penaltis hidden></span>` : ''}
+            ${desfecho && (mostrarFinal || s === 'AO_VIVO')
+              ? html`<span class="mata-mata-placa${p.mataMata!.etapa === 'FINAL' ? ' campeao' : ''}" data-desfecho ${mostrarFinal ? '' : 'hidden'}>${desfecho}</span>`
+              : ''}
             ${s === 'AO_VIVO' ? html`<span class="ao-vivo-selo">Ao vivo <span data-minuto>0'</span></span> <span class="publico-selo" data-publico hidden></span>` : ''}
             ${s === 'AGENDADA' ? html`<span class="falta">Apito ${contagem(p.apito)}</span>` : ''}
             ${classico ? html`<span class="classico-nome">${classico}</span>` : ''}
@@ -249,6 +254,7 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
   const elPlacar = { mandante: main.querySelector('[data-placar="mandante"]'), visitante: main.querySelector('[data-placar="visitante"]') };
   const elMinuto = main.querySelector('[data-minuto]');
   const elPen = main.querySelector<HTMLElement>('[data-penaltis]');
+  const elDesfecho = s === 'AO_VIVO' ? main.querySelector<HTMLElement>('[data-desfecho]') : null;
   const botoes = [...main.querySelectorAll<HTMLButtonElement>('.lance')];
   const cursor = main.querySelector<HTMLElement>('[data-cursor]');
   const tx = transmitir(caixa, p, timeline, {
@@ -260,6 +266,8 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
         elPlacar.visitante!.textContent = String(pl.visitante);
       }
       if (elMinuto) elMinuto.textContent = t > DURACAO_JOGO ? 'pênaltis' : `${Math.min(90, Math.floor(t / 60))}'`;
+      // Mata-mata (ADR-0048): no apito final do Ao Vivo aparece quem foi pra Final ou o campeão.
+      if (elDesfecho) elDesfecho.hidden = t < timeline.duracao;
       if (elPen && timeline.disputa) {
         const e = timeline.estado(t).penaltis;
         elPen.hidden = !e;
@@ -290,3 +298,4 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
     clearTimeout(fimDoAoVivo);
   };
 };
+

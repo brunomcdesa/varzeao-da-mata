@@ -2,11 +2,12 @@
  * Desenho de um quadro do Reels: o campo da Timeline no instante que o Roteiro manda,
  * mais as cartelas de abertura e de fim e o escurecimento dos cortes.
  */
-import { IDENTIDADE, type Aparencia, type Escalacao } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, type Aparencia, type Escalacao, type MataMataDaPartida, type TimeId } from '@liga/shared';
 import type { Lado, ResultadoPartida } from '@liga/sim';
 import { CAMPO, cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, faixaDeTorcida, plaquinha, rotulo, type OpcoesDesenho } from './desenho.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
+import { LARGURA_ESCUDO } from './escudos.js';
 import type { OpcoesRoteiro, QuadroRoteiro, Roteiro } from './roteiro.js';
 import { aparencia, sprite } from './sprites.js';
 import { narradorDa } from './narradores.js';
@@ -16,6 +17,8 @@ export interface OpcoesVideo extends OpcoesDesenho {
   subtitulo?: string;
   /** Escudo da Liga (já carregado), mostrado na abertura. */
   escudo?: CanvasImageSource;
+  /** Partida do Mata-mata: o fim mostra quem foi pra Final ou o campeão (ADR-0048). */
+  mataMata?: MataMataDaPartida | null;
 }
 
 /** Tudo que a página do vídeo precisa para gravar uma Partida (montado pelo worker a partir do banco). */
@@ -32,6 +35,8 @@ export interface PartidaParaVideo {
   aparencias?: Record<string, Aparencia>;
   /** Temporada 2: tamanho de cada Elenco, para a Arquibancada (ADR-0019). */
   torcida?: Record<Lado, number>;
+  /** Partida do Mata-mata (ADR-0048): Semifinal ou Final, Temporada e Série. */
+  mataMata?: MataMataDaPartida | null;
 }
 
 export function desenharQuadroVideo(ctx: CanvasRenderingContext2D, roteiro: Roteiro, tVideo: number, o: OpcoesVideo): QuadroRoteiro {
@@ -170,12 +175,34 @@ function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number
   pin.ctx.globalAlpha = entre(p, 0, 0.15);
   veu(pin, 0.86);
 
+  // Mata-mata (ADR-0048): a Semifinal diz quem foi pra Final; a Final mostra o campeão.
+  const mm = o.mataMata && r.vencedor ? o.mataMata : null;
+  const vencedor = r.vencedor ? r.times[r.vencedor] : null;
+  if (mm?.etapa === 'FINAL' && vencedor) confete(pin, vencedor, tVideo);
+
   desenharTabuaDoPlacar(pin, COLUNAS / 2, 22, 1.12, r.times, r.gols, display);
-  pin.texto('Fim de jogo', COLUNAS / 2, 78, 22, display, COR.amarelo, { contorno: COR.mata });
-  if (r.penaltis) pin.texto(`Nos pênaltis, ${r.penaltis.placar.mandante} a ${r.penaltis.placar.visitante}`, COLUNAS / 2, 96, 9, texto, COR.placa, { peso: 600 });
+  const titulo = mm && vencedor ? (mm.etapa === 'FINAL' ? 'Campeão!' : `${FALA_DO_TIME[vencedor].curto} na Final!`) : 'Fim de jogo';
+  pin.texto(titulo, COLUNAS / 2, mm?.etapa === 'FINAL' ? 82 : 78, pin.caber(titulo, 240, mm?.etapa === 'FINAL' ? 32 : 22, display), display, COR.amarelo, { contorno: COR.mata });
+  const detalhes = [
+    ...(mm?.serie && mm.etapa === 'SEMIFINAL' ? [`Final da Série ${mm.serie}`] : []),
+    ...(r.penaltis ? [`${mm ? 'nos' : 'Nos'} pênaltis, ${r.penaltis.placar.mandante} a ${r.penaltis.placar.visitante}`] : []),
+  ];
+  const linha = detalhes.join(' · ');
+  if (linha) pin.texto(linha.charAt(0).toUpperCase() + linha.slice(1), COLUNAS / 2, mm?.etapa === 'FINAL' ? 104 : 96, 9, texto, COR.placa, { peso: 600 });
+
+  if (mm?.etapa === 'FINAL' && vencedor) {
+    // Na Final, o campeão toma o lugar do Melhor em campo: escudo grande, nome e Temporada.
+    const a = entre(p, 0.12, 0.3);
+    pin.ctx.globalAlpha = a;
+    const escala = 4;
+    desenharEscudo(pin, vencedor, COLUNAS / 2 - (LARGURA_ESCUDO * escala) / 2, 116 - (1 - a) * 16, escala);
+    const nome = IDENTIDADE[vencedor].nome;
+    pin.texto(nome, COLUNAS / 2, 236, pin.caber(nome, 230, 30, display), display, COR.placa, { contorno: COR.contorno });
+    pin.texto(`Campeão${mm.serie ? ` da Série ${mm.serie}` : ''} da Temporada ${mm.temporada}`, COLUNAS / 2, 260, 10, texto, COR.amarelo, { peso: 700 });
+  }
 
   // Melhor em campo: maior Nota da Partida, com o boneco grande.
-  const melhor = [...r.desempenhos].sort((a, b) => b.nota - a.nota)[0];
+  const melhor = mm?.etapa === 'FINAL' ? undefined : [...r.desempenhos].sort((a, b) => b.nota - a.nota)[0];
   if (melhor) {
     pin.ctx.globalAlpha = entre(p, 0.15, 0.32);
     const x = 30;
@@ -229,6 +256,16 @@ function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number
     desenharEscudoDaLiga(pin, o.escudo, COLUNAS / 2, CAMPO.y + CAMPO.h - 38, 56);
   }
   pin.ctx.restore();
+}
+
+/** Confete nas cores do campeão, caindo devagar (determinístico pelo tempo), como no Resumo. */
+function confete(pin: Pincel, t: TimeId, tVideo: number): void {
+  const id = IDENTIDADE[t];
+  for (let k = 0; k < 60; k++) {
+    const x = (k * 97) % COLUNAS;
+    const y = ((k * 53 + tVideo * (30 + (k % 5) * 8)) % (LINHAS + 20)) - 10;
+    pin.r(x, y, 3, 3, k % 3 === 0 ? COR.amarelo : k % 3 === 1 ? id.primaria : id.secundaria);
+  }
 }
 
 function nomePosicao(p: string): string {

@@ -151,12 +151,24 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
   // Anúncio do Craque da Rodada anterior, um por Série (ADR-0017).
   const craqueAnterior = await anuncioDoCraque(banco, r.temporada_id, r.numero, 'A');
   const craqueAnteriorB = comSeries ? await anuncioDoCraque(banco, r.temporada_id, r.numero, 'B') : null;
+  // Resumo das Semifinais (ADR-0048): a Final de cada Série, criada logo antes deste Resumo.
+  const jogosDaFinal =
+    etapaDa(r.fase, r.numero) === 'SEMIFINAL'
+      ? (
+          await banco.query<{ mandante_id: TimeId; visitante_id: TimeId; apito_inicial: string | Date; serie: Serie }>(
+            `SELECT p.mandante_id, p.visitante_id, p.apito_inicial, p.serie FROM partida p JOIN rodada f ON f.id = p.rodada_id
+             WHERE f.temporada_id = $1 AND f.numero = $2 ORDER BY p.serie, p.apito_inicial`,
+            [r.temporada_id, RODADA_DA_FINAL],
+          )
+        ).rows.map((p) => ({ mandante: p.mandante_id, visitante: p.visitante_id, hora: horaBrasilia(new Date(p.apito_inicial)), ...(comSeries ? { serie: p.serie } : {}) }))
+      : [];
   // Seleção da Rodada (ADR-0041), a partir da T2.
   const destaques = await destaquesDaRodadaNoBanco(banco, rodadaId, r.temporada, comSeries);
   return {
     ...(final ? { votacao: 'TEMPORADA' as const } : {}),
     ...(campeao ? { campeao } : {}),
     ...(campeaoB ? { campeaoB } : {}),
+    ...(jogosDaFinal.length ? { final: jogosDaFinal } : {}),
     temporada: r.temporada,
     rodada: r.numero,
     fase: r.fase,

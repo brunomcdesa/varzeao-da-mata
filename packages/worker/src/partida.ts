@@ -6,10 +6,11 @@
 import { aparenciasEscolhidas } from './perfil.js';
 import type { Aparencia } from '@liga/shared';
 import { randomInt } from 'node:crypto';
-import { nomeDaEtapa, type Escalacao, type TimeId } from '@liga/shared';
+import { mataMataDaPartida, nomeDaEtapa, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
 import { simularPartida, type Lado, type ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { HORARIOS, FUSO_BRASILIA } from './calendario.js';
+import { seriesDaTemporada } from './series.js';
 import { escalarPartida, type PartidaEscalada } from './escalacao.js';
 import { formacoesDaPartida, partidaTemRegrasT2, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
 
@@ -25,6 +26,8 @@ export interface DadosDoVideo {
   aparencias?: Record<string, Aparencia>;
   /** Temporada 2: tamanho de cada Elenco, para a Arquibancada (ADR-0019). Nunca na T1. */
   torcida?: Record<Lado, number>;
+  /** Mata-mata (ADR-0048): o Narrador e o fim do Reels falam da Semifinal ou da Final. */
+  mataMata?: MataMataDaPartida | null;
 }
 
 /** Grava o MP4 da Partida em `saida`. Injetado para os testes não dependerem do navegador. */
@@ -45,14 +48,17 @@ interface LinhaPartida {
   rodada: number;
   resultado: ResultadoPartida | null;
   video_url: string | null;
+  serie: Serie;
+  temporada_id: number;
+  temporada: number;
 }
 
 async function lerPartida(b: Banco, id: number): Promise<LinhaPartida> {
   const p = (
     await b.query<LinhaPartida>(
       `SELECT p.id, p.status, p.mandante_id, p.visitante_id, p.apito_inicial, p.vantagem_do_empate, p.resultado, p.video_url,
-              r.fase, r.numero AS rodada
-       FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE p.id = $1`,
+              r.fase, r.numero AS rodada, p.serie, r.temporada_id, t.numero AS temporada
+       FROM partida p JOIN rodada r ON r.id = p.rodada_id JOIN temporada t ON t.id = r.temporada_id WHERE p.id = $1`,
       [id],
     )
   ).rows[0];
@@ -119,6 +125,13 @@ export async function simular(banco: Banco, partidaId: number, escalada: Partida
   });
 }
 
+/** Semifinal ou Final, com a Temporada e a Série (null na Fase de Liga). ADR-0048. */
+async function mataMataDe(banco: Banco, p: LinhaPartida): Promise<MataMataDaPartida | null> {
+  if (p.fase !== 'MATA_MATA') return null;
+  const comSeries = (await seriesDaTemporada(banco, p.temporada_id)).B.length > 0;
+  return mataMataDaPartida({ fase: p.fase, rodada: p.rodada, temporada: p.temporada, serie: p.serie, comSeries });
+}
+
 /** "Rodada 3, jogo das 14h" (ou "Semifinal…" no Mata-mata). */
 export function subtituloDaPartida(rodada: number, fase: 'LIGA' | 'MATA_MATA', apito: Date): string {
   const hora = (apito.getUTCHours() + FUSO_BRASILIA + 24) % 24;
@@ -158,6 +171,8 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
     subtitulo: subtituloDaPartida(p.rodada, p.fase, new Date(p.apito_inicial)),
     aparencias: await aparenciasEscolhidas(banco),
   };
+  const mataMata = await mataMataDe(banco, p);
+  if (mataMata) dados.mataMata = mataMata;
   if (resultado.postura != null) {
     const elencos = await tamanhoDosElencos(banco);
     dados.torcida = { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 };

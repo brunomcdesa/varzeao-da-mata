@@ -30,6 +30,11 @@ export interface DadosDoResumo {
    * ("3", ou "A3" e "B3" com duas Séries); `serie`: a Série do Candidato (ADR-0017).
    */
   candidatos: { numero?: number; rotulo?: string; serie?: Serie; username: string; apelido?: string | null; time: TimeId; posicao: Posicao; nota: number; gols: number }[];
+  /**
+   * Resumo das Semifinais (ADR-0048): o jogo da Final de cada Série, já marcado para o dia
+   * seguinte. Ganha a cartela "A Final".
+   */
+  final?: { mandante: TimeId; visitante: TimeId; hora: number; serie?: Serie }[];
   /** Resumo da Final: o Time campeão ganha uma cartela própria. */
   campeao?: TimeId;
   /** Campeão da Série B, quando existe. */
@@ -62,7 +67,7 @@ export interface DadosDoResumo {
   aparencias?: Record<string, Aparencia>;
 }
 
-export type Cartela = 'ABERTURA' | 'PLACARES' | 'CAMPEAO' | 'TABELA' | 'NOVOS' | 'CANDIDATOS' | 'CRAQUE' | 'DESTAQUES' | 'POSICOES' | 'CHAMADA' | 'COMPARTILHE';
+export type Cartela = 'ABERTURA' | 'PLACARES' | 'FINALISTAS' | 'CAMPEAO' | 'TABELA' | 'NOVOS' | 'CANDIDATOS' | 'CRAQUE' | 'DESTAQUES' | 'POSICOES' | 'CHAMADA' | 'COMPARTILHE';
 
 /**
  * Segmento do Roteiro com a cartela que ele mostra (tipo 'ABERTURA' = trilha cheia na mixagem).
@@ -84,7 +89,7 @@ export function dadosDaSerie(d: DadosDoResumo, serie: Serie | undefined): Pick<D
   };
 }
 
-const DURACAO_BASE: Record<Cartela, number> = { ABERTURA: 3, PLACARES: 5, CAMPEAO: 6, TABELA: 6, NOVOS: 4, CANDIDATOS: 7, CRAQUE: 7, DESTAQUES: 6, POSICOES: 7, CHAMADA: 5, COMPARTILHE: 6 };
+const DURACAO_BASE: Record<Cartela, number> = { ABERTURA: 3, PLACARES: 5, FINALISTAS: 5, CAMPEAO: 6, TABELA: 6, NOVOS: 4, CANDIDATOS: 7, CRAQUE: 7, DESTAQUES: 6, POSICOES: 7, CHAMADA: 5, COMPARTILHE: 6 };
 const CORTE = 0.3;
 
 export class RoteiroResumo {
@@ -106,6 +111,7 @@ export class RoteiroResumo {
     else {
       if (dados.craqueDaRodada || dados.craqueDaRodadaB) cartelas.push('CRAQUE');
       if (dados.placares.length) cartelas.push('PLACARES');
+      if (dados.final?.length) cartelas.push('FINALISTAS');
       if (dados.campeao) cartelas.push('CAMPEAO');
       if (dados.fase === 'LIGA') cartelas.push('TABELA');
       if (dados.totalNovos > 0) cartelas.push('NOVOS');
@@ -186,10 +192,21 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
           ? `Chegou a hora! Quem é o Craque da Temporada ${d.temporada} do Varzeão da Mata?`
           : d.campeao
             ? 'Acabou a Final do Varzeão da Mata!'
-            : d.fase === 'LIGA'
+            : d.final?.length
+              ? 'Fim das Semifinais no Varzeão da Mata! Bora pro resumo!'
+              : d.fase === 'LIGA'
               ? `Fim da Rodada ${d.rodada} no Varzeão da Mata! Bora pro resumo!`
               : 'Fim do dia de mata-mata no Varzeão da Mata!';
         break;
+      case 'FINALISTAS': {
+        const jogos = d.final ?? [];
+        const confronto = (j: (typeof jogos)[number]) => `${curto(j.mandante)} contra ${curto(j.visitante)}`;
+        const quando = `Amanhã, às ${jogos[0]!.hora} horas, no Varzeão!`;
+        texto = jogos.length > 1
+          ? `Tá definida a Final! Na Série A, ${confronto(jogos.find((j) => j.serie !== 'B') ?? jogos[0]!)}. Na Série B, ${confronto(jogos.find((j) => j.serie === 'B') ?? jogos[1]!)}. ${quando}`
+          : `Tá definida a Final: ${confronto(jogos[0]!)}! ${quando}`;
+        break;
+      }
       case 'CAMPEAO': {
         const t = s.serie === 'B' ? d.campeaoB! : d.campeao!;
         texto = s.serie === 'B'
@@ -460,6 +477,36 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
         pin.ctx.restore();
         // a cor do Time numa faixinha embaixo do card
         pin.r(12 + dx + 4, y + 61, 238, 2, contraste(id.primaria) === '#FFFFFF' ? id.primaria : id.secundaria);
+      });
+      break;
+    }
+    case 'FINALISTAS': {
+      // A Final de cada Série: os dois escudos frente a frente e o horário (ADR-0048).
+      const jogos = d.final ?? [];
+      titulo('A Final');
+      const alto = jogos.length > 1 ? 150 : 190;
+      jogos.forEach((j, k) => {
+        const a = aparece(k, 0.6, 0.4);
+        if (a <= 0) return;
+        const y = (jogos.length > 1 ? 96 : 120) + k * (alto + 16);
+        pin.ctx.save();
+        pin.ctx.globalAlpha = a;
+        pin.tabua(16, y, 238, alto);
+        if (j.serie && jogos.length > 1) {
+          pin.placa(COLUNAS / 2 - 30, y + 6, 60, 18, { fundo: j.serie === 'A' ? COR.amarelo : COR.placa, sombra: COR.contorno, degrau: 2 });
+          pin.texto(`Série ${j.serie}`, COLUNAS / 2, y + 15, 13, display, COR.tinta);
+        }
+        const escala = jogos.length > 1 ? 3 : 4;
+        const topo = y + (jogos.length > 1 ? 32 : 26) - (1 - a) * 12;
+        const larg = 20 * escala;
+        desenharEscudo(pin, j.mandante, 70 - larg / 2, topo, escala);
+        desenharEscudo(pin, j.visitante, 200 - larg / 2, topo, escala);
+        pin.texto('x', COLUNAS / 2, topo + 12 * escala, 26, display, COR.amarelo, { contorno: COR.contorno });
+        const yNome = topo + 24 * escala + 14;
+        pin.texto(curto(j.mandante), 70, yNome, pin.caber(curto(j.mandante), 110, 18, display), display, COR.placa);
+        pin.texto(curto(j.visitante), 200, yNome, pin.caber(curto(j.visitante), 110, 18, display), display, COR.placa);
+        pin.texto(`Amanhã, ${j.hora}h`, COLUNAS / 2, y + alto - 12, 10, texto, COR.amarelo, { peso: 700 });
+        pin.ctx.restore();
       });
       break;
     }

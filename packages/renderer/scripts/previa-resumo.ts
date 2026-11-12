@@ -67,7 +67,26 @@ const fim: DadosDoResumo = {
   destaques: [...destaques(TIMES_FUNDADORES, 'A'), ...(comSeries ? destaques(TIMES_NOVOS, 'B') : [])].map((d) => ({ ...d, nota: d.nota - 1.2 })),
 };
 
-const escolhidos = process.argv.includes('--fim') ? fim : dados;
+// Resumo das Semifinais (ADR-0048): placares das Semifinais e a cartela "A Final".
+const semis: DadosDoResumo = {
+  ...dados,
+  rodada: 8,
+  fase: 'MATA_MATA',
+  placares: [
+    { mandante: 'ONC', visitante: 'TUC', golsMandante: 2, golsVisitante: 1, penaltis: null, hora: 14, ...(comSeries ? { serie: 'A' as Serie } : {}) },
+    { mandante: 'CAP', visitante: 'TAT', golsMandante: 1, golsVisitante: 1, penaltis: { mandante: 4, visitante: 3 }, hora: 16, ...(comSeries ? { serie: 'A' as Serie } : {}) },
+    ...(comSeries
+      ? [
+          { mandante: 'JAC' as TimeId, visitante: 'COR' as TimeId, golsMandante: 3, golsVisitante: 0, penaltis: null, hora: 14, serie: 'B' as Serie },
+          { mandante: 'BOT' as TimeId, visitante: 'SUC' as TimeId, golsMandante: 0, golsVisitante: 2, penaltis: null, hora: 16, serie: 'B' as Serie },
+        ]
+      : []),
+  ],
+  tabela: [],
+  final: [{ mandante: 'ONC', visitante: 'CAP', hora: 18, ...(comSeries ? { serie: 'A' as Serie } : {}) }, ...(comSeries ? [{ mandante: 'JAC' as TimeId, visitante: 'SUC' as TimeId, hora: 18, serie: 'B' as Serie }] : [])],
+};
+
+const escolhidos = process.argv.includes('--fim') ? fim : process.argv.includes('--semis') ? semis : dados;
 // Um quadro no fim de cada cartela (as do Resumo têm todas o mesmo tipo de segmento).
 const fimDasCartelas = new RoteiroResumo(escolhidos).segmentos.map((s) => Math.round((s.inicio + (s.fim - s.inicio) * 0.85) * 10) / 10);
 await gravarResumo(escolhidos, { saida: resolve(pasta, 'resumo.mp4'), previa: pasta, instantes: [2, ...fimDasCartelas] } /* t-002.0 = capa do Reels (CAPA_DO_RESUMO_MS) */);

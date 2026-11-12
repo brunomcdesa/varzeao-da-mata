@@ -13,9 +13,9 @@
  *   1. roteiroAoVivo: os textos (âncoras dos lances + enchimento estimado para cada vão);
  *   2. agendarAoVivo: com as durações reais, encaixa tudo sem sobreposição.
  */
-import { FALA_DO_TIME, doTime, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, doTime, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, type Lado } from '@liga/sim';
-import { montarNarracao, type EventoSonoro, type Tom } from './narracao.js';
+import { montarNarracao, type EventoSonoro, type OpcoesNarracao, type Tom } from './narracao.js';
 import { instanteDaCobranca } from './penaltis.js';
 import { Roteiro } from './roteiro.js';
 import { DURACAO_JOGO, VELOCIDADE_AO_VIVO, type Timeline } from './timeline.js';
@@ -78,13 +78,13 @@ function embaralhar<T>(rng: ReturnType<typeof criarRng>, lista: readonly T[]): T
 /** Duração do Ao Vivo (s), igual ao fim do relógio do site. */
 export const duracaoAoVivo = (tl: Timeline) => aoVivo(tl.duracao);
 
-export function roteiroAoVivo(tl: Timeline, apelidos?: Record<Lado, (string | null)[]>): FalaAoVivo[] {
+export function roteiroAoVivo(tl: Timeline, apelidos?: Record<Lado, (string | null)[]>, opcoes: OpcoesNarracao = {}): FalaAoVivo[] {
   // Roteiro com todos os lances (inclusive desarmes), sem teto: uma fala por lance como no Reels.
   const roteiro = new Roteiro(tl, { duracaoLance: { DESARME: 4 }, duracaoMaxima: 1e9, bolasParadas: true });
   const segs = roteiro.segmentos;
   const falas: FalaAoVivo[] = [];
 
-  for (const f of montarNarracao(roteiro, apelidos)) {
+  for (const f of montarNarracao(roteiro, apelidos, opcoes)) {
     const s = segs[f.segmento]!;
     const base = { id: f.id, texto: f.texto, tom: f.tom, tipo: 'ancora' as const };
     if (s.tipo === 'ABERTURA') falas.push({ ...base, em: 0.4, modo: 'de' });
@@ -129,6 +129,7 @@ export function roteiroAoVivo(tl: Timeline, apelidos?: Record<Lado, (string | nu
       segundos: ate - de,
       penaltis: tMeio * VELOCIDADE_AO_VIVO > DURACAO_JOGO,
       ditas,
+      mataMata: opcoes.mataMata ?? null,
     });
     textos.forEach((texto, k) => falas.push({ id: `enche-${vao}-${k}`, texto, tom: 'normal', tipo: 'enchimento', vao }));
     vao++;
@@ -148,7 +149,7 @@ function placarFalado(tl: Timeline, p: Record<Lado, number>): string {
  */
 function enchimento(
   tl: Timeline,
-  o: { vao: number; tJogo: number; posse: Lado; depoisDeGol: Lado | null; segundos: number; penaltis: boolean; ditas?: Set<string> },
+  o: { vao: number; tJogo: number; posse: Lado; depoisDeGol: Lado | null; segundos: number; penaltis: boolean; ditas?: Set<string>; mataMata?: MataMataDaPartida | null },
 ): string[] {
   const ditas = o.ditas ?? new Set<string>();
   const r = tl.resultado;
@@ -163,8 +164,10 @@ function enchimento(
   const placar = tl.placarEm(o.tJogo);
   const diff = placar[o.posse] - placar[outro];
 
+  const mm = o.mataMata ?? null;
   if (o.penaltis) {
-    return embaralhar(rng, [`Tensão total na marca do pênalti.`, `A torcida não respira!`, `Quem vai bater agora?`, `Goleiro se ajeita na linha.`, `Silêncio na Mata...`]);
+    const vale = mm ? [mm.etapa === 'FINAL' ? `O título vai ser decidido nos pênaltis!` : `A vaga na Final vai ser decidida nos pênaltis!`] : [];
+    return embaralhar(rng, [`Tensão total na marca do pênalti.`, `A torcida não respira!`, `Quem vai bater agora?`, `Goleiro se ajeita na linha.`, `Silêncio na Mata...`, ...vale]);
   }
 
   // Só o que aparece na tela: nada de lateral, falta ou bola parada (o jogo não mostra).
@@ -260,6 +263,11 @@ function enchimento(
   if (minuto >= 38 && minuto <= 45) contexto.push(`Fim de primeiro tempo se aproximando.`);
   if (minuto >= 46 && minuto <= 52) contexto.push(`Começa a segunda etapa, bola rolando de novo.`);
   if (minuto >= 87) doMomento.push(`Acréscimos no Varzeão!`, `O juiz já olha o relógio...`, `Última chance pra alguém!`);
+  // Mata-mata (ADR-0048): o que está em jogo. A tela mostra "Semifinal" ou "Final" no topo.
+  if (mm) {
+    contexto.push(...(mm.etapa === 'SEMIFINAL' ? [`Quem perder tá fora!`, `Vale vaga na Final!`, `É Semifinal, ninguém quer voltar pra casa.`] : [`Vale a taça!`, `É Final, cada lance vale ouro!`, `Noventa minutos pra entrar na história da Temporada ${mm.temporada}.`]));
+    if (minuto >= 80 && placar.mandante === placar.visitante) doMomento.push(`Se ficar assim, vai pros pênaltis!`);
+  }
 
   // Mistura: mais frases de posse, uma de contexto de vez em quando. O que ainda não foi dito na
   // Partida vem primeiro; o que é do momento (virada, reta final...) vem antes de tudo.
