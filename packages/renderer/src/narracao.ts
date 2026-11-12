@@ -64,7 +64,16 @@ export function apelidoFalavel(a: string | null | undefined): string | null {
 export interface OpcoesNarracao {
   /** Partida do Mata-mata: abertura e fim falam da Semifinal ou da Final (ADR-0048). */
   mataMata?: MataMataDaPartida | null;
+  /**
+   * Narração do Ao Vivo do site (o jogo inteiro). Sem ela, é a do Reels, que mostra só os
+   * melhores momentos: a abertura e o fim dizem isso e chamam para o jogo completo no site
+   * (ADR-0052).
+   */
+  aoVivo?: boolean;
 }
+
+/** Onde passa o jogo completo: o site e, a partir da Temporada 2, também o App (ADR-0052). */
+export const ONDE_VER_O_JOGO = (t2: boolean) => (t2 ? 'no site e no app do Varzeão' : 'no site do Varzeão');
 
 export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string | null)[]>, o: OpcoesNarracao = {}): Fala[] {
   const tl = roteiro.timeline;
@@ -103,10 +112,10 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
     id: 'abertura',
     texto: `${narrador.apresentacao} ${
       o.mataMata
-        ? aberturaDoMataMata(o.mataMata, r.times.mandante, r.times.visitante, r.seed)
+        ? `${o.aoVivo ? '' : 'Melhores momentos! '}${aberturaDoMataMata(o.mataMata, r.times.mandante, r.times.visitante, r.seed)}`
         : classico
-          ? `É o ${classico}! ${curto('mandante')} contra ${curto('visitante')}!`
-          : `Bola rolando no Varzeão da Mata! ${curto('mandante')} contra ${curto('visitante')}!`
+          ? `${o.aoVivo ? 'É o' : 'Melhores momentos do'} ${classico}! ${curto('mandante')} contra ${curto('visitante')}!`
+          : `${o.aoVivo ? 'Bola rolando no' : 'Melhores momentos do'} Varzeão da Mata! ${curto('mandante')} contra ${curto('visitante')}!`
     }${tl.t2 ? ` ${FALA_DO_CLIMA[tl.t2.clima]}` : ''}`,
     inicio: 0.25,
     limite: segs[0]!.fim,
@@ -355,7 +364,7 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
     ? `${cap(artigoDe(time(r.vencedor)))} ${curto(r.vencedor)} venceu nos pênaltis!`
     : r.vencedor ? vitoria(r.vencedor) : 'Tudo igual no Varzeão!';
   const consequencia = o.mataMata && r.vencedor ? ` ${desfechoDoMataMata(o.mataMata, time(r.vencedor))}` : '';
-  falas.push({ id: 'fim', texto: `Fim de jogo! ${placar}. ${vencedor}${consequencia} Curtiu? Compartilha com a galera! ${narrador.despedida}`, inicio: fim.inicio + 0.35, limite: fim.fim, tom: 'animado', segmento: segs.length - 1, parte: 'antes' });
+  falas.push({ id: 'fim', texto: `Fim de jogo! ${placar}. ${vencedor}${consequencia} ${o.aoVivo ? 'Curtiu? Compartilha com a galera!' : `O jogo completo, Ao Vivo e no Replay, tá ${ONDE_VER_O_JOGO(!!tl.t2)}!`} ${narrador.despedida}`, inicio: fim.inicio + 0.35, limite: fim.fim, tom: 'animado', segmento: segs.length - 1, parte: 'antes' });
   return falas;
 }
 
