@@ -16,6 +16,7 @@
     "postar-anuncio": "tsx scripts/postar-anuncio.ts",
     "postar-explicacao": "tsx scripts/postar-explicacao.ts",
     "postar-explicacao-ovr": "tsx scripts/postar-explicacao-ovr.ts",
+    "postar-agradecimento-t1": "tsx scripts/postar-agradecimento-t1.ts",
     "job": "tsx scripts/job.ts",
     "simular": "tsx scripts/simular-temporada.ts"
   },
