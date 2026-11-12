@@ -32,3 +32,7 @@ O workflow manual `recompensa-t1` (ou `pnpm liga recompensa-t1`). Sem marcar "gr
 - A Escalação marca `bonus_t1` (coluna nova em `escalacao`), e a simulação aplica o Bônus só com as regras da T2. Isso sobe a VERSAO_SIM para 14. A T1 continua na VERSAO_SIM_T1 (12), e nenhuma Partida já jogada muda.
 - `jogadores.json` só leva o campo `seloT1` quando a Temporada atual tem as regras da T2, como o `fundador`.
 - O Reels de agradecimento sai separado, logo depois da Final da T1, antes do Reels de novidades da T2. O texto e o vídeo passam pela aprovação do dono antes de sair.
+
+## Reels de agradecimento
+
+Separado do Resumo da Temporada, que já mostra o campeão, o Craque e a Seleção. Sai no dia seguinte ao Resumo da Temporada, antes do Reels de novidades da T2. Tem 7 cartelas (abertura, números da T1, obrigado, Selo, Piso, Bônus e chamada para a T2), sem campeão e sem @, e é narrado pelo Seu Dito. Os números (inscritos com o mesmo critério do Selo, jogos e gols, sem pênaltis) vêm do banco na hora de gravar. O workflow manual `agradecimento-t1` grava (com uma cópia no branch `amostras-agradecimento`) e só posta depois da aprovação do dono.

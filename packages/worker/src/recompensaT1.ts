@@ -102,3 +102,24 @@ export async function recompensarT1(banco: Banco, opcoes: { gravar: boolean; ago
 export async function comSeloT1(banco: Banco): Promise<Set<string>> {
   return new Set((await banco.query<{ jogador_id: string }>(`SELECT jogador_id::text AS jogador_id FROM selo_temporada1`)).rows.map((r) => r.jogador_id));
 }
+
+/**
+ * Números do Reels de agradecimento da T1 (ADR-0047): quem se inscreveu (o mesmo critério do
+ * Selo), Partidas jogadas e gols (sem os pênaltis da disputa).
+ */
+export async function numerosDaTemporada1(banco: Banco): Promise<{ inscritos: number; jogos: number; gols: number }> {
+  const jogos = (
+    await banco.query<{ jogos: number; gols: number; fim: Date | string | null }>(
+      `SELECT count(*)::int AS jogos, coalesce(sum(p.gols_mandante + p.gols_visitante), 0)::int AS gols, max(p.apito_inicial) AS fim
+         FROM partida p JOIN rodada r ON r.id = p.rodada_id JOIN temporada t ON t.id = r.temporada_id
+        WHERE t.numero = 1 AND p.gols_mandante IS NOT NULL AND p.gols_visitante IS NOT NULL`,
+    )
+  ).rows[0]!;
+  if (!jogos.jogos) throw new Error('A Temporada 1 ainda não tem jogos.');
+  // Depois da Recompensa, conta quem ganhou o Selo; antes, o mesmo critério dela.
+  const comSelo = (await banco.query<{ n: number }>(`SELECT count(*)::int AS n FROM selo_temporada1`)).rows[0]!.n;
+  const inscritos = comSelo
+    ? comSelo
+    : (await banco.query<{ n: number }>(`SELECT count(*)::int AS n FROM jogador WHERE NOT banido AND inscrito_em <= $1`, [jogos.fim])).rows[0]!.n;
+  return { inscritos, jogos: jogos.jogos, gols: jogos.gols };
+}

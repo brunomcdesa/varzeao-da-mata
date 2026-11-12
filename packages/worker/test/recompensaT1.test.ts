@@ -15,7 +15,7 @@ import {
 import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
 import { escalarPartida } from '../src/escalacao.js';
-import { aplicarPiso, recompensarT1 } from '../src/recompensaT1.js';
+import { aplicarPiso, numerosDaTemporada1, recompensarT1 } from '../src/recompensaT1.js';
 import { exportarSite } from '../src/site.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 
@@ -138,5 +138,18 @@ describe('recompensarT1 no banco', () => {
     const p4 = await partidaDaRodada(4, 'ONC');
     await escalarPartida(banco, p4);
     expect(await comBonus(p4)).toEqual([]);
+  });
+
+  it('números do Reels de agradecimento: inscritos da T1, jogos e gols jogados', async () => {
+    const id = await t1();
+    await jogador('ONC', 'ZAG', 59, '2026-11-06T12:00:00Z');
+    await jogador('CAP', 'MEI', 68, '2026-11-08T12:00:00Z');
+    await jogador('TAT', 'ATA', 60, '2026-11-30T12:00:00Z'); // depois do último jogo da T1
+    await expect(numerosDaTemporada1(banco)).rejects.toThrow('ainda não tem jogos');
+    const ps = (await banco.query<{ id: number }>(`SELECT p.id FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 ORDER BY p.apito_inicial DESC`, [id])).rows;
+    // O último jogo e um do meio, com 3 e 2 gols.
+    await banco.query(`UPDATE partida SET gols_mandante = 2, gols_visitante = 1 WHERE id = $1`, [ps[0]!.id]);
+    await banco.query(`UPDATE partida SET gols_mandante = 0, gols_visitante = 2 WHERE id = $1`, [ps[5]!.id]);
+    expect(await numerosDaTemporada1(banco)).toEqual({ inscritos: 2, jogos: 2, gols: 5 });
   });
 });
