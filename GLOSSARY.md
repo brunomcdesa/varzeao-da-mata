@@ -288,6 +288,18 @@ _Avoid_: time irmão, time filial
 O título de quem começa a primeira Temporada de um Time da Série B no Elenco dele. Aparece na página de Carreira e dá prioridade na escolha da camisa.
 _Avoid_: pioneiro, membro original
 
+**Selo da Temporada 1**:
+O selo de quem se inscreveu na Liga até o último jogo da Temporada 1. Aparece na página de Carreira e dá o Piso e o Bônus da Temporada 1 (ADR-0047). Não é o título de Fundador.
+_Avoid_: fundador, veterano, OG
+
+**Piso da Temporada 1**:
+O OVR mínimo (63) dado uma vez, na Pré-temporada da T2, a quem tem o Selo da Temporada 1. Só a Habilidade principal da Posição sobe (ADR-0047).
+_Avoid_: nivelamento, bônus de OVR
+
+**Bônus da Temporada 1**:
+Os ganhos de Habilidade 1,5 vez maiores, nas 3 primeiras Rodadas da T2, para quem tem o Selo da Temporada 1. Soma com a Resenha e respeita o teto por Partida (ADR-0047).
+_Avoid_: buff, boost
+
 **Partida**:
 Um confronto simulado entre dois Times, com Apito Inicial marcado. Pode ser vista Ao Vivo ou em Replay no site e ganha um Reels próprio assim que termina.
 _Avoid_: jogo, match

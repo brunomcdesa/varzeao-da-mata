@@ -9,6 +9,7 @@
  */
 import { IDENTIDADE, TIMES, duracaoAoVivoMs, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
 import { fundadorDe } from './rebalanceamento.js';
+import { comSeloT1 } from './recompensaT1.js';
 import { TEMPORADA_DOS_DESTAQUES, desempenhosDasPartidas } from './destaques.js';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
@@ -216,6 +217,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   const comRegrasT2 = temporada !== undefined && temRegrasT2(temporada.numero);
   // Fundadores (ADR-0036): só existem a partir da T2, e só aparecem no site da T2.
   const fundadores = comRegrasT2 ? await fundadorDe(banco) : new Map<string, { time: TimeId; temporada: number }>();
+  // Selo da Temporada 1 (ADR-0047): também só no site da T2.
+  const seloT1 = comRegrasT2 ? await comSeloT1(banco) : new Set<string>();
   const porJogador = new Map<string, JogadorPublico>();
   const resumido = (id: string): JogadorResumido | null => {
     const j = porJogador.get(id);
@@ -243,6 +246,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       // Temporada 2 (ADR-0023): só aparece quando a Temporada atual tem as regras novas.
       ...(comRegrasT2 ? { especializacao: j.especializacao ?? null, treino: j.treino ?? null } : {}),
       ...(fundadores.has(j.id) ? { fundador: fundadores.get(j.id)! } : {}),
+      ...(seloT1.has(j.id) ? { seloT1: true as const } : {}),
       ...estatisticasVazias(),
       vezesCandidato: 0,
       craqueDaRodada: 0,

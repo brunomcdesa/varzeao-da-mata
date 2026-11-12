@@ -3805,6 +3805,15 @@ a.jogo:hover {
 .selo-fundador img {
   image-rendering: pixelated;
 }
+/* Selo da Temporada 1 (ADR-0047): madeira com borda dourada, igual para todos os Times. */
+.selo-t1 {
+  --fundador-cor: #5b3a1e;
+  --fundador-borda: #f2c14e;
+  padding-left: 9px;
+}
+.selo-fundador.selo-t1 .estrela-t1 {
+  color: #f2c14e;
+}
 /* No cartão da Temporada, o selo fica do tamanho dos troféus, mas nas cores do Time. */
 .trofeus-carreira .selo-fundador {
   background: var(--fundador-cor);

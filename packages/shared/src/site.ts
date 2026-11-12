@@ -186,6 +186,8 @@ export interface JogadorPublico {
   numero: number | null;
   /** Fundador de um Time da Série B (ADR-0036): só existe a partir da Temporada 2. */
   fundador?: { time: TimeId; temporada: number };
+  /** Selo da Temporada 1 (ADR-0047): se inscreveu na T1. Só aparece no site a partir da T2. */
+  seloT1?: true;
   /** Números da carreira (todas as Temporadas); `nestaTemporada` só a atual. */
   jogos: number;
   gols: number;

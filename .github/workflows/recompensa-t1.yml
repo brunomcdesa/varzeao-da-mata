@@ -1,0 +1,40 @@
+# Recompensa da Temporada 1 (ADR-0047): Selo e Piso da Temporada 1. Só à mão: Actions → recompensa-t1 → Run workflow.
+# Primeiro rode sem "gravar" (simulação: quem sobe pelo Piso fica no log).
+# Com "gravar", aplica uma vez e republica o site.
+name: recompensa-t1
+on:
+  workflow_dispatch:
+    inputs:
+      gravar:
+        description: 'Gravar a Recompensa da Temporada 1 (desmarcado = só simulação)'
+        type: boolean
+        default: false
+jobs:
+  recompensa-t1:
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      IG_APP_ID: ${{ vars.IG_APP_ID }}
+      IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET_PUBLICO: ${{ vars.R2_BUCKET_PUBLICO }}
+      R2_BUCKET_PRIVADO: ${{ vars.R2_BUCKET_PRIVADO }}
+      R2_URL_PUBLICA: ${{ vars.R2_URL_PUBLICA }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+      - if: ${{ !inputs.gravar }}
+        run: pnpm liga recompensa-t1
+      - if: ${{ inputs.gravar }}
+        run: pnpm liga recompensa-t1 --gravar
+      # A coleta republica os dados do site (OVRs novos e Selos).
+      - if: ${{ inputs.gravar }}
+        run: pnpm job coletar

@@ -156,6 +156,11 @@ export interface JogadorEscalado {
   /** Resenha (ADR-0034): comentou no Reels do último jogo do Time; ganhos de Habilidade maiores nesta Partida. */
   resenha?: boolean;
   /**
+   * Bônus da Temporada 1 (ADR-0047): tem o Selo da Temporada 1 e a Partida é de uma das primeiras
+   * Rodadas da T2; ganhos de Habilidade maiores, somados aos da Resenha.
+   */
+  bonusT1?: boolean;
+  /**
    * Formação (ADR-0044): a Posição de inscrição de quem joga fora de posição. `posicao` é a vaga
    * que ele ocupa, e o `ovr` já vem pelos pesos dessa vaga.
    */
@@ -279,6 +284,18 @@ export const GRITO_DO_TIME: Readonly<Record<TimeId, string>> = {
 export const PRIMEIRA_TEMPORADA_COM_REGRAS_T2 = 2;
 export function temRegrasT2(numeroDaTemporada: number): boolean {
   return numeroDaTemporada >= PRIMEIRA_TEMPORADA_COM_REGRAS_T2;
+}
+
+/**
+ * Recompensa da Temporada 1 (ADR-0047): quem se inscreveu na T1 ganha o Selo da Temporada 1, o
+ * Piso da Temporada 1 (OVR mínimo, aplicado uma vez na Pré-temporada da T2) e ganhos maiores nas
+ * primeiras Rodadas da T2.
+ */
+export const PISO_DA_TEMPORADA_1 = 63;
+/** Rodadas da Fase de Liga da T2 em que vale o Bônus da Temporada 1 (da 1ª até esta). */
+export const RODADAS_DO_BONUS_T1 = 3;
+export function temBonusT1(numeroDaTemporada: number, numeroDaRodada: number, fase: 'LIGA' | 'MATA_MATA'): boolean {
+  return numeroDaTemporada === PRIMEIRA_TEMPORADA_COM_REGRAS_T2 && fase === 'LIGA' && numeroDaRodada <= RODADAS_DO_BONUS_T1;
 }
 
 export interface Escalacao {

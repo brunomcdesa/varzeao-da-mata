@@ -343,7 +343,7 @@ describe('trava da Temporada 1', () => {
   });
 });
 
-describe('regras da Temporada 2 (VERSAO_SIM 13)', () => {
+describe('regras da Temporada 2 (VERSAO_SIM 14)', () => {
   const neutra = { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const;
   /** `t2`: null joga com as regras da T1. */
   const jogo = (seed: number, t2: Parameters<typeof simularPartida>[0]['t2'] | null = neutra, a = escalacao('CAP', 70), b = escalacao('ONC', 70, 'R')) =>
@@ -351,7 +351,7 @@ describe('regras da Temporada 2 (VERSAO_SIM 13)', () => {
 
   it('com as regras da T2 a Partida é da versão 13, guarda Postura e Ritmo e é determinística', () => {
     const r = jogo(11);
-    expect(r.versaoSim).toBe(13);
+    expect(r.versaoSim).toBe(14);
     expect(r.postura).toEqual(neutra.postura);
     expect(r.ritmo).toBeGreaterThanOrEqual(6);
     expect(jogo(11)).toEqual(r);
@@ -495,6 +495,49 @@ describe('Resenha (ADR-0034)', () => {
   });
 });
 
+describe('Bônus da Temporada 1 (ADR-0047)', () => {
+  const neutra = { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const;
+  const comFlag = (e: ReturnType<typeof escalacao>, extra: { resenha?: true; bonusT1?: true }) => ({ ...e, jogadores: e.jogadores.map((j) => ({ ...j, ...extra })) });
+
+  it('na Temporada 1 não muda nada', () => {
+    for (let seed = 1; seed <= 10; seed++) {
+      const a = escalacao('CAP', 66);
+      const r0 = simularPartida({ ...base, mandante: a, visitante: escalacao('TAT', 66), seed });
+      const r1 = simularPartida({ ...base, mandante: comFlag(a, { bonusT1: true }), visitante: escalacao('TAT', 66), seed });
+      expect(r1.desempenhos.map((d) => d.deltaHabilidades)).toEqual(r0.desempenhos.map((d) => d.deltaHabilidades));
+    }
+  });
+
+  it('na T2 vale como a Resenha (mesmo jogo, nunca evolui menos) e soma com ela', () => {
+    let subiuMais = 0;
+    let somouMais = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const a = escalacao('CAP', 66);
+      const jogo = (m: ReturnType<typeof escalacao>) => simularPartida({ ...base, mandante: m, visitante: escalacao('TAT', 66), seed, t2: neutra });
+      const r0 = jogo(a);
+      const rT1 = jogo(comFlag(a, { bonusT1: true }));
+      const rRes = jogo(comFlag(a, { resenha: true }));
+      const rOs2 = jogo(comFlag(a, { resenha: true, bonusT1: true }));
+      expect(rT1.gols).toEqual(r0.gols);
+      // Sozinhos, os dois bônus valem o mesmo (1,5×).
+      expect(rT1.desempenhos.map((d) => d.deltaHabilidades)).toEqual(rRes.desempenhos.map((d) => d.deltaHabilidades));
+      rT1.desempenhos.forEach((d, i) => {
+        if (d.slot.lado !== 'mandante') return;
+        for (const h of HABILIDADES) {
+          expect(d.deltaHabilidades[h]).toBeGreaterThanOrEqual(r0.desempenhos[i]!.deltaHabilidades[h]);
+          if (d.deltaHabilidades[h] > r0.desempenhos[i]!.deltaHabilidades[h]) subiuMais++;
+          expect(rOs2.desempenhos[i]!.deltaHabilidades[h]).toBeGreaterThanOrEqual(d.deltaHabilidades[h]);
+          if (rOs2.desempenhos[i]!.deltaHabilidades[h] > d.deltaHabilidades[h]) somouMais++;
+          // O teto por Partida continua valendo.
+          expect(rOs2.desempenhos[i]!.deltaHabilidades[h]).toBeLessThanOrEqual(LIMITE_DELTA_HABILIDADE_CLASSICO);
+        }
+      });
+    }
+    expect(subiuMais).toBeGreaterThan(40);
+    expect(somouMais).toBeGreaterThan(20);
+  });
+});
+
 describe('expulsões em série (T2)', () => {
   it('com três expulsos no mesmo Time a Partida termina (os atacantes recuam)', () => {
     const neutra = { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const;
@@ -528,7 +571,7 @@ describe('saída de bola depois do gol (ADR-0045)', () => {
     const t1 = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('ONC', 70), seed: 1 });
     const t2 = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('ONC', 70), seed: 1, t2: { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } });
     expect(t1.versaoSim).toBe(12);
-    expect(t2.versaoSim).toBe(13);
+    expect(t2.versaoSim).toBe(14);
   });
 });
 

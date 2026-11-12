@@ -5,6 +5,7 @@
  *   USUARIO=fulano pnpm liga remover               remove um Jogador que ainda não jogou
  *   USUARIO=fulano TIME=onca POSICAO=zagueiro pnpm liga mover   muda o Time à mão (ADR-0029)
  *   pnpm liga rebalancear [--gravar]                Rebalanceamento da T2 (ADR-0036); sem --gravar só mostra o plano
+ *   pnpm liga recompensa-t1 [--gravar]              Selo e Piso da Temporada 1 (ADR-0047); sem --gravar só mostra quem sobe
  *   USUARIO=fulano pnpm liga vincular-conta        liga o Jogador da DM (id provisório) à conta do Instagram
  *   pnpm liga corrigir-trocas-de-posicao            devolve o OVR de quem trocou de posição pela regra antiga (ADR-0030)
  *   pnpm liga comentarios                          os comentários lidos e o resultado de cada um
@@ -38,6 +39,7 @@ import {
   processarComentario,
   moverJogador,
   rebalancear,
+  recompensarT1,
   avisoDoRemanejado,
   vincularConta,
   corrigirTrocasDePosicao,
@@ -300,6 +302,16 @@ async function main(): Promise<void> {
         console.log('Rascunhos dos avisos (só saem com aprovação):');
         for (const x of r.plano.remanejados) console.log(`  ${avisoDoRemanejado(x)}`);
         if (r.gravado) console.log(`Gravado. ${r.fundadores} Fundador(es) marcados.`);
+        break;
+      }
+
+      case 'recompensa-t1': {
+        // Recompensa da Temporada 1 (ADR-0047). Sem --gravar é a simulação: mostra quem sobe pelo Piso.
+        const r = await recompensarT1(banco, { gravar: args.gravar });
+        const sobem = r.recompensados.filter((x) => x.ovrDepois > x.ovrAntes);
+        console.log(`Selo da Temporada 1 para ${r.recompensados.length} Jogador(es); ${sobem.length} sobem pelo Piso.${r.gravado ? '' : ' SIMULAÇÃO: nada foi gravado.'}`);
+        for (const x of sobem) console.log(`  @${x.username} (${x.posicao}): OVR ${x.ovrAntes} → ${x.ovrDepois}`);
+        if (r.gravado) console.log('Gravado.');
         break;
       }
 
