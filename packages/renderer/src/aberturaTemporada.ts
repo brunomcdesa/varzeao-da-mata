@@ -17,7 +17,8 @@ export interface DadosDaAberturaDaTemporada {
   temporada: number;
   /** Dia da Rodada 1, AAAA-MM-DD. */
   estreia: string;
-  horarios: number[];
+  /** Um jogo por hora, a Série B antes da A (ADR-0050). */
+  horarios: { B: number[]; A: number[] };
   horaDoResumo: number;
   serieA: readonly TimeId[];
   serieB: readonly TimeId[];
@@ -28,7 +29,7 @@ export interface DadosDaAberturaDaTemporada {
 
 export const DADOS_DA_ABERTURA_T2: Omit<DadosDaAberturaDaTemporada, 'estreia'> = {
   temporada: 2,
-  horarios: [12, 14, 16, 18],
+  horarios: { B: [11, 12, 13, 14], A: [15, 16, 17, 18] },
   horaDoResumo: 19,
   serieA: TIMES_FUNDADORES,
   serieB: TIMES_NOVOS,
@@ -79,6 +80,15 @@ export class RoteiroAberturaDaTemporada {
 // ---------------------------------------------------------------- narração
 
 const curto = (t: TimeId) => FALA_DO_TIME[t].curto;
+/** "onze da manhã", "duas da tarde", "meio-dia". */
+const horaComPeriodo = (h: number) => (h === 12 ? 'meio-dia' : h < 12 ? `${horaFalada(h, false)} da manhã` : horaFalada(h, true));
+/** "das onze da manhã às duas da tarde", "do meio-dia às três da tarde". */
+const faixa = (hs: number[]) => {
+  const ini = hs[0]!;
+  const fim = hs[hs.length - 1]!;
+  const de = ini === 12 ? 'do meio-dia' : ini > 12 && fim > 12 ? `das ${horaFalada(ini, false)}` : `das ${horaComPeriodo(ini)}`;
+  return `${de} às ${horaComPeriodo(fim)}`;
+};
 
 export function narracaoDaAbertura(roteiro: RoteiroAberturaDaTemporada): Fala[] {
   const d = roteiro.dados;
@@ -94,7 +104,7 @@ export function narracaoDaAbertura(roteiro: RoteiroAberturaDaTemporada): Fala[] 
         'E tem muita novidade: dentro de campo, pro capitão, pro seu jogador e no site. Amanhã sai um Reels explicando cada uma.' +
         (d.horaDoRebalanceamento ? ` E hoje, às ${horaFalada(d.horaDoRebalanceamento, true)}: quem vai jogar a Série B.` : ''),
       ENTRAR: `Quer jogar? Comenta ENTRO, o time e a posição. Tipo: ENTRO ${curto(ex.time)} ${POSICAO_FALADA[ex.posicao]}. Vale time da Série A ou da Série B. E quem já joga continua com o seu jogador.`,
-      AGENDA: `A estreia é ${semana === 'sábado' || semana === 'domingo' ? 'no' : 'na'} ${semana}, dia ${NUMERO_FALADO[dia] ?? dia}. Jogos ${lista(d.horarios.map((h, k) => (h === 12 ? (k === 0 ? 'ao meio-dia' : 'meio-dia') : `às ${horaFalada(h, k === d.horarios.length - 1)}`)))}, com as duas séries no mesmo horário.`,
+      AGENDA: `A estreia é ${semana === 'sábado' || semana === 'domingo' ? 'no' : 'na'} ${semana}, dia ${NUMERO_FALADO[dia] ?? dia}. É um jogo por hora: a Série B ${faixa(d.horarios.B)}, e a Série A ${faixa(d.horarios.A)}.`,
       CHAMADA: `As inscrições estão abertas. Comenta aí e garante a sua vaga na Temporada ${n}!`,
     };
     const animado = s.cartela === 'ABERTURA' || s.cartela === 'CHAMADA' || s.cartela === 'ENTRAR';
@@ -330,10 +340,13 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
         pin.texto('uma rodada por dia', COLUNAS / 2, 162, 10, texto, COR.placaSombra, { peso: 600 });
       });
       surge(entre(t, 1.2, 1.6), () => {
-        pin.tabua(22, 196, 226, 100);
-        pin.texto('Jogos todo dia', COLUNAS / 2, 214, 12, texto, COR.placa, { peso: 700 });
-        d.horarios.forEach((h, k) => plaquinha(pin, 44 + k * 61, 230, 40, 30, `${h}h`, display));
-        pin.texto('Série A e Série B no mesmo horário', COLUNAS / 2, 280, pin.caber('Série A e Série B no mesmo horário', 206, 12, display), display, COR.amarelo, { contorno: COR.contorno });
+        pin.tabua(14, 196, 242, 108);
+        pin.texto('Um jogo por hora', COLUNAS / 2, 212, 12, texto, COR.placa, { peso: 700 });
+        (['B', 'A'] as const).forEach((serie, linha) => {
+          const y = 226 + linha * 38;
+          pin.texto(`Série ${serie}`, 44, y + 13, 12, display, COR.amarelo, { contorno: COR.contorno });
+          d.horarios[serie].forEach((h, k) => plaquinha(pin, 80 + k * 44, y, 38, 26, `${h}h`, display));
+        });
       });
       surge(entre(t, 3.4, 3.8), () => {
         pin.tabua(22, 308, 226, 52);

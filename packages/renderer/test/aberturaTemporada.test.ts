@@ -8,11 +8,11 @@ describe('Reels de Abertura da Temporada', () => {
     expect(roteiro().segmentos.map((s) => s.cartela)).toEqual(['ABERTURA', 'SERIES', 'ACESSO', 'NOVIDADES', 'ENTRAR', 'AGENDA', 'CHAMADA']);
   });
 
-  it('fala os 8 Times novos, a estreia e as duas Séries no mesmo horário', () => {
+  it('fala os 8 Times novos, a estreia e um jogo por hora, B antes da A', () => {
     const falas = narracaoDaAbertura(roteiro()).map((f) => f.texto).join(' ');
     for (const nome of ['Jacaré', 'Sucuri', 'Lobo-guará', 'Cachorro-do-mato', 'Boto', 'Pirarucu', 'Coruja', 'Morcego']) expect(falas).toContain(nome);
     expect(falas).toContain('na quinta, dia dezenove');
-    expect(falas).toContain('as duas séries no mesmo horário');
+    expect(falas).toContain('a Série B das onze da manhã às duas da tarde, e a Série A das três às seis da tarde');
     expect(falas).toContain('Temporada 2');
     expect(falas).not.toContain('@');
   });
