@@ -11,6 +11,7 @@
     "demo": "node scripts/build-demo.mjs",
     "gravar": "tsx scripts/gravar.ts",
     "apresentacao": "tsx scripts/apresentacao.ts",
+    "abertura-temporada": "tsx scripts/abertura-temporada.ts",
     "explicacao-escalacao": "tsx scripts/explicacao-escalacao.ts",
     "explicacao-ovr": "tsx scripts/explicacao-ovr.ts",
     "agradecimento-t1": "tsx scripts/agradecimento-t1.ts",

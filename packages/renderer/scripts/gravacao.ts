@@ -27,6 +27,7 @@ import type { VarzeaApi } from '../video/api.js';
 import { RoteiroResumo, narracaoDoResumo, type DadosDoResumo } from '../src/resumo.js';
 import { RoteiroApresentacao, narracaoDaApresentacao, type DadosDaApresentacao } from '../src/apresentacao.js';
 import { RoteiroAnuncio, narracaoDoAnuncio } from '../src/anuncio.js';
+import { RoteiroAberturaDaTemporada, narracaoDaAbertura, type DadosDaAberturaDaTemporada } from '../src/aberturaTemporada.js';
 import { RoteiroExplicacao, narracaoDaExplicacao, type DadosDaExplicacao } from '../src/explicacaoEscalacao.js';
 import { RoteiroExplicacaoOvr, narracaoDaExplicacaoOvr, type DadosDaExplicacaoOvr } from '../src/explicacaoOvr.js';
 import { NARRADOR_DO_AGRADECIMENTO, RoteiroAgradecimentoT1, narracaoDoAgradecimentoT1, type DadosDoAgradecimentoT1 } from '../src/agradecimentoT1.js';
@@ -310,6 +311,53 @@ export async function gravarApresentacao(dados: DadosDaApresentacao, o: OpcoesGr
     }
     const { duracao, totalQuadros } = await pagina.evaluate(([d, m, f]) => window.varzea.prepararApresentacao(d, m, f), [dados, minimos, fps] as const);
     console.log(`Apresentação da Liga · ${duracao.toFixed(1)} s · ${totalQuadros} quadros a ${fps} fps`);
+    if (o.previa) {
+      await gravarPrevia(pagina, o.previa, fps, o.instantes);
+      return { duracao };
+    }
+    await codificar(pagina, totalQuadros, audio!, o.saida, fps, crf);
+    console.log(`Pronto: ${o.saida} (${((performance.now() - inicio) / 1000).toFixed(1)} s)`);
+    return { duracao };
+  } finally {
+    await navegador.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+/** Reels de Abertura de uma Temporada nova (Séries, Acesso, novidades e Inscrição). */
+export async function gravarAberturaDaTemporada(dados: DadosDaAberturaDaTemporada, o: OpcoesGravacao): Promise<{ duracao: number }> {
+  const inicio = performance.now();
+  const fps = o.fps ?? 30;
+  const crf = o.crf ?? 20;
+  await mkdir(dirname(o.saida), { recursive: true });
+  const dir = await mkdtemp(join(tmpdir(), 'varzea-abertura-'));
+  const navegador = await chromium.launch();
+  try {
+    const pagina = await navegador.newPage({ viewport: { width: 1080, height: 1920 } });
+    pagina.on('pageerror', (e) => console.error('[página]', e.message));
+    await pagina.goto(await montarPagina(dir));
+
+    let minimos: Record<number, { antes?: number }> = {};
+    let audio: string | null = null;
+    if (!o.previa) {
+      console.log('Locução:');
+      const base = new RoteiroAberturaDaTemporada(dados);
+      const falasBase = narracaoDaAbertura(base);
+      const vozes = await sintetizar(falasBase);
+      const duracao = (id: string) => vozes.get(id)!.length / TAXA;
+      minimos = exigenciasDaNarracao(base, falasBase, duracao);
+      const roteiro = new RoteiroAberturaDaTemporada(dados, minimos);
+      const falas = narracaoDaAbertura(roteiro);
+      const naMixagem: VozNaMixagem[] = agendarFalas(falas, duracao).map((a) => {
+        console.log(`  ${a.inicio.toFixed(1).padStart(5)} s  ${falas.find((x) => x.id === a.id)!.texto}`);
+        return { inicio: a.inicio, amostras: vozes.get(a.id)! };
+      });
+      const { esq, dir: direita } = mixar({ duracao: roteiro.duracao, segmentos: roteiro.segmentos, eventos: [{ tipo: 'APITO_FINAL', t: 0.1 }, { tipo: 'APITO_FINAL', t: roteiro.duracao - 1.2 }], vozes: naMixagem });
+      audio = join(dir, 'audio.wav');
+      await writeFile(audio, codificarWav(esq, direita));
+    }
+    const { duracao, totalQuadros } = await pagina.evaluate(([d, m, f]) => window.varzea.prepararAberturaDaTemporada(d, m, f), [dados, minimos, fps] as const);
+    console.log(`Abertura da Temporada ${dados.temporada} · ${duracao.toFixed(1)} s · ${totalQuadros} quadros a ${fps} fps`);
     if (o.previa) {
       await gravarPrevia(pagina, o.previa, fps, o.instantes);
       return { duracao };

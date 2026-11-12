@@ -76,26 +76,26 @@ export class RoteiroApresentacao {
 
 // ---------------------------------------------------------------- narração
 
-const POSICAO_FALADA: Record<Posicao, string> = { GOL: 'goleiro', ZAG: 'zagueiro', MEI: 'meia', ATA: 'atacante' };
-const POSICAO_ESCRITA: Record<Posicao, string> = { GOL: 'GOLEIRO', ZAG: 'ZAGUEIRO', MEI: 'MEIA', ATA: 'ATACANTE' };
+export const POSICAO_FALADA: Record<Posicao, string> = { GOL: 'goleiro', ZAG: 'zagueiro', MEI: 'meia', ATA: 'atacante' };
+export const POSICAO_ESCRITA: Record<Posicao, string> = { GOL: 'GOLEIRO', ZAG: 'ZAGUEIRO', MEI: 'MEIA', ATA: 'ATACANTE' };
 const curto = (t: TimeId) => FALA_DO_TIME[t].curto;
 const DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-const NUMERO_FALADO: Record<number, string> = { 1: 'primeiro', 2: 'dois', 3: 'três', 4: 'quatro', 5: 'cinco', 6: 'seis', 7: 'sete', 8: 'oito', 9: 'nove', 10: 'dez', 11: 'onze', 12: 'doze', 13: 'treze', 14: 'catorze', 15: 'quinze', 16: 'dezesseis', 17: 'dezessete', 18: 'dezoito', 19: 'dezenove', 20: 'vinte', 21: 'vinte e um', 22: 'vinte e dois', 23: 'vinte e três', 24: 'vinte e quatro', 25: 'vinte e cinco', 26: 'vinte e seis', 27: 'vinte e sete', 28: 'vinte e oito', 29: 'vinte e nove', 30: 'trinta', 31: 'trinta e um' };
+export const NUMERO_FALADO: Record<number, string> = { 1: 'primeiro', 2: 'dois', 3: 'três', 4: 'quatro', 5: 'cinco', 6: 'seis', 7: 'sete', 8: 'oito', 9: 'nove', 10: 'dez', 11: 'onze', 12: 'doze', 13: 'treze', 14: 'catorze', 15: 'quinze', 16: 'dezesseis', 17: 'dezessete', 18: 'dezoito', 19: 'dezenove', 20: 'vinte', 21: 'vinte e um', 22: 'vinte e dois', 23: 'vinte e três', 24: 'vinte e quatro', 25: 'vinte e cinco', 26: 'vinte e seis', 27: 'vinte e sete', 28: 'vinte e oito', 29: 'vinte e nove', 30: 'trinta', 31: 'trinta e um' };
 
-function dataDa(d: DadosDaApresentacao): { dia: number; mes: string; semana: string } {
+export function dataDa(d: { estreia: string }): { dia: number; mes: string; semana: string } {
   const [a, m, dia] = d.estreia.split('-').map(Number) as [number, number, number];
   const semana = DIAS[new Date(Date.UTC(a, m - 1, dia, 12)).getUTCDay()]!;
   return { dia, mes: MESES[m - 1]!, semana };
 }
 
 /** "duas", "quatro", "seis da tarde": o período só vai no último horário da lista. */
-function horaFalada(h: number, comPeriodo: boolean): string {
+export function horaFalada(h: number, comPeriodo: boolean): string {
   const t = h > 12 ? h - 12 : h;
   return `${t === 1 ? 'uma' : t === 2 ? 'duas' : NUMERO_FALADO[t]}${comPeriodo ? (h >= 19 ? ' da noite' : h > 12 ? ' da tarde' : '') : ''}`;
 }
 
-function lista(itens: string[]): string {
+export function lista(itens: string[]): string {
   return itens.length > 1 ? `${itens.slice(0, -1).join(', ')} e ${itens[itens.length - 1]}` : (itens[0] ?? '');
 }
 
@@ -127,8 +127,8 @@ export interface OpcoesApresentacao {
   escudo?: CanvasImageSource;
 }
 
-const suave = (f: number) => f * f * (3 - 2 * f);
-const entre = (f: number, a: number, b: number) => suave(Math.min(1, Math.max(0, (f - a) / (b - a))));
+export const suave = (f: number) => f * f * (3 - 2 * f);
+export const entre = (f: number, a: number, b: number) => suave(Math.min(1, Math.max(0, (f - a) / (b - a))));
 
 export function uniforme(time: TimeId, posicao: Posicao, nome: string): Visual {
   const id = IDENTIDADE[time];
@@ -148,7 +148,7 @@ export function boneco(pin: Pincel, pose: Pose, v: Visual, x: number, y: number,
 }
 
 /** Barra de Habilidade em gomos de 10, como no site. */
-function barra(pin: Pincel, x: number, y: number, w: number, valor: number, cor: string): void {
+export function barra(pin: Pincel, x: number, y: number, w: number, valor: number, cor: string): void {
   pin.r(x - 1, y - 1, w + 2, 7, COR.contorno);
   pin.r(x, y, w, 5, COR.placaSombra);
   pin.r(x, y, Math.round((w * valor) / 100), 5, cor);
