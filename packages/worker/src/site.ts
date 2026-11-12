@@ -379,7 +379,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   const historia: TemporadaNaHistoria[] = [];
   for (const t of temporadas) {
     const ps = todas.filter((p) => p.temporada_id === t.id);
-    // A Final de cada Série (com duas Séries, as duas são às 18h do mesmo dia).
+    // A Final de cada Série (com duas Séries, as duas no mesmo dia: B às 16h, A às 18h).
     const desfecho = (serie: Serie) => {
       const final = ps.find((p) => etapaDa(p.fase, p.rodada) === 'FINAL' && p.serie === serie);
       const rf = final && encerrada(final) ? final.resultado : null;

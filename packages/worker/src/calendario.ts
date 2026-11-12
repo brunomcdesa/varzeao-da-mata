@@ -1,7 +1,8 @@
 /**
  * Calendário da Temporada (GLOSSARY: Fase de Liga, Rodada, Apito Inicial, Série).
- * Turno único entre os 8 Times de cada Série em 7 Rodadas, uma por dia, com Partidas às 12h,
- * 14h, 16h e 18h; com duas Séries, cada horário tem uma Partida da A e uma da B (ADR-0017).
+ * Turno único entre os 8 Times de cada Série em 7 Rodadas, uma por dia. Com uma Série só, as
+ * Partidas são às 12h, 14h, 16h e 18h. Com duas Séries, cada Partida tem o seu horário, de hora
+ * em hora: a B das 11h às 14h e a A das 15h às 18h (ADR-0049).
  * O Mata-mata é criado depois, quando a Fase de Liga termina.
  */
 import { TIMES_FUNDADORES, type Serie, type TimeId } from '@liga/shared';
@@ -11,6 +12,13 @@ import { gravarSeries, seriesDaProximaTemporada, seriesComTimes, type SeriesDaTe
 import { tabela } from './tabela.js';
 
 export const HORARIOS = [12, 14, 16, 18] as const;
+/** Com duas Séries (ADR-0049): a B joga antes, a A fecha o dia. */
+export const HORARIOS_COM_SERIES: Record<Serie, readonly number[]> = { B: [11, 12, 13, 14], A: [15, 16, 17, 18] };
+
+/** Horários da Fase de Liga de uma Série. */
+export function horariosDaLiga(serie: Serie, comSeries: boolean): readonly number[] {
+  return comSeries ? HORARIOS_COM_SERIES[serie] : HORARIOS;
+}
 /** Brasília é UTC−3, sem horário de verão. */
 export const FUSO_BRASILIA = -3;
 
@@ -108,6 +116,7 @@ export async function criarTemporada(banco: Banco, o: { numero: number; primeira
     ).rows[0]!.id;
     if (series) await gravarSeries(b, temporadaId, series);
     const quais = series ? seriesComTimes(series) : (['A'] as Serie[]);
+    const comSeries = quais.includes('B');
     const calendarios = quais.map((serie) => ({ serie, rodadas: faseDeLiga(seedDaSerie(o.seed, serie), series ? series[serie] : TIMES_FUNDADORES) }));
     const totalDeRodadas = calendarios[0]!.rodadas.length;
     for (let r = 0; r < totalDeRodadas; r++) {
@@ -121,7 +130,7 @@ export async function criarTemporada(banco: Banco, o: { numero: number; primeira
             rodadaId,
             j.mandante,
             j.visitante,
-            apitoInicial(dia, HORARIOS[k]!).toISOString(),
+            apitoInicial(dia, horariosDaLiga(serie, comSeries)[k]!).toISOString(),
             serie,
           ]);
         }

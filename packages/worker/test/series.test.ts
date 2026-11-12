@@ -48,7 +48,7 @@ describe('Série A e Série B (ADR-0017)', () => {
     expect(liga.calendario.every((p) => p.serie === undefined)).toBe(true);
   });
 
-  it('depois da Temporada 1, os fundadores ficam na A e os Times novos formam a B, com A e B no mesmo horário', async () => {
+  it('depois da Temporada 1, os fundadores ficam na A e os Times novos formam a B, um jogo por hora com a B antes da A (ADR-0049)', async () => {
     const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
     await jogarTemporada(t1);
     const t2 = await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-18', seed: 8 });
@@ -67,10 +67,10 @@ describe('Série A e Série B (ADR-0017)', () => {
     expect(jogos).toHaveLength(7 * 8);
     for (let r = 1; r <= 7; r++) {
       const doDia = jogos.filter((j) => j.numero === r);
-      // Cada horário tem uma Partida da A e uma da B.
-      const porHorario = new Map<number, string[]>();
-      for (const j of doDia) porHorario.set(new Date(j.apito_inicial).getTime(), [...(porHorario.get(new Date(j.apito_inicial).getTime()) ?? []), j.serie]);
-      expect([...porHorario.values()].map((v) => v.sort().join(''))).toEqual(['AB', 'AB', 'AB', 'AB']);
+      // Cada horário tem uma Partida só: a B das 11h às 14h, a A das 15h às 18h.
+      const ordem = [...doDia].sort((a, b) => new Date(a.apito_inicial).getTime() - new Date(b.apito_inicial).getTime());
+      expect(ordem.map((j) => (new Date(j.apito_inicial).getUTCHours() + 21) % 24)).toEqual([11, 12, 13, 14, 15, 16, 17, 18]);
+      expect(ordem.map((j) => j.serie).join('')).toBe('BBBBAAAA');
       // Nenhum Time joga fora da sua Série, e cada Time joga uma vez por dia.
       for (const j of doDia) {
         const serie = j.serie === 'A' ? s.A : s.B;

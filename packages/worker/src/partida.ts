@@ -9,7 +9,7 @@ import { randomInt } from 'node:crypto';
 import { mataMataDaPartida, nomeDaEtapa, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
 import { simularPartida, type Lado, type ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
-import { HORARIOS, FUSO_BRASILIA } from './calendario.js';
+import { FUSO_BRASILIA } from './calendario.js';
 import { seriesDaTemporada } from './series.js';
 import { escalarPartida, type PartidaEscalada } from './escalacao.js';
 import { formacoesDaPartida, partidaTemRegrasT2, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
@@ -136,7 +136,7 @@ async function mataMataDe(banco: Banco, p: LinhaPartida): Promise<MataMataDaPart
 export function subtituloDaPartida(rodada: number, fase: 'LIGA' | 'MATA_MATA', apito: Date): string {
   const hora = (apito.getUTCHours() + FUSO_BRASILIA + 24) % 24;
   const nome = nomeDaEtapa(fase, rodada);
-  return HORARIOS.includes(hora as (typeof HORARIOS)[number]) ? `${nome}, jogo das ${hora}h` : nome;
+  return fase === 'LIGA' ? `${nome}, jogo das ${hora}h` : nome;
 }
 
 export interface OpcoesDoJob {

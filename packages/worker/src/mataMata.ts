@@ -2,7 +2,7 @@
  * Mata-mata: depois da 7ª Rodada, os 4 melhores da Fase de Liga jogam as Semifinais no dia
  * seguinte (1º × 4º às 14h, 2º × 3º às 16h) e a Final no
  * outro dia, às 18h. Empate em qualquer jogo do Mata-mata vai para os pênaltis. O melhor colocado é o mandante.
- * Com duas Séries, cada uma tem o seu Mata-mata, nos mesmos horários (ADR-0017).
+ * Com duas Séries, cada uma tem o seu Mata-mata, e a B joga antes da A (ADR-0049).
  *
  * `avancarMataMata` é idempotente: o job `resumo` chama todo dia e ela só faz o próximo passo
  * quando ele está pronto.
@@ -16,6 +16,15 @@ import { tabela } from './tabela.js';
 
 export const HORARIOS_DAS_SEMIFINAIS = [14, 16] as const;
 export const HORARIO_DA_FINAL = 18;
+
+/** Com duas Séries (ADR-0049), a B joga antes: Semis B 13h e 14h, A 15h e 16h; Finais B 16h, A 18h. */
+export function horariosDasSemifinais(serie: Serie, comSeries: boolean): readonly number[] {
+  if (!comSeries) return HORARIOS_DAS_SEMIFINAIS;
+  return serie === 'B' ? [13, 14] : [15, 16];
+}
+export function horarioDaFinal(serie: Serie, comSeries: boolean): number {
+  return comSeries && serie === 'B' ? 16 : HORARIO_DA_FINAL;
+}
 
 export type PassoDoMataMata = 'NADA' | 'SEMIFINAIS_CRIADAS' | 'FINAL_CRIADA' | 'TEMPORADA_ENCERRADA';
 
@@ -78,7 +87,7 @@ export async function avancarMataMata(banco: Banco, temporadaId: number): Promis
             id,
             m,
             v,
-            apitoInicial(dia, HORARIOS_DAS_SEMIFINAIS[k]!).toISOString(),
+            apitoInicial(dia, horariosDasSemifinais(serie, series.includes('B'))[k]!).toISOString(),
             serie,
           ]);
         }
@@ -103,7 +112,7 @@ export async function avancarMataMata(banco: Banco, temporadaId: number): Promis
           id,
           m,
           v,
-          apitoInicial(dia, HORARIO_DA_FINAL).toISOString(),
+          apitoInicial(dia, horarioDaFinal(serie, series.includes('B'))).toISOString(),
           serie,
         ]);
       }

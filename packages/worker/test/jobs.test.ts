@@ -201,30 +201,22 @@ describe('jobs', () => {
     expect(ig.containers).toHaveLength(1);
   });
 
-  it('partida: com duas Séries, simula as duas do horário antes de gravar o primeiro Reels (ADR-0017)', async () => {
+  it('partida: com duas Séries, cada horário tem uma Partida só e o job grava o Reels dela (ADR-0049)', async () => {
     const t2 = await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-20', seed: 4, series: { A: TIMES, B: TIMES_NOVOS } });
-    // Só as Partidas da Temporada 2 estão pendentes.
     await banco.query(`UPDATE partida SET status = 'PUBLICADA' WHERE rodada_id IN (SELECT id FROM rodada WHERE temporada_id <> $1)`, [t2]);
+    // O jogo das 11h já saiu; às 11h25 o job pega só o das 12h (o segundo da Série B).
+    await banco.query(`UPDATE partida SET status = 'PUBLICADA' WHERE apito_inicial < '2026-11-20T15:00:00Z'`);
     const doHorario = (
-      await banco.query<{ id: number }>(
-        `SELECT p.id FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND p.apito_inicial = '2026-11-20T15:00:00Z' ORDER BY p.serie`,
+      await banco.query<{ id: number; serie: string }>(
+        `SELECT p.id, p.serie FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND p.apito_inicial = '2026-11-20T15:00:00Z'`,
         [t2],
       )
-    ).rows.map((r) => r.id);
-    expect(doHorario).toHaveLength(2);
-    const statusNaGravacao: string[][] = [];
+    ).rows;
+    expect(doHorario.map((p) => p.serie)).toEqual(['B']);
     agora = new Date('2026-11-20T14:25:00Z');
-    const feitas = await jobPartida({
-      ...ctx,
-      gravarReels: async (_d, saida) => {
-        statusNaGravacao.push(await Promise.all(doHorario.map(status)));
-        await writeFile(saida, 'mp4 de mentira');
-      },
-    });
-    expect(feitas).toEqual(doHorario);
-    // Quando o primeiro Reels começou a ser gravado, a outra Partida já estava simulada.
-    expect(statusNaGravacao[0]).toEqual(['SIMULADA', 'SIMULADA']);
-    for (const id of doHorario) expect(JSON.parse(await readFile(join(pasta, 'privado/partidas', `${id}.json`), 'utf8')).resultado.lances.length).toBeGreaterThan(0);
+    const feitas = await jobPartida({ ...ctx, gravarReels: async (_d, saida) => writeFile(saida, 'mp4 de mentira') });
+    expect(feitas).toEqual(doHorario.map((p) => p.id));
+    expect(JSON.parse(await readFile(join(pasta, 'privado/partidas', `${doHorario[0]!.id}.json`), 'utf8')).resultado.lances.length).toBeGreaterThan(0);
   });
 
   it('resumo: fecha a Rodada e agenda para as 19h', async () => {
