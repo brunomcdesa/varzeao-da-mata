@@ -3,7 +3,8 @@ import { TIMES_FUNDADORES as TIMES, type JogadorPublico, type LigaPublica } from
 import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
 import { processarComentario } from '../src/coletar.js';
-import { jobCraqueDaTemporada } from '../src/jobs.js';
+import { writeFile } from 'node:fs/promises';
+import { jobAgradecimentoT1, jobCraqueDaTemporada, sincronizarPublicados, type ContextoDoJob } from '../src/jobs.js';
 import { avancarMataMata } from '../src/mataMata.js';
 import { AgendaNaMemoria, PastaLocal } from '../src/nuvem.js';
 import { rodarPartida } from '../src/partida.js';
@@ -103,5 +104,59 @@ describe('Seleção da Rodada no site (ADR-0041)', () => {
         await writeFile(caminho, JSON.stringify(conteudo));
       }
     }
+  }, 60_000);
+});
+
+describe('Recompensa e agradecimento automáticos (ADR-0047)', () => {
+  it('Recompensa e agradecimento da T1 saem sozinhos (ADR-0047)', async () => {
+    for (let n = 1; n <= 9; n++) await jogarRodada(n);
+    const containers: { videoUrl: string; legenda: string }[] = [];
+    const ig = {
+      async criarReels(o: { videoUrl: string; legenda: string }) {
+        containers.push(o);
+        return `C${containers.length}`;
+      },
+      async statusDoContainer() {
+        return { status: 'FINISHED' as const };
+      },
+      async esperarContainer() {},
+    };
+    const gravados: unknown[] = [];
+    const ctx = {
+      banco,
+      armazenamento: new PastaLocal('/tmp/varzea-agradecimento'),
+      agenda: new AgendaNaMemoria(),
+      ig,
+      log: () => {},
+      gravarAgradecimentoT1: async (d: unknown, saida: string) => {
+        gravados.push(d);
+        await writeFile(saida, 'mp4');
+      },
+    } as unknown as ContextoDoJob;
+    // Antes do Craque da Temporada (16/11, 18h), nem Recompensa nem agradecimento.
+    expect(await jobAgradecimentoT1({ ...ctx, agora: () => new Date('2026-11-16T20:00:00Z') })).toBeNull();
+    expect(await jobCraqueDaTemporada({ ...ctx, agora: () => new Date('2026-11-16T21:10:00Z') })).toBe(temporada);
+    // A T2 nasce na Pré-temporada e a Recompensa vem junto: todos os inscritos ganham o Selo.
+    expect((await banco.query(`SELECT 1 FROM selo_temporada1`)).rows).toHaveLength(24);
+    // No mesmo dia do Resumo da Temporada, o agradecimento ainda não sai.
+    expect(await jobAgradecimentoT1({ ...ctx, agora: () => new Date('2026-11-16T21:20:00Z') })).toBeNull();
+    // No dia seguinte (17/11), o job das 18h10 grava e agenda para as 19h.
+    const n = containers.length;
+    expect(await jobAgradecimentoT1({ ...ctx, agora: () => new Date('2026-11-17T21:10:00Z') })).toBe(temporada);
+    expect(gravados).toHaveLength(1);
+    expect(gravados[0]).toMatchObject({ inscritos: 24, piso: 63, rodadasDoBonus: 3 });
+    expect(containers.slice(n)).toHaveLength(1);
+    expect(containers.at(-1)!.legenda).toContain('Selo Temporada 1');
+    const item = (await Promise.all((await ctx.agenda.listar('agenda/')).map((k) => ctx.agenda.ler<{ tipo: string; publicarEm: string; ref: number }>(k)))).find((x) => x?.tipo === 'AGRADECIMENTO')!;
+    expect(item.publicarEm).toBe('2026-11-17T22:00:00.000Z');
+    // Uma vez só.
+    expect(await jobAgradecimentoT1({ ...ctx, agora: () => new Date('2026-11-18T21:10:00Z') })).toBeNull();
+    // Publicado pela borda, o banco fica sabendo.
+    for (const k of await ctx.agenda.listar('agenda/')) {
+      const x = await ctx.agenda.ler<{ tipo: string }>(k);
+      if (x?.tipo === 'AGRADECIMENTO') await ctx.agenda.gravar(k, { ...x, publicadoEm: '2026-11-17T22:00:05Z', mediaId: 'M1' });
+    }
+    await sincronizarPublicados({ ...ctx, agora: () => new Date('2026-11-17T22:10:00Z') });
+    expect((await banco.query<{ s: string }>(`SELECT agradecimento_status AS s FROM temporada WHERE id = $1`, [temporada])).rows[0]!.s).toBe('PUBLICADO');
   }, 60_000);
 });

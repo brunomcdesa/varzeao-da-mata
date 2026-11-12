@@ -24,7 +24,7 @@ Os OVRs iniciais são sorteados entre 60 e 70 (`OVR_INICIAL`). No fim da T1, os 
 
 ## Como rodar
 
-O workflow manual `recompensa-t1` (ou `pnpm liga recompensa-t1`). Sem marcar "gravar", é a simulação: o log mostra quantos ganham o Selo e quem sobe pelo Piso, com o OVR antes e depois. Com "gravar", aplica numa transação e republica o site. O comando recusa rodar fora da Pré-temporada da T2 ou se já foi aplicado.
+Sozinha: quando o Craque da Temporada 1 sai e a T2 nasce na Pré-temporada, o job aplica a Recompensa uma vez e lista no log quem subiu. Um erro só vira log e não para o Craque. À mão, se precisar: o workflow `recompensa-t1` (ou `pnpm liga recompensa-t1`). Sem marcar "gravar", é a simulação: o log mostra quantos ganham o Selo e quem sobe pelo Piso, com o OVR antes e depois. Com "gravar", aplica numa transação e republica o site. O comando recusa rodar fora da Pré-temporada da T2 ou se já foi aplicado.
 
 ## Consequences
 
@@ -35,4 +35,4 @@ O workflow manual `recompensa-t1` (ou `pnpm liga recompensa-t1`). Sem marcar "gr
 
 ## Reels de agradecimento
 
-Separado do Resumo da Temporada, que já mostra o campeão, o Craque e a Seleção. Sai no dia seguinte ao Resumo da Temporada, antes do Reels de novidades da T2. Tem 7 cartelas (abertura, números da T1, obrigado, Selo, Piso, Bônus e chamada para a T2), sem campeão e sem @, e é narrado pelo Seu Dito. Os números (inscritos com o mesmo critério do Selo, jogos e gols, sem pênaltis) vêm do banco na hora de gravar. O workflow manual `agradecimento-t1` grava (com uma cópia no branch `amostras-agradecimento`) e só posta depois da aprovação do dono.
+Separado do Resumo da Temporada, que já mostra o campeão, o Craque e a Seleção. Sai no dia seguinte ao Resumo da Temporada, antes do Reels de novidades da T2. Tem 7 cartelas (abertura, números da T1, obrigado, Selo, Piso, Bônus e chamada para a T2), sem campeão e sem @, e é narrado pelo Seu Dito. Os números (inscritos com o mesmo critério do Selo, jogos e gols, sem pênaltis) vêm do banco na hora de gravar. Sai sozinho (decisão do dono, como os Reels de Resumo): o job `resumo` das 18h10 do dia seguinte ao Resumo da Temporada grava e agenda o Reels para as 19h (`jobAgradecimentoT1`, uma vez só, controlado por `temporada.agradecimento_status`, migração 018). A aprovação do dono é da prévia gravada antes, com os números do dia, pelo workflow manual `agradecimento-t1` (acao=gravar, cópia no branch `amostras-agradecimento`). O mesmo workflow ainda posta à mão se o automático falhar.

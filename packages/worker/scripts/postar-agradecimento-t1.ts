@@ -5,8 +5,8 @@
  *   pnpm postar-agradecimento-t1 --postar --video <link do R2>    publica com a legenda (depois da aprovação do dono)
  *   pnpm postar-agradecimento-t1 --so-legenda
  *
- * Sai no dia seguinte ao Resumo da Temporada (que já mostra o campeão), antes do Reels de
- * novidades da T2.
+ * O Reels sai sozinho pelo job `resumo` no dia seguinte ao Resumo da Temporada (jobAgradecimentoT1).
+ * Este script é para a prévia (gravar com os números de hoje) ou para postar à mão se precisar.
  */
 import { copyFile, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { PISO_DA_TEMPORADA_1, RODADAS_DO_BONUS_T1 } from '@liga/shared';
 import { PARAMETROS_T2 } from '@liga/sim';
-import { Instagram, conectar, nuvemDoAmbiente, numerosDaTemporada1, prepararBanco, tokenGuardado } from '../src/index.js';
+import { Instagram, conectar, legendaDoAgradecimentoT1, nuvemDoAmbiente, numerosDaTemporada1, prepararBanco, tokenGuardado } from '../src/index.js';
 
 const raizRepo = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 try {
@@ -29,18 +29,7 @@ const sair = (m: string): never => {
   process.exit(1);
 };
 
-const BONUS = Math.round((PARAMETROS_T2.multiplicadorBonusT1 - 1) * 100);
-
-export const LEGENDA_DO_AGRADECIMENTO_T1 = [
-  '🏆 Fim da Temporada 1! Obrigado a cada um que comentou, se inscreveu e acreditou no Varzeão desde o começo.',
-  '',
-  '🎖️ Quem jogou a T1 ganha o Selo Temporada 1 na página de Carreira.',
-  `📈 Ninguém da T1 começa a T2 com OVR abaixo de ${PISO_DA_TEMPORADA_1}.`,
-  `⚡ Nas ${RODADAS_DO_BONUS_T1} primeiras Rodadas da T2, suas Habilidades sobem ${BONUS}% mais rápido (e soma com a Resenha).`,
-  '👀 A Temporada 2 vem aí, com muita novidade. Ativa as notificações!',
-  '',
-  '#varzeaodamata #futebol #varzea',
-].join('\n');
+export const LEGENDA_DO_AGRADECIMENTO_T1 = legendaDoAgradecimentoT1();
 
 console.log(`Legenda:\n${LEGENDA_DO_AGRADECIMENTO_T1}\n`);
 if (args['so-legenda']) process.exit(0);

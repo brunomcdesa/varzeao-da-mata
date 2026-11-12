@@ -50,7 +50,7 @@ export interface Env {
 }
 
 export interface ItemDaAgenda {
-  tipo: 'PARTIDA' | 'RESUMO' | 'CRAQUE' | 'APRESENTACAO';
+  tipo: 'PARTIDA' | 'RESUMO' | 'CRAQUE' | 'APRESENTACAO' | 'AGRADECIMENTO';
   ref: number;
   containerId: string;
   publicarEm: string;
