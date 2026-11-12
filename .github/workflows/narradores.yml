@@ -26,6 +26,9 @@ on:
         description: 'Só lista as vozes prontas pt-BR da biblioteca (sem gerar áudio)'
         type: boolean
         default: false
+      grafias:
+        description: 'Teste de pronúncia: grafias separadas por | (uma frase por grafia)'
+        default: ''
       previa:
         description: 'Prévia de comparação: a mesma fala com cada Narrador (5 pedidos de voz, branch previa-narradores)'
         type: boolean
@@ -61,7 +64,14 @@ jobs:
           git -c user.name=liga -c user.email=liga@users.noreply.github.com commit -qm "Catálogo de vozes pt-BR"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" catalogo-vozes
       - if: inputs.pronuncia && !inputs.cota && !inputs.catalogo
-        run: pnpm --filter @liga/renderer pronuncia
+        run: |
+          pnpm --filter @liga/renderer pronuncia "$RUNNER_TEMP/pronuncia"
+          cd "$RUNNER_TEMP/pronuncia" && git init -q -b amostras-pronuncia && git add *.mp3
+          git -c user.name=liga -c user.email=liga@users.noreply.github.com commit -qm "Teste de pronúncia"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" amostras-pronuncia
+        env:
+          PRONUNCIA_GRAFIAS: ${{ inputs.grafias }}
+          PRONUNCIA_CURTA: ${{ inputs.grafias != '' && '1' || '' }}
       - if: ${{ !inputs.pronuncia && !inputs.cota && !inputs.catalogo }}
         run: pnpm --filter @liga/renderer narradores "$RUNNER_TEMP/narradores"
       - if: ${{ !inputs.pronuncia && !inputs.cota && !inputs.catalogo }}
