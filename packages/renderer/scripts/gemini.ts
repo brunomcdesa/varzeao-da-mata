@@ -194,6 +194,12 @@ export function pedidoGeminiVarias(falas: { texto: string; tom: Tom }[], voz: st
 export const SEPARADOR = '\n<long pause> <long pause>\n';
 /** Silêncio mínimo (s) para valer como separação entre falas. */
 const SILENCIO_MINIMO = 0.25;
+/**
+ * Quantas vezes a menor pausa usada como corte precisa ser maior que a maior pausa que ficou
+ * dentro de uma fala. Abaixo disso o lote é recusado e dividido ao meio (mais pedidos, nunca
+ * áudio trocado).
+ */
+export const FOLGA_DO_CORTE = 1.3;
 
 /**
  * Divide um áudio com `n` falas separadas por pausas longas: acha os n−1 maiores trechos
@@ -226,8 +232,14 @@ export function dividirPorSilencio(amostras: Float32Array, n: number, taxa = 480
   }
   const longos = silencios.filter((s) => ((s.ate - s.de) * quadro) / taxa >= SILENCIO_MINIMO);
   if (longos.length < n - 1) return null;
-  const cortes = longos
-    .sort((a, b) => b.ate - b.de - (a.ate - a.de))
+  const porTamanho = [...silencios].sort((a, b) => b.ate - b.de - (a.ate - a.de));
+  // As pausas entre falas precisam ser bem mais longas que qualquer pausa dentro de uma fala.
+  // Se a menor separação escolhida não se destaca da maior pausa que sobrou, o corte é ambíguo
+  // e poderia dar a uma fala o áudio de outra (ex.: o "Fim de jogo!" num lance aos 77').
+  const menorCorte = porTamanho[n - 2]!.ate - porTamanho[n - 2]!.de;
+  const maiorResto = porTamanho[n - 1] ? porTamanho[n - 1]!.ate - porTamanho[n - 1]!.de : 0;
+  if (maiorResto > 0 && menorCorte < maiorResto * FOLGA_DO_CORTE) return null;
+  const cortes = porTamanho
     .slice(0, n - 1)
     .map((s) => Math.floor(((s.de + s.ate) / 2) * quadro))
     .sort((a, b) => a - b);

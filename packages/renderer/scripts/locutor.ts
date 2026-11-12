@@ -44,6 +44,9 @@ async function umaPorUma(l: Pick<Locutor, 'falar'>, falas: { texto: string; tom:
   return out;
 }
 
+/** Versão do cache de falas do Gemini (ADR-0049). */
+export const CORTE_SEGURO = 'corte2';
+
 const PROSODIA: Record<Tom, { rate: string; pitch: string; grau: string }> = {
   normal: { rate: '+8%', pitch: '+0%', grau: '1' },
   animado: { rate: '+14%', pitch: '+6%', grau: '1.4' },
@@ -103,7 +106,9 @@ export function criarLocutor(pastaCache: string, modoForcado?: string, vozGemini
     const voz = vozGemini || process.env.GEMINI_TTS_VOZ || VOZ_PADRAO;
     const modelo = process.env.GEMINI_TTS_MODELO || MODELO_PADRAO;
     // O jeito entra na chave só quando existe, para o cache antigo continuar valendo.
-    const chaveDe = (texto: string, tom: Tom) => `gemini|${modelo}|${voz}|${tom}|${jeito ? `${jeito}|` : ''}${paraFalar(texto, voz)}`;
+    // `CORTE_SEGURO` invalida o cache gravado antes da conferência do corte (ADR-0049): parte
+    // dele pode ter o áudio de outra fala guardado com o texto errado.
+    const chaveDe = (texto: string, tom: Tom) => `gemini|${CORTE_SEGURO}|${modelo}|${voz}|${tom}|${jeito ? `${jeito}|` : ''}${paraFalar(texto, voz)}`;
     const falar = (texto: string, tom: Tom) => comCache(chaveDe(texto, tom), () => falarGemini(texto, tom, chaveGemini!, voz, modelo, jeito));
     const diagnostico = async (wav: Uint8Array, motivo: string) => {
       const pasta = join(pastaCache, 'falhas');

@@ -85,6 +85,21 @@ describe('Lote de falas', () => {
     expect(dur[2]).toBeCloseTo(0.9, 1);
   });
 
+  it('recusa o corte quando uma pausa dentro da fala é quase tão longa quanto a separação (ADR-0049)', () => {
+    // Lote: "Pra fora!" | "Fim de jogo! Onça 1, Lobo 1. ... Curtiu? Compartilha!" | "Segue o jogo."
+    // A separação entre a 2ª e a 3ª saiu curta (0,5 s) e o "Fim de jogo" tem uma pausa de 0,55 s
+    // no meio: cortar ali daria o final do "Fim de jogo" para outra fala.
+    const audio = juntar(tom(0.8), silencio(1.0), tom(1.5), silencio(0.55), tom(1.2), silencio(0.5), tom(0.9));
+    expect(dividirPorSilencio(audio, 3)).toBeNull();
+  });
+
+  it('aceita o corte quando as separações se destacam das pausas internas', () => {
+    const audio = juntar(tom(0.8), silencio(1.0), tom(1.5), silencio(0.5), tom(1.2), silencio(1.1), tom(0.9));
+    const pedacos = dividirPorSilencio(audio, 3)!;
+    expect(pedacos).toHaveLength(3);
+    expect(pedacos[1]!.length / 48000).toBeCloseTo(3.3, 1); // o "Fim de jogo" inteiro, com a pausa interna
+  });
+
   it('desiste quando não há pausas suficientes', () => {
     const audio = juntar(tom(1.0), silencio(0.1), tom(1.0));
     expect(dividirPorSilencio(audio, 2)).toBeNull();

@@ -64,5 +64,6 @@ runs:
       uses: actions/cache@v4
       with:
         path: packages/renderer/.cache/locutor
-        key: locutor-${{ github.run_id }}-${{ github.run_attempt }}
-        restore-keys: locutor-
+        # "v2" (ADR-0049): o cache anterior podia ter falas com o áudio de outra; começa do zero.
+        key: locutor-v2-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: locutor-v2-
