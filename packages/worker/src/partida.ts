@@ -11,7 +11,7 @@ import { simularPartida, type Lado, type ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { HORARIOS, FUSO_BRASILIA } from './calendario.js';
 import { escalarPartida, type PartidaEscalada } from './escalacao.js';
-import { partidaTemRegrasT2, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
+import { formacoesDaPartida, partidaTemRegrasT2, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
 
 /** O que o renderer precisa para gravar o Reels (mesmo formato de PartidaParaVideo). */
 export interface DadosDoVideo {
@@ -75,7 +75,13 @@ export async function simular(banco: Banco, partidaId: number, escalada: Partida
 
     const seed = o.seed ?? randomInt(0, 2 ** 31);
     // Regras da Temporada 2 só para Partidas de uma Temporada com elas (a T1 segue a versão 5).
-    const t2 = (await partidaTemRegrasT2(b, partidaId)) ? { postura: await posturasDaPartida(b, partidaId, p.mandante_id, p.visitante_id) } : undefined;
+    const t2 = (await partidaTemRegrasT2(b, partidaId))
+      ? {
+          postura: await posturasDaPartida(b, partidaId, p.mandante_id, p.visitante_id),
+          // Formação (ADR-0044): a mesma que montou a Escalação.
+          formacao: await formacoesDaPartida(b, partidaId, p.mandante_id, p.visitante_id),
+        }
+      : undefined;
     const resultado = simularPartida({
       mandante: escalada.escalacoes.mandante,
       visitante: escalada.escalacoes.visitante,

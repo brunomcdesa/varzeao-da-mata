@@ -155,11 +155,60 @@ export interface JogadorEscalado {
   canto?: Canto;
   /** Resenha (ADR-0034): comentou no Reels do último jogo do Time; ganhos de Habilidade maiores nesta Partida. */
   resenha?: boolean;
+  /**
+   * Formação (ADR-0044): a Posição de inscrição de quem joga fora de posição. `posicao` é a vaga
+   * que ele ocupa, e o `ovr` já vem pelos pesos dessa vaga.
+   */
+  posicaoDeOrigem?: Posicao;
 }
 
 /** Temporada 2 (ADR-0020): a atitude do Time na Partida, escolhida pelo Capitão. */
 export const POSTURAS = ['OFENSIVA', 'EQUILIBRADA', 'DEFENSIVA'] as const;
 export type Postura = (typeof POSTURAS)[number];
+
+/**
+ * Temporada 2 (ADR-0044): o desenho do Time em campo, escolhido pelo Capitão junto da Postura.
+ * Os números contam os Jogadores de linha: zagueiros, meias e atacantes (o goleiro é sempre um).
+ */
+export const FORMACOES = ['2-2-2', '2-3-1', '3-2-1', '3-1-2'] as const;
+export type Formacao = (typeof FORMACOES)[number];
+/** Formação de quem não escolheu (e de toda a Temporada 1). */
+export const FORMACAO_PADRAO: Formacao = '2-2-2';
+
+/** Quantas vagas cada Posição tem em cada Formação. */
+export const VAGAS_DA_FORMACAO: Readonly<Record<Formacao, Readonly<Record<Posicao, number>>>> = {
+  '2-2-2': { GOL: 1, ZAG: 2, MEI: 2, ATA: 2 },
+  '2-3-1': { GOL: 1, ZAG: 2, MEI: 3, ATA: 1 },
+  '3-2-1': { GOL: 1, ZAG: 3, MEI: 2, ATA: 1 },
+  '3-1-2': { GOL: 1, ZAG: 3, MEI: 1, ATA: 2 },
+};
+
+/** As Posições de uma Formação, na ordem da Escalação (GOL, ZAG…, MEI…, ATA…). */
+export function posicoesDaFormacao(f: Formacao): Posicao[] {
+  const v = VAGAS_DA_FORMACAO[f];
+  return (['GOL', 'ZAG', 'MEI', 'ATA'] as const).flatMap((p) => Array<Posicao>(v[p]).fill(p));
+}
+
+export function ehFormacao(x: unknown): x is Formacao {
+  return typeof x === 'string' && (FORMACOES as readonly string[]).includes(x);
+}
+
+/** A Jogada da Formação (ADR-0044): o lance próprio de cada desenho, narrado pelo nome. */
+export const JOGADA_DA_FORMACAO: Readonly<Record<Formacao, JogadaDaFormacao | null>> = {
+  '2-2-2': null,
+  '2-3-1': 'TABELA',
+  '3-2-1': 'COBERTURA',
+  '3-1-2': 'LIGACAO_DIRETA',
+};
+export type JogadaDaFormacao = 'COBERTURA' | 'TABELA' | 'LIGACAO_DIRETA';
+
+/** Nome e descrição de cada Formação para o site (painel do Capitão e Ajuda). */
+export const DESCRICAO_DA_FORMACAO: Readonly<Record<Formacao, { nome: string; jogada: string | null; linha: string }>> = {
+  '2-2-2': { nome: '2-2-2', jogada: null, linha: 'Equilibrada: dois em cada linha.' },
+  '2-3-1': { nome: '2-3-1', jogada: 'Tabela', linha: 'Meio forte: os meias tabelam e chutam mais de fora; a defesa fica mais exposta.' },
+  '3-2-1': { nome: '3-2-1', jogada: 'Cobertura', linha: 'Defesa forte: o 3º zagueiro faz a Cobertura; o ataque perde força.' },
+  '3-1-2': { nome: '3-1-2', jogada: 'Ligação direta', linha: 'Contra-ataque: o zagueiro lança direto para a dupla de ataque; o meio perde a posse mais.' },
+};
 
 /** Temporada 2 (ADR-0023): Canto de pênalti. */
 export const CANTOS = ['ESQUERDA', 'MEIO', 'DIREITA'] as const;

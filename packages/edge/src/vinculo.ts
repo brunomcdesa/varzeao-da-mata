@@ -41,8 +41,9 @@ export type EscolhaDaT2 =
   | { tipo: 'TREINO'; valor: string | null }
   | { tipo: 'CANTO'; valor: string | null }
   | { tipo: 'PRESENCA' }
-  | { tipo: 'POSTURA'; valor: string };
-const TIPOS_DE_ESCOLHA = ['ESPECIALIZACAO', 'TREINO', 'CANTO', 'PRESENCA', 'POSTURA'] as const;
+  | { tipo: 'POSTURA'; valor: string }
+  | { tipo: 'FORMACAO'; valor: string };
+const TIPOS_DE_ESCOLHA = ['ESPECIALIZACAO', 'TREINO', 'CANTO', 'PRESENCA', 'POSTURA', 'FORMACAO'] as const;
 
 type Graph = <T>(metodo: 'GET' | 'POST', caminho: string, params: Record<string, string>) => Promise<T>;
 type Disparar = (job: string) => Promise<boolean>;
@@ -125,7 +126,7 @@ export async function sessaoDe(env: EnvVinculo, sessao: string): Promise<SessaoV
 }
 
 /** Capitão do próximo jogo do Time do Jogador (T2); null fora da T2, sem jogo ou sem banco. */
-export type ConsultarCapitania = (jogadorId: string) => Promise<{ eu: boolean; capitao: string | null; postura: string } | null>;
+export type ConsultarCapitania = (jogadorId: string) => Promise<{ eu: boolean; capitao: string | null; postura: string; formacao?: string } | null>;
 
 export async function rotasDoVinculo(
   req: Request,
@@ -236,7 +237,7 @@ export async function rotasDoVinculo(
     return json({ ok: true, pedido: registro, disparou });
   }
 
-  // Temporada 2: Postura (Capitão), Presença, Especialização, Treino e Canto. Um pedido por tipo.
+  // Temporada 2: Postura e Formação (Capitão), Presença, Especialização, Treino e Canto. Um pedido por tipo.
   if (pathname === '/escolha' || pathname === '/escolha/estado') {
     const c = await corpo<{ sessao: string; tipo: string; valor: string | null }>(req);
     if (!sessaoValida(c?.sessao)) return json({ erro: 'Sessão inválida' }, 400);
@@ -253,6 +254,7 @@ export async function rotasDoVinculo(
     if (!TIPOS_DE_ESCOLHA.includes(tipo)) return json({ erro: 'Escolha desconhecida' }, 400);
     const valor = c.valor === null || c.valor === undefined || c.valor === '' ? null : String(c.valor).slice(0, 30);
     if (tipo === 'POSTURA' && !valor) return json({ erro: 'Escolha a Postura' }, 400);
+    if (tipo === 'FORMACAO' && !valor) return json({ erro: 'Escolha a Formação' }, 400);
     const escolha = (tipo === 'PRESENCA' ? { tipo } : { tipo, valor }) as EscolhaDaT2;
     const base = { jogadorId: s.jogadorId, escolha, pedidoEm: agora.toISOString() };
     const feito = await aplicar({ tipo: 'ESCOLHA', jogadorId: s.jogadorId, escolha }).catch(() => null);

@@ -201,12 +201,36 @@ A descida de um Time da Série A para a Série B no fim da Temporada. Caem os do
 _Avoid_: descenso, queda, degola
 
 **Capitão**:
-O Jogador com mais Partidas por um Time, que escolhe a Postura antes de cada Partida. Se não tiver Vínculo ou estiver suspenso, a faixa passa para o próximo com Vínculo.
+O Jogador com mais Partidas por um Time, que escolhe a Postura e a Formação antes de cada Partida. Se não tiver Vínculo ou estiver suspenso, a faixa passa para o próximo com Vínculo.
 _Avoid_: líder, técnico, dono do time
 
 **Postura**:
 A atitude do Time numa Partida (Ofensiva, Equilibrada ou Defensiva), escolhida em segredo pelo Capitão até o Corte. Sem escolha, é Equilibrada.
 _Avoid_: tática, estratégia, esquema
+
+**Formação**:
+O desenho do Time em campo na Temporada 2: quantos zagueiros, meias e atacantes jogam (2-2-2, 2-3-1, 3-2-1 ou 3-1-2; o goleiro é sempre um). Escolhida pelo Capitão junto da Postura, até o Corte; sem escolha, 2-2-2. As vagas da Escalação seguem a Formação. ADR-0044.
+_Avoid_: esquema tático, sistema, escalação (a Escalação é quem joga)
+
+**Fora de posição**:
+O Jogador que ocupa a vaga de outra Posição porque a Formação pediu mais gente numa Posição do que o Time tinha disponível. Joga com o OVR calculado pelos pesos da vaga. ADR-0044.
+_Avoid_: improvisado, adaptado
+
+**Jogada da Formação**:
+O lance próprio de cada Formação, que aparece no vídeo e o Narrador chama pelo nome: Tabela (2-3-1), Cobertura (3-2-1) e Ligação direta (3-1-2). O 2-2-2 não tem. ADR-0044.
+_Avoid_: jogada ensaiada (é a cobrança de falta curta)
+
+**Tabela**:
+Jogada da Formação do 2-3-1: o meia que cria toca para outro meia (o apoio) e recebe de volta antes de criar, o que deixa a criação mais fácil.
+_Avoid_: tabelinha, parede, um-dois
+
+**Cobertura**:
+Jogada da Formação do 3-2-1: quando o atacante dribla o marcador, o zagueiro da sobra (o terceiro zagueiro) chega para mais um desarme.
+_Avoid_: sobra, segundo homem
+
+**Ligação direta**:
+Jogada da Formação do 3-1-2: um zagueiro lança direto para os atacantes, sem passar pela criação do meia. Ele leva a assistência; se o rival corta, é desarme.
+_Avoid_: chutão, bola longa, lançamento (o lançamento é só um estilo do desenho)
 
 **Cartão**:
 Punição a um Jogador na Partida. O vermelho expulsa na hora, e o Time segue com um a menos. Dois amarelos na Temporada, ou um vermelho, dão Suspensão.

@@ -1,4 +1,4 @@
-import { habilidadesDoPerfil, type Escalacao, type Habilidades, type JogadorEscalado, type Posicao, type TimeId } from '@liga/shared';
+import { habilidadesDoPerfil, posicoesDaFormacao, type Escalacao, type Formacao, type Habilidades, type JogadorEscalado, type Posicao, type TimeId } from '@liga/shared';
 
 export const FORMACAO_ORDEM: readonly Posicao[] = ['GOL', 'ZAG', 'ZAG', 'MEI', 'MEI', 'ATA', 'ATA'];
 
@@ -13,4 +13,9 @@ export function escalacao(time: TimeId, ovr: number | readonly number[], prefixo
     time,
     jogadores: FORMACAO_ORDEM.map((posicao, i) => jogador(`${prefixo}-${i}`, posicao, typeof ovr === 'number' ? ovr : ovr[i]!)),
   };
+}
+
+/** Escalação de uma Formação (ADR-0044), todos no mesmo OVR. */
+export function escalacaoNa(formacao: Formacao, time: TimeId, ovr: number, prefixo: string = time): Escalacao {
+  return { time, jogadores: posicoesDaFormacao(formacao).map((posicao, i) => jogador(`${prefixo}-${i}`, posicao, ovr)) };
 }

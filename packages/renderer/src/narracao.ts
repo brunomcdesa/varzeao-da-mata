@@ -152,6 +152,20 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
     if (lance.tipo === 'DESARME' && lance.drible && lance.finalizador) {
       construcao.DESARME = [`${cap(c)} acha ${f}... vai pra cima!`, `${cap(f)} recebe e tenta o drible...`, `${cap(f)} parte pra cima do marcador...`];
     }
+    // Jogada da Formação (ADR-0044): o Narrador diz o nome dela, porque ela aparece na tela.
+    const dfs = doTime(time(atq === 'mandante' ? 'visitante' : 'mandante'));
+    if (lance.jogadaDaFormacao === 'TABELA' && !lance.contraAtaque && lance.bolaParada !== 'LATERAL') {
+      const tabela = [`Tabela no meio ${doTime(time(atq))}! Os meias trocam passes...`, `Olha a tabela ${doTime(time(atq))}! ${cap(pc)} toca e recebe...`, `Tabelinha no meio-campo ${doTime(time(atq))}...`];
+      for (const k of ['TABELA', 'INDIVIDUAL', 'DESARME', 'FALTA']) construcao[k] = tabela;
+    }
+    if (lance.jogadaDaFormacao === 'LIGACAO_DIRETA' && !lance.contraAtaque && lance.bolaParada !== 'LATERAL') {
+      const ligacao = [`Ligação direta ${doTime(time(atq))}! ${cap(pc)} lança lá da defesa!`, `Ligação direta! O zagueiro ${doTime(time(atq))} manda lá na frente!`, `Bola longa da zaga ${doTime(time(atq))}, ligação direta!`];
+      for (const k of ['LANCAMENTO', 'INDIVIDUAL', 'DESARME', 'FALTA']) construcao[k] = ligacao;
+    }
+    if (lance.cobertura && lance.finalizador && !lance.contraAtaque && lance.bolaParada !== 'LATERAL') {
+      const cobertura = [`${cap(f)} passa pelo marcador... olha a cobertura ${dfs}!`, `${cap(f)} limpa o primeiro... e vem a cobertura!`];
+      for (const k of ['INDIVIDUAL', 'DESARME']) construcao[k] = cobertura;
+    }
     falas.push({
       id: `lance-${s.lance}-a`,
       texto: escolher(rng, construcao[plano.estilo]!),
@@ -220,6 +234,12 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
       resolucao.DEFESA = [[`Cabeceou! E o goleiro pega!`, 'animado'], [`Testada firme... defendeu!`, 'animado']];
       resolucao.FORA = [[`Cabeceou pra fora!`, 'animado'], [`Subiu sozinho... por cima!`, 'animado']];
       resolucao.GOL = [[`Gol de cabeça ${doTime(time(atq))}!`, 'grito'], [`Subiu e marcou! Gooool ${doTime(time(atq))}!`, 'grito']];
+    }
+    if (lance.cobertura && lance.tipo === 'DESARME') {
+      resolucao.DESARME = [[`Na cobertura! ${cap(def)} chega na sobra!`, 'animado'], [`Cobertura perfeita! ${cap(def)} desarma!`, 'animado']];
+    }
+    if (lance.jogadaDaFormacao === 'LIGACAO_DIRETA' && lance.tipo === 'DESARME' && !lance.finalizador) {
+      resolucao.DESARME = [[`Cortou a ligação direta! ${cap(def)} sobe e tira.`, 'normal'], [`Interceptou! ${cap(def)} lê o lançamento.`, 'normal']];
     }
     const [texto, tom] = escolher(rng, resolucao[lance.tipo]!);
     falas.push({ id: `lance-${s.lance}-b`, texto, inicio: s.resolucao! - 0.1, limite: s.fim - 0.1, tom, segmento: indice, parte: 'depois' });
