@@ -16,3 +16,4 @@ export * from './mataMata.js';
 export * from './apresentacao.js';
 export * from './rebalanceamento.js';
 export * from './recompensaT1.js';
+export * from './programados.js';

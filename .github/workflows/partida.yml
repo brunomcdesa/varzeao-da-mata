@@ -1,9 +1,9 @@
-# 35 min antes de cada jogo (12h, 14h, 16h e 18h em Brasília = 15h, 17h, 19h e 21h UTC):
+# 35 min antes de cada jogo (de hora em hora, das 11h às 18h em Brasília, ADR-0050; sem jogo na hora, sai sem fazer nada):
 # espera o Corte, escala, simula, grava o Reels e agenda a publicação para o fim do Ao Vivo.
 name: partida
 on:
   schedule:
-    - cron: '25 14,16,18,20 * * *'
+    - cron: '25 13-20 * * *'
   # A borda (Cloudflare) dispara este workflow na hora certa com origem=borda; o cron acima
   # é a reserva, porque o do GitHub atrasa e às vezes pula.
   workflow_dispatch:

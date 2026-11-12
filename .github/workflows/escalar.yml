@@ -4,7 +4,7 @@
 name: escalar
 on:
   schedule:
-    - cron: '25 14,16,18,20 * * *'
+    - cron: '25 13-20 * * *'
   # A borda (Cloudflare) dispara este workflow junto com o partida, com origem=borda; o cron
   # acima é a reserva, porque o do GitHub atrasa e às vezes pula.
   workflow_dispatch:

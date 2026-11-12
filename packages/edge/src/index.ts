@@ -13,7 +13,7 @@
  *   os votos do KV para o banco e mantém `votacao-aberta` em dia.
  */
 
-import { serieDoCandidato, type Posicao, type TimeId } from '@liga/shared';
+import { dispararProgramadosAgora, serieDoCandidato, type Posicao, type TimeId } from '@liga/shared';
 import { marcarPendencia } from './pendencias.js';
 import { transferirJogador } from '../../worker/src/coletar.js';
 import { aplicarPerfil } from '../../worker/src/perfil.js';
@@ -342,11 +342,14 @@ export function jobsDoMinuto(agora: Date): string[] {
   // Coleta a cada 10 minutos (:07, :17, :27…): quem comenta aparece logo.
   if (m % 10 === 7) jobs.push('coletar');
   // Logo depois do fim do Ao Vivo (5 min depois do apito): placar, tabela e Card no site.
-  else if (m === 5 && [12, 14, 16, 18].includes(h)) jobs.push('coletar');
+  // Com duas Séries há jogo de hora em hora, das 11h às 18h (ADR-0050).
+  else if (m === 5 && h >= 11 && h <= 18) jobs.push('coletar');
   // No mesmo minuto, os dois esperam o Corte (às :30): o escalar é leve e publica as Escalações
-  // logo; o partida instala o vídeo e grava os Reels (ADR-0038).
-  if (m === 25 && [11, 13, 15, 17].includes(h)) jobs.push('escalar', 'partida');
+  // logo; o partida instala o vídeo e grava os Reels (ADR-0038). Sem jogo na hora, saem sem fazer nada.
+  if (m === 25 && h >= 10 && h <= 17) jobs.push('escalar', 'partida');
   if (m === 10 && h === 18) jobs.push('resumo');
+  // Reels Programados (ADR-0051): 90 e 60 minutos antes do horário de cada um.
+  if (dispararProgramadosAgora(agora)) jobs.push('programados');
   return jobs;
 }
 

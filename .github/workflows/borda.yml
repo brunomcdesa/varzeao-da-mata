@@ -8,7 +8,8 @@ name: borda
 on:
   push:
     branches: [master]
-    paths: ['packages/edge/**', '.github/workflows/borda.yml']
+    # A lista dos Reels Programados (shared) entra no pacote da borda, que dispara o job na hora.
+    paths: ['packages/edge/**', 'packages/shared/src/programados.ts', '.github/workflows/borda.yml']
   workflow_dispatch:
 concurrency: borda
 jobs:
