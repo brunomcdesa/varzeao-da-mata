@@ -82,6 +82,14 @@ _Avoid_: kickoff, início, horário do jogo
 A exibição de uma Partida no site a partir do Apito Inicial, com o relógio de jogo correndo 15 vezes mais rápido, de modo que os 90 minutos passam em cerca de 6.
 _Avoid_: live, transmissão, tempo real
 
+**Público**:
+Quantas pessoas estão assistindo a um Ao Vivo naquele momento, mostrado no placar da página da Partida ("37 assistindo"). Só existe durante o Ao Vivo (ADR-0046).
+_Avoid_: audiência, viewers, espectadores online
+
+**Reação**:
+Um emoji que qualquer pessoa assistindo ao Ao Vivo pode mandar (⚽ Gol, 🔥 Fogo, 😱 Susto, 👏 Palmas). Sobe por cima do campo na tela de todo mundo; uma por segundo por pessoa. Não fica no Replay (ADR-0046).
+_Avoid_: like, curtida, emoji
+
 **Replay**:
 A reexibição, no site, de qualquer Partida já terminada, lance a lance.
 _Avoid_: reprise, VT, gravação

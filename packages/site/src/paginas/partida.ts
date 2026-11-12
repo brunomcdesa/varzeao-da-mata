@@ -4,6 +4,7 @@ import type { Desempenho, Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { contagem, diaLongo, hora, jogadores, partida, situacaoAgora } from '../dados.js';
 import { DURACAO_JOGO, narradorDa, resultadoDaCobranca } from '@liga/renderer';
 import { montarTimeline, transmitir } from '../transmissao.js';
+import { REACOES, entrarNaSala } from '../reacoes.js';
 import type { Timeline } from '@liga/renderer';
 import { bonecoImg, campinho, curto, duelaDeForcas, escudoImg, html, jogadorLink, nota, NOME_DA_POSICAO, rotuloClassico, type Html, comCamisa, comFaixa } from '../ui.js';
 import type { Pagina } from './tipos.js';
@@ -162,7 +163,7 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
               ? html`<span class="penaltis-placa">${curto(r.times[r.vencedor])} venceu nos pênaltis, ${r.penaltis.placar[r.vencedor]} a ${r.penaltis.placar[r.vencedor === 'mandante' ? 'visitante' : 'mandante']}</span>`
               : ''}
             ${s === 'AO_VIVO' && timeline?.disputa ? html`<span class="penaltis-placa" data-penaltis hidden></span>` : ''}
-            ${s === 'AO_VIVO' ? html`<span class="ao-vivo-selo">Ao vivo <span data-minuto>0'</span></span>` : ''}
+            ${s === 'AO_VIVO' ? html`<span class="ao-vivo-selo">Ao vivo <span data-minuto>0'</span></span> <span class="publico-selo" data-publico hidden></span>` : ''}
             ${s === 'AGENDADA' ? html`<span class="falta">Apito ${contagem(p.apito)}</span>` : ''}
             ${classico ? html`<span class="classico-nome">${classico}</span>` : ''}
           </div>
@@ -172,7 +173,10 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
 
       ${timeline && s !== 'AGENDADA'
         ? html`<section class="transmissao" aria-label="${s === 'AO_VIVO' ? 'Transmissão ao vivo' : 'Replay'}">
-            <canvas width="540" height="960"></canvas>
+            ${s === 'AO_VIVO' ? html`<div class="campo-ao-vivo"><canvas width="540" height="960"></canvas></div>` : html`<canvas width="540" height="960"></canvas>`}
+            ${s === 'AO_VIVO'
+              ? html`<div class="reacoes" role="group" aria-label="Reagir ao lance">${REACOES.map((r) => html`<button type="button" data-reacao="${r.id}" aria-label="${r.nome}">${r.emoji}</button>`)}</div>`
+              : ''}
             ${s === 'ENCERRADA'
               ? html`<div class="controles">
                   <button type="button" class="botao" data-acao="tocar" aria-pressed="true">Pausar</button>
@@ -266,6 +270,7 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
     },
   });
   // No fim do Ao Vivo a página vira a da Partida encerrada (placar, Notas, lance a lance).
+  const sala = s === 'AO_VIVO' ? entrarNaSala(main, p.id) : null;
   const fimDoAoVivo = s === 'AO_VIVO' ? setTimeout(() => window.dispatchEvent(new HashChangeEvent('hashchange')), Date.parse(p.apito) + duracaoAoVivoMs(p.fase) - Date.now() + 500) : 0;
   for (const b of botoes) {
     b.addEventListener('click', () => {
@@ -281,6 +286,7 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
   }
   return () => {
     tx.parar();
+    sala?.fechar();
     clearTimeout(fimDoAoVivo);
   };
 };
