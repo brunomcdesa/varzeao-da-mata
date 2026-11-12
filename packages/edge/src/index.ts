@@ -7,6 +7,8 @@
  *   Apito Inicial; antes responde 425 com o horário. É o que alimenta o Ao Vivo do site.
  * - GET /dados/* — os JSON do site, do bucket público, com CORS (o site fica em outro domínio).
  * - POST /avisos e /avisos/desativar — Avisos do App (ADR-0042); o cron manda as notificações.
+ * - GET /ao-vivo/:id (WebSocket) — Público e Reações do Ao Vivo, numa sala por Partida
+ *   (Durable Object SalaAoVivo, ADR-0046). Só abre enquanto o Ao Vivo dura.
  * - POST /votos — voto do Craque pelo site, um por aparelho (ADR-0011). O job coletar traz
  *   os votos do KV para o banco e mantém `votacao-aberta` em dia.
  */
@@ -19,6 +21,9 @@ import { aplicarEscolha, capitaniaDoJogador, type Escolha } from '../../worker/s
 import { comBanco } from './banco.js';
 import { rotasDoVinculo, sessaoDe } from './vinculo.js';
 import { rodarAvisos, rotaDosAvisos } from './avisos.js';
+import { CABECALHO_FIM } from './salaAoVivo.js';
+
+export { SalaAoVivo } from './salaAoVivo.js';
 
 export interface Env {
   AGENDA: KVNamespace;
@@ -40,6 +45,8 @@ export interface Env {
   VAPID_PRIVADA?: string;
   /** Contato que vai no pedido ao serviço de notificação (mailto: ou URL). */
   VAPID_CONTATO?: string;
+  /** Salas do Ao Vivo (ADR-0046): uma por Partida. */
+  SALAS?: DurableObjectNamespace;
 }
 
 export interface ItemDaAgenda {
@@ -201,6 +208,9 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
   if (vinculo) return vinculo;
   if (req.method !== 'GET' && req.method !== 'HEAD') return json({ erro: 'método não permitido' }, 405);
 
+  const sala = pathname.match(/^\/ao-vivo\/(\d+)$/);
+  if (sala) return entrarNaSala(req, env, sala[1]!, agora);
+
   const m = pathname.match(/^\/partidas\/(\d+)(?:\/lances)?$/);
   if (m) {
     const obj = await env.PRIVADO.get(`partidas/${m[1]}.json`);
@@ -226,6 +236,25 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
 
   if (pathname === '/') return json({ ok: true, servico: 'Varzeão da Mata' });
   return json({ erro: 'não encontrado' }, 404);
+}
+
+/**
+ * A sala do Ao Vivo de uma Partida: só abre entre o Apito Inicial e o fim do Ao Vivo, e só
+ * por WebSocket. A sala recebe o instante do fim para se fechar sozinha.
+ */
+async function entrarNaSala(req: Request, env: Env, id: string, agora: Date): Promise<Response> {
+  if (req.headers.get('upgrade')?.toLowerCase() !== 'websocket') return json({ erro: 'esperava WebSocket' }, 426);
+  if (!env.SALAS) return json({ erro: 'sala desligada' }, 503);
+  const obj = await env.PRIVADO.get(`partidas/${id}.json`);
+  if (!obj) return json({ erro: 'Partida não encontrada' }, 404);
+  const p = (await obj.json()) as { apito: string; fase?: string };
+  const apito = Date.parse(p.apito);
+  const fim = apito + duracaoAoVivoMs(p.fase);
+  if (agora.getTime() < apito) return json({ erro: 'Ainda não começou', apito: p.apito }, 425);
+  if (agora.getTime() >= fim) return json({ erro: 'O Ao Vivo acabou' }, 410);
+  const cabecalhos = new Headers(req.headers);
+  cabecalhos.set(CABECALHO_FIM, String(fim));
+  return env.SALAS.get(env.SALAS.idFromName(`partida-${id}`)).fetch(new Request(req.url, { headers: cabecalhos }));
 }
 
 // ------------------------------------------------------------------ voto pelo site

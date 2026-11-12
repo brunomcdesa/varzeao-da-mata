@@ -24,3 +24,12 @@ bucket_name = "varzeao-publico"
 [[r2_buckets]]
 binding = "PRIVADO"
 bucket_name = "varzeao-privado"
+
+# Salas do Ao Vivo (ADR-0045): um Durable Object por Partida, com SQLite (plano grátis).
+[[durable_objects.bindings]]
+name = "SALAS"
+class_name = "SalaAoVivo"
+
+[[migrations]]
+tag = "v1-salas-ao-vivo"
+new_sqlite_classes = ["SalaAoVivo"]

@@ -288,6 +288,7 @@ export interface Escalacao {
 export * from './site.js';
 export * from './rodada.js';
 export * from './habilidades.js';
+export * from './reacoes.js';
 import type { HabilidadeId, Habilidades } from './habilidades.js';
 export * from './aparencia.js';
 export * from './apelido.js';
