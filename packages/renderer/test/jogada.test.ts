@@ -130,7 +130,7 @@ describe('Jogadas', () => {
     expect(bloqueios).toBeGreaterThan(0);
   });
 
-  it('marcação dupla: os dois zagueiros chegam junto em quem recebeu a dobra (ADR-0043)', () => {
+  it('marcação dupla: os dois zagueiros chegam junto em quem recebeu a dobra (ADR-0045)', () => {
     let vistos = 0;
     for (let seed = 1; seed <= 40; seed++) {
       const tl = timeline(seed);

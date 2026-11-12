@@ -1,6 +1,6 @@
-# Ritmo da Partida: saída de bola, lances até o 90' e marcação dupla
+# 0045 — Ritmo da Partida: saída de bola, lances até o 90' e marcação dupla
 
-A partir da VERSAO_SIM 11 (Temporada 1) e 12 (Temporada 2), três regras novas na simulação. Partidas já jogadas não mudam: o resultado delas está guardado e segue com a versão em que foi simulado.
+A partir da VERSAO_SIM_T1 12 (Temporada 1) e da VERSAO_SIM 13 (Temporada 2, que já tinha a Formação na 11, ADR-0044), três regras novas na simulação. Partidas já jogadas não mudam: o resultado delas está guardado e segue com a versão em que foi simulado.
 
 ## Saída de bola depois do gol
 
@@ -32,5 +32,9 @@ Calibragem (`pnpm calibrar`) entre times iguais (OVR 70 × 70): 3,06 gols por jo
 
 ## Consequências
 
-- A trava da Temporada 1 (`regressao-t1.json`, ADR-0027) foi refeita para a VERSAO_SIM_T1 11.
-- O desenho do Ao Vivo, do Replay e do Reels (o ritmo da jogada, o toque de bola entre os lances, a saída de bola com o Jogador tocando na bola e o 2º zagueiro em campo) vem no mesmo branch e só vale para partidas da versão nova.
+- A trava da Temporada 1 (`regressao-t1.json`, ADR-0027) foi refeita para a VERSAO_SIM_T1 12.
+- O desenho do Ao Vivo, do Replay e do Reels (o ritmo da jogada, o toque de bola entre os lances, a saída de bola com o Jogador tocando na bola e o 2º zagueiro em campo) vem no mesmo branch e só vale para partidas da versão nova (VERSAO_SIM 12 em diante; a 11 é a T2 com Formação, ainda no desenho antigo).
+
+## Narração
+
+No Ao Vivo, o enchimento entre os lances guarda o que já foi dito na Partida e só repete uma frase quando as outras se esgotam. Entram as frases de ambiente, posse e contexto aprovadas em 11/11 (jogo travado ou aberto, reta final, virada, empate, acréscimos), mais opções nos lances, e falas da marcação dupla. O Reels também usa as opções novas.

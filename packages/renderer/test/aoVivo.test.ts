@@ -33,7 +33,7 @@ describe('narração do Ao Vivo', () => {
     }
   });
 
-  it('memória da Partida: as falas de enchimento quase não se repetem (ADR-0043)', () => {
+  it('memória da Partida: as falas de enchimento quase não se repetem (ADR-0045)', () => {
     for (let seed = 1; seed <= 10; seed++) {
       const e = { mandante: esc('CAP'), visitante: esc('ONC') };
       const tl = new Timeline(simularPartida({ ...e, seed, fase: 'LIGA' }), e);

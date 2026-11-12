@@ -204,11 +204,15 @@ O repositório **privado** tem 2.000 minutos por mês no plano grátis, e a Liga
 
 ## Avisos do App (ADR-0042)
 
-Os Avisos ficam desligados até as chaves existirem. Para ligar:
+Os Avisos ficam desligados até as chaves existirem. Tudo fica no GitHub, no ambiente PROD (como o `GH_DISPARO_TOKEN`):
 
-1. Na sua máquina: `pnpm --filter @liga/edge chaves-vapid`. Ele mostra a chave pública e a privada.
-2. Borda: `pnpm --filter @liga/edge exec wrangler secret put VAPID_PUBLICA` e depois `... secret put VAPID_PRIVADA` (cole quando ele pedir; não mande em chat). Opcional: `VAPID_CONTATO` (um `https://` ou `mailto:`); sem ele vai o endereço do site.
-3. GitHub (ambiente PROD): variável `LIGA_VAPID_PUBLICA` com a chave **pública**, para o site.
+1. Na sua máquina: `pnpm --filter @liga/edge chaves-vapid`. Ele mostra a chave pública e a privada. Não mande nenhuma das duas em chat.
+2. GitHub → Settings → Environments → PROD:
+   - **Environment secrets:** `VAPID_PRIVADA` com a chave **privada**.
+   - **Environment variables:** `LIGA_VAPID_PUBLICA` com a chave **pública**.
+3. Rode à mão o workflow **borda** (ele repassa as duas para a borda) e depois o **site** (ele põe a pública no site). Daí em diante, cada deploy repassa sozinho.
 4. A tabela `aviso_aparelho` (migração 015) é criada no próximo job que abrir o banco.
+
+Opcional: `VAPID_CONTATO` na borda (um `https://` ou `mailto:`); sem ele vai o endereço do site.
 
 Trocar as chaves invalida os Avisos de todo mundo: cada um precisa ativar de novo.

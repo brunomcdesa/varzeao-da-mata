@@ -1,6 +1,6 @@
 /**
  * Casos da trava da Temporada 1: com as regras da T1 (sem `t2` na entrada), a simulação tem
- * que dar exatamente os mesmos resultados da VERSAO_SIM_T1 (ADR-0027; 11 desde o ADR-0043).
+ * que dar exatamente os mesmos resultados da VERSAO_SIM_T1 (ADR-0027; 12 desde o ADR-0045).
  */
 import { createHash } from 'node:crypto';
 import type { Fase } from '../src/tipos.js';

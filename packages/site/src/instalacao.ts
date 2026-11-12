@@ -42,9 +42,6 @@ export function comoInstalar(a: Aparelho): ComoInstalar {
   return null;
 }
 
-/** O App estreia na Temporada 2: antes disso, nem manifesto, nem service worker, nem placa. */
-export const TEMPORADA_DO_APP = 2;
 
-export function appLiberado(numeroDaTemporada: number | null | undefined): boolean {
-  return (numeroDaTemporada ?? 0) >= TEMPORADA_DO_APP;
-}
+/** O App estreia na Temporada 2: antes disso, nem manifesto, nem service worker, nem placa. */
+export { TEMPORADA_DO_APP, appLiberado } from '@liga/shared';

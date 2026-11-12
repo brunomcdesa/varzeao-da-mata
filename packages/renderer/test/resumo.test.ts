@@ -62,3 +62,38 @@ describe('Resumo da Rodada', () => {
     for (const s of esticado.segmentos) expect(s.fim - s.inicio).toBeGreaterThanOrEqual(9.3);
   });
 });
+
+describe('Seleção da Rodada no Resumo (ADR-0041)', () => {
+  const destaques: NonNullable<DadosDoResumo['destaques']> = [
+    { posicao: 'GOL', username: 'muro', time: 'ONC', nota: 9.1, numero: { valor: 6, legenda: 'defesas' } },
+    { posicao: 'ZAG', username: 'zaga', time: 'TAT', nota: 8.0, numero: { valor: 4, legenda: 'desarmes' } },
+    { posicao: 'MEI', username: 'meio', time: 'CAP', nota: 7.7, numero: { valor: 2, legenda: 'assistências' } },
+    { posicao: 'ATA', username: 'rafa', time: 'CAP', nota: 8.1, numero: { valor: 2, legenda: 'gols' } },
+  ];
+
+  it('sem Destaques (T1) o Resumo não muda', () => {
+    expect(new RoteiroResumo(base).segmentos.some((s) => s.cartela === 'POSICOES')).toBe(false);
+  });
+
+  it('a cartela entra antes dos Candidatos, e o Narrador fala pela Posição e pelo Time, nunca pelo @', () => {
+    const r = new RoteiroResumo({ ...base, destaques });
+    const cartelas = r.segmentos.map((s) => s.cartela);
+    expect(cartelas.indexOf('POSICOES')).toBe(cartelas.indexOf('CANDIDATOS') - 1);
+    const fala = narracaoDoResumo(r).find((f) => r.segmentos[f.segmento!]!.cartela === 'POSICOES')!.texto;
+    expect(fala).toContain('Muralha: o goleiro');
+    expect(fala).toContain('Matador: o atacante');
+    for (const d of destaques) expect(fala).not.toContain(d.username);
+  });
+
+  it('com Série B, uma cartela por Série', () => {
+    const comB = [...destaques.map((d) => ({ ...d, serie: 'A' as const })), { ...destaques[0]!, serie: 'B' as const, time: 'JAC' as const }];
+    const r = new RoteiroResumo({ ...base, tabelaB: base.tabela, destaques: comB });
+    expect(r.segmentos.filter((s) => s.cartela === 'POSICOES').map((s) => s.serie)).toEqual(['A', 'B']);
+  });
+
+  it('no Resumo da Temporada, os Destaques da Temporada vêm depois do artilheiro', () => {
+    const r = new RoteiroResumo({ ...base, placares: [], candidatos: [], fimDaTemporada: { artilheiro: { username: 'rafa', time: 'CAP', posicao: 'ATA', gols: 9 } }, destaques });
+    const cartelas = r.segmentos.map((s) => s.cartela);
+    expect(cartelas.indexOf('POSICOES')).toBe(cartelas.indexOf('DESTAQUES') + 1);
+  });
+});

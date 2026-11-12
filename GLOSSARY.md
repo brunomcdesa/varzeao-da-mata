@@ -110,7 +110,11 @@ _Avoid_: indicados, finalistas, top 5
 
 **Craque da Rodada**:
 O Candidato a Craque mais votado pelo público em cada Série, revelado no Reels da primeira Partida do dia seguinte. Cada Candidato tem a letra da Série e um número (A1 a A5 e B1 a B5, da maior Nota para a menor). Vota-se comentando o número no Resumo da Rodada (um voto por @, vale o último, inclusive em si mesmo) ou clicando no site (um voto por aparelho, vale o primeiro). Os dois somam.
-_Avoid_: MVP, melhor em campo, destaque
+_Avoid_: MVP, melhor em campo, destaque (e não confundir com a Seleção da Rodada, que é por Posição e não tem voto)
+
+**Seleção da Rodada**:
+O time ideal da Rodada em cada Série: o Jogador de maior Nota em cada Posição, chamado de Muralha (goleiro), Carrapato (zagueiro), Garçom (meia) e Matador (atacante). Sai automática no Resumo da Rodada, sem voto, e não mexe na Escalação: vira troféu na Carreira. A Seleção da Temporada usa a maior Nota média (com pelo menos 3 jogos na Posição) e sai no Resumo da Temporada. Desde a Temporada 2. ADR-0041.
+_Avoid_: destaque da rodada, time da rodada, melhores da posição
 
 **Craque da Temporada**:
 O melhor Jogador da Temporada em cada Série, eleito pelo público entre os 5 da Série com a maior nota média (com pelo menos 3 jogos). A votação abre no Resumo da Final e fecha às 18h do dia seguinte; o anúncio sai às 19h, num Reels próprio.
@@ -197,12 +201,36 @@ A descida de um Time da Série A para a Série B no fim da Temporada. Caem os do
 _Avoid_: descenso, queda, degola
 
 **Capitão**:
-O Jogador com mais Partidas por um Time, que escolhe a Postura antes de cada Partida. Se não tiver Vínculo ou estiver suspenso, a faixa passa para o próximo com Vínculo.
+O Jogador com mais Partidas por um Time, que escolhe a Postura e a Formação antes de cada Partida. Se não tiver Vínculo ou estiver suspenso, a faixa passa para o próximo com Vínculo.
 _Avoid_: líder, técnico, dono do time
 
 **Postura**:
 A atitude do Time numa Partida (Ofensiva, Equilibrada ou Defensiva), escolhida em segredo pelo Capitão até o Corte. Sem escolha, é Equilibrada.
 _Avoid_: tática, estratégia, esquema
+
+**Formação**:
+O desenho do Time em campo na Temporada 2: quantos zagueiros, meias e atacantes jogam (2-2-2, 2-3-1, 3-2-1 ou 3-1-2; o goleiro é sempre um). Escolhida pelo Capitão junto da Postura, até o Corte; sem escolha, 2-2-2. As vagas da Escalação seguem a Formação. ADR-0044.
+_Avoid_: esquema tático, sistema, escalação (a Escalação é quem joga)
+
+**Fora de posição**:
+O Jogador que ocupa a vaga de outra Posição porque a Formação pediu mais gente numa Posição do que o Time tinha disponível. Joga com o OVR calculado pelos pesos da vaga. ADR-0044.
+_Avoid_: improvisado, adaptado
+
+**Jogada da Formação**:
+O lance próprio de cada Formação, que aparece no vídeo e o Narrador chama pelo nome: Tabela (2-3-1), Cobertura (3-2-1) e Ligação direta (3-1-2). O 2-2-2 não tem. ADR-0044.
+_Avoid_: jogada ensaiada (é a cobrança de falta curta)
+
+**Tabela**:
+Jogada da Formação do 2-3-1: o meia que cria toca para outro meia (o apoio) e recebe de volta antes de criar, o que deixa a criação mais fácil.
+_Avoid_: tabelinha, parede, um-dois
+
+**Cobertura**:
+Jogada da Formação do 3-2-1: quando o atacante dribla o marcador, o zagueiro da sobra (o terceiro zagueiro) chega para mais um desarme.
+_Avoid_: sobra, segundo homem
+
+**Ligação direta**:
+Jogada da Formação do 3-1-2: um zagueiro lança direto para os atacantes, sem passar pela criação do meia. Ele leva a assistência; se o rival corta, é desarme.
+_Avoid_: chutão, bola longa, lançamento (o lançamento é só um estilo do desenho)
 
 **Cartão**:
 Punição a um Jogador na Partida. O vermelho expulsa na hora, e o Time segue com um a menos. Dois amarelos na Temporada, ou um vermelho, dão Suspensão.
@@ -215,6 +243,10 @@ _Avoid_: gancho, punição
 **Presença**:
 A confirmação, feita pelo site ou comentando CONFIRMO até o Corte, de que o Jogador quer jogar o próximo jogo do Time. Quem confirmou passa na frente no rodízio da Escalação. ADR-0023.
 _Avoid_: check-in, convocação
+
+**Partidas Fora**:
+As Partidas seguidas do próprio Time em que o Jogador ficou fora da Escalação, contadas desde a última que jogou (ou desde a Inscrição). Quem chega a 2 Partidas Fora passa na frente no rodízio da Escalação, no mesmo nível da Presença. ADR-0043.
+_Avoid_: banco, jejum, tempo parado
 
 **Especialização**:
 A função que o Jogador escolhe dentro da sua Posição (por exemplo Artilheiro, Volante, Xerife ou Paredão), que dá um bônus num Duelo e um custo pequeno em outro. São 3 por Posição, no máximo uma valendo em cada jogo, trocada uma vez por Rodada. ADR-0023.
@@ -257,10 +289,10 @@ Lance logo depois de o rival perder a bola com gente adiantada. Se a defesa não
 _Evite_: contragolpe
 
 **Saída de bola**:
-O recomeço depois de um gol: um Jogador do Time que sofreu toca a bola no meio de campo. Quem sofreu fica com a bola na maioria das vezes, mas pode perdê-la no Duelo de Posse logo depois. ADR-0043.
+O recomeço depois de um gol: um Jogador do Time que sofreu toca a bola no meio de campo. Quem sofreu fica com a bola na maioria das vezes, mas pode perdê-la no Duelo de Posse logo depois. ADR-0045.
 
 **Marcação dupla**:
-Quando os dois zagueiros vão juntos no mesmo finalizador. O Duelo fica mais difícil para quem ataca, mas um companheiro fica livre; se o passe sai, ele chuta sem marcador. ADR-0043.
+Quando os dois zagueiros vão juntos no mesmo finalizador. O Duelo fica mais difícil para quem ataca, mas um companheiro fica livre; se o passe sai, ele chuta sem marcador. ADR-0045.
 
 ### Espetáculo
 

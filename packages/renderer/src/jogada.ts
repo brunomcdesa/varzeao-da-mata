@@ -89,7 +89,7 @@ export interface Continuidade {
   saida?: Ponto;
   /** O próximo lance é escanteio: a defesa ou o bloqueio manda a bola para a linha de fundo, aqui. */
   escanteio?: Ponto;
-  /** Ritmo novo (ADR-0043): no gol, a bola fica na rede (quem sofreu vai buscá-la no toque de bola). */
+  /** Ritmo novo (ADR-0045): no gol, a bola fica na rede (quem sofreu vai buscá-la no toque de bola). */
   golFicaNaRede?: boolean;
 }
 
@@ -161,7 +161,7 @@ export function pontoDoCobrador(lance: Lance, bases: Record<Lado, Ponto[]>): Pon
 }
 
 export function montarPlano(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Record<Lado, Escalacao>, seed: number, cont: Continuidade = {}): Plano {
-  let plano = comLateral(lance, montarJogada(lance, bases, escalacoes, seed, cont), bases, escalacoes, cont);
+  let plano = comLateral(lance, comJogadaDaFormacao(lance, montarJogada(lance, bases, escalacoes, seed, cont), bases), bases, escalacoes, cont);
   // A bola parada do próximo lance: o cobrador já sai correndo para a bola no fim deste.
   const c = cont.cobrancaSeguinte;
   if (c) {
@@ -230,6 +230,8 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
   const cx = bases[C.lado][C.indice]!.x;
 
   if (lance.tipo === 'DESARME' && lance.bolaParada !== 'ESCANTEIO' && lance.bolaParada !== 'FALTA_CRUZADA') {
+    // Ligação direta interceptada (ADR-0044): o zagueiro rival corta o lançamento no ar.
+    if (lance.jogadaDaFormacao === 'LIGACAO_DIRETA' && !lance.finalizador) return planoInterceptacao(lance, P, cx, rng.next());
     return lance.drible && lance.finalizador ? planoDesarmeNoDrible(lance, P, cx, bases, rng.next()) : planoDesarme(lance, P, cx, rng.next());
   }
   // Temporada 2: a falta (a jogada para, a bola fica no lugar da cobrança) e as cobranças.
@@ -252,6 +254,9 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
     }
     sorteio -= p;
   }
+  // Jogada da Formação (ADR-0044): a Tabela e a Ligação direta aparecem com o desenho delas.
+  if (lance.jogadaDaFormacao === 'TABELA' && lance.apoio) estilo = 'TABELA';
+  else if (lance.jogadaDaFormacao === 'LIGACAO_DIRETA') estilo = 'LANCAMENTO';
   // Drible certo é sempre jogada individual; chute marcado nunca é (não passou pelo zagueiro).
   if (lance.drible === true) estilo = 'INDIVIDUAL';
   else if (lance.drible === false && estilo === 'INDIVIDUAL') estilo = 'TABELA';
@@ -290,7 +295,7 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
   const mesmoSlot = (a: SlotRef, b: SlotRef) => a.lado === b.lado && a.indice === b.indice;
 
   if (lance.dobra?.passe) {
-    // Marcação dupla com passe (ADR-0043): o criador acha o companheiro (A), os dois zagueiros
+    // Marcação dupla com passe (ADR-0045): o criador acha o companheiro (A), os dois zagueiros
     // fecham nele, e A toca para o finalizador, que entra livre na área e bate.
     const A = lance.dobra.sobre;
     const ax = bases[A.lado][A.indice]!.x;
@@ -305,7 +310,16 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
       const ponto = { x: cerco.x + lado * 0.028, y: cerco.y + dir * 0.03 };
       ator(z, [[0, null], [0.36, null], [0.56, ponto], [0.7, ponto], [0.88, null]]);
     });
-    posse(0.08, 0.25, C);
+    // Tabela da Formação (2-3-1): toca e recebe do apoio antes de achar A.
+    const apoio = lance.apoio && lance.apoio.indice !== A.indice && lance.apoio.indice !== F.indice ? lance.apoio : null;
+    if (apoio) {
+      const px = bases[apoio.lado][apoio.indice]!.x;
+      ator(apoio, [[0, null], [0.11, P(lerp(px, cx, 0.35), 0.44)], [0.23, P(lerp(px, cx, 0.3), 0.42)], [0.4, null]]);
+      posse(0.08, 0.11, C);
+      passe(0.11, 0.15, C, apoio);
+      passe(0.15, 0.19, apoio, C);
+      posse(0.19, 0.25, C);
+    } else posse(0.08, 0.25, C);
     passe(0.25, 0.33, C, A);
     posse(0.33, 0.6, A);
     passe(0.6, 0.68, A, F);
@@ -319,9 +333,15 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
       finalizacao = P(fArea, 0.11);
       ator(C, [[0, null], [0.08, P(cx, 0.5)], [0.22, P(cx, 0.4)], [0.3, P(cx, 0.37)], [0.42, P(cMeio, 0.25)], [0.5, P(cMeio, 0.24)], [0.68, null]]);
       ator(F, [[0, null], [0.22, P(fx, 0.33)], [0.34, P(fx, 0.32)], [0.54, P(fArea, 0.12)], [0.68, finalizacao], [0.78, finalizacao], [0.95, P(fArea, 0.15)], [1, null]]);
+      // Tabela da Formação (2-3-1): a parede é o outro meia (o apoio), não o finalizador.
+      const A = lance.apoio && lance.apoio.indice !== F.indice ? lance.apoio : F;
+      if (A !== F) {
+        const ax = bases[A.lado][A.indice]!.x;
+        ator(A, [[0, null], [0.14, P(lerp(ax, cx, 0.3), 0.4)], [0.3, P(lerp(ax, cx, 0.35), 0.35)], [0.42, P(ax, 0.34)], [0.6, null]]);
+      }
       posse(0.08, 0.22, C);
-      passe(0.22, 0.3, C, F);
-      passe(0.3, 0.4, F, C); // de primeira
+      passe(0.22, 0.3, C, A);
+      passe(0.3, 0.4, A, C); // de primeira
       posse(0.4, 0.44, C);
       passe(0.44, 0.54, C, F);
       posse(0.54, 0.68, F);
@@ -383,12 +403,20 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
         ator(zag, [[0, null], [0.4, null], [0.58, bote], [0.66, P(bote.x - lateral * 0.03, 0.22)], [0.8, P(bote.x, 0.16)], [1, null]]);
         acao(zag, 0.55, 0.64, 'CARRINHO');
       }
+      // Cobertura (3-2-1, ADR-0044): o zagueiro da sobra chega e também fica para trás.
+      if (lance.cobertura) {
+        const S = lance.cobertura;
+        const corte = P(finalizacao.x + lateral * 0.035, 0.15);
+        ator(S, [[0, null], [0.42, null], [0.66, corte], [0.74, P(corte.x + lateral * 0.02, 0.13)], [0.9, P(corte.x, 0.12)], [1, null]]);
+        acao(S, 0.64, 0.71, 'CARRINHO');
+      }
     }
   }
 
-  // Marcação dupla sem passe (ADR-0043): o outro zagueiro também fecha no finalizador.
+  // Marcação dupla sem passe (ADR-0045): o outro zagueiro também fecha no finalizador.
   if (lance.dobra && !lance.dobra.passe && lance.marcador) {
-    const segundo = zagueiros.find((z) => !mesmoSlot(z, lance.marcador!));
+    // Nunca o zagueiro da sobra do 3-2-1 (ADR-0044), que já tem o papel dele na jogada.
+    const segundo = zagueiros.find((z) => !mesmoSlot(z, lance.marcador!) && !(lance.cobertura && mesmoSlot(z, lance.cobertura)));
     if (segundo) {
       const ponto: Ponto = { x: finalizacao.x - lateral * 0.03, y: finalizacao.y + dir * 0.035 };
       ator(segundo, [[0, null], [Math.max(0.1, inicioChute - 0.28), null], [Math.max(0.12, inicioChute - 0.04), ponto], [0.86, ponto], [1, null]]);
@@ -479,15 +507,24 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
     const D = l.defensor;
     const fxd = b[Fd.lado][Fd.indice]!.x;
     const lat = x < 0.5 ? -1 : 1;
-    const bote = Pt(lerp(fxd, 0.5, 0.3) + (sorte - 0.5) * 0.1, 0.21);
+    // Cobertura (ADR-0044): o finalizador passa pelo marcador e o zagueiro da sobra desarma mais à frente.
+    const cobertura = l.cobertura !== undefined && l.marcador !== undefined;
+    const bote = Pt(lerp(fxd, 0.5, 0.3) + (sorte - 0.5) * 0.1, cobertura ? 0.16 : 0.21);
+    const passou = Pt(bote.x - lat * 0.05, 0.25);
     return {
       estilo: 'DESARME',
       atores: [
         { slot: l.criador, quadros: [[0, null], [0.08, Pt(x, 0.5)], [0.3, Pt(x, 0.42)], [0.6, null]] },
-        { slot: Fd, quadros: [[0, null], [0.3, Pt(fxd, 0.33)], [0.36, Pt(fxd, 0.31)], [F_RESOLUCAO_DESARME, Pt(bote.x - lat * 0.02, 0.23)], [0.72, Pt(bote.x - lat * 0.04, 0.25)], [0.9, null]] },
-        { slot: D, quadros: [[0, null], [0.36, null], [F_RESOLUCAO_DESARME, bote], [0.75, Pt(bote.x, 0.27)], [1, null]] },
-        // Marcação dupla (ADR-0043): o outro zagueiro chega junto no bote.
-        ...(l.dobra
+        {
+          slot: Fd,
+          quadros: cobertura
+            ? [[0, null], [0.3, Pt(fxd, 0.33)], [0.36, Pt(fxd, 0.31)], [0.46, passou], [F_RESOLUCAO_DESARME, Pt(bote.x - lat * 0.02, 0.18)], [0.72, Pt(bote.x - lat * 0.04, 0.2)], [0.9, null]]
+            : [[0, null], [0.3, Pt(fxd, 0.33)], [0.36, Pt(fxd, 0.31)], [F_RESOLUCAO_DESARME, Pt(bote.x - lat * 0.02, 0.23)], [0.72, Pt(bote.x - lat * 0.04, 0.25)], [0.9, null]],
+        },
+        { slot: D, quadros: [[0, null], [0.36, null], [F_RESOLUCAO_DESARME, bote], [0.75, Pt(bote.x, cobertura ? 0.22 : 0.27)], [1, null]] },
+        ...(cobertura ? [{ slot: l.marcador!, quadros: [[0, null], [0.32, null], [0.45, Pt(passou.x + lat * 0.03, 0.26)], [0.6, Pt(passou.x + lat * 0.05, 0.28)], [0.85, null]] as QuadroAtor[] }] : []),
+        // Marcação dupla (ADR-0045): o outro zagueiro chega junto no bote.
+        ...(l.dobra && !cobertura
           ? escalacoes[D.lado].jogadores.flatMap((j, indice): Plano['atores'] =>
               j.posicao === 'ZAG' && indice !== D.indice
                 ? [{ slot: { lado: D.lado, indice }, quadros: [[0, null], [0.36, null], [F_RESOLUCAO_DESARME - 0.02, Pt(bote.x + lat * 0.035, 0.2)], [0.75, Pt(bote.x + lat * 0.03, 0.24)], [1, null]] }]
@@ -506,7 +543,38 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
       ],
       acoes: [
         { slot: l.criador, de: 0.29, ate: 0.315, acao: 'PASSE' },
+        ...(cobertura ? [{ slot: l.marcador!, de: 0.42, ate: 0.5, acao: 'CARRINHO' as const }] : []),
         { slot: D, de: F_RESOLUCAO_DESARME - 0.05, ate: F_RESOLUCAO_DESARME + 0.04, acao: 'CARRINHO' },
+        { slot: D, de: 0.74, ate: 0.77, acao: 'PASSE' },
+      ],
+    };
+  }
+
+  /**
+   * Ligação direta interceptada (ADR-0044): o zagueiro que lança fica atrás; a bola longa sai
+   * para o ataque e o 1º zagueiro rival corta no ar, no meio do caminho.
+   */
+  function planoInterceptacao(l: Lance, Pt: typeof P, x: number, sorte: number): Plano {
+    const D = l.defensor;
+    const lancador = Pt(x, 0.68);
+    const corte = Pt(lerp(x, 0.5, 0.5) + (sorte - 0.5) * 0.14, 0.33);
+    return {
+      estilo: 'DESARME',
+      atores: [
+        { slot: l.criador, quadros: [[0, null], [0.1, lancador], [0.4, lancador], [0.6, null]] },
+        { slot: D, quadros: [[0, null], [0.3, null], [0.5, Pt(corte.x, corte.y - 0.02)], [F_RESOLUCAO_DESARME, corte], [0.75, Pt(corte.x, 0.38)], [1, null]] },
+      ],
+      bola: [
+        { de: 0, ate: 0.08, tipo: 'VOO', origem: { ponto: entrada }, destino: { ator: l.criador }, altura: 0 },
+        { de: 0.08, ate: 0.32, tipo: 'POSSE', ator: l.criador },
+        { de: 0.32, ate: F_RESOLUCAO_DESARME, tipo: 'VOO', origem: { ator: l.criador }, destino: { ator: D }, altura: 0.45 },
+        { de: F_RESOLUCAO_DESARME, ate: 0.75, tipo: 'POSSE', ator: D },
+        { de: 0.75, ate: 0.95, tipo: 'VOO', origem: { ator: D }, destino: { ponto: saida }, altura: 0.45 },
+        { de: 0.95, ate: 1, tipo: 'PARADA', ponto: saida },
+      ],
+      acoes: [
+        { slot: l.criador, de: 0.31, ate: 0.34, acao: 'PASSE' },
+        { slot: D, de: F_RESOLUCAO_DESARME - 0.03, ate: F_RESOLUCAO_DESARME + 0.03, acao: 'CABECEIO' },
         { slot: D, de: 0.74, ate: 0.77, acao: 'PASSE' },
       ],
     };
@@ -684,6 +752,55 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
       ],
     };
   }
+}
+
+/**
+ * Jogada da Formação (ADR-0044) depois da coreografia de base:
+ * - Ligação direta: quem lança é um zagueiro; ele fica lá atrás e a bola vai por cima.
+ * - Tabela fora do estilo TABELA (drible, desarme na criação): troca rápida com o apoio antes.
+ */
+export function comJogadaDaFormacao(lance: Lance, plano: Plano, bases: Record<Lado, Ponto[]>): Plano {
+  const C = lance.criador;
+  const eh = (s: SlotRef, t: SlotRef) => s.lado === t.lado && s.indice === t.indice;
+  const alvo = golAlvo(lance.ataque);
+  const dir = sentido(lance.ataque);
+  const P = (x: number, prof: number): Ponto => ({ x: Math.min(0.96, Math.max(0.04, x)), y: alvo - dir * prof });
+  const cx = bases[C.lado][C.indice]!.x;
+
+  if (lance.jogadaDaFormacao === 'LIGACAO_DIRETA' && lance.finalizador) {
+    const lancador = P(cx, 0.68);
+    const primeiroPasse = plano.bola.findIndex((b) => b.tipo === 'VOO' && 'ator' in b.origem && eh(b.origem.ator, C));
+    const bola = plano.bola.map((b, i) => (i === primeiroPasse && b.tipo === 'VOO' ? { ...b, altura: Math.max(b.altura, 0.45) } : b));
+    const ate = primeiroPasse >= 0 ? plano.bola[primeiroPasse]!.de : 0.3;
+    const atores = plano.atores.map((a) => (eh(a.slot, C) ? { ...a, quadros: [[0, null], [0.1, lancador], [ate + 0.04, lancador], [Math.min(0.9, ate + 0.25), null]] as QuadroAtor[] } : a));
+    return { ...plano, bola, atores };
+  }
+
+  const A = lance.apoio;
+  // No estilo TABELA a parede já é o apoio (ou o finalizador, quando o apoio é quem chuta).
+  if (!A || plano.estilo === 'TABELA') return plano;
+  // A posse do criador logo no começo vira toca e recebe com o apoio.
+  const i = plano.bola.findIndex((b) => b.tipo === 'POSSE' && eh(b.ator, C) && b.de <= 0.1);
+  const posse = plano.bola[i];
+  if (!posse || posse.tipo !== 'POSSE' || posse.ate - posse.de < 0.16) return plano;
+  const t0 = posse.de + 0.03;
+  const t1 = t0 + 0.06;
+  const t2 = t1 + 0.06;
+  const ax = bases[A.lado][A.indice]!.x;
+  const bola: TrechoBola[] = [
+    ...plano.bola.slice(0, i),
+    { de: posse.de, ate: t0, tipo: 'POSSE', ator: C },
+    { de: t0, ate: t1, tipo: 'VOO', origem: { ator: C }, destino: { ator: A }, altura: 0 },
+    { de: t1, ate: t2, tipo: 'VOO', origem: { ator: A }, destino: { ator: C }, altura: 0 },
+    { de: t2, ate: posse.ate, tipo: 'POSSE', ator: C },
+    ...plano.bola.slice(i + 1),
+  ];
+  return {
+    ...plano,
+    bola,
+    atores: [...plano.atores, { slot: A, quadros: [[0, null], [t0, P(lerp(ax, cx, 0.35), 0.44)], [t2 + 0.04, P(lerp(ax, cx, 0.3), 0.42)], [t2 + 0.2, null]] }],
+    acoes: [...plano.acoes, { slot: C, de: t0 - 0.01, ate: t0 + 0.02, acao: 'PASSE' }, { slot: A, de: t1 - 0.01, ate: t1 + 0.02, acao: 'PASSE' }],
+  };
 }
 
 function goleiroDe(esc: Escalacao, lado: Lado): SlotRef {

@@ -67,6 +67,36 @@ describe('Escalação', () => {
     expect(p2.nomes.visitante.slice(5)).toEqual(['@a3', '@a1']);
   });
 
+  it('Limite de Partidas Fora: quem ficou 2 Partidas seguidas fora passa na frente de quem jogou menos', async () => {
+    for (const a of ['a1', 'a2']) await inscrever(a, 'ENTRO CAPIVARA ATA', hora(9));
+    await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(10)));
+    await escalarPartida(banco, await novaPartida('CAP', 'TAT', hora(12)));
+    // Três novatos chegam com 0 jogos; a1 e a2 já têm 2.
+    for (const b of ['b1', 'b2', 'b3']) await inscrever(b, 'ENTRO CAPIVARA ATA', hora(12, 10));
+    const p3 = await escalarPartida(banco, await novaPartida('CAP', 'SAG', hora(14)));
+    expect(p3.nomes.mandante.slice(5)).toEqual(['@b1', '@b2']);
+    const p4 = await escalarPartida(banco, await novaPartida('CAP', 'PRE', hora(16)));
+    expect(p4.nomes.mandante.slice(5)).toEqual(['@b3', '@b1']); // a1 e a2: só 1 Partida fora
+    const p5 = await escalarPartida(banco, await novaPartida('CAP', 'TUC', hora(18)));
+    // 2 Partidas fora: voltam na frente de b2 e b3, mesmo com mais jogos (sem o Limite, seriam b2 e b3).
+    expect(p5.nomes.mandante.slice(5)).toEqual(['@a1', '@a2']);
+  });
+
+  it('Limite de Partidas Fora só conta Partidas depois da Inscrição', async () => {
+    for (const a of ['a1', 'a2']) await inscrever(a, 'ENTRO CAPIVARA ATA', hora(9));
+    await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(10)));
+    await escalarPartida(banco, await novaPartida('CAP', 'TAT', hora(12)));
+    await escalarPartida(banco, await novaPartida('CAP', 'SAG', hora(14)));
+    // c1 entra depois de 3 Partidas: não chega com Partidas Fora; a1 e a2 jogaram todas.
+    await inscrever('c1', 'ENTRO CAPIVARA ATA', hora(14, 10));
+    await inscrever('c2', 'ENTRO CAPIVARA ATA', hora(14, 20));
+    await inscrever('c3', 'ENTRO CAPIVARA ATA', hora(14, 30));
+    const p4 = await escalarPartida(banco, await novaPartida('CAP', 'PRE', hora(16)));
+    expect(p4.nomes.mandante.slice(5)).toEqual(['@c1', '@c2']); // empate em 0 jogos: quem se inscreveu antes
+    const p5 = await escalarPartida(banco, await novaPartida('CAP', 'TUC', hora(18)));
+    expect(p5.nomes.mandante.slice(5)).toEqual(['@c3', '@c1']);
+  });
+
   it('o Craque da Rodada anterior tem lugar garantido', async () => {
     for (const a of ['a1', 'a2', 'a3']) await inscrever(a, 'ENTRO CAPIVARA ATA');
     await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(12)));
@@ -145,10 +175,20 @@ describe('Resenha (ADR-0034)', () => {
   });
 
   const virarT2 = () => banco.query(`UPDATE temporada SET numero = 2`);
+  /**
+   * T2 (ADR-0044): com vaga sem inscrito, quem sobrou de outra Posição joga fora de posição.
+   * Completa o resto do Capivara direto no banco para o rodízio dos atacantes ficar isolado.
+   */
+  const completarCapivara = async () => {
+    for (const [i, posicao] of (['GOL', 'ZAG', 'ZAG', 'MEI', 'MEI'] as const).entries()) {
+      await banco.query(`INSERT INTO jogador (ig_user_id, username, time_id, posicao, ovr, inscrito_em) VALUES ($1, $1, 'CAP', $2, 60, $3)`, [`cap_${i}`, posicao, hora(8).toISOString()]);
+    }
+  };
 
   it('no Clássico da T2, quem tem Resenha passa na frente no rodízio da Posição (ADR-0039)', async () => {
     await virarT2();
     for (const a of ['a1', 'a2', 'a3']) await inscrever(a, 'ENTRO CAPIVARA ATA');
+    await completarCapivara();
     const p1 = await novaPartida('CAP', 'TAT', hora(12));
     expect((await escalarPartida(banco, p1)).nomes.mandante.slice(5)).toEqual(['@a1', '@a2']);
     await publicar(p1, 'reels1');
@@ -172,6 +212,7 @@ describe('Resenha (ADR-0034)', () => {
   it('fora do Clássico, a Resenha não mexe no rodízio (só na evolução)', async () => {
     await virarT2();
     for (const a of ['a1', 'a2', 'a3']) await inscrever(a, 'ENTRO CAPIVARA ATA');
+    await completarCapivara();
     const p1 = await novaPartida('CAP', 'TAT', hora(12));
     await escalarPartida(banco, p1);
     await publicar(p1, 'reels1');
@@ -184,6 +225,7 @@ describe('Resenha (ADR-0034)', () => {
   it('no Clássico da T2, entre os que têm Resenha vale o rodízio, e o Craque continua na frente', async () => {
     await virarT2();
     for (const a of ['a1', 'a2', 'a3', 'a4']) await inscrever(a, 'ENTRO CAPIVARA ATA');
+    await completarCapivara();
     const p1 = await novaPartida('CAP', 'TAT', hora(12));
     await escalarPartida(banco, p1); // a1 e a2 jogam
     await publicar(p1, 'reels1');

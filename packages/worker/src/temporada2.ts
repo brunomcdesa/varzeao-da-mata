@@ -1,5 +1,5 @@
 /**
- * Regras da Temporada 2 no worker (ADRs 0020 a 0024): Capitão e Postura, Suspensão, Presença
+ * Regras da Temporada 2 no worker (ADRs 0020 a 0024 e 0044): Capitão, Postura e Formação, Suspensão, Presença
  * e as escolhas feitas pelo site (Especialização, Treino e Canto).
  *
  * Tudo aqui só vale quando a Temporada tem as regras da T2 (`temRegrasT2`). Na Temporada 1,
@@ -11,8 +11,11 @@ import {
   HABILIDADES,
   NOME_DA_ESPECIALIZACAO,
   POSTURAS,
+  FORMACAO_PADRAO,
+  ehFormacao,
   temRegrasT2,
   type Canto,
+  type Formacao,
   type Especializacao,
   type HabilidadeId,
   type Posicao,
@@ -128,6 +131,13 @@ export async function posturasDaPartida(b: Banco, partidaId: number, mandante: T
   return { mandante: de(mandante), visitante: de(visitante) };
 }
 
+/** Formação de cada Time na Partida (ADR-0044; sem escolha, 2-2-2). */
+export async function formacoesDaPartida(b: Banco, partidaId: number, mandante: TimeId, visitante: TimeId): Promise<{ mandante: Formacao; visitante: Formacao }> {
+  const linhas = (await b.query<{ time_id: TimeId; formacao: Formacao }>(`SELECT time_id, formacao FROM postura WHERE partida_id = $1`, [partidaId])).rows;
+  const de = (t: TimeId) => linhas.find((l) => l.time_id === t)?.formacao ?? FORMACAO_PADRAO;
+  return { mandante: de(mandante), visitante: de(visitante) };
+}
+
 /** Quem confirmou Presença para esta Partida. */
 export async function confirmados(b: Banco, partidaId: number): Promise<Set<string>> {
   return new Set((await b.query<{ id: string }>(`SELECT jogador_id::text AS id FROM presenca WHERE partida_id = $1`, [partidaId])).rows.map((r) => r.id));
@@ -153,6 +163,8 @@ export interface Capitania {
   /** @ do Capitão (null quando o Time não tem ninguém apto). */
   capitao: string | null;
   postura: Postura;
+  /** Formação escolhida para o próximo jogo (ADR-0044). */
+  formacao: Formacao;
 }
 
 /**
@@ -168,8 +180,8 @@ export async function capitaniaDoJogador(b: Banco, jogadorId: string, agora: Dat
   if (!p) return null;
   const id = await capitaoDaPartida(b, p.id, j.time_id, await comVinculo());
   const capitao = id ? ((await b.query<{ username: string }>(`SELECT username FROM jogador WHERE id = $1`, [id])).rows[0]?.username ?? null) : null;
-  const postura = (await b.query<{ postura: Postura }>(`SELECT postura FROM postura WHERE partida_id = $1 AND time_id = $2`, [p.id, j.time_id])).rows[0]?.postura ?? 'EQUILIBRADA';
-  return { eu: id === jogadorId, capitao, postura };
+  const escolha = (await b.query<{ postura: Postura; formacao: Formacao }>(`SELECT postura, formacao FROM postura WHERE partida_id = $1 AND time_id = $2`, [p.id, j.time_id])).rows[0];
+  return { eu: id === jogadorId, capitao, postura: escolha?.postura ?? 'EQUILIBRADA', formacao: escolha?.formacao ?? FORMACAO_PADRAO };
 }
 
 /** Cópia da lista de quem tem Vínculo, para não listar as sessões a cada coleta (ADR-0035). */
@@ -201,7 +213,8 @@ export type Escolha =
   | { tipo: 'TREINO'; valor: HabilidadeId | null }
   | { tipo: 'CANTO'; valor: Canto | null }
   | { tipo: 'PRESENCA' }
-  | { tipo: 'POSTURA'; valor: Postura };
+  | { tipo: 'POSTURA'; valor: Postura }
+  | { tipo: 'FORMACAO'; valor: Formacao };
 
 export interface ResultadoDaEscolha {
   ok: boolean;
@@ -213,7 +226,7 @@ const diaDaLiga = (d: Date) => new Date(d.getTime() - 3 * 3600_000).toISOString(
 
 /**
  * Aplica uma escolha do site. Recusa fora da Temporada 2 e fora das regras de cada escolha.
- * `comVinculo` só é usado na Postura (para saber quem é o Capitão).
+ * `comVinculo` só é usado na Postura e na Formação (para saber quem é o Capitão).
  */
 export async function aplicarEscolha(b: Banco, jogadorId: string, e: Escolha, agora: Date, comVinculo: () => Promise<ReadonlySet<string>>): Promise<ResultadoDaEscolha> {
   const t = await temporadaAtual(b);
@@ -265,6 +278,20 @@ export async function aplicarEscolha(b: Banco, jogadorId: string, e: Escolha, ag
         [p.id, j.time_id, e.valor, jogadorId, agora.toISOString()],
       );
       return { ok: true, mensagem: `Postura ${e.valor.toLowerCase()} no próximo jogo.` };
+    }
+    case 'FORMACAO': {
+      // ADR-0044: mesma regra da Postura (só o Capitão, até o Corte); a linha guarda as duas.
+      if (!ehFormacao(e.valor)) return { ok: false, mensagem: 'Formação desconhecida.' };
+      const p = await proximaPartidaDoTime(b, j.time_id, agora);
+      if (!p) return { ok: false, mensagem: 'Não há jogo do seu Time aberto para escolher a Formação agora.' };
+      const capitao = await capitaoDaPartida(b, p.id, j.time_id, await comVinculo());
+      if (capitao !== jogadorId) return { ok: false, mensagem: 'Só o Capitão do Time escolhe a Formação.' };
+      await b.query(
+        `INSERT INTO postura (partida_id, time_id, formacao, capitao_id, escolhida_em) VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (partida_id, time_id) DO UPDATE SET formacao = EXCLUDED.formacao, capitao_id = EXCLUDED.capitao_id, escolhida_em = EXCLUDED.escolhida_em`,
+        [p.id, j.time_id, e.valor, jogadorId, agora.toISOString()],
+      );
+      return { ok: true, mensagem: `Formação ${e.valor} no próximo jogo.` };
     }
   }
 }

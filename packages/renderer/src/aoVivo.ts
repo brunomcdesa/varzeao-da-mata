@@ -110,7 +110,7 @@ export function roteiroAoVivo(tl: Timeline, apelidos?: Record<Lado, (string | nu
   const estimadas = agendarAoVivo(falas, (id) => estimarDuracao(falas.find((x) => x.id === id)!.texto));
   const fim = aoVivo(tl.duracao);
   let vao = 0;
-  /** Memória da Partida (ADR-0043): uma frase dita não volta até as outras se esgotarem. */
+  /** Memória da Partida (ADR-0045): uma frase dita não volta até as outras se esgotarem. */
   const ditas = new Set<string>();
   for (let i = 0; i <= estimadas.length; i++) {
     const antes = estimadas[i - 1];
@@ -188,7 +188,7 @@ function enchimento(
     `Recupera ${de(o.posse)}, e começa tudo de novo.`,
     `${curto(o.posse)} chega pela direita.`,
     `${curto(o.posse)} tenta pela esquerda.`,
-    // Frases aprovadas em 11/11 (ADR-0043): acompanham o toque de bola da tela.
+    // Frases aprovadas em 11/11 (ADR-0045): acompanham o toque de bola da tela.
     `${cap(jog(o.posse, 'ZAG'))} recua pro goleiro.`,
     `${cap(jog(o.posse, 'GOL'))} segura e distribui.`,
     `${artigo(o.posse)} ${curto(o.posse)} tem paciência, gira de um lado pro outro.`,
@@ -206,7 +206,7 @@ function enchimento(
     `Que jogo movimentado na várzea!`,
     `Ritmo forte aqui no Varzeão.`,
     `Jogo aberto, as duas equipes querem.`,
-    // Ambiente (frases aprovadas em 11/11, ADR-0043).
+    // Ambiente (frases aprovadas em 11/11, ADR-0045).
     `A bola não para quieta no Varzeão!`,
     `A torcida pede mais raça!`,
     `Ninguém tira o pé nessa dividida.`,
@@ -247,7 +247,7 @@ function enchimento(
   if (diff > 0) contexto.push(`${curto(o.posse)} na frente, controla o jogo.`, `${curto(outro)} precisa do gol.`);
   if (minuto >= 80) contexto.push(`Reta final de jogo!`, `O tempo está acabando!`, `Últimos minutos no Varzeão!`);
   if (minuto <= 8) contexto.push(`Começo de jogo, as equipes ainda se estudando.`);
-  // Contexto do jogo (frases aprovadas em 11/11, ADR-0043).
+  // Contexto do jogo (frases aprovadas em 11/11, ADR-0045).
   const ataques = r.lances.filter((l) => !l.bolaParada).length;
   if (minuto >= 20 && ataques <= 10) contexto.push(`Jogo truncado, poucas chances até aqui.`, `Muita marcação e pouco espaço no Varzeão.`);
   if (minuto >= 20 && ataques >= 24) contexto.push(`Jogo lá e cá, ninguém se segura!`, `Que jogo aberto! Chance pra todo lado.`);

@@ -144,7 +144,9 @@ export interface Estatisticas {
   derrotas: number;
 }
 
-export type TipoTrofeu = 'CAMPEAO' | 'CRAQUE_TEMPORADA' | 'CRAQUE_RODADA' | 'REI_DO_CLASSICO';
+export type TipoTrofeu = 'CAMPEAO' | 'CRAQUE_TEMPORADA' | 'SELECAO_TEMPORADA' | 'CRAQUE_RODADA' | 'SELECAO_RODADA' | 'REI_DO_CLASSICO';
+/** Ordem em que os troféus aparecem no site. */
+export const ORDEM_DOS_TROFEUS: readonly TipoTrofeu[] = ['CAMPEAO', 'CRAQUE_TEMPORADA', 'SELECAO_TEMPORADA', 'CRAQUE_RODADA', 'SELECAO_RODADA', 'REI_DO_CLASSICO'];
 
 export interface Trofeu {
   tipo: TipoTrofeu;
@@ -156,6 +158,8 @@ export interface Trofeu {
   partidaId?: number;
   /** Título e Craques da Série B (ADR-0017). Sem o campo, é da A. */
   serie?: Serie;
+  /** Destaques por Posição (ADR-0041): a Posição do Destaque (Muralha, Carrapato, Garçom, Matador). */
+  posicao?: Posicao;
 }
 
 export interface JogadorPublico {

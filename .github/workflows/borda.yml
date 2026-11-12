@@ -2,6 +2,8 @@
 # Roda quando o código da borda muda, ou à mão. Precisa, no ambiente PROD:
 #   CF_WORKERS_TOKEN  token da Cloudflare do modelo "Edit Cloudflare Workers"
 #   GH_DISPARO_TOKEN  token do GitHub com Actions: leitura e escrita só neste repositório
+#   VAPID_PRIVADA     (segredo) chave privada dos Avisos do App (ADR-0042)
+#   LIGA_VAPID_PUBLICA (variável) chave pública dos Avisos; o site usa a mesma
 name: borda
 on:
   push:
@@ -37,4 +39,16 @@ jobs:
             printf '%s' "$GH_DISPARO_TOKEN" | pnpm --filter @liga/edge exec wrangler secret put GH_DISPARO_TOKEN
           else
             echo "Sem GH_DISPARO_TOKEN no ambiente PROD: a borda não dispara os jobs (fica só o cron do GitHub)."
+          fi
+      - name: Chaves dos Avisos do App (ADR-0042)
+        if: steps.config.outputs.ok == 'true'
+        env:
+          VAPID_PRIVADA: ${{ secrets.VAPID_PRIVADA }}
+          VAPID_PUBLICA: ${{ vars.LIGA_VAPID_PUBLICA }}
+        run: |
+          if [ -n "$VAPID_PRIVADA" ] && [ -n "$VAPID_PUBLICA" ]; then
+            printf '%s' "$VAPID_PUBLICA" | pnpm --filter @liga/edge exec wrangler secret put VAPID_PUBLICA
+            printf '%s' "$VAPID_PRIVADA" | pnpm --filter @liga/edge exec wrangler secret put VAPID_PRIVADA
+          else
+            echo "Sem VAPID_PRIVADA (segredo) e LIGA_VAPID_PUBLICA (variável) no ambiente PROD: os Avisos do App ficam desligados."
           fi

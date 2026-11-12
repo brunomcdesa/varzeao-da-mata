@@ -1,6 +1,6 @@
 # Avisos do App: notificações de jogo por Time
 
-Quem instalou o App (ADR-0040) pode ativar os **Avisos**: notificações no celular sobre os Times que escolher. A partir da Temporada 2, como o App.
+Quem instalou o App (ADR-0040) pode ativar os **Avisos**: notificações no celular sobre os Times que escolher. A partir da Temporada 2, como o App: enquanto o `liga.json` mostrar uma Temporada anterior, a borda recusa a ativação (409) e o cron não manda nada, mesmo com as chaves já ligadas (`appLiberado`, no shared).
 
 ## O que chega
 

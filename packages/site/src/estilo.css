@@ -2312,6 +2312,7 @@ a.jogo:hover {
   color: var(--cal);
 }
 .sala-craque_rodada .estrela,
+.sala-selecao_rodada .estrela,
 .sala-rei_do_classico .estrela {
   background: var(--cal-fraca);
 }
@@ -2897,6 +2898,46 @@ a.jogo:hover {
 }
 .estado-escolha:empty {
   display: none;
+}
+/* Formação (ADR-0044): opções em grade, com o mini campo de cada desenho. */
+.opcoes-t2.formacoes {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.opcao-formacao {
+  align-items: center;
+}
+.mini-campo {
+  flex: none;
+  image-rendering: pixelated;
+  shape-rendering: crispEdges;
+}
+.mini-campo .gramado {
+  fill: var(--grama);
+  stroke: var(--contorno);
+  stroke-width: 2;
+}
+.mini-campo .risca,
+.mini-campo .risca-area {
+  fill: none;
+  stroke: var(--cal);
+  stroke-width: 1;
+  opacity: 0.8;
+}
+.mini-campo .vaga {
+  fill: var(--amarelo);
+  stroke: var(--contorno);
+  stroke-width: 1;
+}
+.mini-campo .vaga-gol {
+  fill: var(--cal);
+}
+.jogada-formacao {
+  font-style: normal;
+  font-size: 0.75rem;
+  padding: 0 4px;
+  margin-left: 4px;
+  background: var(--madeira);
+  color: #fffaf0;
 }
 
 /* ---- Página de Carreira (T2, ADR-0025) */

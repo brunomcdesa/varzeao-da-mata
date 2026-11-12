@@ -43,10 +43,10 @@ export const DURACAO_JOGO = 90 * 60;
 export const VELOCIDADE_AO_VIVO = 20;
 
 /**
- * Ritmo novo (ADR-0043, VERSAO_SIM 11+): a jogada tem duração fixa, no ritmo do Reels, e o resto
+ * Ritmo novo (ADR-0045, VERSAO_SIM 12+): a jogada tem duração fixa, no ritmo do Reels, e o resto
  * do tempo entre os lances (e até o apito) é toque de bola. Partidas antigas ficam como eram.
  */
-export const ritmoNovo = (r: Pick<ResultadoPartida, 'versaoSim'>): boolean => r.versaoSim >= 11;
+export const ritmoNovo = (r: Pick<ResultadoPartida, 'versaoSim'>): boolean => r.versaoSim >= 12;
 /** Duração de uma jogada no ritmo novo (s de jogo): ~7,5 s no Ao Vivo, como no Reels. */
 export const DURACAO_JOGADA = 150;
 /** Depois de gol (e no Apito Inicial), tempo mínimo para a comemoração e a saída de bola. */
@@ -159,6 +159,15 @@ const BASE_POR_POSICAO: Record<Posicao, Ponto[]> = {
   MEI: [{ x: 0.36, y: 0.62 }, { x: 0.64, y: 0.62 }],
   ATA: [{ x: 0.4, y: 0.44 }, { x: 0.6, y: 0.44 }],
 };
+/**
+ * Formação (ADR-0044): com um ou três numa linha, o desenho muda. Um fica no meio; três abrem,
+ * e o do meio fica um pouco atrás (o zagueiro da sobra, o volante do 2-3-1).
+ */
+const BASE_POR_QUANTIDADE: Partial<Record<Posicao, Record<number, Ponto[]>>> = {
+  ZAG: { 3: [{ x: 0.24, y: 0.78 }, { x: 0.5, y: 0.82 }, { x: 0.76, y: 0.78 }] },
+  MEI: { 1: [{ x: 0.5, y: 0.62 }], 3: [{ x: 0.24, y: 0.6 }, { x: 0.5, y: 0.65 }, { x: 0.76, y: 0.6 }] },
+  ATA: { 1: [{ x: 0.5, y: 0.42 }] },
+};
 
 const espelhar = (p: Ponto, lado: Lado): Ponto => (lado === 'mandante' ? p : { x: 1 - p.x, y: 1 - p.y });
 const lerp = (a: number, b: number, f: number): number => a + (b - a) * f;
@@ -180,9 +189,9 @@ export class Timeline {
   readonly disputa: Disputa | null;
   private readonly bases: Record<Lado, Ponto[]>;
   private readonly trilhas: Map<string, QuadroAtor[]>[];
-  /** Jogadas e intervalos de toque de bola, em ordem (ADR-0043). */
+  /** Jogadas e intervalos de toque de bola, em ordem (ADR-0045). */
   private readonly faixas: Faixa[];
-  /** Ritmo novo (ADR-0043): jogada de duração fixa e toque de bola entre os lances. */
+  /** Ritmo novo (ADR-0045): jogada de duração fixa e toque de bola entre os lances. */
   readonly novo: boolean;
   /** Posições depois da física, a cada FISICA.dt (x, y intercalados), por slot. */
   private readonly corridas: Map<string, Float32Array>;
@@ -533,7 +542,7 @@ export class Timeline {
   }
 
   /**
-   * Toque de bola (ADR-0043): o Time com a bola troca passes até o lance seguinte (ou até o apito).
+   * Toque de bola (ADR-0045): o Time com a bola troca passes até o lance seguinte (ou até o apito).
    * Depois de gol, e no Apito Inicial, vem antes a saída de bola: o goleiro tira a bola da rede e
    * devolve para o meio, e um Jogador do Time que sofreu corre até ela e toca; a bola só anda
    * depois desse toque. Termina com a bola no criador do lance seguinte.
@@ -709,7 +718,7 @@ export class Timeline {
       // Quem defende fecha um pouco na direção da bola.
       else if (lance.ataque !== slot.lado && posicao !== 'GOL') {
         pos = lerpP(pos, bola, 0.12 * avanco);
-        // Ritmo novo (ADR-0043): o zagueiro que não está no lance faz a cobertura, entre a bola
+        // Ritmo novo (ADR-0045): o zagueiro que não está no lance faz a cobertura, entre a bola
         // e o gol, do lado dele, em vez de ficar parado olhando.
         if (this.novo && posicao === 'ZAG') {
           const cobertura = lerpP(bola, { x: 0.5, y: golAlvo(lance.ataque) }, 0.55);
@@ -824,16 +833,16 @@ function fimDaBola(plano: Plano): Ponto | null {
   return null;
 }
 
-/** Depois do toque de bola, a jogada começa com a bola saindo do criador (e não de um ponto do campo). */
+/** Depois do toque de bola, a jogada começa com a bola já no pé do criador (e não voando de um ponto do campo). */
 function comecaNoCriador(plano: Plano, criador: SlotRef): Plano {
   return {
     ...plano,
-    bola: plano.bola.map((b): TrechoBola => (b.de === 0 && b.tipo === 'VOO' && 'ponto' in b.origem ? { ...b, origem: { ator: criador } } : b)),
+    bola: plano.bola.map((b): TrechoBola => (b.de === 0 && b.tipo === 'VOO' && 'ponto' in b.origem && 'ator' in b.destino && b.destino.ator.lado === criador.lado && b.destino.ator.indice === criador.indice ? { de: b.de, ate: b.ate, tipo: 'POSSE', ator: criador } : b)),
   };
 }
 
 /**
- * Ritmo novo (ADR-0043): dentro do tempo que a sim dá a cada lance, a jogada dura DURACAO_JOGADA e
+ * Ritmo novo (ADR-0045): dentro do tempo que a sim dá a cada lance, a jogada dura DURACAO_JOGADA e
  * fica no fim (resolve perto do minuto do lance); o que sobra antes vira toque de bola. Bola parada
  * e contra-ataque vêm colados no lance anterior (sem toque no meio): o grupo inteiro fica no fim.
  * Depois de gol (e no Apito Inicial) sobra pelo menos RESERVA_SAIDA para a saída de bola, e do
@@ -872,10 +881,12 @@ function encaixarJogadas(cheias: readonly Janela[], lances: readonly Lance[]): {
   return { janelas, intervalos };
 }
 
-function posicoesBase(escalacao: Escalacao, lado: Lado): Ponto[] {
+export function posicoesBase(escalacao: Escalacao, lado: Lado): Ponto[] {
   const usados: Record<Posicao, number> = { GOL: 0, ZAG: 0, MEI: 0, ATA: 0 };
+  const quantos = (p: Posicao) => escalacao.jogadores.filter((j) => j.posicao === p).length;
   return escalacao.jogadores.map((j) => {
-    const ponto = BASE_POR_POSICAO[j.posicao][usados[j.posicao]++] ?? BASE_POR_POSICAO[j.posicao][0]!;
+    const linha = BASE_POR_QUANTIDADE[j.posicao]?.[quantos(j.posicao)] ?? BASE_POR_POSICAO[j.posicao];
+    const ponto = linha[usados[j.posicao]++] ?? linha[0]!;
     return espelhar(ponto, lado);
   });
 }

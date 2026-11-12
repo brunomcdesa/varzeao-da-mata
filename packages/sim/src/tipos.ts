@@ -1,4 +1,4 @@
-import type { Canto, Escalacao, HabilidadeId, Habilidades, Posicao, Postura, TimeId } from '@liga/shared';
+import type { Canto, Escalacao, Formacao, HabilidadeId, Habilidades, JogadaDaFormacao, Posicao, Postura, TimeId } from '@liga/shared';
 
 export type Lado = 'mandante' | 'visitante';
 export type Fase = 'LIGA' | 'MATA_MATA';
@@ -22,7 +22,11 @@ export interface EntradaPartida {
    * Treino (ADRs 0020, 0021, 0023, 0024). Sem este campo, a Partida segue as regras da
    * Temporada 1 e sai igual à VERSAO_SIM 5.
    */
-  t2?: { postura: Record<Lado, Postura> };
+  t2?: {
+    postura: Record<Lado, Postura>;
+    /** Formação de cada Time (ADR-0044, VERSAO_SIM 11). Sem ela, os dois jogam no 2-2-2. */
+    formacao?: Record<Lado, Formacao>;
+  };
 }
 
 /** FALTA (só na T2): a jogada parou numa falta do defensor; a cobrança vem no lance seguinte. */
@@ -65,7 +69,7 @@ export interface Lance {
    */
   contraAtaque?: { recomposto: boolean; adiantados: number };
   /**
-   * Marcação dupla (VERSAO_SIM 11/12, ADR-0043): o 1º zagueiro (`zagueiro`) voltou e dobrou a
+   * Marcação dupla (VERSAO_SIM 12/13, ADR-0045): o 1º zagueiro (`zagueiro`) voltou e dobrou a
    * marcação em `sobre`. Com `passe`, `sobre` achou o companheiro livre, que é o finalizador
    * (chute sem marcador); sem `passe`, `sobre` é o finalizador e o duelo foi contra os dois.
    */
@@ -76,6 +80,16 @@ export interface Lance {
   barreira?: SlotRef[];
   /** T2: no PENALTI, para onde o batedor chutou e para onde o goleiro pulou. */
   canto?: { cobrador: Canto; goleiro: Canto };
+  /**
+   * Jogada da Formação (ADR-0044). TABELA: o criador tabelou com o `apoio` antes de criar.
+   * LIGACAO_DIRETA: o criador é um zagueiro que lançou direto para o ataque. COBERTURA: depois
+   * do drible no marcador, o zagueiro da `cobertura` chegou para mais um desarme.
+   */
+  jogadaDaFormacao?: JogadaDaFormacao;
+  /** Na TABELA: o meia que devolveu a bola ao criador. */
+  apoio?: SlotRef;
+  /** Na COBERTURA: o zagueiro que fez a sobra (é o `defensor` quando desarmou). */
+  cobertura?: SlotRef;
 }
 
 export interface Cobranca {
@@ -132,4 +146,6 @@ export interface ResultadoPartida {
   /** T2: a Postura de cada Time e quantos lances de ataque a Partida teve (o Ritmo). */
   postura?: Record<Lado, Postura>;
   ritmo?: number;
+  /** T2 (ADR-0044): a Formação de cada Time. */
+  formacao?: Record<Lado, Formacao>;
 }

@@ -15,7 +15,7 @@ function partida(seed: number) {
   return { resultado, timeline: new Timeline(resultado, escalacoes) };
 }
 
-/** Partida desenhada como as antigas (VERSAO_SIM 10 ou menos, antes do ADR-0043). */
+/** Partida desenhada como as antigas (VERSAO_SIM 10 ou menos, antes do ADR-0045). */
 function partidaAntiga(seed: number) {
   const escalacoes = { mandante: esc('CAP', 72), visitante: esc('ONC', 68) };
   const resultado = { ...simularPartida({ ...escalacoes, seed, fase: 'LIGA' }), versaoSim: 9 };
@@ -87,7 +87,7 @@ describe('Timeline', () => {
     throw new Error('nenhum gol em 50 seeds');
   });
 
-  describe('ritmo novo (ADR-0043)', () => {
+  describe('ritmo novo (ADR-0045)', () => {
     type Faixa = { inicio: number; fim: number; indiceLance: number; plano: { bola: { de: number; ate: number; tipo: string; ponto?: { x: number; y: number } }[] } };
     const faixas = (tl: Timeline) => (tl as unknown as { faixas: Faixa[] }).faixas;
 

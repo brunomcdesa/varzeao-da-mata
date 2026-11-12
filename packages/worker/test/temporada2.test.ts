@@ -5,10 +5,10 @@ import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
 import { processarComentario, transferirJogador } from '../src/coletar.js';
 import { interpretar } from '../src/comandos.js';
-import { escalarPartida, ordemDoRodizio } from '../src/escalacao.js';
+import { escalarPartida, montarEscalacao, ordemDoRodizio } from '../src/escalacao.js';
 import { rodarPartida } from '../src/partida.js';
 import { exportarSite } from '../src/site.js';
-import { aplicarEscolha, capitaniaDoJogador, capitaoDaPartida, ordemDoCapitao, suspensos } from '../src/temporada2.js';
+import { aplicarEscolha, capitaniaDoJogador, capitaoDaPartida, formacoesDaPartida, ordemDoCapitao, suspensos } from '../src/temporada2.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 
 let banco: Banco;
@@ -34,6 +34,108 @@ const primeiraPartida = async (temporadaId: number, time: TimeId) =>
   ).rows[0]!;
 const novaT2 = () => criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-18', seed: 8, series: { A: TIMES_FUNDADORES, B: TIMES_NOVOS } });
 
+describe('Formação (ADR-0044)', () => {
+  const nenhum = new Set<string>();
+  /** Inscrição direta no banco (sem o limite de equilíbrio entre Elencos da coleta). */
+  const direto = async (time: TimeId, posicao: string, quem: string, em = '2026-11-12T12:00:00Z') =>
+    (
+      await banco.query<{ id: string }>(
+        `INSERT INTO jogador (ig_user_id, username, time_id, posicao, ovr, habilidades, inscrito_em) VALUES ($1, $1, $2, $3, 60, NULL, $4) RETURNING id::text AS id`,
+        [quem, time, posicao, em],
+      )
+    ).rows[0]!.id;
+  it('só o Capitão escolhe; a Postura continua a mesma e a simulação usa as duas', async () => {
+    const t2 = await novaT2();
+    const capitao = await inscrever('ONC', 'MEI', 'capitao_onc', '2026-11-10T12:00:00Z');
+    const outro = await inscrever('ONC', 'ATA', 'outro_onc', '2026-11-12T12:00:00Z');
+    const p = await primeiraPartida(t2, 'ONC');
+    const antes = new Date('2026-11-18T12:00:00Z');
+    const vinc = async () => new Set([capitao, outro]);
+    expect((await aplicarEscolha(banco, outro, { tipo: 'FORMACAO', valor: '3-2-1' }, antes, vinc)).ok).toBe(false);
+    expect((await aplicarEscolha(banco, capitao, { tipo: 'FORMACAO', valor: '4-4-2' as never }, antes, vinc)).ok).toBe(false);
+    expect((await aplicarEscolha(banco, capitao, { tipo: 'FORMACAO', valor: '3-2-1' }, antes, vinc)).ok).toBe(true);
+    expect((await aplicarEscolha(banco, capitao, { tipo: 'POSTURA', valor: 'DEFENSIVA' }, antes, vinc)).ok).toBe(true);
+    expect(await capitaniaDoJogador(banco, outro, antes, vinc)).toEqual({ eu: false, capitao: 'capitao_onc', postura: 'DEFENSIVA', formacao: '3-2-1' });
+    // Depois do Corte a escolha já vale para o jogo seguinte: a deste fica travada.
+    const depoisDoCorte = new Date(new Date((await banco.query<{ a: Date }>(`SELECT apito_inicial AS a FROM partida WHERE id = $1`, [p.id])).rows[0]!.a).getTime() - 10 * 60_000);
+    await aplicarEscolha(banco, capitao, { tipo: 'FORMACAO', valor: '2-3-1' }, depoisDoCorte, vinc);
+    expect((await formacoesDaPartida(banco, p.id, p.mandante_id, p.visitante_id))[p.mandante_id === 'ONC' ? 'mandante' : 'visitante']).toBe('3-2-1');
+
+    const job = await rodarPartida(banco, p.id, { seed: 9, vinculos: new Set([capitao]) });
+    const lado = p.mandante_id === 'ONC' ? 'mandante' : 'visitante';
+    expect(job.dados.resultado.formacao![lado]).toBe('3-2-1');
+    expect(job.dados.resultado.formacao![lado === 'mandante' ? 'visitante' : 'mandante']).toBe('2-2-2');
+    expect(job.dados.resultado.postura![lado]).toBe('DEFENSIVA');
+    expect(job.dados.escalacoes[lado].jogadores.map((j) => j.posicao)).toEqual(['GOL', 'ZAG', 'ZAG', 'ZAG', 'MEI', 'MEI', 'ATA']);
+  });
+
+  it('vaga sem inscrito da Posição: quem sobrou de outra entra fora de posição, com o OVR da vaga; sem ninguém, a Base', async () => {
+    const t2 = await novaT2();
+    const meias = [await inscrever('TAT', 'MEI', 'm1'), await inscrever('TAT', 'MEI', 'm2'), await inscrever('TAT', 'MEI', 'm3')];
+    const z1 = await inscrever('TAT', 'ZAG', 'z1');
+    const corte = new Date('2026-11-30T00:00:00Z');
+    const m = await montarEscalacao(banco, { time: 'TAT', temporadaId: t2, corte, t2: { suspensos: nenhum, confirmados: nenhum, formacao: '3-2-1' } });
+    const js = m.escalacao.jogadores;
+    expect(js.map((j) => j.posicao)).toEqual(['GOL', 'ZAG', 'ZAG', 'ZAG', 'MEI', 'MEI', 'ATA']);
+    expect(js[0]!.jogadorId).toBeNull(); // sem goleiro: Base (linha não vai para o gol)
+    expect(js[1]!.jogadorId).toBe(z1);
+    // O 3º meia (sobrou) cobre a 2ª vaga de zagueiro; a 3ª vaga de zagueiro e o ATA ficam com a Base.
+    const fora = js.filter((j) => j.posicaoDeOrigem);
+    expect(fora).toHaveLength(1);
+    expect(fora[0]!.posicao).toBe('ZAG');
+    expect(fora[0]!.posicaoDeOrigem).toBe('MEI');
+    expect(meias).toContain(fora[0]!.jogadorId);
+    const { ovrDasHabilidades } = await import('@liga/shared');
+    expect(fora[0]!.ovr).toBe(ovrDasHabilidades('ZAG', fora[0]!.habilidades));
+    expect(js.filter((j) => j.jogadorId === null).map((j) => j.posicao)).toEqual(['GOL', 'ZAG', 'ATA']);
+    // Na Temporada 1 (sem regras da T2), a mesma lista não joga fora de posição.
+    const t1 = await montarEscalacao(banco, { time: 'TAT', temporadaId: t2, corte });
+    expect(t1.escalacao.jogadores.some((j) => j.posicaoDeOrigem)).toBe(false);
+  });
+
+  it('quem a Formação cortou passa na frente no jogo seguinte do Time', async () => {
+    const t2 = await novaT2();
+    const atacantes = [await inscrever('SAG', 'ATA', 'a1', '2026-11-10T12:00:00Z'), await inscrever('SAG', 'ATA', 'a2', '2026-11-11T12:00:00Z'), await inscrever('SAG', 'ATA', 'a3', '2026-11-12T12:00:00Z')];
+    // Zagueiros e meias completos: ninguém joga fora de posição.
+    for (const [pos, q] of [['ZAG', 'sz1'], ['ZAG', 'sz2'], ['MEI', 'sm1'], ['MEI', 'sm2'], ['MEI', 'sm3']] as const) await direto('SAG', pos, q);
+    const corte = new Date('2026-11-30T00:00:00Z');
+    const m = await montarEscalacao(banco, { time: 'SAG', temporadaId: t2, corte, t2: { suspensos: nenhum, confirmados: nenhum, formacao: '2-3-1' } });
+    // No 2-2-2 entrariam a1 e a2; no 2-3-1 só a1 entra e a2 foi cortado.
+    expect(m.escalacao.jogadores.filter((j) => j.posicao === 'ATA').map((j) => j.jogadorId)).toEqual([atacantes[0]]);
+    expect(m.cortados).toEqual([atacantes[1]]);
+    // No jogo seguinte, com o corte, a2 passa na frente de a3 (que jogou menos tanto quanto ele).
+    const prox = await montarEscalacao(banco, { time: 'SAG', temporadaId: t2, corte, t2: { suspensos: nenhum, confirmados: nenhum, formacao: '2-3-1', cortados: new Set([atacantes[1]!]) } });
+    expect(prox.escalacao.jogadores.find((j) => j.posicao === 'ATA')!.jogadorId).toBe(atacantes[1]);
+    // No 2-2-2 ninguém é cortado.
+    const padrao = await montarEscalacao(banco, { time: 'SAG', temporadaId: t2, corte, t2: { suspensos: nenhum, confirmados: nenhum } });
+    expect(padrao.cortados).toEqual([]);
+  });
+
+  it('a Escalação grava quem foi cortado e quem jogou fora de posição', async () => {
+    const t2 = await novaT2();
+    const capitao = await inscrever('PRE', 'ATA', 'cap_pre', '2026-11-10T12:00:00Z');
+    const a2 = await inscrever('PRE', 'ATA', 'a2_pre', '2026-11-11T12:00:00Z');
+    await inscrever('PRE', 'ATA', 'a3_pre', '2026-11-12T12:00:00Z');
+    for (const [pos, q] of [['ZAG', 'z1_pre'], ['ZAG', 'z2_pre'], ['ZAG', 'z3_pre'], ['MEI', 'm1_pre'], ['MEI', 'm2_pre']] as const) await direto('PRE', pos, q);
+    const p = await primeiraPartida(t2, 'PRE');
+    // O rival joga no 2-2-2 só com meias: o 3º meia cobre uma vaga de zagueiro.
+    const rival = p.mandante_id === 'PRE' ? p.visitante_id : p.mandante_id;
+    for (const q of ['rm1', 'rm2', 'rm3']) await direto(rival, 'MEI', q);
+    const vinc = async () => new Set([capitao]);
+    expect((await aplicarEscolha(banco, capitao, { tipo: 'FORMACAO', valor: '3-2-1' }, new Date('2026-11-18T12:00:00Z'), vinc)).ok).toBe(true);
+    await escalarPartida(banco, p.id, { vinculos: new Set([capitao]) });
+    // 3-2-1: um atacante joga na frente; o 2º (que entraria no 2-2-2) foi cortado.
+    const cortados = (await banco.query<{ id: string }>(`SELECT jogador_id::text AS id FROM corte_da_formacao WHERE partida_id = $1`, [p.id])).rows.map((r) => r.id);
+    expect(cortados).toEqual([a2]);
+    const origem = (await banco.query<{ posicao: string; posicao_de_origem: string }>(`SELECT posicao, posicao_de_origem FROM escalacao WHERE partida_id = $1 AND posicao_de_origem IS NOT NULL`, [p.id])).rows;
+    expect(origem).toEqual([{ posicao: 'ZAG', posicao_de_origem: 'MEI' }]);
+    // E a Escalação relida do banco (reexecução do job) traz a Posição de origem.
+    const relida = await escalarPartida(banco, p.id);
+    const ladoRival = p.mandante_id === rival ? 'mandante' : 'visitante';
+    expect(relida.escalacoes[ladoRival].jogadores.filter((j) => j.posicaoDeOrigem).map((j) => j.posicaoDeOrigem)).toEqual(['MEI']);
+  });
+});
+
 describe('Temporada 2 no worker', () => {
   it('na Temporada 1 as escolhas são recusadas e a Partida é simulada na versão 5', async () => {
     const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
@@ -45,7 +147,7 @@ describe('Temporada 2 no worker', () => {
     const p = await primeiraPartida(t1, 'CAP');
     const job = await rodarPartida(banco, p.id, { seed: 5 });
     const res = job.dados.resultado;
-    expect(res.versaoSim).toBe(11);
+    expect(res.versaoSim).toBe(12);
     expect(job.dados.torcida).toBeUndefined();
     const site = await exportarSite(banco, new Date('2026-12-30T12:00:00Z'));
     expect((site.arquivos.get(`partidas/${p.id}.json`) as { torcida?: unknown }).torcida).toBeUndefined();
@@ -64,7 +166,7 @@ describe('Temporada 2 no worker', () => {
     await inscrever('CAP', 'MEI');
     const p = await primeiraPartida(t2, 'CAP');
     const job = await rodarPartida(banco, p.id, { seed: 5 });
-    expect(job.dados.resultado.versaoSim).toBe(12);
+    expect(job.dados.resultado.versaoSim).toBe(13);
     const lado = p.mandante_id === 'CAP' ? 'mandante' : 'visitante';
     expect(job.dados.torcida?.[lado]).toBe(2);
     const site = await exportarSite(banco, new Date('2026-12-30T12:00:00Z'));
@@ -96,8 +198,8 @@ describe('Temporada 2 no worker', () => {
     expect((await aplicarEscolha(banco, veterano, { tipo: 'POSTURA', valor: 'OFENSIVA' }, antes, async () => new Set([novato]))).ok).toBe(false);
     expect((await aplicarEscolha(banco, novato, { tipo: 'POSTURA', valor: 'OFENSIVA' }, antes, async () => new Set([novato]))).ok).toBe(true);
     // O painel do site: só o Capitão vê a escolha; o outro vê quem é o Capitão e a Postura.
-    expect(await capitaniaDoJogador(banco, novato, antes, async () => new Set([novato]))).toEqual({ eu: true, capitao: 'novato', postura: 'OFENSIVA' });
-    expect(await capitaniaDoJogador(banco, veterano, antes, async () => new Set([novato]))).toEqual({ eu: false, capitao: 'novato', postura: 'OFENSIVA' });
+    expect(await capitaniaDoJogador(banco, novato, antes, async () => new Set([novato]))).toEqual({ eu: true, capitao: 'novato', postura: 'OFENSIVA', formacao: '2-2-2' });
+    expect(await capitaniaDoJogador(banco, veterano, antes, async () => new Set([novato]))).toEqual({ eu: false, capitao: 'novato', postura: 'OFENSIVA', formacao: '2-2-2' });
     // O site mostra a faixa "C" para todos: no Capitão atual e, depois, na Escalação.
     const antesDoJogo = await exportarSite(banco, antes, { vinculos: new Set([novato]) });
     const doSite = antesDoJogo.arquivos.get('jogadores.json') as { id: string; capitao?: true }[];
@@ -107,7 +209,7 @@ describe('Temporada 2 no worker', () => {
     const faixa = (await banco.query<{ id: string }>(`SELECT jogador_id::text AS id FROM escalacao WHERE partida_id = $1 AND time_id = 'ONC' AND capitao`, [p.id])).rows;
     expect(faixa).toEqual([{ id: novato }]);
     expect((await banco.query(`SELECT 1 FROM escalacao WHERE partida_id = $1 AND capitao`, [p.id])).rows.length).toBeLessThanOrEqual(2);
-    expect(res.versaoSim).toBe(12);
+    expect(res.versaoSim).toBe(13);
     const lado = p.mandante_id === 'ONC' ? 'mandante' : 'visitante';
     expect(res.postura![lado]).toBe('OFENSIVA');
     expect(res.postura![lado === 'mandante' ? 'visitante' : 'mandante']).toBe('EQUILIBRADA');
@@ -181,6 +283,6 @@ describe('Temporada 2 no worker', () => {
     const linha = (await banco.query<{ especializacao: string; treino: string; canto: string; amarelos: number | null }>(`SELECT especializacao, treino, canto, amarelos FROM escalacao WHERE partida_id = $1 AND jogador_id = $2`, [p.id, id])).rows[0]!;
     expect(linha).toMatchObject({ especializacao: 'PEGADOR_DE_PENALTI', treino: 'GOL', canto: 'DIREITA' });
     expect(linha.amarelos).not.toBeNull();
-    expect(res.versaoSim).toBe(12);
+    expect(res.versaoSim).toBe(13);
   });
 });

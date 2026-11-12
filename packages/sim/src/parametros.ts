@@ -3,7 +3,7 @@
  * antigas, então exige subir VERSAO_SIM (ADR-0002).
  */
 /** Temporada 2. A Temporada 1 usa VERSAO_SIM_T1 (abaixo). */
-export const VERSAO_SIM = 12;
+export const VERSAO_SIM = 13;
 
 export const PARAMETROS = {
   /** Lances de ataque de referência: a média das retas de EXPECTATIVA da Nota (ADR-0004). */
@@ -32,9 +32,9 @@ export const PARAMETROS = {
   chanceMeiaFinaliza: 0.3,
   /** Base da posse: o meia com a bola (Passe) contra o meia rival (Defesa). */
   basePosse: 0.5,
-  /** Duelo de Posse na saída de bola depois do gol: quem sofreu tem a bola e a vantagem (ADR-0043). */
+  /** Duelo de Posse na saída de bola depois do gol: quem sofreu tem a bola e a vantagem (ADR-0045). */
   basePosseNaSaida: 0.8,
-  /** Marcação dupla (ADR-0043): chance de o 1º zagueiro dobrar no finalizador. */
+  /** Marcação dupla (ADR-0045): chance de o 1º zagueiro dobrar no finalizador. */
   chanceMarcacaoDupla: 0.25,
   /** Quanto a dobra tira da chance do finalizador no duelo com a zaga. */
   penalidadeMarcacaoDupla: 0.15,
@@ -84,11 +84,12 @@ export const PARAMETROS = {
 } as const;
 
 /**
- * Regras da Temporada 2 (VERSAO_SIM 12; eram a 10 antes do ADR-0043 e a 8 antes do ADR-0035).
- * Só valem com `entrada.t2`; sem elas, a Partida sai com as regras da Temporada 1
- * (VERSAO_SIM_T1, a 11; era a 9). A 11/12 trouxe a saída de bola de quem sofreu o gol.
+ * Regras da Temporada 2 (VERSAO_SIM 13 com o ritmo do ADR-0045; 11 com a Formação, ADR-0044; 10
+ * antes dela; 8 antes do ADR-0035). Só valem com `entrada.t2`; sem elas, a Partida sai com as
+ * regras da Temporada 1 (VERSAO_SIM_T1, a 12; era a 9). A 12/13 trouxe a saída de bola de quem
+ * sofreu o gol, os lances até o 90' e a marcação dupla (ADR-0045).
  */
-export const VERSAO_SIM_T1 = 11;
+export const VERSAO_SIM_T1 = 12;
 
 export const PARAMETROS_T2 = {
   /**
@@ -127,6 +128,31 @@ export const PARAMETROS_T2 = {
   defendidoForaDoCanto: 0.25,
   /** Treino (ADR-0023): ganhos na Habilidade de foco. */
   multiplicadorTreino: 1.5,
+  /**
+   * Formação (ADR-0044): o custo de cada desenho, do mesmo jeito que a Postura (soma à chance de
+   * quem ataca). O 2-3-1 expõe a defesa; o 3-2-1 perde força no ataque; o 3-1-2 perde a posse.
+   */
+  formacaoAtaque: { '2-2-2': 0, '2-3-1': 0, '3-2-1': -0.05, '3-1-2': 0 },
+  formacaoDefesa: { '2-2-2': 0, '2-3-1': 0.04, '3-2-1': 0, '3-1-2': 0 },
+  /** Soma à chance do meia com a bola na posse, pela Formação de cada lado (o rival entra com sinal trocado). */
+  formacaoPosse: { '2-2-2': 0, '2-3-1': 0.02, '3-2-1': 0, '3-1-2': -0.01 },
+  /** Postura + Formação somam, mas cada lado (ataque e defesa) fica entre −limite e +limite. */
+  limiteTatico: 0.06,
+  /** Tabela (2-3-1): chance de o criador tabelar com outro meia, e quanto a tabela soma à criação. */
+  chanceTabela: 0.35,
+  bonusTabela: 0.07,
+  /** 2-3-1: com três meias, um deles aparece mais para chutar de fora. */
+  meiaFinalizaNoTresMeias: 0.1,
+  /** Cobertura (3-2-1): chance de o 3º zagueiro chegar depois do drible, e a base do Duelo (Drible × Defesa). */
+  chanceCobertura: 0.7,
+  baseCobertura: 0.55,
+  /**
+   * Ligação direta (3-1-2): chance de um zagueiro lançar direto (fora do contra-ataque), a base do
+   * lançamento (Passe × Defesa do 1º zagueiro rival) e quanto o 2 contra 1 soma contra o marcador.
+   */
+  chanceLigacao: 0.35,
+  baseLigacao: 0.62,
+  bonusLigacao: 0.12,
 } as const;
 
 /**
