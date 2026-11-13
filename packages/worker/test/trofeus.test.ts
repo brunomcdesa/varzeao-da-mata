@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { TIMES_FUNDADORES as TIMES, type JogadorPublico, type LigaPublica } from '@liga/shared';
+import { TIMES_FUNDADORES as TIMES, TIMES_NOVOS, type JogadorPublico, type LigaPublica } from '@liga/shared';
 import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
 import { processarComentario } from '../src/coletar.js';
 import { writeFile } from 'node:fs/promises';
-import { jobAgradecimentoT1, jobCraqueDaTemporada, sincronizarPublicados, type ContextoDoJob } from '../src/jobs.js';
+import { jobCraqueDaTemporada, type ContextoDoJob } from '../src/jobs.js';
+import { dadosDoAgradecimentoT1, jobProgramados } from '../src/programados.js';
 import { avancarMataMata } from '../src/mataMata.js';
 import { AgendaNaMemoria, PastaLocal } from '../src/nuvem.js';
 import { rodarPartida } from '../src/partida.js';
@@ -107,56 +108,62 @@ describe('Seleção da Rodada no site (ADR-0041)', () => {
   }, 60_000);
 });
 
-describe('Recompensa e agradecimento automáticos (ADR-0047)', () => {
-  it('Recompensa e agradecimento da T1 saem sozinhos (ADR-0047)', async () => {
+describe('Rebalanceamento, Recompensa e agradecimento automáticos (ADR-0047)', () => {
+  it('a T2 nasce rebalanceada e com a Recompensa; o agradecimento sai como Reels Programado', async () => {
+    // A Capivara com 9 inscritos: 2 vão para o Time Primo (Sucuri) no Rebalanceamento.
+    let k = 0;
+    for (const pos of ['ZAG', 'ZAG', 'ATA', 'MEI', 'ZAG', 'MEI']) {
+      const u = `cap_extra_${++k}`;
+      await processarComentario(banco, { igCommentId: `x${k}`, igMediaId: 'm', igUserId: u, username: u, texto: `ENTRO capivara ${pos}`, comentadoEm: new Date(`2026-11-06T13:0${k}:00Z`) }, { rodadaEmVotacao: null });
+    }
     for (let n = 1; n <= 9; n++) await jogarRodada(n);
-    const containers: { videoUrl: string; legenda: string }[] = [];
+    const naCapivara = (await banco.query(`SELECT 1 FROM jogador WHERE time_id = 'CAP'`)).rows.length;
+    expect(naCapivara).toBeGreaterThan(7);
+    const movidos = naCapivara - 7;
+    const inscritos = (await banco.query(`SELECT 1 FROM jogador`)).rows.length;
+    const logs: string[] = [];
+    const ctx = { banco, armazenamento: new PastaLocal('/tmp/varzea-agradecimento'), agenda: new AgendaNaMemoria(), ig: null, log: (m: string) => logs.push(m) } as unknown as ContextoDoJob;
+    expect(await jobCraqueDaTemporada({ ...ctx, agora: () => new Date('2026-11-16T21:10:00Z') })).toBe(temporada);
+    // Rebalanceamento: a Capivara ficou com 7 e o resto foi para a Série B (Time Primo ou, com a
+    // Posição cheia nele, outro Time da B), como Fundadores.
+    expect((await banco.query(`SELECT 1 FROM jogador WHERE time_id = 'CAP'`)).rows).toHaveLength(7);
+    expect((await banco.query(`SELECT 1 FROM jogador WHERE time_id = ANY($1)`, [[...TIMES_NOVOS]])).rows).toHaveLength(movidos);
+    expect((await banco.query(`SELECT 1 FROM fundador WHERE remanejado`)).rows).toHaveLength(movidos);
+    // Recompensa: todos os inscritos da T1 ganham o Selo.
+    expect((await banco.query(`SELECT 1 FROM selo_temporada1`)).rows).toHaveLength(inscritos);
+    expect(logs.some((l) => l.startsWith(`Rebalanceamento da Temporada 2: ${movidos} Jogador(es)`))).toBe(true);
+
+    const dados = await dadosDoAgradecimentoT1(banco);
+    expect(dados).toMatchObject({ inscritos, piso: 63, rodadasDoBonus: 3, rebalanceamento: { movidos, tamanhoDaA: 7 } });
+    expect(dados.rebalanceamento!.pares).toContainEqual(['CAP', 'SUC']);
+
+    // Terça 18h30: o job programados grava e agenda o agradecimento para as 20h.
+    const containers: { legenda: string }[] = [];
     const ig = {
-      async criarReels(o: { videoUrl: string; legenda: string }) {
+      async criarReels(o: { legenda: string }) {
         containers.push(o);
         return `C${containers.length}`;
       },
-      async statusDoContainer() {
-        return { status: 'FINISHED' as const };
-      },
       async esperarContainer() {},
     };
-    const gravados: unknown[] = [];
-    const ctx = {
+    const gravados: string[] = [];
+    const lista = [{ id: 'agradecimento-t1', ref: 2002, publicarEm: '2026-11-17T23:00:00Z' }];
+    const feitos = await jobProgramados({
       banco,
       armazenamento: new PastaLocal('/tmp/varzea-agradecimento'),
-      agenda: new AgendaNaMemoria(),
-      ig,
-      log: () => {},
-      gravarAgradecimentoT1: async (d: unknown, saida: string) => {
-        gravados.push(d);
+      agenda: ctx.agenda,
+      ig: ig as never,
+      lista,
+      agora: () => new Date('2026-11-17T21:30:00Z'),
+      gravar: async (id, _o, saida) => {
+        gravados.push(id);
         await writeFile(saida, 'mp4');
       },
-    } as unknown as ContextoDoJob;
-    // Antes do Craque da Temporada (16/11, 18h), nem Recompensa nem agradecimento.
-    expect(await jobAgradecimentoT1({ ...ctx, agora: () => new Date('2026-11-16T20:00:00Z') })).toBeNull();
-    expect(await jobCraqueDaTemporada({ ...ctx, agora: () => new Date('2026-11-16T21:10:00Z') })).toBe(temporada);
-    // A T2 nasce na Pré-temporada e a Recompensa vem junto: todos os inscritos ganham o Selo.
-    expect((await banco.query(`SELECT 1 FROM selo_temporada1`)).rows).toHaveLength(24);
-    // No mesmo dia do Resumo da Temporada, o agradecimento ainda não sai.
-    expect(await jobAgradecimentoT1({ ...ctx, agora: () => new Date('2026-11-16T21:20:00Z') })).toBeNull();
-    // No dia seguinte (17/11), o job das 18h10 grava e agenda para as 19h.
-    const n = containers.length;
-    expect(await jobAgradecimentoT1({ ...ctx, agora: () => new Date('2026-11-17T21:10:00Z') })).toBe(temporada);
-    expect(gravados).toHaveLength(1);
-    expect(gravados[0]).toMatchObject({ inscritos: 24, piso: 63, rodadasDoBonus: 3 });
-    expect(containers.slice(n)).toHaveLength(1);
-    expect(containers.at(-1)!.legenda).toContain('Selo Temporada 1');
-    const item = (await Promise.all((await ctx.agenda.listar('agenda/')).map((k) => ctx.agenda.ler<{ tipo: string; publicarEm: string; ref: number }>(k)))).find((x) => x?.tipo === 'AGRADECIMENTO')!;
-    expect(item.publicarEm).toBe('2026-11-17T22:00:00.000Z');
-    // Uma vez só.
-    expect(await jobAgradecimentoT1({ ...ctx, agora: () => new Date('2026-11-18T21:10:00Z') })).toBeNull();
-    // Publicado pela borda, o banco fica sabendo.
-    for (const k of await ctx.agenda.listar('agenda/')) {
-      const x = await ctx.agenda.ler<{ tipo: string }>(k);
-      if (x?.tipo === 'AGRADECIMENTO') await ctx.agenda.gravar(k, { ...x, publicadoEm: '2026-11-17T22:00:05Z', mediaId: 'M1' });
-    }
-    await sincronizarPublicados({ ...ctx, agora: () => new Date('2026-11-17T22:10:00Z') });
-    expect((await banco.query<{ s: string }>(`SELECT agradecimento_status AS s FROM temporada WHERE id = $1`, [temporada])).rows[0]!.s).toBe('PUBLICADO');
+      log: () => {},
+    });
+    expect(feitos).toEqual(['agradecimento-t1']);
+    expect(gravados).toEqual(['agradecimento-t1']);
+    expect(containers[0]!.legenda).toContain('Selo Temporada 1');
+    expect(containers[0]!.legenda).toContain(`${movidos} Jogadores vão para a Série B`);
   }, 60_000);
 });

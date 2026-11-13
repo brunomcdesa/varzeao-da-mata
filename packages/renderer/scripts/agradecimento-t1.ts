@@ -30,6 +30,8 @@ const { values: args } = parseArgs({
     inscritos: { type: 'string', default: '100' },
     jogos: { type: 'string', default: '31' },
     gols: { type: 'string', default: '116' },
+    movidos: { type: 'string', default: '41' },
+    abertura: { type: 'string', default: '21' },
   },
 });
 
@@ -41,6 +43,11 @@ const dados: DadosDoAgradecimentoT1 = {
   piso: PISO_DA_TEMPORADA_1,
   rodadasDoBonus: RODADAS_DO_BONUS_T1,
   multiplicadorDoBonus: PARAMETROS_T2.multiplicadorBonusT1,
+  // Exemplo: os pares de Time Primo do ADR-0036.
+  ...(Number(args.movidos) > 0
+    ? { rebalanceamento: { movidos: Number(args.movidos), tamanhoDaA: 7, pares: [['CAP', 'SUC'], ['ONC', 'JAC'], ['TAT', 'CDM'], ['TAM', 'LOB'], ['PRE', 'COR'], ['SAG', 'MOR'], ['TUC', 'BOT'], ['ARA', 'PIR']] as const } }
+    : {}),
+  ...(args.abertura ? { aberturaAs: Number(args.abertura) } : {}),
 };
 
 await gravarAgradecimentoT1(dados, {

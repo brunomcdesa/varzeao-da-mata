@@ -6,6 +6,9 @@ on:
   schedule:
     # Reserva só no dia de cada Programado (quem dispara de verdade é a borda): 17/11, 10h a 11h30.
     - cron: '0,30 13,14 17 11 *'
+    # Agradecimento da T1 (terça 20h): reserva às 18h30 e 19h.
+    - cron: '30 21 17 11 *'
+    - cron: '0 22 17 11 *'
   # A borda (Cloudflare) dispara este workflow na hora certa com origem=borda; o cron acima
   # é a reserva, porque o do GitHub atrasa e às vezes pula.
   workflow_dispatch:

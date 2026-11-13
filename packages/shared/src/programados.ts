@@ -15,6 +15,9 @@ export interface ReelsProgramado {
 export const REELS_PROGRAMADOS: readonly ReelsProgramado[] = [
   // Abertura da Temporada 2: terça 17/11, 12h de Brasília.
   { id: 'abertura-t2', ref: 2001, publicarEm: '2026-11-17T15:00:00Z' },
+  // Agradecimento a quem jogou a T1, com a Recompensa e o Rebalanceamento (ADR-0047): terça
+  // 17/11, 20h de Brasília, depois do Resumo da Temporada (19h).
+  { id: 'agradecimento-t1', ref: 2002, publicarEm: '2026-11-17T23:00:00Z' },
 ];
 
 /** O job grava a partir de 2 h antes e ainda tenta até 1 h depois do horário. */
