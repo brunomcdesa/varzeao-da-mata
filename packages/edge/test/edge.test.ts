@@ -177,10 +177,10 @@ describe('relógio dos jobs', () => {
     expect(jobsDoMinuto(new Date('2026-11-19T22:05:00Z'))).toEqual([]); // 19h05
   });
 
-  it('Reels Programados (ADR-0051): dispara 90 e 60 minutos antes da Abertura da T2', () => {
-    expect(jobsDoMinuto(new Date('2026-11-17T13:30:00Z'))).toEqual(['programados']); // 10h30
-    expect(jobsDoMinuto(new Date('2026-11-17T14:00:20Z'))).toEqual(['programados']); // 11h00
-    expect(jobsDoMinuto(new Date('2026-11-17T13:31:00Z'))).toEqual([]);
+  it('Reels Programados (ADR-0051): dispara 90 e 60 minutos antes da Abertura da T2 (terça 21h)', () => {
+    expect(jobsDoMinuto(new Date('2026-11-17T22:30:00Z'))).toEqual(['programados']); // 19h30
+    expect(jobsDoMinuto(new Date('2026-11-17T23:00:20Z'))).toEqual(['programados']); // 20h00
+    expect(jobsDoMinuto(new Date('2026-11-17T22:31:00Z'))).toEqual([]);
   });
 
   it('chama o workflow_dispatch com origem=borda; sem token não faz nada', async () => {

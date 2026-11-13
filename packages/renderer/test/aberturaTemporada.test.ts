@@ -18,7 +18,7 @@ describe('Reels de Abertura da Temporada', () => {
   });
 
   it('só anuncia o Rebalanceamento quando há hora marcada', () => {
-    const com = narracaoDaAbertura(roteiro())[3]!.texto;
+    const com = narracaoDaAbertura(roteiro({ horaDoRebalanceamento: 16 }))[3]!.texto;
     const sem = narracaoDaAbertura(roteiro({ horaDoRebalanceamento: null }))[3]!.texto;
     expect(com).toContain('hoje, às quatro da tarde');
     expect(sem).not.toContain('hoje');

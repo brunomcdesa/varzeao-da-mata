@@ -33,7 +33,8 @@ export const DADOS_DA_ABERTURA_T2: Omit<DadosDaAberturaDaTemporada, 'estreia'> =
   horaDoResumo: 19,
   serieA: TIMES_FUNDADORES,
   serieB: TIMES_NOVOS,
-  horaDoRebalanceamento: 16,
+  // O Rebalanceamento sai antes da Abertura, junto com o Agradecimento: sem aviso aqui.
+  horaDoRebalanceamento: null,
   exemplo: { time: 'JAC', posicao: 'ATA', username: 'voce' },
 };
 

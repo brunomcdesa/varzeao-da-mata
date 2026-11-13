@@ -16,7 +16,7 @@ A série de Reels da Temporada 2 (Abertura, Agradecimento e Rebalanceamento, nov
 - O post entra como `APRESENTACAO`: o coletar passa a ler os comentários dele como Inscrições.
 - A aprovação do dono é dada uma vez, na prévia, antes de o Programado entrar na lista. Depois disso, ele sai sem nova confirmação.
 
-O primeiro Programado é a Abertura da Temporada 2: terça, 17/11, às 12h.
+O primeiro Programado é a Abertura da Temporada 2: terça, 17/11, às 21h. A ordem da terça é Resumo da Temporada (19h), Agradecimento com o Rebalanceamento (20h) e Abertura (21h); por isso a Abertura não anuncia o Rebalanceamento.
 
 ## Consequências
 
