@@ -84,7 +84,7 @@ export function roteiroAoVivo(tl: Timeline, apelidos?: Record<Lado, (string | nu
   const segs = roteiro.segmentos;
   const falas: FalaAoVivo[] = [];
 
-  for (const f of montarNarracao(roteiro, apelidos, opcoes)) {
+  for (const f of montarNarracao(roteiro, apelidos, { ...opcoes, aoVivo: true })) {
     const s = segs[f.segmento]!;
     const base = { id: f.id, texto: f.texto, tom: f.tom, tipo: 'ancora' as const };
     if (s.tipo === 'ABERTURA') falas.push({ ...base, em: 0.4, modo: 'de' });

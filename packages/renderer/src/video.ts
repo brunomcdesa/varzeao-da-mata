@@ -4,7 +4,7 @@
  */
 import { FALA_DO_TIME, IDENTIDADE, type Aparencia, type Escalacao, type MataMataDaPartida, type TimeId } from '@liga/shared';
 import type { Lado, ResultadoPartida } from '@liga/sim';
-import { CAMPO, cenario } from './cenario.js';
+import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, faixaDeTorcida, plaquinha, rotulo, type OpcoesDesenho } from './desenho.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
 import { LARGURA_ESCUDO } from './escudos.js';
@@ -50,7 +50,7 @@ export function desenharQuadroVideo(ctx: CanvasRenderingContext2D, roteiro: Rote
     ctx.drawImage(cenario(), 0, 0, COLUNAS * pin.px, LINHAS * pin.px);
   }
   if (tipo === 'ABERTURA') desenharAbertura(pin, roteiro.timeline.resultado, q.progresso, tVideo, o);
-  if (tipo === 'FIM') desenharFim(pin, roteiro.timeline.resultado, q.progresso, tVideo, o);
+  if (tipo === 'FIM') desenharFim(pin, roteiro.timeline.resultado, q.progresso, tVideo, o, !!roteiro.timeline.t2);
 
   if (q.escurecer > 0) {
     ctx.save();
@@ -127,6 +127,11 @@ function desenharAbertura(pin: Pincel, r: ResultadoPartida, p: number, tVideo: n
     desenharEscudoDaLiga(pin, o.escudo, COLUNAS / 2, 76 - (1 - e) * 10, t);
     pin.ctx.globalAlpha = alpha;
   }
+  // Selo no topo: o Reels mostra só os melhores momentos; o jogo inteiro é no site (ADR-0052).
+  pin.ctx.globalAlpha = alpha * entre(p, 0, 0.1);
+  pin.placa(COLUNAS / 2 - 66, 6, 132, 20, { fundo: COR.amarelo, sombra: '#C99500' });
+  pin.texto('Melhores momentos', COLUNAS / 2, 16, pin.caber('Melhores momentos', 120, 15, display), display, COR.tinta);
+  pin.ctx.globalAlpha = alpha;
   if (o.subtitulo) pin.texto(o.subtitulo, COLUNAS / 2, 138, 9, texto, COR.placa, { peso: 600 });
   if (r.classico) {
     const w = 84;
@@ -168,7 +173,7 @@ function desenharAbertura(pin: Pincel, r: ResultadoPartida, p: number, tVideo: n
   pin.ctx.restore();
 }
 
-function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number, o: OpcoesVideo): void {
+function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number, o: OpcoesVideo, roteiroT2 = false): void {
   const display = o.fonteDisplay ?? FONTE_DISPLAY;
   const texto = o.fonteTexto ?? FONTE_TEXTO;
   pin.ctx.save();
@@ -251,10 +256,12 @@ function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number
   pin.texto('ENTRO + time + posição', COLUNAS / 2, 346, pin.caber('ENTRO + time + posição', 180, 26, display), display, COR.amarelo, { contorno: COR.contorno });
   pin.texto('Ex.: ENTRO CAPIVARA ATA', COLUNAS / 2, 364, 7, texto, COR.placaSombra, { peso: 500 });
 
-  if (o.escudo) {
-    pin.ctx.globalAlpha = entre(p, 0.5, 0.65);
-    desenharEscudoDaLiga(pin, o.escudo, COLUNAS / 2, CAMPO.y + CAMPO.h - 38, 56);
-  }
+  // Chamada para o jogo completo (ADR-0052): no lugar do escudo, que já aparece na abertura.
+  pin.ctx.globalAlpha = entre(p, 0.5, 0.65);
+  const onde = roteiroT2 ? 'no site e no app' : 'no site';
+  pin.placa(36, 386, 198, 40, { fundo: COR.amarelo, sombra: '#C99500' });
+  pin.texto(`Jogo completo ${onde}`, COLUNAS / 2, 399, pin.caber(`Jogo completo ${onde}`, 184, 16, display), display, COR.tinta);
+  pin.texto('Ao Vivo e Replay · link na bio', COLUNAS / 2, 416, 8, texto, COR.tinta, { peso: 700 });
   pin.ctx.restore();
 }
 
