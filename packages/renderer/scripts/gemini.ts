@@ -50,6 +50,8 @@ export const estiloDe = (tom: Tom, voz: string, jeito?: string) =>
  * Grafia só para a voz. As vozes criadas no Voice design às vezes leem "Varzeão" como
  * "Varzeadão"; com o circunflexo ("Varzêão") acertam. A voz pronta (Lumi, o Beto Bola)
  * lê certo como se escreve, e com o circunflexo puxava para "Varzeaão" (ouvido em 08/11).
+ * O Seu Dito (voz pronta pt-br-storyteller-10) lia "Varzeão" como "Varzeaolan"; no teste de
+ * pronúncia (12/11) acertou com "Var-ze-ão", a grafia escolhida pelo dono.
  * Na tela e nas legendas é sempre "Varzeão".
  *
  * "OVR" se fala "ôver" (como "over") em qualquer voz. Na tela e nas legendas é sempre "OVR".
@@ -57,8 +59,12 @@ export const estiloDe = (tom: Tom, voz: string, jeito?: string) =>
 export const paraFalar = (texto: string, voz: string) => {
   if (process.env.SEM_GRAFIA === '1') return texto;
   const t = texto.replace(/\bOVR\b/g, 'ôver');
-  return voz.startsWith('voice_') ? t.replace(/Varzeão/g, 'Varzêão').replace(/VARZEÃO/g, 'VARZÊÃO') : t;
+  const grafia = voz.startsWith('voice_') ? 'Varzêão' : GRAFIA_DE_VARZEAO[voz];
+  return grafia ? t.replace(/Varzeão/g, grafia).replace(/VARZEÃO/g, grafia.toUpperCase()) : t;
 };
+
+/** Vozes prontas que precisam de outra grafia de "Varzeão" (achada no teste de pronúncia). */
+export const GRAFIA_DE_VARZEAO: Readonly<Record<string, string>> = { 'pt-br-storyteller-10': 'Var-ze-ão' };
 
 export function pedidoGemini(texto: string, tom: Tom, voz: string, modelo: string, jeito?: string): unknown {
   return {

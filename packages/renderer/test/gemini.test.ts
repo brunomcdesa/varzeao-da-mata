@@ -188,5 +188,9 @@ describe('Grafia para a voz', () => {
   it('"Varzeão" continua com a grafia especial só nas vozes do Voice design', () => {
     expect(paraFalar('Bola rolando no Varzeão', 'Lumi')).toBe('Bola rolando no Varzeão');
     expect(paraFalar('Bola rolando no Varzeão', 'voice_abc')).toBe('Bola rolando no Varzêão');
+    // Seu Dito (voz pronta): "Var-ze-ão", escolhida no teste de pronúncia.
+    expect(paraFalar('Acabou a temporada do Varzeão da Mata!', 'pt-br-storyteller-10')).toBe('Acabou a temporada do Var-ze-ão da Mata!');
+    expect(paraFalar('VARZEÃO', 'pt-br-storyteller-10')).toBe('VAR-ZE-ÃO');
+    expect(paraFalar('Varzeão', 'pt-br-techagent-4')).toBe('Varzeão');
   });
 });
