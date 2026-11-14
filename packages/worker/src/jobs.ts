@@ -14,10 +14,10 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, IDENTIDADE, doTime, PISO_DA_TEMPORADA_1, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, RODADAS_DO_BONUS_T1, RODADA_DA_FINAL, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
-import { momentosDoAoVivo, type DadosDoAgradecimentoT1 } from '@liga/renderer';
-import { PARAMETROS_T2 } from '@liga/sim';
-import { numerosDaTemporada1, recompensarT1 } from './recompensaT1.js';
+import { FALA_DO_TIME, IDENTIDADE, doTime, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, RODADA_DA_FINAL, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { momentosDoAoVivo } from '@liga/renderer';
+import { rebalancear } from './rebalanceamento.js';
+import { recompensarT1 } from './recompensaT1.js';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA, criarTemporada, somarDias } from './calendario.js';
 import { processarComentario, type Comentario, type Resultado } from './coletar.js';
@@ -46,8 +46,6 @@ export interface ContextoDoJob {
   /** Narração do Ao Vivo do site (o jogo inteiro), em .m4a. */
   gravarAoVivo?: (dados: DadosDoVideo, saida: string) => Promise<void>;
   gravarResumo?: (dados: DadosDoResumo, saida: string) => Promise<void>;
-  /** Reels de agradecimento da Temporada 1 (ADR-0047). */
-  gravarAgradecimentoT1?: (dados: DadosDoAgradecimentoT1, saida: string) => Promise<void>;
   agora?: () => Date;
   dormir?: (ms: number) => Promise<void>;
   log?: (msg: string) => void;
@@ -550,8 +548,12 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
 
   // A próxima Temporada já nasce aqui: Rodada 1 dois dias depois deste anúncio.
   const proxima = await garantirProximaTemporada(c.banco, t.numero, somarDias(dia, 3));
-  // Recompensa da Temporada 1 (ADR-0047): sozinha, ao abrir a Pré-temporada da T2.
-  if (proxima.numero === PRIMEIRA_TEMPORADA_COM_REGRAS_T2) await recompensaAutomatica(c);
+  // Ao abrir a Pré-temporada da T2, sozinhos: Rebalanceamento (ADR-0036) e Recompensa da
+  // Temporada 1 (ADR-0047), antes do Reels de agradecimento (Programado, ADR-0051).
+  if (proxima.numero === PRIMEIRA_TEMPORADA_COM_REGRAS_T2) {
+    await rebalanceamentoAutomatico(c);
+    await recompensaAutomatica(c);
+  }
   await importarVotosDoSite(c.banco, c.agenda, t.final_id);
   // Com duas Séries, a B também elege o seu Craque da Temporada (ADR-0017).
   const craqueB = (await seriesDaTemporada(c.banco, t.id)).B.length ? await eleitoDaSerieB(c.banco, t.id, t.final_id) : null;
@@ -690,6 +692,20 @@ export function legendaDoFimDaTemporada(
   return linhas.filter((l, i, a) => l !== '' || (a[i - 1] !== '' && i > 0)).join('\n');
 }
 
+/** Rebalanceia a T2 uma vez; um erro só vira log (o Craque da Temporada segue). Os avisos por DM não saem daqui. */
+async function rebalanceamentoAutomatico(c: ContextoDoJob): Promise<void> {
+  const log = logDe(c);
+  try {
+    const t2 = (await c.banco.query<{ id: number }>(`SELECT id FROM temporada WHERE numero = $1`, [PRIMEIRA_TEMPORADA_COM_REGRAS_T2])).rows[0];
+    if (!t2 || (await c.banco.query(`SELECT 1 FROM rebalanceamento WHERE temporada_id = $1`, [t2.id])).rows.length) return;
+    const r = await rebalancear(c.banco, { gravar: true, agora: agoraDe(c) });
+    log(`Rebalanceamento da Temporada ${r.temporada}: ${r.plano.remanejados.length} Jogador(es) para a Série B, ${r.fundadores} Fundador(es).`);
+    for (const x of r.plano.remanejados) log(`  @${x.jogador.username} (${x.jogador.posicao}): ${x.jogador.time} → ${x.para}`);
+  } catch (e) {
+    log(`Rebalanceamento não aplicado: ${(e as Error).message}`);
+  }
+}
+
 /** Aplica a Recompensa da Temporada 1 uma vez; um erro só vira log (o Craque da Temporada segue). */
 async function recompensaAutomatica(c: ContextoDoJob): Promise<void> {
   const log = logDe(c);
@@ -704,76 +720,10 @@ async function recompensaAutomatica(c: ContextoDoJob): Promise<void> {
   }
 }
 
-/** Legenda do Reels de agradecimento da Temporada 1 (ADR-0047). */
-export function legendaDoAgradecimentoT1(): string {
-  const bonus = Math.round((PARAMETROS_T2.multiplicadorBonusT1 - 1) * 100);
-  return [
-    '🏆 Fim da Temporada 1! Obrigado a cada um que comentou, se inscreveu e acreditou no Varzeão desde o começo.',
-    '',
-    '🎖️ Quem jogou a T1 ganha o Selo Temporada 1 na página de Carreira.',
-    `📈 Ninguém da T1 começa a T2 com OVR abaixo de ${PISO_DA_TEMPORADA_1}.`,
-    `⚡ Nas ${RODADAS_DO_BONUS_T1} primeiras Rodadas da T2, suas Habilidades sobem ${bonus}% mais rápido (e soma com a Resenha).`,
-    '👀 A Temporada 2 vem aí, com muita novidade. Ativa as notificações!',
-    '',
-    '#varzeaodamata #futebol #varzea',
-  ].join('\n');
-}
-
-/**
- * Reels de agradecimento da Temporada 1 (ADR-0047): sozinho, no dia seguinte ao Resumo da
- * Temporada, às 19h. Grava com os números do banco e agenda como os outros Reels. Uma vez só.
- */
-export async function jobAgradecimentoT1(c: ContextoDoJob): Promise<number | null> {
-  const log = logDe(c);
-  const agora = agoraDe(c);
-  const t = (
-    await c.banco.query<{ id: number; data: string | Date }>(
-      `SELECT t.id, r.data FROM temporada t JOIN rodada r ON r.temporada_id = t.id AND r.numero = ${RODADA_DA_FINAL}
-       WHERE t.numero = 1 AND t.status = 'ENCERRADA' AND t.craque_status IN ('AGENDADO', 'PUBLICADO') AND t.agradecimento_status IS NULL`,
-    )
-  ).rows[0];
-  if (!t) return null;
-  const dia = typeof t.data === 'string' ? t.data.slice(0, 10) : t.data.toISOString().slice(0, 10);
-  const [a, m, d] = dia.split('-').map(Number) as [number, number, number];
-  // O Resumo da Temporada sai no dia seguinte à Final; o agradecimento, no outro dia.
-  const alvo = Date.UTC(a, m - 1, d + 2, HORA_DO_RESUMO - FUSO_BRASILIA);
-  if (agora.getTime() < alvo - 3 * 3600_000) return null;
-  if (!c.gravarAgradecimentoT1) {
-    log('agradecimento: sem gravação neste job.');
-    return null;
-  }
-  const numeros = await numerosDaTemporada1(c.banco);
-  const pasta = await mkdtemp(join(tmpdir(), 'varzea-agradecimento-'));
-  let item: ItemDaAgenda | null = null;
-  try {
-    const saida = join(pasta, 'agradecimento.mp4');
-    await c.gravarAgradecimentoT1({ ...numeros, piso: PISO_DA_TEMPORADA_1, rodadasDoBonus: RODADAS_DO_BONUS_T1, multiplicadorDoBonus: PARAMETROS_T2.multiplicadorBonusT1 }, saida);
-    const chave = `videos/${randomUUID()}.mp4`;
-    await c.armazenamento.enviar('publico', chave, new Uint8Array(await readFile(saida)), { tipo: 'video/mp4', cache: 'public, max-age=31536000, immutable' });
-    item = await agendar(c, {
-      tipo: 'AGRADECIMENTO',
-      ref: t.id,
-      videoUrl: c.armazenamento.urlPublica(chave),
-      capaEmMs: 2500,
-      legenda: legendaDoAgradecimentoT1(),
-      containerAtual: null,
-      publicarEm: new Date(Math.max(alvo, agora.getTime())),
-      salvarContainer: async () => {},
-    });
-  } finally {
-    await rm(pasta, { recursive: true, force: true });
-  }
-  if (!item) return null;
-  await c.banco.query(`UPDATE temporada SET agradecimento_status = 'AGENDADO' WHERE id = $1`, [t.id]);
-  log(`Agradecimento da Temporada 1 agendado para ${item.publicarEm} (${numeros.inscritos} inscritos, ${numeros.jogos} jogos, ${numeros.gols} gols).`);
-  return t.id;
-}
-
 export async function jobResumo(c: ContextoDoJob): Promise<number | null> {
   const log = logDe(c);
   const agora = agoraDe(c);
   if (await jobCraqueDaTemporada(c)) return null;
-  await jobAgradecimentoT1(c);
   // A Rodada mais recente com todas as Partidas simuladas e o Resumo ainda não agendado.
   const r = (
     await c.banco.query<{ id: number; temporada_id: number; numero: number; data: string | Date; resumo_status: string }>(

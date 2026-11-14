@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PISO_DA_TEMPORADA_1, RODADAS_DO_BONUS_T1 } from '@liga/shared';
 import { PARAMETROS_T2 } from '@liga/sim';
-import { NARRADOR_DO_AGRADECIMENTO, RoteiroAgradecimentoT1, narracaoDoAgradecimentoT1, type DadosDoAgradecimentoT1 } from '../src/agradecimentoT1.js';
+import { NARRADOR_DO_AGRADECIMENTO, RoteiroAgradecimentoT1, horaFalada, narracaoDoAgradecimentoT1, type DadosDoAgradecimentoT1 } from '../src/agradecimentoT1.js';
 import { NARRADORES } from '../src/narradores.js';
 
 const dados: DadosDoAgradecimentoT1 = { inscritos: 100, jogos: 31, gols: 116, piso: PISO_DA_TEMPORADA_1, rodadasDoBonus: RODADAS_DO_BONUS_T1, multiplicadorDoBonus: PARAMETROS_T2.multiplicadorBonusT1 };
@@ -37,5 +37,25 @@ describe('Reels de agradecimento da Temporada 1 (ADR-0047)', () => {
 
   it('é narrado pelo Seu Dito', () => {
     expect(NARRADORES.find((n) => n.id === NARRADOR_DO_AGRADECIMENTO)?.nome).toBe('Seu Dito');
+  });
+
+  it('com o Rebalanceamento feito, mostra as Séries e o Fundador; chama para a Abertura do mesmo dia', () => {
+    const com: DadosDoAgradecimentoT1 = { ...dados, rebalanceamento: { movidos: 41, tamanhoDaA: 7, pares: [['CAP', 'SUC']] }, aberturaAs: 21 };
+    const roteiro = new RoteiroAgradecimentoT1(com);
+    expect(roteiro.segmentos.map((s) => s.cartela)).toEqual(['ABERTURA', 'NUMEROS', 'OBRIGADO', 'SELO', 'PISO', 'BONUS', 'REBALANCEAMENTO', 'FUNDADOR', 'CHAMADA']);
+    const textos = narracaoDoAgradecimentoT1(roteiro).map((f) => f.texto);
+    expect(textos[6]).toContain('sete primeiros inscritos, e 41 jogadores vão pra Série B');
+    expect(textos[7]).toContain('Fundador');
+    expect(textos[8]).toContain('hoje, às nove da noite, sai a abertura');
+    expect(textos.join(' ')).not.toMatch(/@/);
+    // Rebalanceamento sem ninguém movido: sem essas cartelas.
+    expect(new RoteiroAgradecimentoT1({ ...dados, rebalanceamento: { movidos: 0, tamanhoDaA: 7, pares: [] } }).segmentos).toHaveLength(7);
+  });
+
+  it('fala a hora do jeito do Narrador', () => {
+    expect(horaFalada(21)).toBe('às nove da noite');
+    expect(horaFalada(16)).toBe('às quatro da tarde');
+    expect(horaFalada(12)).toBe('ao meio-dia');
+    expect(horaFalada(10)).toBe('às dez da manhã');
   });
 });

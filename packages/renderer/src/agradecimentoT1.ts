@@ -1,8 +1,9 @@
 /**
  * Reels de agradecimento da Temporada 1 (ADR-0047): obrigado a quem se inscreveu e acreditou na
  * Liga desde o começo, com os números da T1 e a Recompensa da Temporada 1 (Selo, Piso e Bônus).
- * Sai separado, no dia seguinte ao Resumo da Temporada (que já mostra o campeão), antes do Reels
- * de novidades da T2. Narrado pelo Seu Dito. Mesmo estilo de cartelas do Reels do OVR.
+ * Com a T2 em Séries, mostra também o Rebalanceamento (quem vai para a Série B e o título de
+ * Fundador). Reels Programado: terça 17/11 às 20h, entre o Resumo da Temporada (que já mostra o
+ * campeão) e a Abertura da T2. Narrado pelo Seu Dito. Mesmo estilo de cartelas do Reels do OVR.
  */
 import { TIMES_FUNDADORES, type Posicao, type TimeId } from '@liga/shared';
 import { boneco, uniforme } from './apresentacao.js';
@@ -28,6 +29,17 @@ export interface DadosDoAgradecimentoT1 {
   rodadasDoBonus: number;
   /** 1,5 = ganhos 50% maiores. */
   multiplicadorDoBonus: number;
+  /** Rebalanceamento da T2 (ADR-0036), se já foi feito: sem ele, o Reels não tem essas cartelas. */
+  rebalanceamento?: {
+    /** Jogadores que foram para a Série B. */
+    movidos: number;
+    /** Quantos Jogadores cada Time da A manteve (os primeiros inscritos). */
+    tamanhoDaA: number;
+    /** Time da A e o seu Time Primo da B. */
+    pares: readonly (readonly [TimeId, TimeId])[];
+  };
+  /** Hora (Brasília) da Abertura da T2 no mesmo dia, se ela sai depois deste Reels. */
+  aberturaAs?: number;
 }
 
 /** O Narrador do Reels de agradecimento (decisão do dono): Seu Dito. */
@@ -37,11 +49,16 @@ export const bonusPorCento = (multiplicador: number): number => Math.round((mult
 
 // ---------------------------------------------------------------- roteiro
 
-export type CartelaAgradecimento = 'ABERTURA' | 'NUMEROS' | 'OBRIGADO' | 'SELO' | 'PISO' | 'BONUS' | 'CHAMADA';
+export type CartelaAgradecimento = 'ABERTURA' | 'NUMEROS' | 'OBRIGADO' | 'SELO' | 'PISO' | 'BONUS' | 'REBALANCEAMENTO' | 'FUNDADOR' | 'CHAMADA';
 export type SegmentoAgradecimento = Segmento & { cartela: CartelaAgradecimento };
 
-const ORDEM: CartelaAgradecimento[] = ['ABERTURA', 'NUMEROS', 'OBRIGADO', 'SELO', 'PISO', 'BONUS', 'CHAMADA'];
-const DURACAO_BASE: Record<CartelaAgradecimento, number> = { ABERTURA: 5, NUMEROS: 7, OBRIGADO: 8, SELO: 7, PISO: 7.5, BONUS: 8, CHAMADA: 6.5 };
+const DURACAO_BASE: Record<CartelaAgradecimento, number> = { ABERTURA: 5, NUMEROS: 7, OBRIGADO: 8, SELO: 7, PISO: 7.5, BONUS: 8, REBALANCEAMENTO: 9, FUNDADOR: 8, CHAMADA: 6.5 };
+
+/** As cartelas, na ordem; as do Rebalanceamento só quando ele já foi feito e moveu alguém. */
+export function cartelasDoAgradecimento(d: DadosDoAgradecimentoT1): CartelaAgradecimento[] {
+  const rebal: CartelaAgradecimento[] = d.rebalanceamento && d.rebalanceamento.movidos > 0 ? ['REBALANCEAMENTO', 'FUNDADOR'] : [];
+  return ['ABERTURA', 'NUMEROS', 'OBRIGADO', 'SELO', 'PISO', 'BONUS', ...rebal, 'CHAMADA'];
+}
 const CORTE = 0.3;
 
 export class RoteiroAgradecimentoT1 {
@@ -53,7 +70,7 @@ export class RoteiroAgradecimentoT1 {
     minimos: Record<number, { antes?: number }> = {},
   ) {
     let cursor = 0;
-    this.segmentos = ORDEM.map((cartela, i) => {
+    this.segmentos = cartelasDoAgradecimento(dados).map((cartela, i) => {
       const inicio = cursor;
       cursor += Math.max(DURACAO_BASE[cartela], (minimos[i]?.antes ?? 0) + 0.6);
       return { tipo: 'ABERTURA', cartela, inicio, fim: cursor };
@@ -80,14 +97,23 @@ export class RoteiroAgradecimentoT1 {
 // ---------------------------------------------------------------- narração
 
 const POR_EXTENSO: Record<number, string> = {
-  1: 'uma', 2: 'duas', 3: 'três', 4: 'quatro', 5: 'cinco',
+  1: 'uma', 2: 'duas', 3: 'três', 4: 'quatro', 5: 'cinco', 6: 'seis', 7: 'sete', 8: 'oito', 9: 'nove', 10: 'dez',
   25: 'vinte e cinco', 50: 'cinquenta', 60: 'sessenta', 61: 'sessenta e um', 62: 'sessenta e dois', 63: 'sessenta e três', 64: 'sessenta e quatro', 65: 'sessenta e cinco', 75: 'setenta e cinco', 100: 'cem',
 };
 const extenso = (n: number) => POR_EXTENSO[n] ?? String(n);
+const HORA_FALADA: Record<number, string> = { 1: 'uma', 2: 'duas', 3: 'três', 4: 'quatro', 5: 'cinco', 6: 'seis', 7: 'sete', 8: 'oito', 9: 'nove', 10: 'dez', 11: 'onze' };
+/** "às nove da noite", "ao meio-dia", "às dez da manhã". */
+export function horaFalada(h: number): string {
+  if (h === 12) return 'ao meio-dia';
+  if (h > 12) return `às ${HORA_FALADA[h - 12] ?? h - 12} da ${h >= 18 ? 'noite' : 'tarde'}`;
+  return `às ${HORA_FALADA[h] ?? h} da manhã`;
+}
 
 /** Uma fala por cartela, no texto aprovado pelo dono (sem o campeão: está no Resumo da Temporada). */
 export function narracaoDoAgradecimentoT1(roteiro: RoteiroAgradecimentoT1): Fala[] {
   const d = roteiro.dados;
+  const r = d.rebalanceamento;
+  const horas = d.aberturaAs !== undefined ? horaFalada(d.aberturaAs) : '';
   const rodadas = d.rodadasDoBonus === 1 ? 'na primeira rodada' : `nas ${extenso(d.rodadasDoBonus)} primeiras rodadas`;
   const texto: Record<CartelaAgradecimento, string> = {
     ABERTURA: 'Acabou a primeira temporada do Varzeão da Mata! E antes de tudo: muito obrigado!',
@@ -96,7 +122,13 @@ export function narracaoDoAgradecimentoT1(roteiro: RoteiroAgradecimentoT1): Fala
     SELO: 'Por isso, todo mundo que jogou a temporada um ganha o selo Temporada Um, na página de carreira do site.',
     PISO: `E tem presente: ninguém da primeira temporada começa a próxima com OVR abaixo de ${extenso(d.piso)}.`,
     BONUS: `E ${rodadas} da temporada dois, as suas habilidades sobem ${extenso(bonusPorCento(d.multiplicadorDoBonus))} por cento mais rápido. E isso soma com a resenha!`,
-    CHAMADA: 'A temporada dois tá chegando, cheia de novidade. Fica ligado, que logo a gente conta tudo!',
+    REBALANCEAMENTO: r
+      ? `E agora são duas séries. Pra todo mundo jogar todas as partidas, cada time da Série A fica com os ${extenso(r.tamanhoDaA)} primeiros inscritos, e ${r.movidos} jogadores vão pra Série B, no time primo, na mesma posição.`
+      : '',
+    FUNDADOR: 'Quem foi pra Série B vira Fundador do time novo: título na carreira, prioridade na camisa e volta grátis na próxima janela. Confere no site o seu time!',
+    CHAMADA: d.aberturaAs !== undefined
+      ? `E hoje, ${horas}, sai a abertura da temporada dois, cheia de novidade. Fica ligado!`
+      : 'A temporada dois tá chegando, cheia de novidade. Fica ligado, que logo a gente conta tudo!',
   };
   return roteiro.segmentos.map((s, i): Fala => {
     const animado = s.cartela === 'ABERTURA' || s.cartela === 'CHAMADA' || s.cartela === 'BONUS';
@@ -308,6 +340,67 @@ export function desenharQuadroAgradecimentoT1(ctx: CanvasRenderingContext2D, rot
       surge(entre(t, 5.2, 5.6), () => pin.texto('Só pra quem tem o Selo da Temporada 1', COLUNAS / 2, 372, pin.caber('Só pra quem tem o Selo da Temporada 1', 236, 11.5, texto, 700), texto, DOURADO, { peso: 700 }));
       break;
     }
+    case 'REBALANCEAMENTO': {
+      const r = d.rebalanceamento!;
+      titulo('Agora são duas Séries');
+      surge(entre(t, 0.4, 0.8), () => {
+        pin.texto('Pra todo mundo jogar todas as partidas:', COLUNAS / 2, 88, pin.caber('Pra todo mundo jogar todas as partidas:', 236, 12, texto, 700), texto, COR.placa, { peso: 700 });
+      });
+      surge(entre(t, 0.9, 1.4), () => {
+        pin.tabua(14, 104, 242, 62);
+        pin.texto('Série A', 30, 128, 18, display, COR.amarelo, { alinhar: 'left', contorno: COR.contorno });
+        pin.texto(`f\u200cica com os ${r.tamanhoDaA} primeiros inscritos`, 30, 150, pin.caber(`f\u200cica com os ${r.tamanhoDaA} primeiros inscritos`, 210, 11, texto, 700), texto, COR.placa, { alinhar: 'left', peso: 700 });
+      }, 10);
+      // Os pares de Time Primo, um por vez: escudo da A → escudo da B.
+      const pares = r.pares.length ? r.pares : [];
+      if (pares.length) {
+        surge(entre(t, 2.0, 2.4), () => {
+          const k = Math.min(pares.length - 1, Math.floor(Math.max(0, t - 2.0) / 1.1) % pares.length);
+          const [de, para] = pares[k]!;
+          escudoDe(de, 72, 186, 2.6);
+          // Seta para a direita: cabo e ponta em pixels.
+          const dx = (passo % 2) * 2;
+          pin.r(114 + dx, 213, 32, 4, VERDE);
+          for (let i = 0; i < 7; i++) pin.r(146 + dx + i, 208 + i, 1, 14 - 2 * i, VERDE);
+          escudoDe(para, 198, 186, 2.6);
+          pin.texto('Série A', 72, 262, 11, texto, COR.placaSombra, { peso: 700 });
+          pin.texto('Time Primo na B', 198, 262, 11, texto, COR.placaSombra, { peso: 700 });
+        });
+      }
+      surge(entre(t, 3.6, 4.1), () => {
+        pin.tabua(14, 280, 242, 92);
+        const pulso = 1 + 0.04 * Math.sin(t * 6);
+        pin.texto(String(r.movidos), 56, 326, 40 * pulso, display, COR.amarelo, { contorno: COR.contorno, espessura: 1.5 });
+        pin.texto('Jogadores vão pra', 92, 312, pin.caber('Jogadores vão pra', 150, 15, display), display, COR.placa, { alinhar: 'left', contorno: COR.contorno });
+        pin.texto('Série B', 92, 334, 20, display, COR.amarelo, { alinhar: 'left', contorno: COR.contorno });
+        pin.texto('mesma posição, no Time Primo', 92, 356, pin.caber('mesma posição, no Time Primo', 156, 10.5, texto, 700), texto, COR.placaSombra, { alinhar: 'left', peso: 700 });
+      }, 10);
+      surge(entre(t, 5.2, 5.6), () => pin.texto('OVR, apelido e Carreira vão junto', COLUNAS / 2, 398, pin.caber('OVR, apelido e Carreira vão junto', 236, 12, texto, 700), texto, VERDE, { peso: 700 }));
+      break;
+    }
+    case 'FUNDADOR': {
+      titulo('Quem foi pra B é Fundador');
+      const itens: [string, string][] = [
+        ['Título de Fundador', 'na sua página de Carreira'],
+        ['Prioridade na camisa', 'escolhe o número primeiro'],
+        ['Volta grátis', 'na próxima Janela, sem gastar a Transferência'],
+      ];
+      itens.forEach(([a, b], k) => {
+        const y = 86 + k * 74;
+        surge(entre(t, 0.6 + k * 1.3, 1.0 + k * 1.3), () => {
+          pin.tabua(14, y, 242, 64);
+          plaquinha(pin, 38, y + 15, 30, 34, String(k + 1), display);
+          pin.texto(a, 62, y + 24, pin.caber(a, 184, 19, display), display, k === 0 ? DOURADO : COR.placa, { alinhar: 'left', contorno: COR.contorno });
+          pin.texto(b, 62, y + 46, pin.caber(b, 184, 10.5, texto, 700), texto, COR.placaSombra, { alinhar: 'left', peso: 700 });
+        }, 10);
+      });
+      surge(entre(t, 4.6, 5.0), () => {
+        pin.placa(22, 322, 226, 52, { fundo: COR.placa, luz: '#FFF8E6', sombra: COR.placaSombra });
+        pin.texto('Mudou de Time? Confere no site', COLUNAS / 2, 340, pin.caber('Mudou de Time? Confere no site', 210, 12, texto, 700), texto, COR.tinta, { peso: 700 });
+        pin.texto('link na bio', COLUNAS / 2, 358, 11, texto, COR.tinta, { peso: 600 });
+      });
+      break;
+    }
     case 'CHAMADA': {
       const a = entre(t, 0, 0.5);
       pin.ctx.globalAlpha = a;
@@ -316,10 +409,16 @@ export function desenharQuadroAgradecimentoT1(ctx: CanvasRenderingContext2D, rot
       pin.ctx.globalAlpha = 1;
       surge(entre(t, 0.6, 1.0), () => {
         pin.tabua(14, 140, 242, 96);
-        pin.texto('Cheia de novidade.', COLUNAS / 2, 166, 13, texto, COR.placa, { peso: 700 });
         const pulso = 1 + 0.04 * Math.sin(t * 6);
-        pin.texto('FICA LIGADO', COLUNAS / 2, 198, pin.caber('FICA LIGADO', 220, 30 * pulso, display), display, '#FFFFFF', { contorno: COR.contorno, espessura: 1.5 });
-        pin.texto('ative as notificações do Instagram', COLUNAS / 2, 222, 10.5, texto, COR.placaSombra, { peso: 700 });
+        if (d.aberturaAs !== undefined) {
+          pin.texto('Hoje, Abertura da Temporada 2', COLUNAS / 2, 166, pin.caber('Hoje, Abertura da Temporada 2', 220, 13, texto, 700), texto, COR.placa, { peso: 700 });
+          pin.texto(`ÀS ${d.aberturaAs}H`, COLUNAS / 2, 198, pin.caber(`ÀS ${d.aberturaAs}H`, 220, 30 * pulso, display), display, '#FFFFFF', { contorno: COR.contorno, espessura: 1.5 });
+          pin.texto('cheia de novidade: f\u200cica ligado!', COLUNAS / 2, 222, 10.5, texto, COR.placaSombra, { peso: 700 });
+        } else {
+          pin.texto('Cheia de novidade.', COLUNAS / 2, 166, 13, texto, COR.placa, { peso: 700 });
+          pin.texto('FICA LIGADO', COLUNAS / 2, 198, pin.caber('FICA LIGADO', 220, 30 * pulso, display), display, '#FFFFFF', { contorno: COR.contorno, espessura: 1.5 });
+          pin.texto('ative as notificações do Instagram', COLUNAS / 2, 222, 10.5, texto, COR.placaSombra, { peso: 700 });
+        }
       });
       surge(entre(t, 1.4, 1.9), () => filaDosTimes(256, 2.5));
       if (o.escudo) surge(entre(t, 2.0, 2.6), () => desenharEscudoDaLiga(pin, o.escudo!, COLUNAS / 2, 392, 80));

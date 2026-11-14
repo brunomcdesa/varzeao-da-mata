@@ -35,4 +35,26 @@ Sozinha: quando o Craque da Temporada 1 sai e a T2 nasce na Pré-temporada, o jo
 
 ## Reels de agradecimento
 
-Separado do Resumo da Temporada, que já mostra o campeão, o Craque e a Seleção. Sai no dia seguinte ao Resumo da Temporada, antes do Reels de novidades da T2. Tem 7 cartelas (abertura, números da T1, obrigado, Selo, Piso, Bônus e chamada para a T2), sem campeão e sem @, e é narrado pelo Seu Dito. Os números (inscritos com o mesmo critério do Selo, jogos e gols, sem pênaltis) vêm do banco na hora de gravar. Sai sozinho (decisão do dono, como os Reels de Resumo): o job `resumo` das 18h10 do dia seguinte ao Resumo da Temporada grava e agenda o Reels para as 19h (`jobAgradecimentoT1`, uma vez só, controlado por `temporada.agradecimento_status`, migração 018). A aprovação do dono é da prévia gravada antes, com os números do dia, pelo workflow manual `agradecimento-t1` (acao=gravar, cópia no branch `amostras-agradecimento`). O mesmo workflow ainda posta à mão se o automático falhar.
+É separado do Resumo da Temporada, que já mostra o campeão, o Craque e a Seleção. É um Reels Programado (ADR-0051, `ref` 2002) e sai na terça 17/11 às 20h, na ordem combinada para essa terça:
+
+1. 19h: Resumo da Temporada.
+2. 20h: Agradecimento com o Rebalanceamento.
+3. 21h: Abertura da T2.
+
+É narrado pelo Seu Dito e não tem campeão nem @. As cartelas são: abertura, números da T1, obrigado, Selo, Piso, Bônus, Rebalanceamento (Séries, os Times Primos e quantos foram para a B), Fundador (título, prioridade na camisa, volta grátis na Janela) e chamada. Na chamada, se a Abertura da T2 sai no mesmo dia e depois, o Reels chama para ela ("hoje, às 21h"). As cartelas do Rebalanceamento só aparecem se ele já foi feito e moveu alguém.
+
+Os números são lidos do banco na hora de gravar:
+- inscritos, com o mesmo critério do Selo;
+- jogos e gols, sem os pênaltis;
+- quantos foram para a Série B.
+
+A aprovação do dono é a da prévia, como em todo Reels Programado. O workflow manual `agradecimento-t1` continua servindo para gravar uma prévia com os números do dia.
+
+## Rebalanceamento e Recompensa automáticos
+
+Quando o Craque da Temporada 1 sai e a T2 nasce na Pré-temporada (terça, por volta das 18h), o job roda sozinho, uma vez:
+
+1. o Rebalanceamento (ADR-0036), e depois
+2. a Recompensa (Selo e Piso).
+
+O log lista quem mudou de Time e quem subiu de OVR. Um erro só vira log, e o Craque da Temporada segue. Os avisos por DM aos remanejados não saem sozinhos: continuam como rascunho para o dono aprovar. Os workflows `rebalancear` e `recompensa-t1` ficam para rodar à mão, se precisar.
