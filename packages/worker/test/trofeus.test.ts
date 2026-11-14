@@ -108,9 +108,9 @@ describe('Seleção da Rodada no site (ADR-0041)', () => {
   }, 60_000);
 });
 
-describe('Rebalanceamento, Recompensa e agradecimento automáticos (ADR-0047)', () => {
-  it('a T2 nasce rebalanceada e com a Recompensa; o agradecimento sai como Reels Programado', async () => {
-    // A Capivara com 9 inscritos: 2 vão para o Time Primo (Sucuri) no Rebalanceamento.
+describe('Recompensa e agradecimento automáticos (ADR-0047)', () => {
+  it('a T2 nasce com a Recompensa e sem Rebalanceamento (ADR-0058); o agradecimento sai como Reels Programado', async () => {
+    // A Capivara com 9 inscritos: ninguém desce para a Série B.
     let k = 0;
     for (const pos of ['ZAG', 'ZAG', 'ATA', 'MEI', 'ZAG', 'MEI']) {
       const u = `cap_extra_${++k}`;
@@ -119,23 +119,21 @@ describe('Rebalanceamento, Recompensa e agradecimento automáticos (ADR-0047)', 
     for (let n = 1; n <= 9; n++) await jogarRodada(n);
     const naCapivara = (await banco.query(`SELECT 1 FROM jogador WHERE time_id = 'CAP'`)).rows.length;
     expect(naCapivara).toBeGreaterThan(7);
-    const movidos = naCapivara - 7;
     const inscritos = (await banco.query(`SELECT 1 FROM jogador`)).rows.length;
     const logs: string[] = [];
     const ctx = { banco, armazenamento: new PastaLocal('/tmp/varzea-agradecimento'), agenda: new AgendaNaMemoria(), ig: null, log: (m: string) => logs.push(m) } as unknown as ContextoDoJob;
     expect(await jobCraqueDaTemporada({ ...ctx, agora: () => new Date('2026-11-16T21:10:00Z') })).toBe(temporada);
-    // Rebalanceamento: a Capivara ficou com 7 e o resto foi para a Série B (Time Primo ou, com a
-    // Posição cheia nele, outro Time da B), como Fundadores.
-    expect((await banco.query(`SELECT 1 FROM jogador WHERE time_id = 'CAP'`)).rows).toHaveLength(7);
-    expect((await banco.query(`SELECT 1 FROM jogador WHERE time_id = ANY($1)`, [[...TIMES_NOVOS]])).rows).toHaveLength(movidos);
-    expect((await banco.query(`SELECT 1 FROM fundador WHERE remanejado`)).rows).toHaveLength(movidos);
+    // Sem Rebalanceamento: a Capivara segue com todos e ninguém foi para a Série B.
+    expect((await banco.query(`SELECT 1 FROM jogador WHERE time_id = 'CAP'`)).rows).toHaveLength(naCapivara);
+    expect((await banco.query(`SELECT 1 FROM jogador WHERE time_id = ANY($1)`, [[...TIMES_NOVOS]])).rows).toHaveLength(0);
+    expect((await banco.query(`SELECT 1 FROM fundador WHERE remanejado`)).rows).toHaveLength(0);
     // Recompensa: todos os inscritos da T1 ganham o Selo.
     expect((await banco.query(`SELECT 1 FROM selo_temporada1`)).rows).toHaveLength(inscritos);
-    expect(logs.some((l) => l.startsWith(`Rebalanceamento da Temporada 2: ${movidos} Jogador(es)`))).toBe(true);
+    expect(logs.some((l) => l.startsWith('Rebalanceamento'))).toBe(false);
 
     const dados = await dadosDoAgradecimentoT1(banco);
-    expect(dados).toMatchObject({ inscritos, piso: 65, rodadasDoBonus: 3, rebalanceamento: { movidos, tamanhoDaA: 7 } });
-    expect(dados.rebalanceamento!.pares).toContainEqual(['CAP', 'SUC']);
+    expect(dados).toMatchObject({ inscritos, piso: 65, rodadasDoBonus: 3 });
+    expect(dados.rebalanceamento).toBeUndefined();
 
     // Terça 18h30: o job programados grava e agenda o agradecimento para as 20h.
     const containers: { legenda: string }[] = [];
@@ -164,6 +162,7 @@ describe('Rebalanceamento, Recompensa e agradecimento automáticos (ADR-0047)', 
     expect(feitos).toEqual(['agradecimento-t1']);
     expect(gravados).toEqual(['agradecimento-t1']);
     expect(containers[0]!.legenda).toContain('Selo Temporada 1');
-    expect(containers[0]!.legenda).toContain(`${movidos} Jogadores vão para a Série B`);
+    expect(containers[0]!.legenda).not.toContain('Série B');
+    expect(containers[0]!.legenda).not.toContain('Fundador');
   }, 60_000);
 });

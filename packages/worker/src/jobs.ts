@@ -16,7 +16,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FALA_DO_TIME, IDENTIDADE, doTime, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, RODADA_DA_FINAL, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
 import { momentosDoAoVivo } from '@liga/renderer';
-import { rebalancear } from './rebalanceamento.js';
 import { recompensarT1 } from './recompensaT1.js';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA, criarTemporada, somarDias } from './calendario.js';
@@ -548,12 +547,10 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
 
   // A próxima Temporada já nasce aqui: Rodada 1 dois dias depois deste anúncio.
   const proxima = await garantirProximaTemporada(c.banco, t.numero, somarDias(dia, 3));
-  // Ao abrir a Pré-temporada da T2, sozinhos: Rebalanceamento (ADR-0036) e Recompensa da
-  // Temporada 1 (ADR-0047), antes do Reels de agradecimento (Programado, ADR-0051).
-  if (proxima.numero === PRIMEIRA_TEMPORADA_COM_REGRAS_T2) {
-    await rebalanceamentoAutomatico(c);
-    await recompensaAutomatica(c);
-  }
+  // Ao abrir a Pré-temporada da T2, sozinha: a Recompensa da Temporada 1 (ADR-0047), antes do
+  // Reels de agradecimento (Programado, ADR-0051). O Rebalanceamento do ADR-0036 não roda mais
+  // sozinho: ninguém da Série A desce para a B (ADR-0058).
+  if (proxima.numero === PRIMEIRA_TEMPORADA_COM_REGRAS_T2) await recompensaAutomatica(c);
   await importarVotosDoSite(c.banco, c.agenda, t.final_id);
   // Com duas Séries, a B também elege o seu Craque da Temporada (ADR-0017).
   const craqueB = (await seriesDaTemporada(c.banco, t.id)).B.length ? await eleitoDaSerieB(c.banco, t.id, t.final_id) : null;
@@ -690,20 +687,6 @@ export function legendaDoFimDaTemporada(
     '#varzeaodamata #craquedatemporada',
   ];
   return linhas.filter((l, i, a) => l !== '' || (a[i - 1] !== '' && i > 0)).join('\n');
-}
-
-/** Rebalanceia a T2 uma vez; um erro só vira log (o Craque da Temporada segue). Os avisos por DM não saem daqui. */
-async function rebalanceamentoAutomatico(c: ContextoDoJob): Promise<void> {
-  const log = logDe(c);
-  try {
-    const t2 = (await c.banco.query<{ id: number }>(`SELECT id FROM temporada WHERE numero = $1`, [PRIMEIRA_TEMPORADA_COM_REGRAS_T2])).rows[0];
-    if (!t2 || (await c.banco.query(`SELECT 1 FROM rebalanceamento WHERE temporada_id = $1`, [t2.id])).rows.length) return;
-    const r = await rebalancear(c.banco, { gravar: true, agora: agoraDe(c) });
-    log(`Rebalanceamento da Temporada ${r.temporada}: ${r.plano.remanejados.length} Jogador(es) para a Série B, ${r.fundadores} Fundador(es).`);
-    for (const x of r.plano.remanejados) log(`  @${x.jogador.username} (${x.jogador.posicao}): ${x.jogador.time} → ${x.para}`);
-  } catch (e) {
-    log(`Rebalanceamento não aplicado: ${(e as Error).message}`);
-  }
 }
 
 /** Aplica a Recompensa da Temporada 1 uma vez; um erro só vira log (o Craque da Temporada segue). */
