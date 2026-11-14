@@ -1,5 +1,5 @@
 /** Blocos usados em várias páginas: linha de Partida, tabela, chamadas para comentar. */
-import { TIMES_QUE_TROCAM_DE_SERIE, etapaDa, nomeDaEtapa, type LigaPublica, type LinhaTabelaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
+import { TIMES_QUE_TROCAM_DE_SERIE, faixaDoOvrInicialDaLiga, etapaDa, nomeDaEtapa, type LigaPublica, type LinhaTabelaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
 import { INSTAGRAM, contagem, diaCurto, hora, situacaoAgora, timesAtivos } from '../dados.js';
 import { curto, escudoImg, formaHtml, html, rotuloClassico, type Html } from '../ui.js';
 
@@ -67,11 +67,13 @@ export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compact
 const perfil = () => (INSTAGRAM ? html`<a href="https://www.instagram.com/${INSTAGRAM}/" rel="noopener">@${INSTAGRAM}</a>` : html`nosso Instagram`);
 
 export function comoEntrar(l: LigaPublica): Html {
+  // Depois da T1, quem chega sorteia no máximo o Piso da Temporada 1 (ADR-0056).
+  const faixa = faixaDoOvrInicialDaLiga(l);
   return html`<section class="placa como-entrar" aria-labelledby="titulo-entrar">
     <h2 id="titulo-entrar">Quer jogar?</h2>
     <p>Comente num post do ${perfil()} o seu Time e a sua posição:</p>
     <p class="comando">ENTRO ONÇA ATACANTE</p>
-    <p>Você ganha um OVR entre 60 e 70 e entra na escalação do seu Time no próximo jogo. Joga bem, o OVR sobe.</p>
+    <p>Você ganha um OVR entre ${faixa.min} e ${faixa.max} e entra na escalação do seu Time no próximo jogo. Joga bem, o OVR sobe.</p>
     <details>
       <summary>Times e apelidos que valem</summary>
       <ul class="times-validos">${timesAtivos(l).map((t) => html`<li>${escudoImg(t, 1)} ${curto(t)}</li>`)}</ul>

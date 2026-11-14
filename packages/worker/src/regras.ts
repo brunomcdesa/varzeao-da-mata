@@ -3,16 +3,10 @@
  * do lançamento; depois que houver Carreiras (ADR-0001), mexer no OVR inicial ou na Base
  * muda o equilíbrio entre Jogadores antigos e novos.
  */
-import { HABILIDADES, OVR_JOGADOR_DA_BASE, PISO_DA_TEMPORADA_1, habilidadesDoPerfil, type Habilidades, type Posicao } from '@liga/shared';
+import { HABILIDADES, OVR_INICIAL, OVR_INICIAL_DEPOIS_DA_T1, OVR_JOGADOR_DA_BASE, habilidadesDoPerfil, type Habilidades, type Posicao } from '@liga/shared';
 
-/** OVR sorteado na Inscrição (inclusive nas duas pontas). */
-export const OVR_INICIAL = { min: 60, max: 70 } as const;
-
-/**
- * OVR de quem se inscreve depois da Temporada 1 (ADR-0056): no máximo o Piso da Temporada 1,
- * para quem chega não começar à frente de quem jogou a T1.
- */
-export const OVR_INICIAL_DEPOIS_DA_T1 = { min: 60, max: PISO_DA_TEMPORADA_1 } as const;
+/** Faixas do OVR sorteado na Inscrição (ADR-0056); ficam em `@liga/shared` para o site usar. */
+export { OVR_INICIAL, OVR_INICIAL_DEPOIS_DA_T1 };
 
 export type FaixaDoOvr = { readonly min: number; readonly max: number };
 

@@ -292,6 +292,26 @@ export function temRegrasT2(numeroDaTemporada: number): boolean {
  * primeiras Rodadas da T2.
  */
 export const PISO_DA_TEMPORADA_1 = 65;
+
+/** OVR sorteado na Inscrição durante a Temporada 1 (inclusive nas duas pontas). */
+export const OVR_INICIAL = { min: 60, max: 70 } as const;
+/**
+ * OVR de quem se inscreve depois da Temporada 1 (ADR-0056): no máximo o Piso da Temporada 1,
+ * para quem chega não começar à frente de quem jogou a T1.
+ */
+export const OVR_INICIAL_DEPOIS_DA_T1 = { min: 60, max: PISO_DA_TEMPORADA_1 } as const;
+
+/**
+ * Faixa do OVR inicial pelo que o site sabe da Liga (ADR-0056): depois que a T1 termina, ou
+ * quando já existe a próxima Temporada, vale OVR_INICIAL_DEPOIS_DA_T1. O worker decide igual.
+ */
+export function faixaDoOvrInicialDaLiga(l: {
+  temporada: { numero: number; status: string } | null;
+  proximaTemporada?: { numero: number } | null;
+}): { readonly min: number; readonly max: number } {
+  const depois = !!l.proximaTemporada || (!!l.temporada && (l.temporada.numero >= 2 || l.temporada.status === 'ENCERRADA'));
+  return depois ? OVR_INICIAL_DEPOIS_DA_T1 : OVR_INICIAL;
+}
 /** Rodadas da Fase de Liga da T2 em que vale o Bônus da Temporada 1 (da 1ª até esta). */
 export const RODADAS_DO_BONUS_T1 = 3;
 export function temBonusT1(numeroDaTemporada: number, numeroDaRodada: number, fase: 'LIGA' | 'MATA_MATA'): boolean {
