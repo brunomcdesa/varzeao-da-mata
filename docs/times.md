@@ -34,7 +34,7 @@ Dezesseis clubes fictícios, todos com bichos brasileiros como tema e em oito pa
 | Clássico do Rio | Boto × Pirarucu | os gigantes do rio |
 | Clássico da Madrugada | Coruja × Morcego | os dois da noite |
 
-Os Clássicos caem por sorteio no calendário, ganham abertura especial no Reels, movem o OVR 1,5 vez mais que o normal (com limite de ±4 por Partida, em vez de ±3) e dão o título de Rei do Clássico a quem decidiu a Partida.
+Os Clássicos caem por sorteio no calendário, ganham abertura especial no Reels, fazem as ações valerem o dobro para as Habilidades (com limite de ±4 por Habilidade por Partida, em vez de ±2) e dão o título de Rei do Clássico a quem decidiu a Partida.
 
 ## Apelidos aceitos pelo parser
 

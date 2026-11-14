@@ -1,5 +1,7 @@
 # Série A e Série B, com Acesso e Rebaixamento
 
+> Atualizado depois: os Times novos da B são Coruja e Morcego (não Gavião e Urubu), veja `docs/times.md`. Os horários mudaram no ADR-0050 (um jogo por hora, a B antes da A). A formação inicial das Séries mudou no ADR-0036 (Rebalanceamento).
+
 A partir da Temporada 2, a Liga passa a ter 16 Times divididos em duas séries de 8. Os 8 Times da Temporada 1 formam a Série A. Oito Times novos formam a Série B, em 4 Clássicos: Jacaré × Sucuri, Lobo-guará × Cachorro-do-mato, Boto × Pirarucu e Gavião × Urubu.
 
 Cada série tem a sua Fase de Liga (7 Rodadas) e o seu Mata-mata. A cada Temporada, os 2 últimos da Fase de Liga da Série A descem, e os 2 finalistas do Mata-mata da Série B sobem.
