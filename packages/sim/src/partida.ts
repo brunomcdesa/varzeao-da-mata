@@ -121,7 +121,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
   const rngF = criarRng(((entrada.seed >>> 0) ^ 0x1b873593) >>> 0);
   const jogaNa = (lado: Lado, f: Formacao) => t2 !== undefined && formacaoDe(lado) === f;
 
-  /** Trava de goleada (ADR-0035): quem ataca com vantagem larga tira o pé (0 sem vantagem). */
+  /** Trava de goleada (ADR-0033): quem ataca com vantagem larga tira o pé (0 sem vantagem). */
   const ajusteVantagem = (ataque: Lado): number => {
     const vantagem = gols[ataque] - gols[outro(ataque)];
     return vantagem >= PARAMETROS.travaDesde ? -PARAMETROS.travaPasso * (vantagem - PARAMETROS.travaDesde + 1) : 0;

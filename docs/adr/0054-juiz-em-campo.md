@@ -1,5 +1,7 @@
 # Juiz em campo
 
+> Numerado antes como 0041, o mesmo número da Seleção da Rodada. Renumerado em 14/11/2026; o conteúdo não mudou.
+
 As Partidas da Temporada 2 mostram um Juiz em campo. Ele acompanha o lance na diagonal da bola, corre até a falta, levanta o braço no apito e mostra o cartão na mão, e volta ao meio depois do gol. Na disputa de pênaltis, fica parado ao lado da área.
 
 Motivo: a T2 trouxe faltas e cartões (ADRs 0021 e 0024), mas o apito existia só no som e o cartão aparecia flutuando em cima de quem fez a falta. Com o Juiz, o que se ouve e o que se lê no letreiro passam a ter quem faça na tela. Ele também prepara a Substituição, que vai usar a placa do Juiz.

@@ -111,7 +111,7 @@ const POSES: Record<Pose, string[]> = {
     '..KMK.......',
     '.KKK........',
   ],
-  // Juiz (ADR-0041): de frente, com o braço direito levantado (apito ou cartão na mão).
+  // Juiz (ADR-0054): de frente, com o braço direito levantado (apito ou cartão na mão).
   FRENTE_APITO: [
     '....KKKK..S.',
     '...KHHHHKKS.',

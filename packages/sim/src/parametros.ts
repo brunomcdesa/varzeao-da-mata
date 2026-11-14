@@ -17,10 +17,10 @@ export const PARAMETROS = {
   ritmoMaximo: 34,
   /** Quantos pontos de Habilidade de diferença equivalem a "1 unidade" na curva logística. */
   escalaDuelo: 12,
-  /** Peso da Habilidade contra a sorte em cada Duelo (0 = moeda). ADR-0035: 0,35 (era 0,20). */
+  /** Peso da Habilidade contra a sorte em cada Duelo (0 = moeda). ADR-0033: 0,35 (era 0,20). */
   forcaHabilidade: 0.35,
   /**
-   * Trava de goleada (ADR-0035): o Time que ataca com `travaDesde` gols de vantagem ou mais tira
+   * Trava de goleada (ADR-0033): o Time que ataca com `travaDesde` gols de vantagem ou mais tira
    * o pé. Cada gol de vantagem a partir daí tira `travaPasso` da base da criação, do drible e do
    * chute marcado. Bola parada não muda.
    */
@@ -85,7 +85,7 @@ export const PARAMETROS = {
 
 /**
  * Regras da Temporada 2 (VERSAO_SIM 14 com o Bônus da Temporada 1, ADR-0047; 13 com o ritmo do ADR-0045; 11 com a Formação, ADR-0044; 10
- * antes dela; 8 antes do ADR-0035). Só valem com `entrada.t2`; sem elas, a Partida sai com as
+ * antes dela; 8 antes do ADR-0033). Só valem com `entrada.t2`; sem elas, a Partida sai com as
  * regras da Temporada 1 (VERSAO_SIM_T1, a 12; era a 9). A 12/13 trouxe a saída de bola de quem
  * sofreu o gol, os lances até o 90' e a marcação dupla (ADR-0045).
  */
