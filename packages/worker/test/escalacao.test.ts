@@ -259,3 +259,58 @@ describe('Resenha (ADR-0034)', () => {
     expect(maior).toBeGreaterThan(0);
   });
 });
+
+describe('Mata-mata (ADR-0057)', () => {
+  async function rodadaDoMataMata(): Promise<number> {
+    const t = (await banco.query<{ temporada_id: number }>(`SELECT temporada_id FROM rodada WHERE id = $1`, [rodadaId])).rows[0]!;
+    return (
+      await banco.query<{ id: number }>(`INSERT INTO rodada (temporada_id, numero, fase, data) VALUES ($1, 8, 'MATA_MATA', '2026-11-07') RETURNING id`, [t.temporada_id])
+    ).rows[0]!.id;
+  }
+  async function semifinal(id: number, mandante: string, visitante: string, apito: Date): Promise<number> {
+    return (
+      await banco.query<{ id: number }>(`INSERT INTO partida (rodada_id, mandante_id, visitante_id, apito_inicial) VALUES ($1, $2, $3, $4) RETURNING id`, [
+        id,
+        mandante,
+        visitante,
+        apito.toISOString(),
+      ])
+    ).rows[0]!.id;
+  }
+  const amanha = (h: number, m = 0) => new Date(hora(h, m).getTime() + 24 * 3600_000);
+
+  it('quem se inscreveu depois do último jogo do Time na Fase de Liga não joga o Mata-mata', async () => {
+    await inscrever('veterano', 'ENTRO CAPIVARA ATA', hora(9));
+    await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(12)));
+    // Chega depois do Corte do último jogo da Fase de Liga (11h30), com 0 jogos.
+    await inscrever('novato', 'ENTRO CAPIVARA ATA', hora(11, 31));
+    await inscrever('novata', 'ENTRO CAPIVARA ATA', amanha(9));
+    const p = await escalarPartida(banco, await semifinal(await rodadaDoMataMata(), 'CAP', 'TAT', amanha(16)));
+    expect(p.nomes.mandante.slice(5)).toEqual(['@veterano', null]);
+  });
+
+  it('quem já podia jogar o último jogo da Fase de Liga joga o Mata-mata, mesmo sem ter sido escalado', async () => {
+    for (const a of ['a1', 'a2', 'a3']) await inscrever(a, 'ENTRO CAPIVARA ATA', hora(9));
+    await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(12)));
+    const p = await escalarPartida(banco, await semifinal(await rodadaDoMataMata(), 'CAP', 'TAT', amanha(16)));
+    expect(p.nomes.mandante.slice(5)).toEqual(['@a3', '@a1']);
+  });
+
+  it('o limite é o último jogo de cada Time, não o da Liga inteira', async () => {
+    await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(12)));
+    await escalarPartida(banco, await novaPartida('TAT', 'SAG', hora(16)));
+    // 14h: depois do último jogo da Capivara, antes do Corte do último jogo do Tatu.
+    await inscrever('cap', 'ENTRO CAPIVARA ATA', hora(14));
+    await inscrever('tat', 'ENTRO TATU ATA', hora(14));
+    const p = await escalarPartida(banco, await semifinal(await rodadaDoMataMata(), 'CAP', 'TAT', amanha(16)));
+    expect(p.nomes.mandante.filter(Boolean)).toEqual([]);
+    expect(p.nomes.visitante.filter(Boolean)).toEqual(['@tat']);
+  });
+
+  it('na Fase de Liga nada muda: quem chegou até o Corte joga', async () => {
+    await escalarPartida(banco, await novaPartida('CAP', 'ONC', hora(12)));
+    await inscrever('novato', 'ENTRO CAPIVARA ATA', hora(13));
+    const p = await escalarPartida(banco, await novaPartida('CAP', 'TAT', hora(16)));
+    expect(p.nomes.mandante.filter(Boolean)).toEqual(['@novato']);
+  });
+});

@@ -113,8 +113,20 @@ export function ordemDoRodizio(a: Disponivel, b: Disponivel, craque: string | nu
 
 export async function montarEscalacao(
   banco: Banco,
-  o: { time: TimeId; temporadaId: number; corte: Date; craque?: string | null; t2?: RegrasDaEscalacao; resenha?: ReadonlySet<string>; bonusT1?: ReadonlySet<string>; classico?: boolean },
+  o: {
+    time: TimeId;
+    temporadaId: number;
+    corte: Date;
+    craque?: string | null;
+    t2?: RegrasDaEscalacao;
+    resenha?: ReadonlySet<string>;
+    bonusT1?: ReadonlySet<string>;
+    classico?: boolean;
+    /** Mata-mata (ADR-0057): só entra quem se inscreveu até aqui. Sem isso, até o Corte. */
+    inscritosAte?: Date;
+  },
 ): Promise<EscalacaoMontada> {
+  const inscritosAte = o.inscritosAte && o.inscritosAte < o.corte ? o.inscritosAte : o.corte;
   const disponiveis = (
     await banco.query<{ id: string; username: string; apelido: string | null; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; jogos: string; ultimo: string | Date | null; inscrito_em: string | Date; fora: string; especializacao: Especializacao | null; treino: HabilidadeId | null; canto: Canto | null }>(
       `WITH base AS (
@@ -124,7 +136,7 @@ export async function montarEscalacao(
          LEFT JOIN escalacao e ON e.jogador_id = j.id
          LEFT JOIN partida p ON p.id = e.partida_id
            AND p.rodada_id IN (SELECT id FROM rodada WHERE temporada_id = $2)
-         WHERE j.time_id = $1 AND NOT j.banido AND j.inscrito_em <= $3
+         WHERE j.time_id = $1 AND NOT j.banido AND j.inscrito_em <= $4
          GROUP BY j.id)
        SELECT b.id::text AS id, b.username, b.apelido, b.posicao, b.ovr, b.habilidades, b.inscrito_em, b.especializacao, b.treino, b.canto,
               b.jogos, b.ultimo,
@@ -134,7 +146,7 @@ export async function montarEscalacao(
                  AND q.apito_inicial - interval '${CORTE_MINUTOS} minutes' >= b.inscrito_em
                  AND (b.ultimo IS NULL OR q.apito_inicial > b.ultimo)) AS fora
        FROM base b`,
-      [o.time, o.temporadaId, o.corte.toISOString()],
+      [o.time, o.temporadaId, o.corte.toISOString(), inscritosAte.toISOString()],
     )
   ).rows.map(
     (r): Disponivel => ({
@@ -276,6 +288,22 @@ export interface PartidaEscalada {
  * Escala as duas equipes de uma Partida e grava em `escalacao` (status → ESCALADA).
  * Se a Partida já foi escalada, devolve a Escalação gravada: reexecutar retoma de onde parou.
  */
+/**
+ * Mata-mata (ADR-0057): só joga quem já podia jogar o último jogo do Time na Fase de Liga,
+ * isto é, quem se inscreveu até o Corte desse jogo. Quem entra depois fica no Elenco e estreia
+ * na próxima Temporada. Sem jogo na Fase de Liga, null (vale só o Corte da Partida).
+ */
+export async function fimDaInscricaoNoMataMata(b: Banco, temporadaId: number, time: TimeId): Promise<Date | null> {
+  const r = (
+    await b.query<{ apito: string | Date | null }>(
+      `SELECT max(p.apito_inicial) AS apito FROM partida p JOIN rodada r ON r.id = p.rodada_id
+       WHERE r.temporada_id = $1 AND r.fase = 'LIGA' AND (p.mandante_id = $2 OR p.visitante_id = $2)`,
+      [temporadaId, time],
+    )
+  ).rows[0];
+  return r?.apito ? new Date(new Date(r.apito).getTime() - CORTE_MINUTOS * 60_000) : null;
+}
+
 export async function escalarPartida(banco: Banco, partidaId: number, o: { craque?: string | null; vinculos?: ReadonlySet<string> } = {}): Promise<PartidaEscalada> {
   return banco.transacao(async (b) => {
     const p = (
@@ -311,8 +339,12 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
     const resenhaV = await comResenha(b, p.visitante_id, apito, corte);
     // Bônus da Temporada 1 (ADR-0047): só nas primeiras Rodadas da Fase de Liga da T2.
     const bonusT1 = temBonusT1(p.numero, p.rodada, p.fase) ? await comSeloT1(b) : new Set<string>();
-    const mandante = await montarEscalacao(b, { time: p.mandante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, resenha: resenhaM, bonusT1, classico, ...(regrasM ? { t2: regrasM } : {}) });
-    const visitante = await montarEscalacao(b, { time: p.visitante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, resenha: resenhaV, bonusT1, classico, ...(regrasV ? { t2: regrasV } : {}) });
+    // Mata-mata (ADR-0057): quem chegou depois do último jogo do Time na Fase de Liga estreia na próxima Temporada.
+    const limite = async (time: TimeId) => (p.fase === 'MATA_MATA' ? await fimDaInscricaoNoMataMata(b, p.temporada_id, time) : null);
+    const limiteM = await limite(p.mandante_id);
+    const limiteV = await limite(p.visitante_id);
+    const mandante = await montarEscalacao(b, { time: p.mandante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, resenha: resenhaM, bonusT1, classico, ...(regrasM ? { t2: regrasM } : {}), ...(limiteM ? { inscritosAte: limiteM } : {}) });
+    const visitante = await montarEscalacao(b, { time: p.visitante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, resenha: resenhaV, bonusT1, classico, ...(regrasV ? { t2: regrasV } : {}), ...(limiteV ? { inscritosAte: limiteV } : {}) });
     for (const m of [mandante, visitante]) {
       for (const [lugar, j] of m.escalacao.jogadores.entries()) {
         await b.query(

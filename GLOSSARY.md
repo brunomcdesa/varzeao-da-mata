@@ -71,7 +71,7 @@ Comentário reconhecido pelo sistema em qualquer Reels da Liga: "ENTRO" faz uma 
 _Avoid_: palavra-chave, hashtag
 
 **Corte**:
-O momento, 30 minutos antes do Apito Inicial de cada Partida, até o qual Inscrições contam para a Escalação dos dois Times daquela Partida. A votação para Craque da Rodada fecha no Corte da primeira Partida do dia seguinte.
+O momento, 30 minutos antes do Apito Inicial de cada Partida, até o qual Inscrições contam para a Escalação dos dois Times daquela Partida. No Mata-mata, vale o Corte do último jogo do Time na Fase de Liga (ADR-0057). A votação para Craque da Rodada fecha no Corte da primeira Partida do dia seguinte.
 _Avoid_: deadline, prazo, fechamento
 
 **Apito Inicial**:
@@ -165,7 +165,7 @@ A primeira parte da Temporada, em turno único: os 8 Times de cada Série se enf
 _Avoid_: fase de grupos, classificatória, pontos corridos
 
 **Mata-mata**:
-A parte final da Temporada, disputada em cada Série, com semifinais (1º × 4º e 2º × 3º) e final entre os 4 melhores da Fase de Liga. Na Série B, os dois finalistas ganham o Acesso. Empate vai para a Disputa de pênaltis.
+A parte final da Temporada, disputada em cada Série, com semifinais (1º × 4º e 2º × 3º) e final entre os 4 melhores da Fase de Liga. Na Série B, os dois finalistas ganham o Acesso. Empate vai para a Disputa de pênaltis. Só joga o Mata-mata quem já podia jogar o último jogo do Time na Fase de Liga; quem se inscreve depois entra no Elenco e estreia na próxima Temporada. ADR-0057.
 _Avoid_: playoffs, eliminatórias
 
 **Briga pelo Mata-mata**:
