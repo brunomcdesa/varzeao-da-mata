@@ -1,4 +1,4 @@
-# 0056 — Ganho maior na T2 e Piso da Temporada 1 em 65
+# 0056 — Ganho maior na T2, Piso da Temporada 1 em 65 e teto para quem chega
 
 - Status: proposto (aguarda aprovação do dono)
 - Data: 2026-11-14
@@ -15,6 +15,7 @@ Com as regras da T2:
 - **Ganho maior:** os ganhos de Habilidade de todo Jogador valem 1,5 vez (`multiplicadorGanho`). As perdas não mudam. Soma com a Resenha e o Bônus da T1, do mesmo jeito que eles somam entre si (1,5 e 1,5 viram 2). O limite por Partida continua: ±2, ou ±4 no Clássico.
 - **O ganho encolhe só a partir de 70** (`referenciaGanho`; na T1, 62). Até 70, cada ação rende o valor cheio. Acima disso, encolhe até o teto de 99, como antes.
 - **Piso da Temporada 1 em 65** (era 63, ADR-0047).
+- **Teto para quem chega:** depois que a Temporada 1 termina (ou já existe a T2), quem se inscreve sorteia o OVR inicial entre 60 e 65 (`OVR_INICIAL_DEPOIS_DA_T1`), e não mais entre 60 e 70. Ninguém começa à frente de quem jogou a T1. Vale para comentário, DM e site, que usam a mesma Inscrição. Muda só a Inscrição, não a simulação.
 - Simulação na **VERSAO_SIM 16**. A T1 continua na VERSAO_SIM_T1 12, e nenhuma Partida já jogada muda. Placar, lances e Nota não mudam.
 
 ## Medições

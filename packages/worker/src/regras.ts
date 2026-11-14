@@ -3,10 +3,18 @@
  * do lançamento; depois que houver Carreiras (ADR-0001), mexer no OVR inicial ou na Base
  * muda o equilíbrio entre Jogadores antigos e novos.
  */
-import { HABILIDADES, OVR_JOGADOR_DA_BASE, habilidadesDoPerfil, type Habilidades, type Posicao } from '@liga/shared';
+import { HABILIDADES, OVR_JOGADOR_DA_BASE, PISO_DA_TEMPORADA_1, habilidadesDoPerfil, type Habilidades, type Posicao } from '@liga/shared';
 
 /** OVR sorteado na Inscrição (inclusive nas duas pontas). */
 export const OVR_INICIAL = { min: 60, max: 70 } as const;
+
+/**
+ * OVR de quem se inscreve depois da Temporada 1 (ADR-0056): no máximo o Piso da Temporada 1,
+ * para quem chega não começar à frente de quem jogou a T1.
+ */
+export const OVR_INICIAL_DEPOIS_DA_T1 = { min: 60, max: PISO_DA_TEMPORADA_1 } as const;
+
+export type FaixaDoOvr = { readonly min: number; readonly max: number };
 
 /** OVR do Jogador da Base, que completa a Escalação quando faltam inscritos. */
 export const OVR_BASE = OVR_JOGADOR_DA_BASE;
@@ -26,8 +34,8 @@ export const REALOCAR_QUANDO_CHEIO = true;
 export const FORMACAO: readonly Posicao[] = ['GOL', 'ZAG', 'ZAG', 'MEI', 'MEI', 'ATA', 'ATA'];
 
 /** Sorteio determinístico do OVR a partir do id do comentário (reprocessar dá o mesmo OVR). */
-export function sortearOvrInicial(semente: string): number {
-  return OVR_INICIAL.min + (hash(semente) % (OVR_INICIAL.max - OVR_INICIAL.min + 1));
+export function sortearOvrInicial(semente: string, faixa: FaixaDoOvr = OVR_INICIAL): number {
+  return faixa.min + (hash(semente) % (faixa.max - faixa.min + 1));
 }
 
 function hash(texto: string): number {
@@ -40,8 +48,8 @@ function hash(texto: string): number {
  * Habilidades da Inscrição: o OVR sorteado, o perfil da Posição e uma variação por Habilidade,
  * tudo derivado do id do comentário (reprocessar dá o mesmo Jogador). ADR-0010.
  */
-export function sortearHabilidadesIniciais(semente: string, posicao: Posicao): { ovr: number; habilidades: Habilidades } {
-  const ovr = sortearOvrInicial(semente);
+export function sortearHabilidadesIniciais(semente: string, posicao: Posicao, faixa: FaixaDoOvr = OVR_INICIAL): { ovr: number; habilidades: Habilidades } {
+  const ovr = sortearOvrInicial(semente, faixa);
   return { ovr, habilidades: perfilNaPosicao(semente, posicao, ovr) };
 }
 

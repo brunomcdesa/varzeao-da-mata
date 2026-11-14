@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Banco } from '../src/banco.js';
-import { corrigirTrocasDePosicao, jogadorPeloUsername, moverJogador, processarComentario, vincularConta, type Comentario } from '../src/coletar.js';
-import { FOLGA_DE_ELENCO, OVR_INICIAL } from '../src/regras.js';
+import { corrigirTrocasDePosicao, faixaDoOvrInicial, jogadorPeloUsername, moverJogador, processarComentario, vincularConta, type Comentario } from '../src/coletar.js';
+import { FOLGA_DE_ELENCO, OVR_INICIAL, OVR_INICIAL_DEPOIS_DA_T1, sortearOvrInicial } from '../src/regras.js';
 import { AgendaNaMemoria } from '../src/nuvem.js';
 import { craqueDaRodada } from '../src/resumo.js';
 import { importarVotosDoSite } from '../src/votoSite.js';
 import { bancoDeTeste } from './banco-de-teste.js';
-import { ovrDasHabilidades } from '@liga/shared';
+import { PISO_DA_TEMPORADA_1, ovrDasHabilidades } from '@liga/shared';
 
 let banco: Banco;
 let n = 0;
@@ -37,6 +37,23 @@ describe('Inscrição', () => {
     expect(j!.ovr).toBeLessThanOrEqual(OVR_INICIAL.max);
     const [c] = (await banco.query<{ tipo: string; resultado: string }>('SELECT tipo, resultado FROM comando')).rows;
     expect(c).toEqual({ tipo: 'INSCRICAO', resultado: 'INSCRITO' });
+  });
+
+  it('OVR inicial (ADR-0056): durante a T1, até 70; depois que a T1 termina, no máximo o Piso da T1 (65)', async () => {
+    expect(await faixaDoOvrInicial(banco)).toEqual(OVR_INICIAL);
+    await banco.query(`INSERT INTO temporada (numero, inicio, status) VALUES (1, '2026-11-06', 'ENCERRADA')`);
+    expect(await faixaDoOvrInicial(banco)).toEqual({ min: 60, max: PISO_DA_TEMPORADA_1 });
+    expect(OVR_INICIAL_DEPOIS_DA_T1.max).toBe(65);
+    const times = ['Onça', 'Capivara', 'Tatu', 'Tamanduá', 'Preguiça', 'Sagui', 'Tucano', 'Arara'];
+    for (let i = 0; i < 40; i++) {
+      expect(await processarComentario(banco, comentario(`n${i}`, `Entro na ${times[i % 8]} de atacante`), semVotacao)).toMatch(/INSCRITO|REALOCADO/);
+    }
+    const ovrs = (await banco.query<{ ovr: number }>('SELECT ovr FROM jogador')).rows.map((r) => r.ovr);
+    expect(ovrs).toHaveLength(40);
+    expect(Math.max(...ovrs)).toBeLessThanOrEqual(65);
+    expect(Math.min(...ovrs)).toBeGreaterThanOrEqual(60);
+    // Sem o teto, com estas sementes alguém passaria de 65.
+    expect(Array.from({ length: 40 }, (_, i) => sortearOvrInicial(`teste${i}`)).some((x) => x > 65)).toBe(true);
   });
 
   it('o mesmo comentário processado duas vezes não cria dois Jogadores', async () => {

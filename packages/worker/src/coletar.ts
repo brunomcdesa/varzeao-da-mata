@@ -9,7 +9,7 @@ import type { Banco } from './banco.js';
 import { CONTA_DA_LIGA, citacoes, interpretar, type Comando } from './comandos.js';
 import { timesAtivos } from './series.js';
 import { aplicarEscolha } from './temporada2.js';
-import { FOLGA_DE_ELENCO, FORMACAO, REALOCAR_QUANDO_CHEIO, habilidadesDe, perfilNaPosicao, sortearHabilidadesIniciais } from './regras.js';
+import { FOLGA_DE_ELENCO, FORMACAO, OVR_INICIAL, OVR_INICIAL_DEPOIS_DA_T1, REALOCAR_QUANDO_CHEIO, habilidadesDe, perfilNaPosicao, sortearHabilidadesIniciais, type FaixaDoOvr } from './regras.js';
 import { normalizar } from './vocabulario.js';
 import { CORTE_MINUTOS } from './escalacao.js';
 
@@ -202,6 +202,15 @@ export async function posicaoMaisVazia(b: Banco, time: TimeId): Promise<Posicao>
   return ordem.reduce((melhor, p) => ((contagem.get(p) ?? 0) / vagas(p) < (contagem.get(melhor) ?? 0) / vagas(melhor) ? p : melhor));
 }
 
+/**
+ * Faixa do OVR inicial (ADR-0056): depois que a Temporada 1 termina (ou já existe a T2), quem
+ * entra sorteia no máximo o Piso da Temporada 1.
+ */
+export async function faixaDoOvrInicial(b: Banco): Promise<FaixaDoOvr> {
+  const depois = (await b.query(`SELECT 1 FROM temporada WHERE numero >= 2 OR (numero = 1 AND status = 'ENCERRADA') LIMIT 1`)).rows.length > 0;
+  return depois ? OVR_INICIAL_DEPOIS_DA_T1 : OVR_INICIAL;
+}
+
 async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posicao | undefined, ctx: Contexto): Promise<Resultado> {
   if (await usernameBloqueado(b, c.username)) return 'NOME_BLOQUEADO';
 
@@ -221,7 +230,7 @@ async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posica
   }
   const posicao = pedida ?? (await posicaoMaisVazia(b, time));
 
-  const { ovr, habilidades } = sortearHabilidadesIniciais(c.igCommentId, posicao as Posicao);
+  const { ovr, habilidades } = sortearHabilidadesIniciais(c.igCommentId, posicao as Posicao, await faixaDoOvrInicial(b));
   await b.query(
     `INSERT INTO jogador (ig_user_id, username, time_id, posicao, ovr, habilidades, inscrito_em) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
     [c.igUserId, c.username, time, posicao, ovr, JSON.stringify(habilidades), c.comentadoEm.toISOString()],

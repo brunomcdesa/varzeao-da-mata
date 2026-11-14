@@ -31,7 +31,7 @@ A função do Jogador em campo, informada na Inscrição: GOL, ZAG, MEI ou ATA.
 _Avoid_: função, papel
 
 **OVR**:
-O resumo da força do Jogador: a média das suas Habilidades com pesos da Posição (ATA 55% Finalização, 25% Drible, 15% Passe, 5% Defesa; MEI 45% Passe, 20% Drible, 20% Defesa, 15% Finalização; ZAG 75% Defesa, 15% Passe, 5% Drible, 5% Finalização; GOL 90% Goleiro, 10% Passe). Não muda por si: muda quando as Habilidades mudam.
+O resumo da força do Jogador: a média das suas Habilidades com pesos da Posição (ATA 55% Finalização, 25% Drible, 15% Passe, 5% Defesa; MEI 45% Passe, 20% Drible, 20% Defesa, 15% Finalização; ZAG 75% Defesa, 15% Passe, 5% Drible, 5% Finalização; GOL 90% Goleiro, 10% Passe). Não muda por si: muda quando as Habilidades mudam. Na Inscrição, o OVR é sorteado entre 60 e 70 durante a T1 e entre 60 e 65 depois dela (ADR-0056).
 _Avoid_: overall, nível, rating, força
 
 **Habilidade**:
