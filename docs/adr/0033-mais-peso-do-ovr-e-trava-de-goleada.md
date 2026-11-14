@@ -57,4 +57,4 @@ Com os Elencos reais de 10/11/2026 (escalação provável dos 8 Times, todos con
 
 - Time com vagas vazias perde mais. Com os Elencos de hoje, o Tamanduá vai de 1,08 para 0,85 ponto por jogo e a Onça de 1,20 para 1,07.
 - Bola de neve: quem vence joga melhor e evolui. A Nota relativa ao OVR e o ritmo de ganho (ADR-0010) seguram isso, mas vale medir de novo no fim da Temporada.
-- Pendência que continua (ADR-0027): a calibração das Ações com as regras da T2.
+- Pendência que continua (ADR-0027): a calibração das Ações com as regras da T2. Resolvida no ADR-0055.

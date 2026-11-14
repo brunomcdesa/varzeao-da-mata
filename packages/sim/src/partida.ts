@@ -14,7 +14,7 @@ import {
   type Posicao,
 } from '@liga/shared';
 import { duelo, probabilidadeDuelo } from './duelo.js';
-import { ACOES, evoluir, zeradas, type Acao } from './evolucao.js';
+import { ACOES, evoluir, valorDaAcao, zeradas, type Acao } from './evolucao.js';
 import { notaDaPartida } from './nota.js';
 import { ESPECIALIZACAO, PARAMETROS, PARAMETROS_T2, VERSAO_SIM, VERSAO_SIM_T1 } from './parametros.js';
 import { criarRng, type Rng } from './rng.js';
@@ -155,7 +155,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
   };
   const conta = (s: SlotRef): Contadores => contadores[s.lado][s.indice]!;
   const acao = (s: SlotRef, a: Acao): void => {
-    pontos[s.lado][s.indice]![ACOES[a].hab] += ACOES[a].valor;
+    pontos[s.lado][s.indice]![ACOES[a].hab] += valorDaAcao(a, t2 !== undefined);
   };
 
   const gols: Record<Lado, number> = { mandante: 0, visitante: 0 };

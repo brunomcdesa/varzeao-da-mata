@@ -50,6 +50,26 @@ export const ACOES = {
 
 export type Acao = keyof typeof ACOES;
 
+/**
+ * Pontos por ação com as regras da Temporada 2 (ADR-0055), só onde mudam. As faltas, a bola
+ * parada e as Formações mudam quantas vezes cada ação acontece; sem este ajuste, entre Times
+ * iguais, zagueiros e atacantes perdiam OVR só por jogar. Calibrado por `pnpm calibrar t2`.
+ */
+export const ACOES_T2: Partial<Record<Acao, number>> = {
+  // Parte dos desarmes vira falta (ADR-0024): o desarme limpo vale mais e a falta não tira nada.
+  desarme: 0.5,
+  cometeuFalta: 0,
+  // Com a falta na criação, o meia é desarmado menos vezes: o desarme que sobra pesa mais.
+  desarmadoNaCriacao: -0.36,
+  // A barreira bloqueia muitos chutes de falta (ADR-0024): o chute bloqueado pesa menos.
+  chuteBloqueado: -0.3,
+};
+
+/** Valor da ação: o da T2 quando ela tem um próprio, senão o de sempre. */
+export function valorDaAcao(a: Acao, t2: boolean): number {
+  return (t2 ? ACOES_T2[a] : undefined) ?? ACOES[a].valor;
+}
+
 /** Ritmo: perto de 99 o ganho encolhe; perto de 40 a perda encolhe. */
 export const RITMO = { tetoGanho: 99, referenciaGanho: 62, pisoPerda: 40, referenciaPerda: 62, minimo: 0.1 };
 

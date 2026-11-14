@@ -45,4 +45,4 @@ Motivo: o 5×1 da Arara Azul sobre a Onça (Rodada 2, Temporada 1) saiu entre Ti
 
 - Menos gritos de gol por Reel: cerca de 1 gol a menos por Partida.
 - O resto da Temporada 1 tem menos gols que as primeiras Rodadas. Partidas já jogadas não mudam.
-- Pendência que já existia na versão 6 e não foi tratada aqui: com as regras da T2, a Defesa dos zagueiros cai cerca de 0,24 por Partida e o Passe dos meias sobe 0,12 (efeito das faltas). Precisa de uma calibração própria antes de a T2 começar.
+- Pendência que já existia na versão 6 e não foi tratada aqui: com as regras da T2, a Defesa dos zagueiros cai cerca de 0,24 por Partida e o Passe dos meias sobe 0,12 (efeito das faltas). Precisa de uma calibração própria antes de a T2 começar. Resolvida no ADR-0055.

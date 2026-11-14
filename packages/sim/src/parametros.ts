@@ -3,7 +3,7 @@
  * antigas, então exige subir VERSAO_SIM (ADR-0002).
  */
 /** Temporada 2. A Temporada 1 usa VERSAO_SIM_T1 (abaixo). */
-export const VERSAO_SIM = 14;
+export const VERSAO_SIM = 15;
 
 export const PARAMETROS = {
   /** Lances de ataque de referência: a média das retas de EXPECTATIVA da Nota (ADR-0004). */
@@ -84,7 +84,7 @@ export const PARAMETROS = {
 } as const;
 
 /**
- * Regras da Temporada 2 (VERSAO_SIM 14 com o Bônus da Temporada 1, ADR-0047; 13 com o ritmo do ADR-0045; 11 com a Formação, ADR-0044; 10
+ * Regras da Temporada 2 (VERSAO_SIM 15 com os pontos por ação da T2, ADR-0055; 14 com o Bônus da Temporada 1, ADR-0047; 13 com o ritmo do ADR-0045; 11 com a Formação, ADR-0044; 10
  * antes dela; 8 antes do ADR-0033). Só valem com `entrada.t2`; sem elas, a Partida sai com as
  * regras da Temporada 1 (VERSAO_SIM_T1, a 12; era a 9). A 12/13 trouxe a saída de bola de quem
  * sofreu o gol, os lances até o 90' e a marcação dupla (ADR-0045).

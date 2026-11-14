@@ -11,7 +11,7 @@ import {
 } from '@liga/shared';
 import { simularPartida, chanceDeFora, chanceDeDriblar, ritmoDaPartida } from '../src/partida.js';
 import { notaDaPartida } from '../src/nota.js';
-import { evoluir, fatorDeGanho, fatorDePerda, zeradas } from '../src/evolucao.js';
+import { evoluir, fatorDeGanho, fatorDePerda, valorDaAcao, zeradas } from '../src/evolucao.js';
 import { escalacao, escalacaoNa } from './fabricas.js';
 import { FORMACOES, type Formacao } from '@liga/shared';
 import { validarEscalacao } from '../src/partida.js';
@@ -343,15 +343,15 @@ describe('trava da Temporada 1', () => {
   });
 });
 
-describe('regras da Temporada 2 (VERSAO_SIM 14)', () => {
+describe('regras da Temporada 2 (VERSAO_SIM 15)', () => {
   const neutra = { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const;
   /** `t2`: null joga com as regras da T1. */
   const jogo = (seed: number, t2: Parameters<typeof simularPartida>[0]['t2'] | null = neutra, a = escalacao('CAP', 70), b = escalacao('ONC', 70, 'R')) =>
     simularPartida({ mandante: a, visitante: b, seed, fase: 'LIGA', ...(t2 ? { t2 } : {}) });
 
-  it('com as regras da T2 a Partida é da versão 13, guarda Postura e Ritmo e é determinística', () => {
+  it('com as regras da T2 a Partida é da versão 15, guarda Postura e Ritmo e é determinística', () => {
     const r = jogo(11);
-    expect(r.versaoSim).toBe(14);
+    expect(r.versaoSim).toBe(15);
     expect(r.postura).toEqual(neutra.postura);
     expect(r.ritmo).toBeGreaterThanOrEqual(6);
     expect(jogo(11)).toEqual(r);
@@ -571,7 +571,7 @@ describe('saída de bola depois do gol (ADR-0045)', () => {
     const t1 = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('ONC', 70), seed: 1 });
     const t2 = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('ONC', 70), seed: 1, t2: { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } });
     expect(t1.versaoSim).toBe(12);
-    expect(t2.versaoSim).toBe(14);
+    expect(t2.versaoSim).toBe(15);
   });
 });
 
@@ -746,5 +746,41 @@ describe('Formação (ADR-0044)', () => {
     const espelho = (f: Formacao) => { const r = confronto(f, f, 2000); return r.golsA + r.golsB; };
     expect(espelho('3-2-1')).toBeLessThan(espelho('2-2-2') - 0.4);
     expect(espelho('2-3-1')).toBeGreaterThan(espelho('2-2-2') + 0.2);
+  });
+});
+
+describe('pontos por ação da T2 (ADR-0055)', () => {
+  /** Variação média por Partida da Habilidade principal de cada Posição, entre Times iguais (OVR 65). */
+  const deriva = (t2: boolean) => {
+    const N = 1500;
+    const principal = { GOL: 'GOL', ZAG: 'DEF', MEI: 'PAS', ATA: 'FIN' } as const;
+    const soma: Record<string, number> = {};
+    const n: Record<string, number> = {};
+    for (let seed = 1; seed <= N; seed++) {
+      const r = simularPartida({
+        mandante: escalacao('CAP', 65),
+        visitante: escalacao('TAT', 65),
+        seed,
+        fase: 'LIGA',
+        ...(t2 ? { t2: { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const } : {}),
+      });
+      for (const d of r.desempenhos) {
+        soma[d.posicao] = (soma[d.posicao] ?? 0) + d.deltaHabilidades[principal[d.posicao]];
+        n[d.posicao] = (n[d.posicao] ?? 0) + 1;
+      }
+    }
+    return Object.fromEntries(Object.keys(soma).map((p) => [p, soma[p]! / n[p]!]));
+  };
+
+  it('com as regras da T2, a Habilidade principal de cada Posição varia como na T1', () => {
+    const t1 = deriva(false);
+    const t2 = deriva(true);
+    for (const p of ['GOL', 'ZAG', 'MEI', 'ATA']) expect(Math.abs(t2[p]! - t1[p]!), p).toBeLessThan(0.08);
+  });
+
+  it('a falta não tira Defesa na T2 e as Partidas da T1 seguem com os pontos de sempre', () => {
+    expect(valorDaAcao('cometeuFalta', true)).toBe(0);
+    expect(valorDaAcao('cometeuFalta', false)).toBe(-0.25);
+    expect(valorDaAcao('gol', true)).toBe(valorDaAcao('gol', false));
   });
 });
