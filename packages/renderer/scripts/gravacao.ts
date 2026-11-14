@@ -101,14 +101,14 @@ async function montarPagina(dir: string): Promise<string> {
 async function montarAudio(partida: PartidaParaVideo, dir: string): Promise<{ arquivo: string; roteiro: OpcoesRoteiro }> {
   const timeline = new Timeline(partida.resultado, partida.escalacoes, partida.torcida ? { torcida: partida.torcida } : {});
   const base = new Roteiro(timeline, partida.roteiro);
-  const falasBase = montarNarracao(base, partida.apelidos, { mataMata: partida.mataMata ?? null });
+  const falasBase = montarNarracao(base, partida.apelidos, { mataMata: partida.mataMata ?? null, briga: partida.briga ?? null });
   const narrador = narradorDa(partida.resultado.seed);
   console.log(`  Narrador: ${narrador.nome}`);
   const vozes = await sintetizar(falasBase, narrador.voz, narrador.jeito);
   const duracao = (id: string) => vozes.get(id)!.length / TAXA;
   const opcoes: OpcoesRoteiro = { ...partida.roteiro, minimos: exigenciasDaNarracao(base, falasBase, duracao) };
   const roteiro = new Roteiro(timeline, opcoes);
-  const falas = montarNarracao(roteiro, partida.apelidos, { mataMata: partida.mataMata ?? null });
+  const falas = montarNarracao(roteiro, partida.apelidos, { mataMata: partida.mataMata ?? null, briga: partida.briga ?? null });
 
   const naMixagem: VozNaMixagem[] = [];
   for (const a of agendarFalas(falas, duracao)) {
@@ -617,7 +617,7 @@ export async function gravarReels(partidaOriginal: PartidaParaVideo, o: OpcoesGr
 export async function gravarNarracaoAoVivo(partida: PartidaParaVideo, saida: string): Promise<{ duracao: number; falas: number }> {
   const inicio = performance.now();
   const timeline = new Timeline(partida.resultado, partida.escalacoes, partida.torcida ? { torcida: partida.torcida } : {});
-  const falas = roteiroAoVivo(timeline, partida.apelidos, { mataMata: partida.mataMata ?? null });
+  const falas = roteiroAoVivo(timeline, partida.apelidos, { mataMata: partida.mataMata ?? null, briga: partida.briga ?? null });
   const narrador = narradorDa(partida.resultado.seed);
   // Em lotes: um pedido só com o jogo inteiro ficaria longo demais para recortar.
   const vozes = new Map<string, Float32Array>();

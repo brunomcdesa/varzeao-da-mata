@@ -57,7 +57,7 @@ export function transmitir(
       tocando = false;
       marcar();
     }
-    desenharQuadro(ctx, timeline.estado(t), { times: timeline.resultado.times, nomes, apelidos });
+    desenharQuadro(ctx, timeline.estado(t), { times: timeline.resultado.times, nomes, apelidos, ...(p.briga ? { briga: p.briga } : {}) });
     if (barra) barra.value = String(Math.round(t));
     o.aoMudar?.(t);
     if (t >= FIM && !acabou) {

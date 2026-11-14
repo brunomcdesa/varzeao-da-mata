@@ -119,6 +119,7 @@ async function preparar(dados: PartidaParaVideo, quadrosPorSegundo = 30): Promis
     escudo,
     ...(dados.subtitulo ? { subtitulo: dados.subtitulo } : {}),
     ...(dados.mataMata ? { mataMata: dados.mataMata } : {}),
+    ...(dados.briga ? { briga: dados.briga } : {}),
   };
   return { duracao: roteiro.duracao, totalQuadros: roteiro.totalQuadros(fps) };
 }

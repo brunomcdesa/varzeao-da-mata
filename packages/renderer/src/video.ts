@@ -2,7 +2,7 @@
  * Desenho de um quadro do Reels: o campo da Timeline no instante que o Roteiro manda,
  * mais as cartelas de abertura e de fim e o escurecimento dos cortes.
  */
-import { FALA_DO_TIME, IDENTIDADE, type Aparencia, type Escalacao, type MataMataDaPartida, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type TimeId } from '@liga/shared';
 import type { Lado, ResultadoPartida } from '@liga/sim';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, faixaDeTorcida, plaquinha, rotulo, type OpcoesDesenho } from './desenho.js';
@@ -37,6 +37,8 @@ export interface PartidaParaVideo {
   torcida?: Record<Lado, number>;
   /** Partida do Mata-mata (ADR-0048): Semifinal ou Final, Temporada e Série. */
   mataMata?: MataMataDaPartida | null;
+  /** Última Rodada da Fase de Liga (ADR-0053). */
+  briga?: BrigaPeloMataMata | null;
 }
 
 export function desenharQuadroVideo(ctx: CanvasRenderingContext2D, roteiro: Roteiro, tVideo: number, o: OpcoesVideo): QuadroRoteiro {
@@ -140,6 +142,40 @@ function desenharAbertura(pin: Pincel, r: ResultadoPartida, p: number, tVideo: n
     pin.texto('Clássico', COLUNAS / 2, 164, 18, display, COR.tinta);
     pin.ctx.globalAlpha = alpha;
   }
+  // Última Rodada (ADR-0053): o que vale a Partida e do que cada Time precisa.
+  const b = o.briga;
+  if (b) {
+    const vale = `Vale vaga no Mata-mata${b.serie ? ` da Série ${b.serie}` : ''}`;
+    const y = r.classico ? 178 : 150;
+    pin.ctx.globalAlpha = alpha * entre(p, 0.12, 0.22);
+    if (r.classico) pin.texto(vale, COLUNAS / 2, y, 9, texto, COR.amarelo, { peso: 700 });
+    else {
+      pin.placa(COLUNAS / 2 - 80, y, 160, 22, { fundo: COR.amarelo, sombra: '#C99500' });
+      pin.texto(vale, COLUNAS / 2, y + 12, pin.caber(vale, 150, 16, display), display, COR.tinta);
+    }
+    // Garantidos que não jogam esta Partida (os daqui aparecem na plaquinha de cada Time).
+    const fora = [...situacoesNaBriga(b, r.times, null)].filter(([t, s]) => s === 'GARANTIDO' && t !== r.times.mandante && t !== r.times.visitante).map(([t]) => FALA_DO_TIME[t].curto);
+    if (fora.length) {
+      const linha = `Já garantid${fora.length > 1 ? 'os' : 'o'}: ${fora.join(', ')}`;
+      pin.texto(linha, COLUNAS / 2, r.classico ? 187 : 182, pin.caber(linha, 230, r.classico ? 7 : 8, texto, 700), texto, '#9FE08A', { peso: 700 });
+    }
+    (['mandante', 'visitante'] as const).forEach((lado, i) => {
+      const a = entre(p, 0.3 + i * 0.12, 0.42 + i * 0.12);
+      if (a <= 0) return;
+      const antes = situacoesNaBriga(b, r.times, null).get(r.times[lado])!;
+      const txt = antes === 'GARANTIDO' ? 'Já garantido' : antes === 'ELIMINADO' ? 'Já eliminado' : textoDaNecessidade(necessidadeNaBriga(b, r.times, lado));
+      const fundo = antes === 'GARANTIDO' ? '#3E9B3A' : antes === 'ELIMINADO' ? '#B8442F' : COR.amarelo;
+      const sombra = antes === 'GARANTIDO' ? '#2A6E27' : antes === 'ELIMINADO' ? '#82301F' : '#C99500';
+      const tinta = antes === 'DEPENDE' ? COR.tinta : '#FFFFFF';
+      const cw = 96;
+      const cx = i === 0 ? 14 : COLUNAS - 14 - cw;
+      const cy = i === 0 ? 254 : 352;
+      pin.ctx.globalAlpha = alpha * a;
+      pin.placa(cx, cy, cw, 14, { fundo, sombra, degrau: 1 });
+      pin.texto(txt, cx + cw / 2, cy + 6.5, pin.caber(txt, cw - 8, 8, texto, 700), texto, tinta, { peso: 700 });
+    });
+    pin.ctx.globalAlpha = alpha;
+  }
 
   const lados: Lado[] = ['mandante', 'visitante'];
   lados.forEach((lado, i) => {
@@ -173,6 +209,20 @@ function desenharAbertura(pin: Pincel, r: ResultadoPartida, p: number, tVideo: n
   pin.ctx.restore();
 }
 
+/** Fim do Reels na última Rodada (ADR-0053): "Onça no Mata-mata", "Tatu fora", "Tatu depende das 18h". */
+function desfechoDaBrigaNaTela(b: BrigaPeloMataMata, r: ResultadoPartida): string[] {
+  const antes = situacoesNaBriga(b, r.times, null);
+  const fim = situacoesNaBriga(b, r.times, r.gols);
+  const dep = b.depois.length === 1 ? `depende das ${b.depois[0]!.hora}h` : 'depende dos outros jogos';
+  return (['mandante', 'visitante'] as const)
+    .filter((l) => antes.get(r.times[l]) === 'DEPENDE')
+    .map((l) => {
+      const t = FALA_DO_TIME[r.times[l]].curto;
+      const s = fim.get(r.times[l]);
+      return s === 'GARANTIDO' ? `${t} no Mata-mata!` : s === 'ELIMINADO' ? `${t} fora` : `${t} ${dep}`;
+    });
+}
+
 function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number, o: OpcoesVideo, roteiroT2 = false): void {
   const display = o.fonteDisplay ?? FONTE_DISPLAY;
   const texto = o.fonteTexto ?? FONTE_TEXTO;
@@ -189,11 +239,12 @@ function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number
   const titulo = mm && vencedor ? (mm.etapa === 'FINAL' ? 'Campeão!' : `${FALA_DO_TIME[vencedor].curto} na Final!`) : 'Fim de jogo';
   pin.texto(titulo, COLUNAS / 2, mm?.etapa === 'FINAL' ? 82 : 78, pin.caber(titulo, 240, mm?.etapa === 'FINAL' ? 32 : 22, display), display, COR.amarelo, { contorno: COR.mata });
   const detalhes = [
+    ...(o.briga ? desfechoDaBrigaNaTela(o.briga, r) : []),
     ...(mm?.serie && mm.etapa === 'SEMIFINAL' ? [`Final da Série ${mm.serie}`] : []),
     ...(r.penaltis ? [`${mm ? 'nos' : 'Nos'} pênaltis, ${r.penaltis.placar.mandante} a ${r.penaltis.placar.visitante}`] : []),
   ];
   const linha = detalhes.join(' · ');
-  if (linha) pin.texto(linha.charAt(0).toUpperCase() + linha.slice(1), COLUNAS / 2, mm?.etapa === 'FINAL' ? 104 : 96, 9, texto, COR.placa, { peso: 600 });
+  if (linha) pin.texto(linha.charAt(0).toUpperCase() + linha.slice(1), COLUNAS / 2, mm?.etapa === 'FINAL' ? 104 : 96, pin.caber(linha, 250, 9, texto, 600), texto, COR.placa, { peso: 600 });
 
   if (mm?.etapa === 'FINAL' && vencedor) {
     // Na Final, o campeão toma o lugar do Melhor em campo: escudo grande, nome e Temporada.

@@ -253,6 +253,8 @@ export interface PartidaPublica {
   torcida?: Record<'mandante' | 'visitante', number>;
   /** Mata-mata (ADR-0048): Semifinal ou Final, Temporada e Série. No fim mostra quem foi pra Final ou o campeão. */
   mataMata?: import('./rodada.js').MataMataDaPartida;
+  /** Última Rodada da Fase de Liga (ADR-0053): faixa e plaquinhas da Briga pelo Mata-mata no Ao Vivo e no Replay. */
+  briga?: import('./briga.js').BrigaPeloMataMata;
   /** Só no arquivo privado (job partida): quando cada gol aparece no Ao Vivo, para os Avisos do App (ADR-0042). */
   momentos?: MomentosDoAoVivo;
 }

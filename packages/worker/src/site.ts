@@ -7,7 +7,7 @@
  * aparecem depois do Apito (o lance a lance) ou do fim do Ao Vivo (placar, tabela, Card).
  * Escalações aparecem assim que existem (a partir do Corte).
  */
-import { IDENTIDADE, TIMES, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
+import { IDENTIDADE, TIMES, brigaDaPartida, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
 import { fundadorDe } from './rebalanceamento.js';
 import { comSeloT1 } from './recompensaT1.js';
 import { TEMPORADA_DOS_DESTAQUES, desempenhosDasPartidas } from './destaques.js';
@@ -15,6 +15,7 @@ import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { seriesDaTemporada, type SeriesDaTemporada } from './series.js';
 import { classificar } from './tabela.js';
+import { horaDeBrasilia } from './briga.js';
 import { habilidadesDe } from './regras.js';
 import { capitaoDaPartida, proximaPartidaDoTime, tamanhoDosElencos } from './temporada2.js';
 
@@ -86,6 +87,11 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   const seriesDe = new Map<number, SeriesDaTemporada>();
   for (const t of temporadas) seriesDe.set(t.id, await seriesDaTemporada(banco, t.id));
   const comSeries = (temporadaId: number) => (seriesDe.get(temporadaId)?.B.length ?? 0) > 0;
+  const timesDaSerie = (temporadaId: number, serie: Serie) => seriesDe.get(temporadaId)?.[serie] ?? [];
+  const linhaParaBriga = (p: LinhaPartida): PartidaParaBriga => {
+    const a = new Date(p.apito_inicial);
+    return { id: p.id, fase: p.fase, rodada: p.rodada, mandante: p.mandante_id, visitante: p.visitante_id, apito: a.getTime(), hora: horaDeBrasilia(a), gols: p.resultado ? { ...p.resultado.gols } : null };
+  };
   // A Temporada "atual" é a última que já começou: entre o fim de uma e o início da próxima, o
   // site segue mostrando a que acabou (campeão, Craque) e anuncia a próxima à parte.
   const hojeBrasilia = new Date(agora.getTime() - 3 * 3600_000).toISOString().slice(0, 10);
@@ -513,6 +519,13 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       ...(() => {
         const mm = mataMataDaPartida({ fase: p.fase, rodada: p.rodada, temporada: temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0, serie: p.serie, comSeries: comSeries(p.temporada_id) });
         return mm ? { mataMata: mm } : {};
+      })(),
+      // Última Rodada (ADR-0053): só depois do Apito, junto com o Ao Vivo.
+      ...(() => {
+        if (!revelada(p)) return {};
+        const daSerie = todas.filter((x) => x.temporada_id === p.temporada_id && x.serie === p.serie).map(linhaParaBriga);
+        const b = brigaDaPartida(linhaParaBriga(p), daSerie, timesDaSerie(p.temporada_id, p.serie), comSeries(p.temporada_id) ? p.serie : null);
+        return b ? { briga: b } : {};
       })(),
       // Arquibancada (T2): só nas Partidas simuladas com as regras da Temporada 2.
       ...(revelada(p) && (p.resultado as { postura?: unknown } | null)?.postura != null

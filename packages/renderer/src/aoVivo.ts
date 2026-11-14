@@ -13,9 +13,9 @@
  *   1. roteiroAoVivo: os textos (âncoras dos lances + enchimento estimado para cada vão);
  *   2. agendarAoVivo: com as durações reais, encaixa tudo sem sobreposição.
  */
-import { FALA_DO_TIME, doTime, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, doTime, type BrigaPeloMataMata, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, type Lado } from '@liga/sim';
-import { montarNarracao, type EventoSonoro, type OpcoesNarracao, type Tom } from './narracao.js';
+import { falaDosGarantidos, falasDaNecessidade, montarNarracao, seAcabarAssim, type EventoSonoro, type OpcoesNarracao, type Tom } from './narracao.js';
 import { instanteDaCobranca } from './penaltis.js';
 import { Roteiro } from './roteiro.js';
 import { DURACAO_JOGO, VELOCIDADE_AO_VIVO, type Timeline } from './timeline.js';
@@ -130,6 +130,7 @@ export function roteiroAoVivo(tl: Timeline, apelidos?: Record<Lado, (string | nu
       penaltis: tMeio * VELOCIDADE_AO_VIVO > DURACAO_JOGO,
       ditas,
       mataMata: opcoes.mataMata ?? null,
+      briga: opcoes.briga ?? null,
     });
     textos.forEach((texto, k) => falas.push({ id: `enche-${vao}-${k}`, texto, tom: 'normal', tipo: 'enchimento', vao }));
     vao++;
@@ -149,7 +150,7 @@ function placarFalado(tl: Timeline, p: Record<Lado, number>): string {
  */
 function enchimento(
   tl: Timeline,
-  o: { vao: number; tJogo: number; posse: Lado; depoisDeGol: Lado | null; segundos: number; penaltis: boolean; ditas?: Set<string>; mataMata?: MataMataDaPartida | null },
+  o: { vao: number; tJogo: number; posse: Lado; depoisDeGol: Lado | null; segundos: number; penaltis: boolean; ditas?: Set<string>; mataMata?: MataMataDaPartida | null; briga?: BrigaPeloMataMata | null },
 ): string[] {
   const ditas = o.ditas ?? new Set<string>();
   const r = tl.resultado;
@@ -269,13 +270,34 @@ function enchimento(
     if (minuto >= 80 && placar.mandante === placar.visitante) doMomento.push(`Se ficar assim, vai pros pênaltis!`);
   }
 
+  // Última Rodada (ADR-0053): a viga no topo e as plaquinhas embaixo do placar mostram o mesmo.
+  const b = o.briga ?? null;
+  /** Começo de jogo na última Rodada: o que está em jogo vem antes de tudo, uma vez só. */
+  const primeiro: string[] = [];
+  if (b) {
+    const ts = r.times;
+    if (minuto <= 10 && placar.mandante + placar.visitante === 0) {
+      // A plaquinha diz do que cada Time precisa até os 10'.
+      const g = falaDosGarantidos(b, ts);
+      for (const t of [g, ...falasDaNecessidade(b, ts)]) if (t && !ditas.has(t)) primeiro.push(t);
+    } else {
+      const assim = seAcabarAssim(b, ts, placar);
+      if (assim && (o.depoisDeGol || minuto >= 75)) doMomento.push(assim);
+      else if (assim) contexto.push(assim);
+      const g = falaDosGarantidos(b, ts);
+      if (g) contexto.push(g);
+    }
+    contexto.push(`É a última Rodada, cada gol mexe na tabela!`, `Olho na tabela: os quatro primeiros vão pro Mata-mata!`);
+  }
+
   // Mistura: mais frases de posse, uma de contexto de vez em quando. O que ainda não foi dito na
   // Partida vem primeiro; o que é do momento (virada, reta final...) vem antes de tudo.
   const naoDitasPrimeiro = (lista: string[]) => [...lista.filter((t) => !ditas.has(t)), ...lista.filter((t) => ditas.has(t))];
   const p = naoDitasPrimeiro(embaralhar(rng, posse));
   const c = naoDitasPrimeiro([...embaralhar(rng, doMomento), ...embaralhar(rng, contexto)]);
-  const saida: string[] = [];
-  let usado = 0;
+  const saida: string[] = [...primeiro];
+  primeiro.forEach((t) => ditas.add(t));
+  let usado = primeiro.reduce((s, t) => s + estimarDuracao(t) + RESPIRO, 0);
   let ip = 0;
   let ic = 0;
   while (usado < o.segundos + 2.5 && (ip < p.length || ic < c.length)) {

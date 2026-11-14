@@ -6,7 +6,8 @@
 import { aparenciasEscolhidas } from './perfil.js';
 import type { Aparencia } from '@liga/shared';
 import { randomInt } from 'node:crypto';
-import { mataMataDaPartida, nomeDaEtapa, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
+import { RODADAS_DA_LIGA, mataMataDaPartida, nomeDaEtapa, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
+import { brigaDe } from './briga.js';
 import { simularPartida, type Lado, type ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA } from './calendario.js';
@@ -28,6 +29,8 @@ export interface DadosDoVideo {
   torcida?: Record<Lado, number>;
   /** Mata-mata (ADR-0048): o Narrador e o fim do Reels falam da Semifinal ou da Final. */
   mataMata?: MataMataDaPartida | null;
+  /** Última Rodada da Fase de Liga (ADR-0053): quem já está Garantido e o que vale a Partida. */
+  briga?: BrigaPeloMataMata | null;
 }
 
 /** Grava o MP4 da Partida em `saida`. Injetado para os testes não dependerem do navegador. */
@@ -136,6 +139,7 @@ async function mataMataDe(banco: Banco, p: LinhaPartida): Promise<MataMataDaPart
 export function subtituloDaPartida(rodada: number, fase: 'LIGA' | 'MATA_MATA', apito: Date): string {
   const hora = (apito.getUTCHours() + FUSO_BRASILIA + 24) % 24;
   const nome = nomeDaEtapa(fase, rodada);
+  if (fase === 'LIGA' && rodada === RODADAS_DA_LIGA) return `Última Rodada, jogo das ${hora}h`;
   return fase === 'LIGA' ? `${nome}, jogo das ${hora}h` : nome;
 }
 
@@ -173,6 +177,8 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
   };
   const mataMata = await mataMataDe(banco, p);
   if (mataMata) dados.mataMata = mataMata;
+  const briga = await brigaDe(banco, partidaId);
+  if (briga) dados.briga = briga;
   if (resultado.postura != null) {
     const elencos = await tamanhoDosElencos(banco);
     dados.torcida = { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 };

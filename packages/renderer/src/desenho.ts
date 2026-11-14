@@ -5,7 +5,7 @@
  * Linguagem visual: várzea em pixel art. Placar de tábua com plaquinhas penduradas,
  * campo com terrão e cal, mata em volta e faixa de torcida no gol.
  */
-import { FALA_DO_TIME, IDENTIDADE, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type Posicao, type SituacaoNaBriga, type TimeId } from '@liga/shared';
 import type { Lado } from '@liga/sim';
 import { CAMPO, cenario } from './cenario.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
@@ -26,6 +26,8 @@ export interface OpcoesDesenho {
   fonteDisplay?: string;
   /** Fonte dos nomes. Padrão: Pixelify Sans. */
   fonteTexto?: string;
+  /** Última Rodada da Fase de Liga (ADR-0053): faixa "Última Rodada" e situação de cada Time. */
+  briga?: BrigaPeloMataMata | null;
 }
 
 /** Tamanho do pixel do boneco em pixels lógicos. */
@@ -266,6 +268,69 @@ function desenharPlacar(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, display:
   }
   const rotulo = e.encerrada ? 'Fim de jogo' : `${e.minuto}'`;
   pin.texto(rotulo, COLUNAS / 2, 52, 9, texto, COR.amarelo, { contorno: COR.mata, peso: 700 });
+  if (o.briga) desenharBriga(pin, o.briga, e, o, texto);
+}
+
+export type TipoDaPlaquinhaDaBriga = 'GARANTIDO' | 'ELIMINADO' | 'DEPENDE';
+
+/**
+ * O que a plaquinha de cada Time diz na última Rodada (ADR-0053). Quem já estava decidido antes
+ * do Apito Inicial fica "Já garantido" ou "Já eliminado"; os outros seguem o placar: "Assim:
+ * classifica / fora / depende" durante o jogo e "Classificado / Eliminado / Depende…" no fim.
+ */
+export function plaquinhasDaBriga(
+  b: BrigaPeloMataMata,
+  times: Record<Lado, TimeId>,
+  placar: Record<Lado, number>,
+  encerrada: boolean,
+  /** Começo de jogo (0 × 0 até os 10'): a plaquinha diz do que o Time precisa. */
+  comeco = false,
+): Record<Lado, { texto: string; tipo: TipoDaPlaquinhaDaBriga }> {
+  const antes = situacoesNaBriga(b, times, null);
+  const agora = situacoesNaBriga(b, times, placar);
+  const depende = b.depois.length === 1 ? `Depende das ${b.depois[0]!.hora}h` : 'Depende dos outros';
+  const uma = (lado: Lado) => {
+    const a = antes.get(times[lado])!;
+    if (a === 'GARANTIDO') return { texto: 'Já garantido', tipo: a };
+    if (a === 'ELIMINADO') return { texto: 'Já eliminado', tipo: a };
+    if (comeco) return { texto: textoDaNecessidade(necessidadeNaBriga(b, times, lado)), tipo: 'DEPENDE' as const };
+    const s: SituacaoNaBriga = agora.get(times[lado])!;
+    const t = encerrada
+      ? { GARANTIDO: 'Classificado', ELIMINADO: 'Eliminado', DEPENDE: depende }[s]
+      : { GARANTIDO: 'Assim: classifica', ELIMINADO: 'Assim: fora', DEPENDE: 'Assim: depende' }[s];
+    return { texto: t, tipo: s };
+  };
+  return { mandante: uma('mandante'), visitante: uma('visitante') };
+}
+
+/** "Última Rodada · Garantidos: Arara" (só os já garantidos antes do Apito Inicial). */
+export function faixaDaBriga(b: BrigaPeloMataMata, times: Record<Lado, TimeId>): string {
+  const antes = situacoesNaBriga(b, times, null);
+  const garantidos = [...antes].filter(([, s]) => s === 'GARANTIDO').map(([t]) => FALA_DO_TIME[t].curto);
+  const serie = b.serie ? ` da Série ${b.serie}` : '';
+  return garantidos.length ? `Última Rodada${serie} · Garantidos: ${garantidos.join(', ')}` : `Última Rodada${serie} · 4 primeiros vão pro Mata-mata`;
+}
+
+const COR_DA_BRIGA: Record<TipoDaPlaquinhaDaBriga, { fundo: string; sombra: string; tinta: string }> = {
+  GARANTIDO: { fundo: '#3E9B3A', sombra: '#2A6E27', tinta: '#FFFFFF' },
+  ELIMINADO: { fundo: '#B8442F', sombra: '#82301F', tinta: '#FFFFFF' },
+  DEPENDE: { fundo: COR.amarelo, sombra: '#C99500', tinta: COR.tinta },
+};
+
+/** Viga no topo (de onde a tábua pende) com a faixa, e uma plaquinha embaixo de cada Time. */
+function desenharBriga(pin: Pincel, b: BrigaPeloMataMata, e: EstadoQuadro, o: OpcoesDesenho, texto: string): void {
+  pin.r(0, 0, COLUNAS, 9, COR.madeiraEscura);
+  pin.r(0, 8, COLUNAS, 1, COR.contorno);
+  const faixa = faixaDaBriga(b, o.times);
+  pin.texto(faixa, COLUNAS / 2, 4.5, pin.caber(faixa, COLUNAS - 12, 6.5, texto, 700), texto, COR.amarelo, { peso: 700 });
+  const p = plaquinhasDaBriga(b, o.times, e.placar, e.encerrada, e.placar.mandante + e.placar.visitante === 0 && e.minuto <= 10);
+  const w = 78;
+  for (const lado of ['mandante', 'visitante'] as const) {
+    const x = lado === 'mandante' ? 29 : COLUNAS - 29 - w;
+    const c = COR_DA_BRIGA[p[lado].tipo];
+    pin.placa(x, 46, w, 12, { fundo: c.fundo, sombra: c.sombra, degrau: 1 });
+    pin.texto(p[lado].texto, x + w / 2, 51.5, pin.caber(p[lado].texto, w - 6, 7, texto, 700), texto, c.tinta, { peso: 700 });
+  }
 }
 
 /**

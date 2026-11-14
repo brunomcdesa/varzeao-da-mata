@@ -4,7 +4,7 @@
  *
  * Regra do glossário: o Locutor fala dos Jogadores pela Posição e pelo Time, nunca pelo @.
  */
-import { FALA_DO_TIME, doTime, ehGoleada, nomeDoClassico, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, concordar, deQuemDepende, doTime, ehGoleada, listaDeTimes, necessidadeNaBriga, nomeDoClassico, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, type Lado, type Lance } from '@liga/sim';
 import { narradorDa } from './narradores.js';
 import { F_CHUTE_PENALTI, instanteDaCobranca, resultadoDaCobranca } from './penaltis.js';
@@ -70,6 +70,8 @@ export interface OpcoesNarracao {
    * (ADR-0052).
    */
   aoVivo?: boolean;
+  /** Última Rodada da Fase de Liga (ADR-0053): quem já garantiu e o que a Partida vale. */
+  briga?: BrigaPeloMataMata | null;
 }
 
 /** Onde passa o jogo completo: o site e, a partir da Temporada 2, também o App (ADR-0052). */
@@ -116,13 +118,19 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
         : classico
           ? `${o.aoVivo ? 'É o' : 'Melhores momentos do'} ${classico}! ${curto('mandante')} contra ${curto('visitante')}!`
           : `${o.aoVivo ? 'Bola rolando no' : 'Melhores momentos do'} Varzeão da Mata! ${curto('mandante')} contra ${curto('visitante')}!`
-    }${tl.t2 ? ` ${FALA_DO_CLIMA[tl.t2.clima]}` : ''}`,
+    }${o.briga ? ` ${aberturaDaBriga(o.briga)}` : ''}${tl.t2 ? ` ${FALA_DO_CLIMA[tl.t2.clima]}` : ''}`,
     inicio: 0.25,
     limite: segs[0]!.fim,
     tom: 'animado',
     segmento: 0,
     parte: 'antes',
   });
+  // Reels: a cartela de abertura mostra os garantidos e do que cada Time precisa (ADR-0053).
+  const briga = o.briga ?? null;
+  if (briga && !o.aoVivo) {
+    const texto = [falaDosGarantidos(briga, r.times), ...falasDaNecessidade(briga, r.times)].filter(Boolean).join(' ');
+    if (texto) falas.push({ id: 'briga-inicio', texto, inicio: 0.4, limite: segs[0]!.fim, tom: 'normal', segmento: 0, parte: 'antes' });
+  }
 
   segs.forEach((s, indice) => {
     if (s.tipo !== 'LANCE') return;
@@ -307,6 +315,12 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
         `Que golaço no Varzeão!`,
       ];
       falas.push({ id: `lance-${s.lance}-c`, texto: escolher(rng, extras), inicio: s.resolucao! + 1.3, limite: s.fim - 0.05, tom: 'animado', segmento: indice, parte: 'depois' });
+      // Reels, última Rodada: o gol mudou a situação de quem ainda briga (as plaquinhas mudam junto).
+      if (briga && !o.aoVivo) {
+        const antes = tl.placarEm(tl.janelas[s.lance!]!.resolucao - 1);
+        const texto = seAcabarAssim(briga, r.times, placar, antes);
+        if (texto) falas.push({ id: `briga-gol-${s.lance}`, texto, inicio: s.resolucao! + 2.6, limite: s.fim - 0.05, tom: 'animado', segmento: indice, parte: 'depois', opcional: true });
+      }
     }
   });
 
@@ -363,7 +377,7 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
   const vencedor = r.penaltis && r.vencedor
     ? `${cap(artigoDe(time(r.vencedor)))} ${curto(r.vencedor)} venceu nos pênaltis!`
     : r.vencedor ? vitoria(r.vencedor) : 'Tudo igual no Varzeão!';
-  const consequencia = o.mataMata && r.vencedor ? ` ${desfechoDoMataMata(o.mataMata, time(r.vencedor))}` : '';
+  const consequencia = o.mataMata && r.vencedor ? ` ${desfechoDoMataMata(o.mataMata, time(r.vencedor))}` : briga ? desfechoDaBriga(briga, r.times, g).map((t) => ` ${t}`).join('') : '';
   falas.push({ id: 'fim', texto: `Fim de jogo! ${placar}. ${vencedor}${consequencia} ${o.aoVivo ? 'Curtiu? Compartilha com a galera!' : `O jogo completo, Ao Vivo e no Replay, tá ${ONDE_VER_O_JOGO(!!tl.t2)}!`} ${narrador.despedida}`, inicio: fim.inicio + 0.35, limite: fim.fim, tom: 'animado', segmento: segs.length - 1, parte: 'antes' });
   return falas;
 }
@@ -445,6 +459,89 @@ export function aberturaDoMataMata(m: MataMataDaPartida, mandante: TimeId, visit
   const titulo = `o título${daSerie(m)} da Temporada ${m.temporada}`;
   if (classico) return `É o ${classico} na Final${daSerie(m)}! ${confronto}, valendo ${titulo}!`;
   return rng.pick([`É a Final${daSerie(m)} do Varzeão da Mata! ${confronto}, valendo ${titulo}!`, `Chegou o grande dia! Final${daSerie(m)} no Varzeão: ${confronto}! Vale ${titulo}!`]);
+}
+
+// ---------------------------------------------------------------- Briga pelo Mata-mata (ADR-0053)
+
+type Times = Record<'mandante' | 'visitante', TimeId>;
+type Placar = Record<'mandante' | 'visitante', number>;
+const LADOS = ['mandante', 'visitante'] as const;
+const oTime = (t: TimeId) => `${cap(artigoDe(t))} ${FALA_DO_TIME[t].curto}`;
+const serieDa = (b: BrigaPeloMataMata) => (b.serie ? ` da Série ${b.serie}` : '');
+
+/** Abertura: a tela mostra "Última Rodada" e "Vale vaga no Mata-mata". */
+export function aberturaDaBriga(b: BrigaPeloMataMata): string {
+  return `Última Rodada da Fase de Liga, valendo vaga no Mata-mata${serieDa(b)}!`;
+}
+
+/** Quem ainda briga nesta Partida (nem garantido nem eliminado antes do Apito Inicial). */
+function emAberto(b: BrigaPeloMataMata, times: Times): ('mandante' | 'visitante')[] {
+  const antes = situacoesNaBriga(b, times, null);
+  return LADOS.filter((l) => antes.get(times[l]) === 'DEPENDE');
+}
+
+/** "A Arara já está garantida no Mata-mata! Será que a Onça também garante?" */
+export function falaDosGarantidos(b: BrigaPeloMataMata, times: Times): string {
+  const antes = situacoesNaBriga(b, times, null);
+  const garantidos = [...antes].filter(([, s]) => s === 'GARANTIDO').map(([t]) => t);
+  const partes: string[] = [];
+  if (garantidos.length) {
+    const lista = cap(listaDeTimes(garantidos));
+    partes.push(`${lista} já ${garantidos.length > 1 ? 'estão' : 'está'} ${concordar(garantidos, 'garantid')} no Mata-mata!`);
+    const abertos = emAberto(b, times).map((l) => times[l]);
+    if (abertos.length === 1) partes.push(`Será que ${listaDeTimes(abertos)} também garante?`);
+    if (abertos.length === 2) partes.push(`Será que ${abertos.map((t) => FALA_DO_TIME[t].curto).join(' e ')} também garantem?`);
+  }
+  for (const l of LADOS) if (antes.get(times[l]) === 'ELIMINADO') partes.push(`${oTime(times[l])} já está fora, joga pela honra.`);
+  return partes.join(' ');
+}
+
+/** Do que cada Time em aberto precisa (a plaquinha do começo de jogo mostra o mesmo). */
+export function falasDaNecessidade(b: BrigaPeloMataMata, times: Times): string[] {
+  return emAberto(b, times).map((l) => {
+    const t = times[l];
+    const n = textoDaNecessidade(necessidadeNaBriga(b, times, l));
+    if (n === 'Empate basta') return `Um empate já basta pr${artigoDe(t)} ${FALA_DO_TIME[t].curto}!`;
+    if (n === 'Vencendo, classifica') return `${oTime(t)} depende só de si: vencendo, está no Mata-mata!`;
+    if (n === 'Vence e torce') return `${oTime(t)} precisa vencer e ainda torcer pelos outros resultados!`;
+    return `${oTime(t)} ainda sonha com a vaga, mas depende dos outros resultados.`;
+  });
+}
+
+/**
+ * "Se terminar assim…" para quem ainda briga. Com `antes` (placar antes do gol), só fala de
+ * quem teve a situação mudada.
+ */
+export function seAcabarAssim(b: BrigaPeloMataMata, times: Times, placar: Placar, antes?: Placar): string {
+  const agora = situacoesNaBriga(b, times, placar);
+  const eraAssim = antes ? situacoesNaBriga(b, times, antes) : null;
+  const partes = porOrdem(emAberto(b, times).filter((l) => !eraAssim || eraAssim.get(times[l]) !== agora.get(times[l])), times, agora).map((l) => {
+    const t = times[l];
+    const s = agora.get(t);
+    const quem = `${artigoDe(t)} ${FALA_DO_TIME[t].curto}`;
+    return s === 'GARANTIDO' ? `${quem} está no Mata-mata` : s === 'ELIMINADO' ? `${quem} está fora` : `${quem} ainda depende ${deQuemDepende(b)}`;
+  });
+  return partes.length ? `Se terminar assim, ${partes.join(', e ')}!` : '';
+}
+
+/** Quem garantiu vem primeiro, depois quem depende, depois quem caiu. */
+function porOrdem(lados: ('mandante' | 'visitante')[], times: Times, s: Map<TimeId, string>): ('mandante' | 'visitante')[] {
+  const peso = { GARANTIDO: 0, DEPENDE: 1, ELIMINADO: 2 } as Record<string, number>;
+  return [...lados].sort((a, c) => peso[s.get(times[a])!]! - peso[s.get(times[c])!]!);
+}
+
+/** Fim: quem garantiu, quem caiu e quem vai ter que esperar. */
+export function desfechoDaBriga(b: BrigaPeloMataMata, times: Times, placar: Placar): string[] {
+  const fim = situacoesNaBriga(b, times, placar);
+  return porOrdem(emAberto(b, times), times, fim).map((l) => {
+    const t = times[l];
+    const s = fim.get(t);
+    return s === 'GARANTIDO'
+      ? `${oTime(t)} está no Mata-mata e vai brigar pelo título${serieDa(b)}!`
+      : s === 'ELIMINADO'
+        ? `${oTime(t)} está fora do Mata-mata.`
+        : `${oTime(t)} agora depende ${deQuemDepende(b)}.`;
+  });
 }
 
 /** O que a vitória vale, no fim da Partida do Mata-mata: vaga na Final ou o Título. */

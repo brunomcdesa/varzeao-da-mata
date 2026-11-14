@@ -45,6 +45,8 @@ const { values: args } = parseArgs({
     etapa: { type: 'string' },
     temporada: { type: 'string', default: '1' },
     serie: { type: 'string' },
+    /** Última Rodada (ADR-0053): usa a Briga de exemplo (Arara e Capivara garantidas, 16h e 18h depois). */
+    briga: { type: 'boolean' },
   },
 });
 
@@ -78,6 +80,18 @@ async function main(): Promise<void> {
       partida = partidaDeTeste(Number(args.seed ?? 1), args.mandante as TimeId, args.visitante as TimeId, args.subtitulo ?? (etapa === 'FINAL' ? 'Final, jogo das 18h' : 'Semifinal, jogo das 14h'), 'MATA_MATA');
     }
     partida.mataMata = { etapa, temporada: Number(args.temporada), serie: args.serie === 'A' || args.serie === 'B' ? args.serie : null };
+  }
+  if (args.briga) {
+    const l = (time: TimeId, pontos: number, vitorias: number, saldo: number) => ({ time, pontos, vitorias, saldo, golsPro: 10 + saldo });
+    partida.briga = {
+      serie: null,
+      tabela: [l('ARA', 15, 5, 8), l('CAP', 13, 4, 5), l('ONC', 10, 3, 2), l('TAT', 9, 3, 1), l('TAM', 8, 2, 0), l('PRE', 6, 2, -2), l('SAG', 3, 1, -6), l('TUC', 1, 0, -8)],
+      depois: [
+        { mandante: 'CAP', visitante: 'SAG', hora: 16 },
+        { mandante: 'TAM', visitante: 'PRE', hora: 18 },
+      ],
+    };
+    partida.subtitulo ??= 'Última Rodada, jogo das 14h';
   }
   await gravarReels(partida, {
     saida: resolve(process.cwd(), args.saida!),
