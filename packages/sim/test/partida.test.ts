@@ -11,7 +11,8 @@ import {
 } from '@liga/shared';
 import { simularPartida, chanceDeFora, chanceDeDriblar, ritmoDaPartida } from '../src/partida.js';
 import { notaDaPartida } from '../src/nota.js';
-import { evoluir, fatorDeGanho, fatorDePerda, valorDaAcao, zeradas } from '../src/evolucao.js';
+import { RITMO, evoluir, fatorDeGanho, fatorDePerda, valorDaAcao, zeradas } from '../src/evolucao.js';
+import { PARAMETROS_T2 } from '../src/parametros.js';
 import { escalacao, escalacaoNa } from './fabricas.js';
 import { FORMACOES, type Formacao } from '@liga/shared';
 import { validarEscalacao } from '../src/partida.js';
@@ -343,15 +344,15 @@ describe('trava da Temporada 1', () => {
   });
 });
 
-describe('regras da Temporada 2 (VERSAO_SIM 15)', () => {
+describe('regras da Temporada 2 (VERSAO_SIM 16)', () => {
   const neutra = { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const;
   /** `t2`: null joga com as regras da T1. */
   const jogo = (seed: number, t2: Parameters<typeof simularPartida>[0]['t2'] | null = neutra, a = escalacao('CAP', 70), b = escalacao('ONC', 70, 'R')) =>
     simularPartida({ mandante: a, visitante: b, seed, fase: 'LIGA', ...(t2 ? { t2 } : {}) });
 
-  it('com as regras da T2 a Partida é da versão 15, guarda Postura e Ritmo e é determinística', () => {
+  it('com as regras da T2 a Partida é da versão 16, guarda Postura e Ritmo e é determinística', () => {
     const r = jogo(11);
-    expect(r.versaoSim).toBe(15);
+    expect(r.versaoSim).toBe(16);
     expect(r.postura).toEqual(neutra.postura);
     expect(r.ritmo).toBeGreaterThanOrEqual(6);
     expect(jogo(11)).toEqual(r);
@@ -571,7 +572,7 @@ describe('saída de bola depois do gol (ADR-0045)', () => {
     const t1 = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('ONC', 70), seed: 1 });
     const t2 = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('ONC', 70), seed: 1, t2: { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } });
     expect(t1.versaoSim).toBe(12);
-    expect(t2.versaoSim).toBe(15);
+    expect(t2.versaoSim).toBe(16);
   });
 });
 
@@ -772,10 +773,40 @@ describe('pontos por ação da T2 (ADR-0055)', () => {
     return Object.fromEntries(Object.keys(soma).map((p) => [p, soma[p]! / n[p]!]));
   };
 
-  it('com as regras da T2, a Habilidade principal de cada Posição varia como na T1', () => {
+  it('com as regras da T2 (sem o Ganho maior), a Habilidade principal de cada Posição varia como na T1', () => {
+    const t2Params = PARAMETROS_T2 as { multiplicadorGanho: number; referenciaGanho: number };
+    const { multiplicadorGanho, referenciaGanho } = t2Params;
+    try {
+      t2Params.multiplicadorGanho = 1;
+      t2Params.referenciaGanho = RITMO.referenciaGanho;
+      const t1 = deriva(false);
+      const t2 = deriva(true);
+      for (const p of ['GOL', 'ZAG', 'MEI', 'ATA']) expect(Math.abs(t2[p]! - t1[p]!), p).toBeLessThan(0.08);
+    } finally {
+      t2Params.multiplicadorGanho = multiplicadorGanho;
+      t2Params.referenciaGanho = referenciaGanho;
+    }
+  });
+
+  it('Ganho maior (ADR-0056): na T2 todas as Posições sobem, e por igual', () => {
     const t1 = deriva(false);
     const t2 = deriva(true);
-    for (const p of ['GOL', 'ZAG', 'MEI', 'ATA']) expect(Math.abs(t2[p]! - t1[p]!), p).toBeLessThan(0.08);
+    const subida = ['GOL', 'ZAG', 'MEI', 'ATA'].map((p) => t2[p]! - t1[p]!);
+    for (const s of subida) {
+      expect(s).toBeGreaterThan(0.05);
+      expect(s).toBeLessThan(0.6);
+    }
+    expect(Math.max(...subida) - Math.min(...subida)).toBeLessThan(0.3);
+  });
+
+  it('Ganho maior (ADR-0056): o ganho só encolhe a partir de 70 na T2; as perdas não mudam', () => {
+    const pontos = { ...zeradas(), FIN: 1, DEF: -1 };
+    const antes = { FIN: 68, PAS: 60, DRI: 60, DEF: 68, GOL: 30 };
+    const t1 = evoluir(antes, pontos, false);
+    const t2 = evoluir(antes, pontos, false, undefined, 1.5, 70);
+    expect(t1.delta.FIN).toBeCloseTo(Math.round(fatorDeGanho(68) * 10) / 10);
+    expect(t2.delta.FIN).toBeCloseTo(1.5);
+    expect(t2.delta.DEF).toBe(t1.delta.DEF);
   });
 
   it('a falta não tira Defesa na T2 e as Partidas da T1 seguem com os pontos de sempre', () => {

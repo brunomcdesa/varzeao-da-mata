@@ -16,7 +16,7 @@ describe('Reels de agradecimento da Temporada 1 (ADR-0047)', () => {
   it('fala os números da Temporada e a Recompensa com os valores das regras', () => {
     const textos = narracaoDoAgradecimentoT1(new RoteiroAgradecimentoT1(dados)).map((f) => f.texto);
     expect(textos[1]).toContain('100 jogadores inscritos, 31 jogos e 116 gols');
-    expect(textos.find((t) => t.includes('OVR abaixo'))).toContain('sessenta e três');
+    expect(textos.find((t) => t.includes('OVR abaixo'))).toContain('sessenta e cinco');
     expect(textos.find((t) => t.includes('rodadas'))).toContain('nas três primeiras rodadas');
     expect(textos.find((t) => t.includes('rodadas'))).toContain('cinquenta por cento');
     expect(textos.find((t) => t.includes('rodadas'))).toContain('resenha');

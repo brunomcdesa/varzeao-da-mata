@@ -663,9 +663,9 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
       const antes: Habilidades = { ...jogador.habilidades };
       const daBase = jogador.jogadorId === null;
       const treino = t2 && jogador.treino ? { hab: jogador.treino, multiplicador: PARAMETROS_T2.multiplicadorTreino } : undefined;
-      // Resenha (ADR-0034) e Bônus da Temporada 1 (ADR-0047, só com as regras da T2) somam.
-      const ganhos = 1 + (jogador.resenha ? PARAMETROS.multiplicadorResenha - 1 : 0) + (t2 && jogador.bonusT1 ? PARAMETROS_T2.multiplicadorBonusT1 - 1 : 0);
-      const { depois, delta } = daBase ? { depois: antes, delta: zeradas() } : evoluir(antes, pontos[lado][indice]!, classico, treino, ganhos);
+      // Ganho maior da T2 (ADR-0056), Resenha (ADR-0034) e Bônus da Temporada 1 (ADR-0047) somam.
+      const ganhos = (t2 ? PARAMETROS_T2.multiplicadorGanho : 1) + (jogador.resenha ? PARAMETROS.multiplicadorResenha - 1 : 0) + (t2 && jogador.bonusT1 ? PARAMETROS_T2.multiplicadorBonusT1 - 1 : 0);
+      const { depois, delta } = daBase ? { depois: antes, delta: zeradas() } : evoluir(antes, pontos[lado][indice]!, classico, treino, ganhos, t2 ? PARAMETROS_T2.referenciaGanho : undefined);
       const ovrAntes = ovrDasHabilidades(jogador.posicao, antes);
       const ovrDepois = ovrDasHabilidades(jogador.posicao, depois);
       return {

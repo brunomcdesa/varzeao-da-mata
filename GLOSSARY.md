@@ -297,7 +297,7 @@ O selo de quem se inscreveu na Liga até o último jogo da Temporada 1. Aparece 
 _Avoid_: fundador, veterano, OG
 
 **Piso da Temporada 1**:
-O OVR mínimo (63) dado uma vez, na Pré-temporada da T2, a quem tem o Selo da Temporada 1. Só a Habilidade principal da Posição sobe (ADR-0047).
+O OVR mínimo (65) dado uma vez, na Pré-temporada da T2, a quem tem o Selo da Temporada 1. Só a Habilidade principal da Posição sobe (ADR-0047).
 _Avoid_: nivelamento, bônus de OVR
 
 **Bônus da Temporada 1**:

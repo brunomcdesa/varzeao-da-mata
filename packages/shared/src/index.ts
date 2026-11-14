@@ -291,7 +291,7 @@ export function temRegrasT2(numeroDaTemporada: number): boolean {
  * Piso da Temporada 1 (OVR mínimo, aplicado uma vez na Pré-temporada da T2) e ganhos maiores nas
  * primeiras Rodadas da T2.
  */
-export const PISO_DA_TEMPORADA_1 = 63;
+export const PISO_DA_TEMPORADA_1 = 65;
 /** Rodadas da Fase de Liga da T2 em que vale o Bônus da Temporada 1 (da 1ª até esta). */
 export const RODADAS_DO_BONUS_T1 = 3;
 export function temBonusT1(numeroDaTemporada: number, numeroDaRodada: number, fase: 'LIGA' | 'MATA_MATA'): boolean {

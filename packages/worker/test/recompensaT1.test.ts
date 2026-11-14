@@ -22,7 +22,7 @@ import { bancoDeTeste } from './banco-de-teste.js';
 describe('Piso da Temporada 1 (ADR-0047)', () => {
   it('abaixo do piso: só a Habilidade principal sobe, e o OVR chega exatamente no piso', () => {
     for (const posicao of POSICOES) {
-      for (const ovr of [55, 59, 60, 62]) {
+      for (const ovr of [55, 59, 60, 62, 64]) {
         const antes = habilidadesDoPerfil(posicao, ovr);
         const depois = aplicarPiso(posicao, antes);
         expect(ovrDasHabilidades(posicao, depois)).toBe(PISO_DA_TEMPORADA_1);
@@ -36,7 +36,7 @@ describe('Piso da Temporada 1 (ADR-0047)', () => {
 
   it('no piso ou acima: nada muda', () => {
     for (const posicao of POSICOES) {
-      for (const ovr of [63, 64, 72]) {
+      for (const ovr of [65, 66, 72]) {
         const antes = habilidadesDoPerfil(posicao, ovr);
         expect(aplicarPiso(posicao, antes)).toEqual(antes);
       }
@@ -92,7 +92,7 @@ describe('recompensarT1 no banco', () => {
     await t2();
     const r = await recompensarT1(banco, { gravar: false });
     expect(r.gravado).toBe(false);
-    expect(r.recompensados.find((x) => x.id === baixo)?.ovrDepois).toBe(63);
+    expect(r.recompensados.find((x) => x.id === baixo)?.ovrDepois).toBe(65);
     expect((await ovrDe(baixo)).ovr).toBe(60);
     expect((await banco.query(`SELECT 1 FROM selo_temporada1`)).rows).toHaveLength(0);
   });
@@ -105,11 +105,11 @@ describe('recompensarT1 no banco', () => {
     const id = await t2();
     const r = await recompensarT1(banco, { gravar: true, agora: new Date('2026-11-29T12:00:00Z') });
     expect(r.recompensados.map((x) => x.id).sort()).toEqual([baixo, alto].sort());
-    expect((await ovrDe(baixo)).ovr).toBe(63);
+    expect((await ovrDe(baixo)).ovr).toBe(65);
     expect((await ovrDe(alto)).ovr).toBe(68);
     expect((await ovrDe(novato)).ovr).toBe(60);
     const selos = (await banco.query<{ jogador_id: string; ovr_antes: number; ovr_depois: number }>(`SELECT jogador_id::text AS jogador_id, ovr_antes, ovr_depois FROM selo_temporada1 ORDER BY jogador_id`)).rows;
-    expect(selos).toEqual(expect.arrayContaining([{ jogador_id: baixo, ovr_antes: 59, ovr_depois: 63 }, { jogador_id: alto, ovr_antes: 68, ovr_depois: 68 }]));
+    expect(selos).toEqual(expect.arrayContaining([{ jogador_id: baixo, ovr_antes: 59, ovr_depois: 65 }, { jogador_id: alto, ovr_antes: 68, ovr_depois: 68 }]));
     await expect(recompensarT1(banco, { gravar: true })).rejects.toThrow('já foi aplicada');
 
     // O site da T2 mostra o Selo só para quem tem.

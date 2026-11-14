@@ -3,7 +3,7 @@
  * antigas, então exige subir VERSAO_SIM (ADR-0002).
  */
 /** Temporada 2. A Temporada 1 usa VERSAO_SIM_T1 (abaixo). */
-export const VERSAO_SIM = 15;
+export const VERSAO_SIM = 16;
 
 export const PARAMETROS = {
   /** Lances de ataque de referência: a média das retas de EXPECTATIVA da Nota (ADR-0004). */
@@ -84,7 +84,7 @@ export const PARAMETROS = {
 } as const;
 
 /**
- * Regras da Temporada 2 (VERSAO_SIM 15 com os pontos por ação da T2, ADR-0055; 14 com o Bônus da Temporada 1, ADR-0047; 13 com o ritmo do ADR-0045; 11 com a Formação, ADR-0044; 10
+ * Regras da Temporada 2 (VERSAO_SIM 16 com o Ganho maior, ADR-0056; 15 com os pontos por ação da T2, ADR-0055; 14 com o Bônus da Temporada 1, ADR-0047; 13 com o ritmo do ADR-0045; 11 com a Formação, ADR-0044; 10
  * antes dela; 8 antes do ADR-0033). Só valem com `entrada.t2`; sem elas, a Partida sai com as
  * regras da Temporada 1 (VERSAO_SIM_T1, a 12; era a 9). A 12/13 trouxe a saída de bola de quem
  * sofreu o gol, os lances até o 90' e a marcação dupla (ADR-0045).
@@ -134,6 +134,13 @@ export const PARAMETROS_T2 = {
    * teto por Partida continua o mesmo.
    */
   multiplicadorBonusT1: 1.5,
+  /**
+   * Ganho maior (ADR-0056): os ganhos de Habilidade de todo Jogador na T2. As perdas não mudam.
+   * Soma com a Resenha e o Bônus da T1 (cada um soma o que passa de 1); o teto por Partida fica.
+   */
+  multiplicadorGanho: 1.5,
+  /** Ganho maior (ADR-0056): na T2 o ganho só começa a encolher a partir de 70 (na T1, 62). */
+  referenciaGanho: 70,
   /**
    * Formação (ADR-0044): o custo de cada desenho, do mesmo jeito que a Postura (soma à chance de
    * quem ataca). O 2-3-1 expõe a defesa; o 3-2-1 perde força no ataque; o 3-1-2 perde a posse.

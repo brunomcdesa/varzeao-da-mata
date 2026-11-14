@@ -73,8 +73,9 @@ export function valorDaAcao(a: Acao, t2: boolean): number {
 /** Ritmo: perto de 99 o ganho encolhe; perto de 40 a perda encolhe. */
 export const RITMO = { tetoGanho: 99, referenciaGanho: 62, pisoPerda: 40, referenciaPerda: 62, minimo: 0.1 };
 
-export function fatorDeGanho(h: number): number {
-  return Math.max(RITMO.minimo, Math.min(1, (RITMO.tetoGanho - h) / (RITMO.tetoGanho - RITMO.referenciaGanho)));
+/** `referencia`: de onde o ganho começa a encolher (62; na T2, 70, ADR-0056). */
+export function fatorDeGanho(h: number, referencia: number = RITMO.referenciaGanho): number {
+  return Math.max(RITMO.minimo, Math.min(1, (RITMO.tetoGanho - h) / (RITMO.tetoGanho - referencia)));
 }
 export function fatorDePerda(h: number): number {
   return Math.max(RITMO.minimo, Math.min(1, (h - RITMO.pisoPerda) / (RITMO.referenciaPerda - RITMO.pisoPerda)));
@@ -91,7 +92,8 @@ export function zeradas(): Record<HabilidadeId, number> {
 /**
  * `treino` (Temporada 2, ADR-0023): na Habilidade de foco, os ganhos são multiplicados por
  * `multiplicadorTreino`; o teto por Partida continua o mesmo.
- * `ganhos` (Resenha, ADR-0034): multiplica os ganhos de todas as Habilidades. Com Treino, os
+ * `ganhos` (Resenha, ADR-0034; Ganho maior da T2, ADR-0056): multiplica os ganhos de todas as Habilidades.
+ * `referenciaGanho`: de onde o ganho começa a encolher (na T2, 70, ADR-0056). Com Treino, os
  * dois bônus somam na Habilidade de foco (1,5 e 1,5 viram 2).
  */
 export function evoluir(
@@ -100,6 +102,7 @@ export function evoluir(
   classico: boolean,
   treino?: { hab: HabilidadeId; multiplicador: number },
   ganhos = 1,
+  referenciaGanho: number = RITMO.referenciaGanho,
 ): { depois: Habilidades; delta: Record<HabilidadeId, number> } {
   const depois = { ...antes };
   const delta = zeradas();
@@ -109,7 +112,7 @@ export function evoluir(
     const bonus = pontos[hab] > 0 ? ganhos + (treino && treino.hab === hab ? treino.multiplicador - 1 : 0) : 1;
     const p = pontos[hab] * mult * bonus;
     if (p === 0) continue;
-    const bruto = p > 0 ? p * fatorDeGanho(antes[hab]) : p * fatorDePerda(antes[hab]);
+    const bruto = p > 0 ? p * fatorDeGanho(antes[hab], referenciaGanho) : p * fatorDePerda(antes[hab]);
     const d = umaCasa(limitar(bruto, -teto, teto));
     depois[hab] = umaCasa(limitar(antes[hab] + d, HABILIDADE_MIN, HABILIDADE_MAX));
     delta[hab] = umaCasa(depois[hab] - antes[hab]);

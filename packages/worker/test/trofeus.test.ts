@@ -134,7 +134,7 @@ describe('Rebalanceamento, Recompensa e agradecimento automáticos (ADR-0047)', 
     expect(logs.some((l) => l.startsWith(`Rebalanceamento da Temporada 2: ${movidos} Jogador(es)`))).toBe(true);
 
     const dados = await dadosDoAgradecimentoT1(banco);
-    expect(dados).toMatchObject({ inscritos, piso: 63, rodadasDoBonus: 3, rebalanceamento: { movidos, tamanhoDaA: 7 } });
+    expect(dados).toMatchObject({ inscritos, piso: 65, rodadasDoBonus: 3, rebalanceamento: { movidos, tamanhoDaA: 7 } });
     expect(dados.rebalanceamento!.pares).toContainEqual(['CAP', 'SUC']);
 
     // Terça 18h30: o job programados grava e agenda o agradecimento para as 20h.
