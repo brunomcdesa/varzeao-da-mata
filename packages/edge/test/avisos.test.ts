@@ -92,7 +92,7 @@ describe('pertoDeUmJogo', () => {
 describe('ativação dos Avisos', () => {
   const assinatura = { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys: { p256dh: 'BPx', auth: 'Ax' } };
   it('aceita um endereço https e Times que existem', () => {
-    expect(lerAtivacao({ assinatura, times: ['ONC', 'ONC', 'MOR'] })?.times).toEqual(['ONC', 'MOR']);
+    expect(lerAtivacao({ assinatura, times: ['ONC', 'ONC', 'BES'] })?.times).toEqual(['ONC', 'BES']);
   });
   it('recusa sem Time, com Time inventado ou endereço estranho', () => {
     expect(lerAtivacao({ assinatura, times: [] })).toBeNull();

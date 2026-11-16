@@ -27,13 +27,13 @@ export const SQL_RODADA_DA_FINAL = (r = 'r') =>
  */
 export const PRIMO_NA_B: Readonly<Partial<Record<TimeId, TimeId>>> = {
   CAP: 'QUA', LOB: 'QUA',
-  ONC: 'GAM', CDM: 'GAM',
+  ONC: 'GAM', LEA: 'GAM',
   TAT: 'JAB', SUC: 'JAB',
   TAM: 'TEI', JAC: 'TEI',
   PRE: 'ARI', BOT: 'ARI',
-  SAG: 'ANT', PIR: 'ANT',
+  SAG: 'ANT', TAR: 'ANT',
   TUC: 'SER', COR: 'SER',
-  ARA: 'BUG', MOR: 'BUG',
+  ARA: 'BUG', BES: 'BUG',
 };
 
 /** Os Times de cada Série numa Temporada. Temporada sem Séries: só a A, com os fundadores. */

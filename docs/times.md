@@ -1,6 +1,6 @@
 # Times do Varzeão da Mata
 
-Vinte e quatro clubes fictícios, todos com bichos brasileiros como tema e em doze pares de rivais: os oito fundadores (Temporada 1), os oito que chegaram na T2 direto na Série A e os oito que estrearam a Série B na T2 (ADR-0017 e ADR-0058). A personalidade de cada um é só visual e narrativa e não afeta a simulação. Nenhum dos bichos é mascote conhecido de clube brasileiro real.
+Vinte e quatro clubes fictícios, todos com bichos brasileiros como tema e em doze pares de rivais: os oito fundadores (Temporada 1), os oito que chegaram na T2 direto na Série A e os oito que estrearam a Série B na T2 (ADR-0017 e ADR-0058). A personalidade de cada um é só visual e narrativa e não afeta a simulação. Os bichos evitam mascotes de clubes brasileiros reais, com duas exceções conhecidas: o Leão, sugestão de um seguidor mantida por decisão do dono (ADR-0065), e o Jacaré, que também é mascote do Brasiliense.
 
 | Sigla | Nome | Cores | Personalidade | Bordão |
 |---|---|---|---|---|
@@ -15,11 +15,11 @@ Vinte e quatro clubes fictícios, todos com bichos brasileiros como tema e em do
 | JAC | Jacaré Atlético Clube | verde + creme | Paciente, espera o erro do rival | "Paciência e bote certo." |
 | SUC | Sucuri Esporte Clube | verde-oliva + amarelo | Marcação apertada, sufoca | "Abraço que não solta." |
 | LOB | Lobo-Guará Futebol Clube | laranja + marrom-escuro | Elegante e desconfiado | "Perna comprida, cabeça erguida." |
-| CÃO | Cachorro-do-Mato Sport Club | cinza + mostarda | Bando unido, joga em matilha | "Late pouco, morde muito." |
+| LEA | Leão Futebol Clube | dourado + marrom | Imponente, joga mandando no jogo | "Quem manda na mata é a gente." |
 | BOT | Boto Futebol Clube | rosa + azul-marinho | Encantador, some no jogo e aparece no gol | "Encanta e some." |
-| PIR | Associação Pirarucu | vermelho + verde-escuro | Pesado, joga na força | "Peso pesado do rio." |
+| TAR | Tartarugas Futebol Clube | verde-água + amarelo-casco | Paciente, fecha a casinha e chega certo | "Casco firme, chegada certa." |
 | COR | Coruja Esporte Clube | marrom + amarelo | Observadora, joga de olho no rival | "A gente vê tudo." |
-| MOR | Morcego Futebol Clube | azul-noite + azul-gelo | Noturno, cresce nos jogos das 18h | "A noite é nossa." |
+| BES | Besouros Esporte Clube | roxo-escuro + verde-metálico | Pequeno e blindado, difícil de parar | "Pequeno, blindado e chato de parar." |
 | QUA | Quati Futebol Clube | vinho + creme | Fuçador, revira a defesa | "Fuça tudo até achar o gol." |
 | GAM | Gambá Esporte Clube | grafite + branco | Ninguém quer marcar de perto | "Ninguém chega perto." |
 | JAB | Jabuti Atlético Clube | mostarda + marrom | Lento e constante, nunca desiste | "Devagar e sempre." |
@@ -38,9 +38,9 @@ Vinte e quatro clubes fictícios, todos com bichos brasileiros como tema e em do
 | Clássico do Galho | Preguiça × Sagui | devagar contra elétrico |
 | Clássico das Penas | Tucano × Arara Azul | os mais vaidosos da floresta |
 | Clássico do Brejo | Jacaré × Sucuri | os dois que esperam na água |
-| Clássico da Matilha | Lobo-guará × Cachorro-do-mato | primos do Cerrado |
-| Clássico do Rio | Boto × Pirarucu | os gigantes do rio |
-| Clássico da Madrugada | Coruja × Morcego | os dois da noite |
+| Clássico da Juba | Lobo-guará × Leão | os dois de juba |
+| Clássico do Rio | Boto × Tartaruga | os do rio |
+| Clássico da Madrugada | Coruja × Besouro | os dois da noite |
 | Clássico do Quintal | Quati × Gambá | os que reviram tudo atrás de comida |
 | Clássico do Sol | Jabuti × Teiú | os de sangue frio que vivem tomando sol |
 | Clássico da Lagoa | Ariranha × Anta | os dois que vivem na beira d'água |
@@ -61,11 +61,11 @@ Os Clássicos caem por sorteio no calendário, ganham abertura especial no Reels
 - JAC: jacaré, jaca, jac
 - SUC: sucuri, anaconda, suc
 - LOB: lobo, lobo-guará, guará, lob
-- CÃO (id CDM): cachorro, cachorro-do-mato, cão (sem "CDM", que no futebol é volante)
+- LEA: leão, leões, lion, lion club
 - BOT: boto, boto rosa, bot
-- PIR: pirarucu, pir
+- TAR: tartaruga, tartarugas, turtugas, turtugas fc
 - COR: coruja, cor
-- MOR: morcego, mor
+- BES: besouro, besouros, besouros club
 - QUA: quati, qua
 - GAM: gambá, gamba, saruê, gam
 - JAB: jabuti, jab

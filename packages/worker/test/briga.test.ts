@@ -87,7 +87,7 @@ describe('Briga pelo Mata-mata (ADR-0053)', () => {
     expect(brigaDaPartida(daB[1]!, daB, timesDaB, 'B')).not.toBeNull();
     expect(brigaDaPartida(daB[0]!, daB, timesDaB, 'B')).toBeNull();
     const daA = [p(4, 14, 'CAP', 'ONC', 15, [0, 0]), p(5, 15, 'TAT', 'TAM', 15, null)];
-    const timesDaA: TimeId[] = ['CAP', 'ONC', 'TAT', 'TAM', 'PRE', 'SAG', 'TUC', 'ARA', 'JAC', 'SUC', 'LOB', 'CDM', 'BOT', 'PIR', 'COR', 'MOR'];
+    const timesDaA: TimeId[] = ['CAP', 'ONC', 'TAT', 'TAM', 'PRE', 'SAG', 'TUC', 'ARA', 'JAC', 'SUC', 'LOB', 'LEA', 'BOT', 'TAR', 'COR', 'BES'];
     expect(brigaDaPartida(daA[0]!, daA, timesDaA, 'A')).toBeNull();
     expect(brigaDaPartida(daA[1]!, daA, timesDaA, 'A')).not.toBeNull();
   });

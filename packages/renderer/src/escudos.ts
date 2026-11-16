@@ -194,22 +194,22 @@ const BICHOS: Record<TimeId, string[]> = {
     '.....KkkK.....',
     '......KK......',
   ],
-  // Cachorro-do-mato de frente: orelhas curtas e redondas, cara acinzentada.
-  CDM: [
-    '..............',
-    '.KK........KK.',
-    'KeeK......KeeK',
-    'KeeeKKKKKKeeeK',
-    '.KeeeeeeeeeeK.',
-    'KeeKKeeeeKKeeK',
-    'KeeeeeeeeeeeeK',
-    '.KeeeeWWeeeeK.',
-    '.KeeeWWWWeeeK.',
-    '..KeeWKKWeeK..',
-    '..KeeWKKWeeK..',
-    '...KeWWWWeK...',
-    '....KKKKKK....',
-    '..............',
+  // Leão de frente: juba em volta da cara, focinho e boca (ADR-0065).
+  LEA: [
+    '...KKKKKKKK...',
+    '..KLLLLLLLLK..',
+    '.KLLLKKKKLLLK.',
+    'KLLLKQQQQKLLLK',
+    'KLLKQQQQQQKLLK',
+    'KLLKQKQQKQKLLK',
+    'KLLKQQQQQQKLLK',
+    'KLLKQQKKQQKLLK',
+    'KLLKQQWWQQKLLK',
+    '.KLLKQKKQKLLK.',
+    '.KLLLKQQKLLLK.',
+    '..KLLLKKLLLK..',
+    '...KKLLLLKK...',
+    '.....KKKK.....',
   ],
   // Boto-cor-de-rosa de lado: testa redonda e bico comprido para a esquerda.
   BOT: [
@@ -228,22 +228,22 @@ const BICHOS: Record<TimeId, string[]> = {
     '.........KK...',
     '..............',
   ],
-  // Pirarucu de lado: corpo escuro e o rabo vermelho.
-  PIR: [
-    '..............',
-    '..............',
-    '..............',
-    '...KKKKKKK....',
-    '.KKuuuuuuuKK.K',
-    'KuuKuuuuuiiuKK',
-    'KuuuuuuuiiiiiK',
-    'KKuuuuuiiiiiiK',
-    '.KuuuuuuiiiiKK',
-    '..KKiiiiiiKK.K',
-    '....KKKKKK....',
-    '..............',
-    '..............',
-    '..............',
+  // Tartaruga vista de cima: casco com placas, cabeça e quatro patas (ADR-0065).
+  TAR: [
+    '.....KKKK.....',
+    '.....KhhK.....',
+    '..KK.KhhK.KK..',
+    '..KhKKKKKKhK..',
+    '...KKTVVTKK...',
+    '...KTVTTVTK...',
+    '..KTVTTTTVTK..',
+    '..KTTVTTVTTK..',
+    '..KTVTTTTVTK..',
+    '...KTVTTVTK...',
+    '...KKTVVTKK...',
+    '..KhKKKKKKhK..',
+    '..KK..KK..KK..',
+    '......KK......',
   ],
   // Coruja de frente: tufos nas orelhas, olhões amarelos e bico pequeno.
   COR: [
@@ -262,21 +262,21 @@ const BICHOS: Record<TimeId, string[]> = {
     '...KKKKKKKK...',
     '..............',
   ],
-  // Morcego de frente: asas abertas, orelhas pontudas e olhos claros.
-  MOR: [
-    '..............',
-    '.....K..K.....',
-    '....KtKKtK....',
-    'K...KttttK...K',
-    'KK.KtWttWtK.KK',
-    'KtKKtKttKtKKtK',
-    'KttKttttttKttK',
-    'KtttKtWWtKtttK',
-    'KttttKttKttttK',
-    'KtKtttKKtttKtK',
-    'K.KtKttttKtK.K',
-    '...K.KttK.K...',
-    '......KK......',
+  // Besouro visto de cima: antenas, carapaça brilhante dividida ao meio e patas (ADR-0065).
+  BES: [
+    '..K........K..',
+    '...K......K...',
+    '....KKKKKK....',
+    '...KwwwwwwK...',
+    '..KKKKKKKKKK..',
+    'K.KwzwKKwzwK.K',
+    '.KKwzwKKwzwKK.',
+    '..KwwwKKwwwK..',
+    'K.KwwwKKwwwK.K',
+    '.KKwwwKKwwwKK.',
+    '..KwwwKKwwwK..',
+    '...KwwKKwwK...',
+    '..K.KKKKKK.K..',
     '..............',
   ],
   // Quati de frente: máscara clara nos olhos, focinho comprido para baixo.
@@ -437,14 +437,16 @@ const PALETAS: Record<string, string> = {
   h: '#CFC47A',
   n: '#6B7A2E', // sucuri
   q: '#2E3A16',
-  i: '#C8343A', // língua da sucuri, rabo do pirarucu
+  i: '#C8343A', // língua da sucuri
   l: '#D9762B', // lobo-guará
-  e: '#7E7468', // cachorro-do-mato
   r: '#E8A0B4', // boto
-  u: '#4E5B4A', // pirarucu
   x: '#9B7653', // coruja
   f: '#F2C14E',
-  t: '#4A3F66', // morcego
+  L: '#B5651D', // leão (juba)
+  Q: '#F2C14E', // leão (cara)
+  T: '#2E5E3A', // tartaruga (casco)
+  V: '#9CC15A', // tartaruga (placas)
+  w: '#3A2A5A', // besouro
   // Times da Série B (ADR-0058): letras maiúsculas.
   A: '#A0612E',
   B: '#3B2618',
@@ -479,11 +481,11 @@ const MEDALHAO: Record<TimeId, string | null> = {
   JAC: '#EADFC4',
   SUC: '#EADFC4',
   LOB: '#EADFC4',
-  CDM: '#EADFC4',
+  LEA: '#3B2A20',
   BOT: '#1C2E5A',
-  PIR: '#EADFC4',
+  TAR: '#EADFC4',
   COR: '#EADFC4',
-  MOR: '#8FD3FF',
+  BES: '#EADFC4',
   QUA: '#EADFC4',
   GAM: '#8FB0A8',
   JAB: '#EADFC4',

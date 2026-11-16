@@ -10,7 +10,7 @@ describe('Reels de Abertura da Temporada', () => {
 
   it('T2 em dois Grupos de 8: fala os Grupos, as Semifinais cruzadas, os 4 que caem de cada Grupo e um jogo por hora (ADR-0064)', () => {
     const falas = narracaoDaAbertura(roteiro()).map((f) => f.texto).join(' ');
-    for (const nome of ['Jacaré', 'Sucuri', 'Lobo-guará', 'Cachorro-do-mato', 'Boto', 'Pirarucu', 'Coruja', 'Morcego', 'Capivara', 'Preguiça']) expect(falas).toContain(nome);
+    for (const nome of ['Jacaré', 'Sucuri', 'Lobo-guará', 'Leão', 'Boto', 'Tartaruga', 'Coruja', 'Besouro', 'Capivara', 'Preguiça']) expect(falas).toContain(nome);
     for (const nome of ['Quati', 'Gambá', 'Jabuti', 'Teiú', 'Ariranha', 'Anta', 'Seriema', 'Bugio']) expect(falas).not.toContain(nome);
     expect(falas).toContain('A Série A cresce para dezesseis times, em dois grupos. No Grupo do Chão: Capivara');
     expect(falas).toContain('No Grupo da Copa: Preguiça');
