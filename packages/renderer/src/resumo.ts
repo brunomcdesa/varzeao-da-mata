@@ -380,10 +380,11 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
           desenharEscudo(pin, p.visitante, 204, y + 7, 1.1);
           pin.texto(IDENTIDADE[p.mandante].sigla, 92, y + 21, 15, display, COR.placa);
           pin.texto(IDENTIDADE[p.visitante].sigla, 178, y + 21, 15, display, COR.placa);
-          plaquinha(pin, 115, y + 8, 18, 24, String(p.golsMandante), display);
-          plaquinha(pin, 151, y + 8, 18, 24, String(p.golsVisitante), display);
-          pin.texto('x', COLUNAS / 2 + 7, y + 20, 10, display, COR.placa);
-          if (p.penaltis) pin.texto(`pên. ${p.penaltis.mandante} x ${p.penaltis.visitante}`, COLUNAS / 2 + 7, y + 36, 6, texto, COR.amarelo, { peso: 600 });
+          // Placas do placar simétricas em torno do centro, com o "x" no meio delas.
+          plaquinha(pin, COLUNAS / 2 - 18, y + 8, 18, 24, String(p.golsMandante), display);
+          plaquinha(pin, COLUNAS / 2 + 18, y + 8, 18, 24, String(p.golsVisitante), display);
+          pin.texto('x', COLUNAS / 2, y + 20, 10, display, COR.placa);
+          if (p.penaltis) pin.texto(`pên. ${p.penaltis.mandante} x ${p.penaltis.visitante}`, COLUNAS / 2, y + 36, 6, texto, COR.amarelo, { peso: 600 });
           pin.ctx.restore();
           return;
         }
