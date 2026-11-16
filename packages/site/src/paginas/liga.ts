@@ -1,5 +1,5 @@
 /** Jogos (calendário), Tabela, Times e a página de cada Time. */
-import { FALA_DO_TIME, IDENTIDADE, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, forcaProvavel, nomeDaRodada, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, foraDoMataMata, forcaProvavel, inscritosAteNoProximoJogo, nomeDaRodada, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
 import { diaLongo, jogadores, liga, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos , formaDosTimes } from '../dados.js';
 import { bonecoImg, campinho, curto, escudoImg, forcaHtml, formaHtml, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa } from '../ui.js';
 import { chaveamento } from './chave.js';
@@ -100,7 +100,7 @@ export const paginaTimes: Pagina = async (main) => {
         <span class="nome">${id.nome}</span>
         <span class="bordao">“${FALA_DO_TIME[t].bordao}”</span>
         ${titulosDo(l, t).length ? html`<span class="tacas">${titulosDo(l, t).map(() => taca(16, 'trofeu'))}</span>` : ''}
-        ${forcaHtml(forcaProvavel(elenco))}
+        ${forcaHtml(forcaProvavel(elenco, inscritosAteNoProximoJogo(l.calendario, t)))}
         <span class="numeros"><span>${pos ? `${pos}º` : 'estreante'}</span><span>${elenco.length} ${elenco.length === 1 ? 'jogador' : 'jogadores'}</span></span>
       </a></li>`;
     })}</ul>`;
@@ -110,10 +110,10 @@ export const paginaTimes: Pagina = async (main) => {
       : grade(ativos)}`.s;
 };
 
-function linhaDoElenco(j: JogadorPublico): ReturnType<typeof html> {
+function linhaDoElenco(j: JogadorPublico, inscritosAte: string | null = null, proxima = 'próxima Temporada'): ReturnType<typeof html> {
   return html`<li><a href="#/jogador/${j.id}" class="elenco-linha">
     ${bonecoImg(j.time, j.posicao, j.username, 2)}
-    <span class="quem">${comFaixa(comCamisa(j.apelido || `@${j.username}`, j.numero), j.capitao)}</span>
+    <span class="quem">${comFaixa(comCamisa(j.apelido || `@${j.username}`, j.numero), j.capitao)}${foraDoMataMata(j, inscritosAte) ? html` <span class="selo-estreia" title="Chegou depois da Fase de Liga: não joga o Mata-mata">estreia na ${proxima}</span>` : ''}</span>
     <span class="dado" title="Jogos">${j.jogos} j</span>
     <span class="dado" title="Gols">${j.gols} g</span>
     <span class="dado" title="Nota média">${nota(j.notaMedia)}</span>
@@ -136,6 +136,9 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
   const pos = tabela.findIndex((x) => x.time === t) + 1;
   const estreante = !timesAtivos(l).includes(t);
   const jogos = l.calendario.filter((p) => p.mandante === t || p.visitante === t);
+  // Mata-mata (ADR-0057): quem se inscreveu depois do último jogo do Time na Fase de Liga estreia na próxima Temporada.
+  const inscritosAte = inscritosAteNoProximoJogo(l.calendario, t);
+  const novatos = elenco.filter((j) => foraDoMataMata(j, inscritosAte));
   main.innerHTML = html`<article class="pagina-time" style="--cor:${id.primaria};--cor2:${id.secundaria};--sobre:${tintaSobre(id.primaria)}">
     <header class="faixa-time">
       ${escudoImg(t, 5)}
@@ -147,8 +150,8 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
           : ''}
         ${linha ? html`<p class="campanha">${temSeries(l) ? `Série ${serie} · ` : ''}${pos}º lugar · ${linha.pontos} pontos · ${linha.vitorias}V ${linha.empates}E ${linha.derrotas}D · saldo ${linha.saldo > 0 ? '+' : ''}${linha.saldo}</p>` : ''}
         ${(formaDosTimes(l).get(t) ?? []).length ? html`<p class="forma-time">Últimos jogos ${formaHtml(formaDosTimes(l).get(t)!)}</p>` : ''}
-        ${forcaHtml(forcaProvavel(elenco))}
-        <p class="legenda-forca">Força da escalação provável do próximo jogo (rodízio: entra quem jogou menos).</p>
+        ${forcaHtml(forcaProvavel(elenco, inscritosAte))}
+        <p class="legenda-forca">Força da escalação provável do próximo jogo (rodízio: entra quem jogou menos${inscritosAte ? '; no Mata-mata, só quem já estava no Elenco na Fase de Liga' : ''}).</p>
         ${estreante ? html`<p class="campanha">Estreia na próxima Temporada, na Série B. Quem comentar ENTRO ${curto(t).toUpperCase()} já entra quando ela começar.</p>` : ''}
       </div>
     </header>
@@ -157,9 +160,9 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
       <section aria-labelledby="titulo-elenco">
         ${estreante
           ? ''
-          : html`<h2 class="secao">Escalação provável <small>próximo jogo</small></h2>
+          : html`<h2 class="secao">Escalação provável <small>${inscritosAte ? 'próximo jogo · Mata-mata' : 'próximo jogo'}</small></h2>
             ${campinho(
-              escalacaoProvavel(elenco).map((x) => ({
+              escalacaoProvavel(elenco, inscritosAte).map((x) => ({
                 posicao: x.posicao,
                 time: t,
                 username: x.jogador?.username ?? null,
@@ -167,13 +170,16 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
                 ovr: x.jogador?.ovr ?? OVR_JOGADOR_DA_BASE,
                 ...(x.jogador ? { href: `#/jogador/${x.jogador.id}` } : {}),
               })),
-            )}`}
+            )}
+            ${novatos.length
+              ? html`<p class="legenda aviso-mata-mata">${novatos.length === 1 ? 'Quem chegou' : `Os ${novatos.length} que chegaram`} depois do último jogo da Fase de Liga não ${novatos.length === 1 ? 'joga' : 'jogam'} o Mata-mata: ${novatos.length === 1 ? 'estreia' : 'estreiam'} na próxima Temporada.</p>`
+              : ''}`}
         <h2 id="titulo-elenco" class="secao">Elenco <small>${elenco.length} inscritos · ordenado por OVR</small></h2>
         ${elenco.length
           ? POSICOES_EM_ORDEM.map((pos) => {
               const da = elenco.filter((j) => j.posicao === pos);
               return html`<div class="grupo-posicao"><h3>${NOME_DA_POSICAO[pos]}s <small>${da.length}</small></h3>
-                ${da.length ? html`<ul class="elenco">${da.map(linhaDoElenco)}</ul>` : html`<p class="vazio-pequeno">Ninguém ainda: a Base completa a vaga.</p>`}</div>`;
+                ${da.length ? html`<ul class="elenco">${da.map((j) => linhaDoElenco(j, inscritosAte, l.temporada ? `T${l.temporada.numero + 1}` : undefined))}</ul>` : html`<p class="vazio-pequeno">Ninguém ainda: a Base completa a vaga.</p>`}</div>`;
             })
           : html`<p class="placa vazio">Ninguém inscrito ainda. Comente <span class="comando pequeno">ENTRO ${curto(t).toUpperCase()} ATACANTE</span> para ser o primeiro.</p>`}
       </section>

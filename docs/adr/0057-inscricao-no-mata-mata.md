@@ -19,3 +19,13 @@ foi escalado nesse jogo ou ficou fora pelo rodízio: estava no Elenco, joga o Ma
 
 A regra mexe na Escalação, não na simulação. Escalações já feitas continuam como estão; vale
 a partir da próxima Partida escalada.
+
+## No site
+
+A Escalação provável e a Força do Time seguem a mesma regra: quando o próximo jogo do Time é do
+Mata-mata (ou ele venceu a Semifinal e a Final ainda não foi criada), quem se inscreveu depois
+do Corte do último jogo dele na Fase de Liga sai da conta (`inscritosAteNoProximoJogo`, no
+shared). No Elenco, essas pessoas ganham o selo "estreia na T2" e uma linha embaixo do campinho
+explica por quê. O "Quer jogar?" também avisa que, durante o Mata-mata, quem entra estreia na
+próxima Temporada. O Corte (`CORTE_MINUTOS`) passou a morar no shared, para o site e a
+Escalação usarem o mesmo número.

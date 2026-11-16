@@ -3851,3 +3851,20 @@ a.jogo:hover {
 .mata-mata-placa[hidden] {
   display: none;
 }
+
+/* Mata-mata (ADR-0057): quem chegou depois da Fase de Liga estreia na próxima Temporada. */
+.selo-estreia {
+  width: max-content;
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  vertical-align: 1px;
+  color: var(--amarelo);
+  border: 1px dashed currentColor;
+  border-radius: 3px;
+}
+.aviso-mata-mata {
+  margin-top: 6px;
+}

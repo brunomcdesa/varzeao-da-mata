@@ -64,6 +64,8 @@ export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compact
       } Desempate na tabela: vitórias, saldo e gols pró.</p>`}`;
 }
 
+import { noMataMata } from '../mataMata.js';
+
 const perfil = () => (INSTAGRAM ? html`<a href="https://www.instagram.com/${INSTAGRAM}/" rel="noopener">@${INSTAGRAM}</a>` : html`nosso Instagram`);
 
 export function comoEntrar(l: LigaPublica): Html {
@@ -73,7 +75,7 @@ export function comoEntrar(l: LigaPublica): Html {
     <h2 id="titulo-entrar">Quer jogar?</h2>
     <p>Comente num post do ${perfil()} o seu Time e a sua posição:</p>
     <p class="comando">ENTRO ONÇA ATACANTE</p>
-    <p>Você ganha um OVR entre ${faixa.min} e ${faixa.max} e entra na escalação do seu Time no próximo jogo. Joga bem, o OVR sobe.</p>
+    <p>Você ganha um OVR entre ${faixa.min} e ${faixa.max} e entra na escalação do seu Time ${noMataMata(l) ? 'na próxima Temporada: quem chega durante o Mata-mata entra no Elenco, mas não joga o Mata-mata' : 'no próximo jogo'}. Joga bem, o OVR sobe.</p>
     <details>
       <summary>Times e apelidos que valem</summary>
       <ul class="times-validos">${timesAtivos(l).map((t) => html`<li>${escudoImg(t, 1)} ${curto(t)}</li>`)}</ul>

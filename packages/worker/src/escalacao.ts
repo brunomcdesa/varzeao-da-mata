@@ -28,7 +28,9 @@ import { FORMACAO, OVR_BASE, habilidadesDe } from './regras.js';
 import { comSeloT1 } from './recompensaT1.js';
 import { capitaoEmCampo, confirmados, formacoesDaPartida, suspensos } from './temporada2.js';
 
-export const CORTE_MINUTOS = 30;
+/** O Corte mora no shared: o site usa o mesmo número na escalação provável. */
+export { CORTE_MINUTOS } from '@liga/shared';
+import { CORTE_MINUTOS } from '@liga/shared';
 
 /**
  * Limite de Partidas Fora (ADR-0043): quem ficou esse número de Partidas seguidas do próprio
