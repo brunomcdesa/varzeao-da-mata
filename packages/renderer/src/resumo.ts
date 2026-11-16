@@ -4,7 +4,7 @@
  * narrada pelo Locutor da Liga; cada cartela estica até a sua fala caber inteira.
  */
 import { desenharCompartilhe } from './anuncio.js';
-import { DESTAQUE_DA_POSICAO, FALA_DO_TIME, IDENTIDADE, TIMES_QUE_TROCAM_DE_SERIE, doTime, nomeDaRodada, type Posicao, type Serie, type TimeId, type Aparencia } from '@liga/shared';
+import { DESTAQUE_DA_POSICAO, FALA_DO_TIME, IDENTIDADE, TIMES_QUE_TROCAM_DE_SERIE, doTime, nomeDaRodada, type Posicao, type Serie, type TimeId, type Aparencia, type Estrelas } from '@liga/shared';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, plaquinha } from './desenho.js';
 import { apelidoFalavel, type Fala } from './narracao.js';
@@ -65,6 +65,8 @@ export interface DadosDoResumo {
   destaques?: { posicao: Posicao; serie?: Serie; username: string; time: TimeId; nota: number; numero: { valor: number; legenda: string } }[];
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
+  /** Estrelas de Título nos escudos (ADR-0059). */
+  estrelas?: Partial<Record<TimeId, Estrelas>>;
 }
 
 export type Cartela = 'ABERTURA' | 'PLACARES' | 'FINALISTAS' | 'CAMPEAO' | 'TABELA' | 'NOVOS' | 'CANDIDATOS' | 'CRAQUE' | 'DESTAQUES' | 'POSICOES' | 'CHAMADA' | 'COMPARTILHE';
@@ -560,7 +562,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       pin.ctx.globalAlpha = a;
       pin.texto('Campeão!', COLUNAS / 2, 96, 44, display, COR.amarelo, { contorno: COR.contorno, espessura: 1.5 });
       if (serie) pin.texto(`Série ${serie}`, COLUNAS / 2, 60, 16, display, COR.placa, { contorno: COR.contorno });
-      desenharEscudo(pin, t, COLUNAS / 2 - 50, 130 - (1 - a) * 20, 5);
+      desenharEscudo(pin, t, COLUNAS / 2 - 50, 130 - (1 - a) * 20, 5, { estrelas: false }); // o título fica logo acima
       pin.texto(curto(t), COLUNAS / 2, 280, pin.caber(curto(t), 220, 40, display), display, COR.placa, { contorno: COR.contorno });
       pin.texto(`Temporada ${d.temporada}`, COLUNAS / 2, 312, 11, texto, COR.placa, { peso: 600 });
       pin.ctx.globalAlpha = entre(q.tempo, 1.2, 1.8);

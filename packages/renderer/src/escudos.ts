@@ -4,7 +4,7 @@
  *
  * Legenda dos bichos: . vazio · K contorno · W branco · e mais as cores de cada um (PALETAS).
  */
-import { IDENTIDADE, type TimeId } from '@liga/shared';
+import { IDENTIDADE, MAXIMO_DE_ESTRELAS, type Estrelas, type TimeId } from '@liga/shared';
 
 const BICHOS: Record<TimeId, string[]> = {
   // Capivara de frente: cabeçona quadrada, orelhinhas, focinho largo.
@@ -570,5 +570,61 @@ export function escudo(time: TimeId): HTMLCanvasElement | OffscreenCanvas {
     }
   });
   cache.set(time, c);
+  return c;
+}
+
+// ---- Estrelas de Título (ADR-0059): acima do escudo, douradas (Série A) antes das pratas (Série B).
+
+/** Estrela 7×7: K contorno, E miolo (ouro ou prata). Vizinhas se encostam pelo contorno. */
+const ESTRELA = ['...K...', '..KEK..', 'KKKEKKK', 'KEEEEEK', '.KEEEK.', '.KEKEK.', '.KK.KK.'];
+const LADO_DA_ESTRELA = 7;
+const PASSO_DA_ESTRELA = 6;
+/** Altura da faixa de estrelas acima do escudo, em pixels do escudo (estrela + 1 de folga). */
+export const ALTURA_DAS_ESTRELAS = 8;
+const MIOLO = { ouro: '#F2C230', prata: '#C8CDD6' } as const;
+
+const estrelasDe = new Map<TimeId, Estrelas>();
+const cacheDasEstrelas = new Map<string, HTMLCanvasElement | OffscreenCanvas>();
+
+/** Estrelas de cada Time (estrelasDosTimes). Time fora da lista fica sem estrela. */
+export function definirEstrelas(lista: Partial<Record<TimeId, Estrelas>>): void {
+  estrelasDe.clear();
+  for (const [t, e] of Object.entries(lista)) if (e && e.ouro + e.prata > 0) estrelasDe.set(t as TimeId, e);
+}
+
+/** A fila de estrelas do Time, da esquerda para a direita (no máximo MAXIMO_DE_ESTRELAS). */
+export function filaDeEstrelas(time: TimeId): ('ouro' | 'prata')[] {
+  const e = estrelasDe.get(time);
+  if (!e) return [];
+  return [...Array<'ouro'>(e.ouro).fill('ouro'), ...Array<'prata'>(e.prata).fill('prata')].slice(0, MAXIMO_DE_ESTRELAS);
+}
+
+/** Largura da fila em pixels do escudo (0 sem estrela). Pode passar da largura do escudo. */
+export function larguraDasEstrelas(n: number): number {
+  return n ? LADO_DA_ESTRELA + PASSO_DA_ESTRELA * (n - 1) : 0;
+}
+
+/** Fila de estrelas do Time como imagem (larguraDasEstrelas × 7), ou null se não tem Título. */
+export function estrelasDoEscudo(time: TimeId): HTMLCanvasElement | OffscreenCanvas | null {
+  const fila = filaDeEstrelas(time);
+  if (!fila.length) return null;
+  const chave = fila.join(',');
+  const pronta = cacheDasEstrelas.get(chave);
+  if (pronta) return pronta;
+  const w = larguraDasEstrelas(fila.length);
+  const c: HTMLCanvasElement | OffscreenCanvas =
+    typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, LADO_DA_ESTRELA) : Object.assign(document.createElement('canvas'), { width: w, height: LADO_DA_ESTRELA });
+  const g = c.getContext('2d') as CanvasRenderingContext2D;
+  fila.forEach((tipo, i) => {
+    ESTRELA.forEach((linha, y) => {
+      for (let x = 0; x < linha.length; x++) {
+        const ch = linha[x];
+        if (ch === '.') continue;
+        g.fillStyle = ch === 'K' ? PALETAS.K! : MIOLO[tipo];
+        g.fillRect(i * PASSO_DA_ESTRELA + x, y, 1, 1);
+      }
+    });
+  });
+  cacheDasEstrelas.set(chave, c);
   return c;
 }

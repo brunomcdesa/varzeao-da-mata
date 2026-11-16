@@ -23,7 +23,7 @@ import { processarComentario, type Comentario, type Resultado } from './coletar.
 import { CORTE_MINUTOS } from './escalacao.js';
 import { Instagram, ErroInstagram } from './instagram.js';
 import { CHAVE_TOKEN, gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
-import { avancarMataMata, estruturaDaTemporada } from './mataMata.js';
+import { avancarMataMata, estrelasNoBanco, estruturaDaTemporada } from './mataMata.js';
 import { rebalancear } from './rebalanceamento.js';
 import { destaquesDaTemporadaNoBanco } from './destaques.js';
 import { SQL_RODADA_DA_FINAL, seriesDaTemporada } from './series.js';
@@ -605,7 +605,7 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
     const pasta = await mkdtemp(join(tmpdir(), 'varzea-craque-'));
     try {
       const saida = join(pasta, 'craque.mp4');
-      await c.gravarResumo({ ...dados, aparencias: await aparenciasEscolhidas(c.banco) }, saida);
+      await c.gravarResumo({ ...dados, aparencias: await aparenciasEscolhidas(c.banco), estrelas: await estrelasNoBanco(c.banco) }, saida);
       const chave = `videos/${randomUUID()}.mp4`;
       await c.armazenamento.enviar('publico', chave, new Uint8Array(await readFile(saida)), { tipo: 'video/mp4', cache: 'public, max-age=31536000, immutable' });
       item = await agendar(c, {
@@ -758,7 +758,7 @@ export async function jobResumo(c: ContextoDoJob): Promise<number | null> {
   const pasta = await mkdtemp(join(tmpdir(), 'varzea-resumo-'));
   try {
     const saida = join(pasta, 'resumo.mp4');
-    await c.gravarResumo({ ...dados, aparencias: await aparenciasEscolhidas(c.banco) }, saida);
+    await c.gravarResumo({ ...dados, aparencias: await aparenciasEscolhidas(c.banco), estrelas: await estrelasNoBanco(c.banco) }, saida);
     const chave = `videos/${randomUUID()}.mp4`;
     await c.armazenamento.enviar('publico', chave, new Uint8Array(await readFile(saida)), { tipo: 'video/mp4', cache: 'public, max-age=31536000, immutable' });
     await c.banco.query(`UPDATE rodada SET resumo_status = 'RENDERIZADO' WHERE id = $1`, [r.id]);

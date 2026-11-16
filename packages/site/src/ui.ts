@@ -1,5 +1,5 @@
 /** Peças pequenas de interface: HTML seguro, escudos e bonecos em pixel art, rótulos. */
-import { ALTURA_ESCUDO, ALTURA_SPRITE, LARGURA_ESCUDO, LARGURA_SPRITE, escudo, sprite, visualDoJogador, type Pose } from '@liga/renderer';
+import { ALTURA_DAS_ESTRELAS, ALTURA_ESCUDO, ALTURA_SPRITE, LARGURA_ESCUDO, LARGURA_SPRITE, escudo, estrelasDoEscudo, filaDeEstrelas, sprite, visualDoJogador, type Pose } from '@liga/renderer';
 import { FALA_DO_TIME, IDENTIDADE, nomeDoClassico, type ForcaDoTime, type Posicao, type TimeId } from '@liga/shared';
 
 /** Trecho de HTML já escapado. */
@@ -40,10 +40,37 @@ function paraDataUrl(chave: string, desenhar: () => HTMLCanvasElement | Offscree
   return url;
 }
 
-/** Escudo em pixel art; `escala` multiplica os 20×24 pixels originais. */
-export function escudoImg(time: TimeId, escala = 2, classe = ''): Html {
-  const src = paraDataUrl(`escudo-${time}`, () => escudo(time), LARGURA_ESCUDO, ALTURA_ESCUDO);
-  return html`<img class="pixel escudo ${classe}" src="${src}" width="${LARGURA_ESCUDO * escala}" height="${ALTURA_ESCUDO * escala}" alt="${IDENTIDADE[time].nome}" />`;
+/** Abaixo desta escala o escudo é ícone de lista: a estrela viraria um borrão e invadiria a linha de cima. */
+export const ESCALA_MINIMA_DAS_ESTRELAS = 1.5;
+
+/**
+ * Escudo em pixel art; `escala` multiplica os 20×24 pixels originais. Com Título, as estrelas
+ * (ADR-0059) vão na mesma imagem, acima do escudo, com margem negativa: o escudo ocupa o mesmo
+ * lugar na página, com ou sem estrela. Com `reservar`, a imagem cresce para cima em vez de
+ * invadir o que está acima (escudo sozinho logo abaixo de um título).
+ */
+export function escudoImg(time: TimeId, escala = 2, classe = '', o: { reservar?: boolean } = {}): Html {
+  const fila = escala >= ESCALA_MINIMA_DAS_ESTRELAS ? filaDeEstrelas(time) : [];
+  const alt = IDENTIDADE[time].nome + (fila.length ? ` (${fila.length} ${fila.length === 1 ? 'Título' : 'Títulos'})` : '');
+  if (!fila.length) {
+    const src = paraDataUrl(`escudo-${time}`, () => escudo(time), LARGURA_ESCUDO, ALTURA_ESCUDO);
+    return html`<img class="pixel escudo ${classe}" src="${src}" width="${LARGURA_ESCUDO * escala}" height="${ALTURA_ESCUDO * escala}" alt="${alt}" />`;
+  }
+  const estrelas = estrelasDoEscudo(time)!;
+  const w = Math.max(LARGURA_ESCUDO, estrelas.width);
+  const h = ALTURA_ESCUDO + ALTURA_DAS_ESTRELAS;
+  const src = paraDataUrl(`escudo-${time}-${fila.join(',')}`, () => {
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const g = c.getContext('2d')!;
+    g.drawImage(estrelas, Math.round((w - estrelas.width) / 2), 0);
+    g.drawImage(escudo(time), Math.round((w - LARGURA_ESCUDO) / 2), ALTURA_DAS_ESTRELAS);
+    return c;
+  }, w, h);
+  const lado = (((w - LARGURA_ESCUDO) / 2) * escala).toFixed(2);
+  const estilo = `${o.reservar ? '' : `margin-top:-${ALTURA_DAS_ESTRELAS * escala}px;`}margin-left:-${lado}px;margin-right:-${lado}px`;
+  return html`<img class="pixel escudo com-estrelas ${classe}" src="${src}" width="${w * escala}" height="${h * escala}" style="${estilo}" alt="${alt}" />`;
 }
 
 /** Boneco do Jogador com o uniforme do Time (o mesmo do vídeo, pelo @). */

@@ -9,7 +9,7 @@ import { FALA_DO_TIME, IDENTIDADE, necessidadeNaBriga, situacoesNaBriga, textoDa
 import type { Lado } from '@liga/sim';
 import { CAMPO, cenario } from './cenario.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
-import { ALTURA_ESCUDO, LARGURA_ESCUDO, escudo } from './escudos.js';
+import { ALTURA_DAS_ESTRELAS, ALTURA_ESCUDO, LARGURA_ESCUDO, escudo, estrelasDoEscudo } from './escudos.js';
 import { ALTURA_SPRITE, LARGURA_SPRITE, MAO_DO_APITO, aparencia, escolherPose, sprite, type Pose, type Visual } from './sprites.js';
 import type { EstadoQuadro, JogadorNoQuadro, Ponto } from './timeline.js';
 import { visualDoJuiz, type JuizNoQuadro } from './juiz.js';
@@ -205,10 +205,31 @@ function desenharBola(pin: Pincel, chao: Ponto, altura: number): void {
   });
 }
 
-/** Escudo do Time em pixel art, com `escala` pixels lógicos por pixel do escudo. */
-export function desenharEscudo(pin: Pincel, time: TimeId, x: number, y: number, escala = 1): void {
+/**
+ * Escudo do Time em pixel art, com `escala` pixels lógicos por pixel do escudo. As estrelas de
+ * Título vão por cima, fora da caixa do escudo; `estrelas: false` as tira (cartela que já tem
+ * título logo acima do escudo, como a do Campeão).
+ */
+export function desenharEscudo(pin: Pincel, time: TimeId, x: number, y: number, escala = 1, o: { estrelas?: boolean } = {}): void {
   pin.ctx.imageSmoothingEnabled = false;
   pin.ctx.drawImage(escudo(time), Math.round(x * pin.px), Math.round(y * pin.px), LARGURA_ESCUDO * escala * pin.px, ALTURA_ESCUDO * escala * pin.px);
+  if (o.estrelas !== false) desenharEstrelas(pin, time, x + (LARGURA_ESCUDO * escala) / 2, y, escala);
+}
+
+/**
+ * Abaixo desta altura na tela (pixels do vídeo) o escudo é ícone de lista, como na Tabela:
+ * a estrela viraria um ponto e invadiria a linha de cima. Equivale ao mínimo do site.
+ */
+export const ALTURA_MINIMA_COM_ESTRELAS = 72;
+
+/** Estrelas de Título do Time centradas em `cx`, logo acima do topo do escudo (ADR-0059). */
+export function desenharEstrelas(pin: Pincel, time: TimeId, cx: number, topoDoEscudo: number, escala = 1): void {
+  if (ALTURA_ESCUDO * escala * pin.px < ALTURA_MINIMA_COM_ESTRELAS) return;
+  const img = estrelasDoEscudo(time);
+  if (!img) return;
+  const w = img.width * escala;
+  pin.ctx.imageSmoothingEnabled = false;
+  pin.ctx.drawImage(img, Math.round((cx - w / 2) * pin.px), Math.round((topoDoEscudo - ALTURA_DAS_ESTRELAS * escala) * pin.px), w * pin.px, img.height * escala * pin.px);
 }
 
 /** Plaquinha de número pendurada num prego, como nos placares de várzea. */

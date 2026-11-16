@@ -11,7 +11,7 @@
  */
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AgendaNaMemoria, dadosDoAgradecimentoT1, Instagram, PastaLocal, conectar, jobBoasVindas, jobColetar, jobEscalar, postsDeInscricao, jobPartida, jobProgramados, jobResumo, nuvemDoAmbiente, prepararBanco, tokenGuardado, type ContextoDoJob } from '../src/index.js';
+import { AgendaNaMemoria, dadosDoAgradecimentoT1, estrelasNoBanco, Instagram, PastaLocal, conectar, jobBoasVindas, jobColetar, jobEscalar, postsDeInscricao, jobPartida, jobProgramados, jobResumo, nuvemDoAmbiente, prepararBanco, tokenGuardado, type ContextoDoJob } from '../src/index.js';
 import { bancoLocal } from './banco-local.js';
 
 const raizRepo = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -84,7 +84,7 @@ try {
     await jobProgramados({
       ...ctx,
       gravar: async (id, o, saida) => {
-        if (id === 'abertura-t2') await gravacao!.gravarAberturaDaTemporada({ ...DADOS_DA_ABERTURA_T2, estreia: o.estreia }, { saida, crf: 18 });
+        if (id === 'abertura-t2') await gravacao!.gravarAberturaDaTemporada({ ...DADOS_DA_ABERTURA_T2, estreia: o.estreia, estrelas: await estrelasNoBanco(banco) }, { saida, crf: 18 });
         else if (id === 'agradecimento-t1') await gravacao!.gravarAgradecimentoT1(await dadosDoAgradecimentoT1(banco), { saida, crf: 18 });
         else throw new Error(`Programado sem gravação: ${id}`);
       },

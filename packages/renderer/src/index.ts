@@ -7,7 +7,7 @@ export { DADOS_PADRAO as DADOS_DA_APRESENTACAO, RoteiroApresentacao, desenharQua
 export { DADOS_DA_ABERTURA_T2, RoteiroAberturaDaTemporada, desenharQuadroAbertura, narracaoDaAbertura, type DadosDaAberturaDaTemporada } from './aberturaTemporada.js';
 export { RoteiroAgradecimentoT1, desenharQuadroAgradecimentoT1, narracaoDoAgradecimentoT1, type DadosDoAgradecimentoT1 } from './agradecimentoT1.js';
 export { visualDoJogador, FONTE_DISPLAY, FONTE_TEXTO } from './desenho.js';
-export { escudo, LARGURA_ESCUDO, ALTURA_ESCUDO } from './escudos.js';
+export { escudo, estrelasDoEscudo, definirEstrelas, filaDeEstrelas, larguraDasEstrelas, LARGURA_ESCUDO, ALTURA_ESCUDO, ALTURA_DAS_ESTRELAS } from './escudos.js';
 export { sprite, definirAparencias, aparencia, LARGURA_SPRITE, ALTURA_SPRITE, type Pose, type Visual } from './sprites.js';
 export { COR } from './pixel.js';
 export * from './penaltis.js';

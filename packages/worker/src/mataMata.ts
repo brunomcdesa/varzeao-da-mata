@@ -7,7 +7,7 @@
  * `avancarMataMata` é idempotente: o job `resumo` chama todo dia e ela só faz o próximo passo
  * quando ele está pronto.
  */
-import { estruturaDaLiga, type EstruturaDaTemporada, type Serie, type TimeId } from '@liga/shared';
+import { estrelasDosTimes, estruturaDaLiga, type Estrelas, type EstruturaDaTemporada, type Serie, type TimeId } from '@liga/shared';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { apitoInicial } from './calendario.js';
@@ -46,6 +46,12 @@ function diaSeguinte(dia: string): string {
 export async function estruturaDaTemporada(banco: Banco, temporadaId: number): Promise<EstruturaDaTemporada> {
   const n = (await banco.query<{ n: number | null }>(`SELECT max(numero)::int AS n FROM rodada WHERE temporada_id = $1 AND fase = 'LIGA'`, [temporadaId])).rows[0]?.n;
   return estruturaDaLiga(n ?? 0);
+}
+
+/** Estrelas de Título nos escudos (ADR-0059): Títulos das Temporadas anteriores à última criada. */
+export async function estrelasNoBanco(banco: Banco): Promise<Partial<Record<TimeId, Estrelas>>> {
+  const linhas = (await banco.query<{ numero: number; campeao_id: TimeId | null; campeao_b_id: TimeId | null }>(`SELECT numero, campeao_id, campeao_b_id FROM temporada`)).rows;
+  return estrelasDosTimes(linhas.map((l) => ({ numero: l.numero, campeao: l.campeao_id, campeaoB: l.campeao_b_id })));
 }
 
 /** Campeão de uma Série na Temporada (null enquanto a Final não foi simulada). */

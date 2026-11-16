@@ -4,10 +4,11 @@
  * uma Partida simulada nunca é simulada de novo (o resultado é o que está no banco).
  */
 import { aparenciasEscolhidas } from './perfil.js';
-import type { Aparencia } from '@liga/shared';
+import type { Aparencia, Estrelas } from '@liga/shared';
 import { randomInt } from 'node:crypto';
 import { mataMataDaPartida, nomeDaEtapa, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
 import { brigaDe } from './briga.js';
+import { estrelasNoBanco } from './mataMata.js';
 import { simularPartida, type Lado, type ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA } from './calendario.js';
@@ -25,6 +26,8 @@ export interface DadosDoVideo {
   subtitulo?: string;
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
+  /** Estrelas de Título nos escudos (ADR-0059). */
+  estrelas?: Partial<Record<TimeId, Estrelas>>;
   /** Temporada 2: tamanho de cada Elenco, para a Arquibancada (ADR-0019). Nunca na T1. */
   torcida?: Record<Lado, number>;
   /** Mata-mata (ADR-0048): o Narrador e o fim do Reels falam da Semifinal ou da Final. */
@@ -176,6 +179,7 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
     apelidos: escalada.apelidos,
     subtitulo: subtituloDaPartida(p.rodada, p.fase, new Date(p.apito_inicial), briga !== null),
     aparencias: await aparenciasEscolhidas(banco),
+    estrelas: await estrelasNoBanco(banco),
   };
   const mataMata = await mataMataDe(banco, p);
   if (mataMata) dados.mataMata = mataMata;

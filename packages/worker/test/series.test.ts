@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { TIMES_DA_SERIE_B, TIMES_FUNDADORES, TIMES_NOVOS, type LigaPublica, type TimeId } from '@liga/shared';
 import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
-import { avancarMataMata, campeao } from '../src/mataMata.js';
+import { avancarMataMata, campeao, estrelasNoBanco } from '../src/mataMata.js';
 import { rodarPartida } from '../src/partida.js';
 import { processarComentario } from '../src/coletar.js';
 import { craqueDaRodada, fecharRodada } from '../src/resumo.js';
@@ -246,4 +246,19 @@ describe('Inscrição e voto com duas Séries', () => {
     expect((await craqueDaRodada(banco, rodada, 'A'))!.id).toBe(await doNumero(3));
     expect((await craqueDaRodada(banco, rodada, 'B'))!.id).toBe(await doNumero(7));
   }, 60_000);
+
+  it('o campeão da Temporada 1 ganha a estrela no escudo só quando a Temporada 2 é criada (ADR-0059)', async () => {
+    const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
+    await jogarTemporada(t1);
+    const vencedor = (await campeao(banco, t1, 'A'))!;
+    expect(vencedor).toBeTruthy();
+    expect(await estrelasNoBanco(banco)).toEqual({});
+    const antes = (await exportarSite(banco, new Date('2026-11-17T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
+    expect(antes.estrelas).toEqual({});
+
+    await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-19', seed: 8 });
+    expect(await estrelasNoBanco(banco)).toEqual({ [vencedor]: { ouro: 1, prata: 0 } });
+    const depois = (await exportarSite(banco, new Date('2026-11-18T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
+    expect(depois.estrelas).toEqual({ [vencedor]: { ouro: 1, prata: 0 } });
+  });
 });

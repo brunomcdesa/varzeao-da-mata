@@ -3,7 +3,7 @@
  * Rebaixamento, avisa que as novidades saem em Reels próprios e chama para a Inscrição.
  * Mesmo estilo e mesmos ajudantes do Reels de apresentação da Liga (apresentacao.ts).
  */
-import { FALA_DO_TIME, IDENTIDADE, TIMES_DA_SERIE_B, TIMES_FUNDADORES, TIMES_NOVOS, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, TIMES_DA_SERIE_B, TIMES_FUNDADORES, TIMES_NOVOS, type Estrelas, type Posicao, type TimeId } from '@liga/shared';
 import { boneco, dataDa, entre, horaFalada, lista, NUMERO_FALADO, POSICAO_ESCRITA, POSICAO_FALADA, uniforme } from './apresentacao.js';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, plaquinha } from './desenho.js';
@@ -15,6 +15,8 @@ import { desenharEscudoDaLiga, veu } from './video.js';
 
 export interface DadosDaAberturaDaTemporada {
   temporada: number;
+  /** Estrelas de Título nos escudos (ADR-0059). */
+  estrelas?: Partial<Record<TimeId, Estrelas>>;
   /** Dia da Rodada 1, AAAA-MM-DD. */
   estreia: string;
   /** A Série B antes da A (ADR-0050); com 16 Times, a A tem dois jogos em cada horário (ADR-0058). */

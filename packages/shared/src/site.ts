@@ -4,6 +4,7 @@ import type { MomentosDoAoVivo } from './avisos.js';
  * Regra: nada que revele o resultado de uma Partida antes do seu Apito Inicial.
  */
 import type { Aparencia } from './aparencia.js';
+import type { Estrelas } from './estrelas.js';
 import type { Especializacao, Posicao, Serie, TimeId } from './index.js';
 import type { HabilidadeId, Habilidades } from './habilidades.js';
 
@@ -92,6 +93,8 @@ export interface LigaPublica {
   craqueDaTemporadaB?: JogadorResumido | null;
   /** Todas as Temporadas, da mais recente para a mais antiga. */
   temporadas: TemporadaNaHistoria[];
+  /** Estrelas de Título no escudo de cada Time (ADR-0059); Time sem Título fica de fora. */
+  estrelas?: Partial<Record<TimeId, Estrelas>>;
   /** Temporada já criada que ainda não começou (o site a anuncia). */
   proximaTemporada?: { numero: number; inicio: string } | null;
 }

@@ -34,6 +34,8 @@ let versao = 0;
 
 /** Os visuais escolhidos pelos donos chegam com jogadores.json: espera antes de desenhar bonecos. */
 const aparenciasProntas = jogadores().catch(() => null);
+/** As estrelas de Título dos escudos chegam com liga.json: espera antes de desenhar escudos. */
+const estrelasProntas = liga().catch(() => null);
 
 async function navegar(): Promise<void> {
   const caminho = decodeURIComponent(location.hash.replace(/^#/, ''));
@@ -51,7 +53,7 @@ async function navegar(): Promise<void> {
   }
   try {
     const params = caminho.match(rota.padrao)!.slice(1);
-    await aparenciasProntas;
+    await Promise.all([aparenciasProntas, estrelasProntas]);
     const fim = await rota.pagina(main, params);
     if (minha !== versao) fim?.();
     else limpar = fim;

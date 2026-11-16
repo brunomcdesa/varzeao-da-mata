@@ -132,6 +132,10 @@ _Avoid_: craque do campeonato, MVP da temporada, bola de ouro
 A conquista da Temporada. Conta para o Time campeão e para cada Jogador dele que entrou em campo pelo menos uma vez naquela Temporada.
 _Avoid_: taça, troféu (troféu é o nome genérico de qualquer conquista no Card)
 
+**Estrela de Título**:
+A estrela acima do escudo do Time, uma por Título: dourada para a Série A (ou a Liga da T1) e prata para a Série B. Aparece quando a Temporada seguinte é criada (ADR-0059).
+_Avoid_: estrelinha, selo (Selo é o da Temporada 1, do Jogador)
+
 **Temporada**:
 Um ciclo completo da Liga, com duração de 7 a 10 dias.
 _Avoid_: edição, season

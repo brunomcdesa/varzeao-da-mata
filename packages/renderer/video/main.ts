@@ -9,7 +9,7 @@ import pixelify600 from '@fontsource/pixelify-sans/files/pixelify-sans-latin-600
 import pixelify700 from '@fontsource/pixelify-sans/files/pixelify-sans-latin-700-normal.woff2';
 import escudoDaLigaPng from '../../../docs/marca/escudo.png';
 import { TIMES, type TimeId } from '@liga/shared';
-import { ALTURA_ESCUDO, LARGURA_ESCUDO, escudo as escudoDoTime } from '../src/escudos.js';
+import { ALTURA_ESCUDO, LARGURA_ESCUDO, definirEstrelas, escudo as escudoDoTime } from '../src/escudos.js';
 import type { VarzeaApi } from './api.js';
 import { RoteiroResumo, desenharQuadroResumo, type DadosDoResumo } from '../src/resumo.js';
 import { RoteiroApresentacao, desenharQuadroApresentacao, type DadosDaApresentacao } from '../src/apresentacao.js';
@@ -111,6 +111,7 @@ async function preparar(dados: PartidaParaVideo, quadrosPorSegundo = 30): Promis
   explicacaoOvr = null;
   agradecimento = null;
   definirAparencias(dados.aparencias ?? {});
+  definirEstrelas(dados.estrelas ?? {});
   roteiro = new Roteiro(new Timeline(dados.resultado, dados.escalacoes), dados.roteiro);
   opcoes = {
     times: dados.resultado.times,
@@ -138,6 +139,7 @@ async function prepararResumo(
   explicacaoOvr = null;
   agradecimento = null;
   definirAparencias(dados.aparencias ?? {});
+  definirEstrelas(dados.estrelas ?? {});
   resumo = new RoteiroResumo(dados, minimos);
   return { duracao: resumo.duracao, totalQuadros: resumo.totalQuadros(fps) };
 }
@@ -172,6 +174,7 @@ async function prepararAberturaDaTemporada(
   explicacaoOvr = null;
   apresentacao = null;
   agradecimento = null;
+  definirEstrelas(dados.estrelas ?? {});
   roteiro = null;
   abertura = new RoteiroAberturaDaTemporada(dados, minimos);
   return { duracao: abertura.duracao, totalQuadros: abertura.totalQuadros(fps) };

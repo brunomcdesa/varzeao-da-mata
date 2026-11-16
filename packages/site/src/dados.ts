@@ -3,7 +3,7 @@
  * lance a lance de uma Partida que acabou de começar vem do worker na borda (liga-api),
  * porque os arquivos estáticos só são regerados de hora em hora.
  */
-import { definirAparencias } from '@liga/renderer';
+import { definirAparencias, definirEstrelas } from '@liga/renderer';
 import { TIMES_FUNDADORES, duracaoAoVivoMs, type JogadorPublico, type LigaPublica, type LinhaTabelaPublica, type PartidaNoCalendario, type PartidaPublica, type Serie, type SituacaoPartida, type TimeId } from '@liga/shared';
 
 const meta = (nome: string) => document.querySelector<HTMLMetaElement>(`meta[name="${nome}"]`)?.content.trim() ?? '';
@@ -40,7 +40,12 @@ export class ErroDeDados extends Error {
   }
 }
 
-export const liga = async (fresco = false): Promise<LigaPublica> => completarLiga(await buscar<LigaPublica>(`${BASE_DADOS}liga.json`, fresco));
+export const liga = async (fresco = false): Promise<LigaPublica> => {
+  const l = await completarLiga(await buscar<LigaPublica>(`${BASE_DADOS}liga.json`, fresco));
+  // Estrelas de Título nos escudos (ADR-0059).
+  definirEstrelas(l.estrelas ?? {});
+  return l;
+};
 
 /**
  * O liga.json é gerado pelo worker; entre o fim do Ao Vivo e a próxima publicação ele ainda

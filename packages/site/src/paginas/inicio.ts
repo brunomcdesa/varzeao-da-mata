@@ -24,7 +24,7 @@ function destaque(l: LigaPublica, p: PartidaNoCalendario | null): Html {
     const vice = final.mandante === t ? final.visitante : final.mandante;
     return html`<div class="destaque destaque-campeao">
       <p class="destaque-rotulo">Campeão da Temporada ${l.temporada?.numero ?? ''}</p>
-      <a class="campeao-time" href="#/time/${t}">${escudoImg(t, 6)}<span>${IDENTIDADE[t].nome}</span></a>
+      <a class="campeao-time" href="#/time/${t}">${escudoImg(t, 6, '', { reservar: true })}<span>${IDENTIDADE[t].nome}</span></a>
       <p class="destaque-nota">Venceu a Final contra ${curto(vice)}</p>
       <a class="botao" href="#/time/${t}">Ver o elenco campeão</a>
       ${l.campeaoB ? html`<p class="destaque-nota">Na Série B, deu <a href="#/time/${l.campeaoB}">${curto(l.campeaoB)}</a>.</p>` : ''}

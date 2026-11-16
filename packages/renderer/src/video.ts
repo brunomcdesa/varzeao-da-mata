@@ -2,7 +2,7 @@
  * Desenho de um quadro do Reels: o campo da Timeline no instante que o Roteiro manda,
  * mais as cartelas de abertura e de fim e o escurecimento dos cortes.
  */
-import { FALA_DO_TIME, IDENTIDADE, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type MataMataDaPartida, type TimeId } from '@liga/shared';
 import type { Lado, ResultadoPartida } from '@liga/sim';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, faixaDeTorcida, plaquinha, rotulo, type OpcoesDesenho } from './desenho.js';
@@ -35,6 +35,8 @@ export interface PartidaParaVideo {
   aparencias?: Record<string, Aparencia>;
   /** Temporada 2: tamanho de cada Elenco, para a Arquibancada (ADR-0019). */
   torcida?: Record<Lado, number>;
+  /** Estrelas de Título nos escudos (ADR-0059). */
+  estrelas?: Partial<Record<TimeId, Estrelas>>;
   /** Partida do Mata-mata (ADR-0048): Semifinal ou Final, Temporada e Série. */
   mataMata?: MataMataDaPartida | null;
   /** Última Rodada da Fase de Liga (ADR-0053). */
