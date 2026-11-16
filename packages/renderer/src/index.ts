@@ -6,6 +6,7 @@ export { RoteiroResumo, desenharQuadroResumo, narracaoDoResumo, type DadosDoResu
 export { DADOS_PADRAO as DADOS_DA_APRESENTACAO, RoteiroApresentacao, desenharQuadroApresentacao, narracaoDaApresentacao, type DadosDaApresentacao } from './apresentacao.js';
 export { DADOS_DA_ABERTURA_T2, RoteiroAberturaDaTemporada, desenharQuadroAbertura, narracaoDaAbertura, type DadosDaAberturaDaTemporada } from './aberturaTemporada.js';
 export { RoteiroAgradecimentoT1, desenharQuadroAgradecimentoT1, narracaoDoAgradecimentoT1, type DadosDoAgradecimentoT1 } from './agradecimentoT1.js';
+export { RoteiroRebalanceamentoT2, desenharQuadroRebalanceamentoT2, narracaoDoRebalanceamentoT2, type DadosDoRebalanceamentoT2 } from './rebalanceamentoT2.js';
 export { visualDoJogador, FONTE_DISPLAY, FONTE_TEXTO } from './desenho.js';
 export { escudo, estrelasDoEscudo, definirEstrelas, filaDeEstrelas, larguraDasEstrelas, LARGURA_ESCUDO, ALTURA_ESCUDO, ALTURA_DAS_ESTRELAS } from './escudos.js';
 export { sprite, definirAparencias, aparencia, LARGURA_SPRITE, ALTURA_SPRITE, type Pose, type Visual } from './sprites.js';

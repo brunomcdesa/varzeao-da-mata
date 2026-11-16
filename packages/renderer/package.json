@@ -15,6 +15,7 @@
     "explicacao-escalacao": "tsx scripts/explicacao-escalacao.ts",
     "explicacao-ovr": "tsx scripts/explicacao-ovr.ts",
     "agradecimento-t1": "tsx scripts/agradecimento-t1.ts",
+    "rebalanceamento-t2": "tsx scripts/rebalanceamento-t2.ts",
     "novidades": "tsx scripts/novidades.ts",
     "vozes": "tsx scripts/vozes.ts",
     "narradores": "tsx scripts/narradores.ts",

@@ -11,7 +11,7 @@
  */
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AgendaNaMemoria, dadosDoAgradecimentoT1, estrelasNoBanco, Instagram, PastaLocal, conectar, jobBoasVindas, jobColetar, jobEscalar, postsDeInscricao, jobPartida, jobProgramados, jobResumo, nuvemDoAmbiente, prepararBanco, tokenGuardado, type ContextoDoJob } from '../src/index.js';
+import { AgendaNaMemoria, dadosDoAgradecimentoT1, dadosDoRebalanceamentoT2, estrelasNoBanco, Instagram, PastaLocal, conectar, jobBoasVindas, jobColetar, jobEscalar, postsDeInscricao, jobPartida, jobProgramados, jobResumo, nuvemDoAmbiente, prepararBanco, tokenGuardado, type ContextoDoJob } from '../src/index.js';
 import { bancoLocal } from './banco-local.js';
 import { REELS_PROGRAMADOS } from '@liga/shared';
 
@@ -87,6 +87,7 @@ try {
       gravar: async (id, o, saida) => {
         if (id === 'abertura-t2') await gravacao!.gravarAberturaDaTemporada({ ...DADOS_DA_ABERTURA_T2, estreia: o.estreia, estrelas: await estrelasNoBanco(banco) }, { saida, crf: 18 });
         else if (id === 'agradecimento-t1') await gravacao!.gravarAgradecimentoT1(await dadosDoAgradecimentoT1(banco), { saida, crf: 18 });
+        else if (id === 'rebalanceamento-t2') await gravacao!.gravarRebalanceamentoT2(await dadosDoRebalanceamentoT2(banco, o.estreia), { saida, crf: 18 });
         else if (id.startsWith('novidades-')) {
           // Novidades da T2 (ADR-0063): Partidas de exemplo, sempre as mesmas.
           const reels = id.slice('novidades-'.length).toUpperCase() as 'CAMPO' | 'CAPITAO' | 'JOGADOR' | 'SITE';
