@@ -67,7 +67,7 @@ export function legendaDasNovidades(id: string, estreia: string, publicarEm: str
       '🔁 Substituição no intervalo: quem está indo mal sai e entra um reserva do Banco',
       '🎙️ Cinco Narradores, cada um com a sua voz',
       '',
-      'Às 15h: o Capitão.',
+      'Às 14h: o Capitão.',
     ],
     'novidades-capitao': [
       '©️ Novidades da Temporada 2 (2/4): o Capitão!',
@@ -79,7 +79,7 @@ export function legendaDasNovidades(id: string, estreia: string, publicarEm: str
       '',
       'Cada Formação tem a sua jogada: Tabela (2-3-1), Cobertura (3-2-1) e Ligação direta (3-1-2).',
       '',
-      'Às 18h: o seu Jogador.',
+      'Às 16h: o seu Jogador.',
     ],
     'novidades-jogador': [
       '🧑 Novidades da Temporada 2 (3/4): o seu Jogador!',
@@ -94,7 +94,7 @@ export function legendaDasNovidades(id: string, estreia: string, publicarEm: str
       '💬 Resenha: comentou no Reels do último jogo do seu time? Habilidades 50% mais rápido; no Clássico, ainda passa na frente.',
       '🏆 Seleção da Rodada: Muralha, Carrapato, Garçom e Matador, a maior Nota de cada posição.',
       '',
-      'Às 21h: o Site e o App.',
+      'Às 18h: o Site e o App.',
     ],
     'novidades-site': [
       '📱 Novidades da Temporada 2 (4/4): Site e App!',

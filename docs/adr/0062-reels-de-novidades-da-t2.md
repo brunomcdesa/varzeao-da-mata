@@ -1,6 +1,6 @@
 # Reels de Novidades da Temporada 2
 
-Status: proposto em 16/11/2026 (prévia aguardando aprovação do dono).
+Status: decidido em 16/11/2026, com a prévia aprovada pelo dono.
 
 ## Contexto
 
@@ -10,7 +10,8 @@ sozinhos no horário, sem passo manual (ADR-0051).
 
 ## Decisão
 
-- Quatro Reels Programados na quarta 18/11, um por tema, às 12h, 15h, 18h e 21h de Brasília:
+- Quatro Reels Programados na quarta 18/11, um por tema, nos horários dos jogos da T1 (12h,
+  14h, 16h e 18h de Brasília):
   1. **Dentro de campo**: Juiz, Falta e Cartão, pênalti, Barreira, escanteio, Arquibancada com
      Grito de guerra, Clima e Segundo uniforme, Substituição (ADR-0061) e os cinco Narradores.
   2. **Capitão**: quem é, Postura, Formação e as três Jogadas da Formação.
@@ -31,4 +32,6 @@ sozinhos no horário, sem passo manual (ADR-0051).
 
 - O job `programados` grava os quatro sem depender do banco (só da data da estreia).
 - Cota do Gemini: cerca de 40 falas no dia, numa quarta sem jogos.
-- A reserva do GitHub (cron) cobre os quatro horários, 90 e 60 minutos antes.
+- A reserva do GitHub (cron) cobre os quatro horários, 90 e 60 minutos antes. Com 2 h entre um
+  e outro, a janela de gravação do seguinte já abre no disparo do anterior; a marca de
+  "já agendado" evita gravar duas vezes.

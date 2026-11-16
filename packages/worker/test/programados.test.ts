@@ -91,7 +91,7 @@ describe('Reels Programados (ADR-0051)', () => {
       expect(l).toContain('Estreia amanhã, quinta, 19/11');
       expect(l).not.toMatch(/undefined|@/);
     }
-    expect(legendaDasNovidades('novidades-campo', '2026-11-19', novidades[0]!.publicarEm)).toContain('Às 15h: o Capitão.');
+    expect(legendaDasNovidades('novidades-campo', '2026-11-19', novidades[0]!.publicarEm)).toContain('Às 14h: o Capitão.');
     expect(() => legendaDasNovidades('novidades-x', '2026-11-19', novidades[0]!.publicarEm)).toThrow();
   });
 

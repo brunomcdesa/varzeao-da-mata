@@ -19,11 +19,12 @@ export const REELS_PROGRAMADOS: readonly ReelsProgramado[] = [
   // Abertura da Temporada 2: terça 17/11, 21h de Brasília, depois do Resumo da Temporada (19h)
   // e do Agradecimento (20h).
   { id: 'abertura-t2', ref: 2001, publicarEm: '2026-11-18T00:00:00Z' },
-  // Novidades da T2 (ADR-0062): quarta 18/11, um Reels por tema, às 12h, 15h, 18h e 21h de Brasília.
+  // Novidades da T2 (ADR-0062): quarta 18/11, um Reels por tema, nos horários dos jogos da T1
+  // (12h, 14h, 16h e 18h de Brasília).
   { id: 'novidades-campo', ref: 2003, publicarEm: '2026-11-18T15:00:00Z' },
-  { id: 'novidades-capitao', ref: 2004, publicarEm: '2026-11-18T18:00:00Z' },
-  { id: 'novidades-jogador', ref: 2005, publicarEm: '2026-11-18T21:00:00Z' },
-  { id: 'novidades-site', ref: 2006, publicarEm: '2026-11-19T00:00:00Z' },
+  { id: 'novidades-capitao', ref: 2004, publicarEm: '2026-11-18T17:00:00Z' },
+  { id: 'novidades-jogador', ref: 2005, publicarEm: '2026-11-18T19:00:00Z' },
+  { id: 'novidades-site', ref: 2006, publicarEm: '2026-11-18T21:00:00Z' },
 ];
 
 /** O job grava a partir de 2 h antes e ainda tenta até 1 h depois do horário. */

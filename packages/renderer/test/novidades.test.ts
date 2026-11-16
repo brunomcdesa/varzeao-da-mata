@@ -41,8 +41,8 @@ describe('Novidades da T2 (ADR-0062)', () => {
       expect(cenas.at(-1)!.id).toBe('chamada');
       expect(cenas.at(-1)!.fala).toContain('amanhã');
     }
-    expect(cenasDasNovidades(dados.CAMPO).at(-1)!.fala).toContain('às três da tarde');
-    expect(cenasDasNovidades(dados.JOGADOR).at(-1)!.fala).toContain('às nove da noite');
+    expect(cenasDasNovidades(dados.CAMPO).at(-1)!.fala).toContain('às duas da tarde');
+    expect(cenasDasNovidades(dados.JOGADOR).at(-1)!.fala).toContain('às seis da tarde');
     expect(cenasDasNovidades(dados.SITE).at(-1)!.fala).not.toContain('tem mais');
   });
 

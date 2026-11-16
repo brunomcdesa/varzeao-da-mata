@@ -23,8 +23,8 @@ export const REELS_DE_NOVIDADES: readonly ReelsDeNovidades[] = ['CAMPO', 'CAPITA
 export const ID_DAS_NOVIDADES: Record<ReelsDeNovidades, string> = { CAMPO: 'novidades-campo', CAPITAO: 'novidades-capitao', JOGADOR: 'novidades-jogador', SITE: 'novidades-site' };
 /** Narrador de cada Reels. */
 export const NARRADOR_DAS_NOVIDADES: Record<ReelsDeNovidades, string> = { CAMPO: 'RITA', CAPITAO: 'TURBO', JOGADOR: 'BETO', SITE: 'ZE' };
-/** Hora (Brasília) de cada um, no mesmo dia: o Reels anterior chama o seguinte. */
-export const HORA_DAS_NOVIDADES: Record<ReelsDeNovidades, number> = { CAMPO: 12, CAPITAO: 15, JOGADOR: 18, SITE: 21 };
+/** Hora (Brasília) de cada um, nos horários dos jogos da T1; o Reels anterior chama o seguinte. */
+export const HORA_DAS_NOVIDADES: Record<ReelsDeNovidades, number> = { CAMPO: 12, CAPITAO: 14, JOGADOR: 16, SITE: 18 };
 
 /** Os trechos de jogo que os Reels usam (achados nas Partidas de exemplo pelo script de gravação). */
 export type ClipeId =
@@ -69,7 +69,7 @@ export interface CenaNovidade {
 }
 
 const TITULO: Record<ReelsDeNovidades, string> = { CAMPO: 'Dentro de campo', CAPITAO: 'O Capitão', JOGADOR: 'Seu Jogador', SITE: 'Site e App' };
-const HORA_FALADA: Record<number, string> = { 12: 'ao meio-dia', 15: 'às três da tarde', 18: 'às seis da tarde', 21: 'às nove da noite' };
+const HORA_FALADA: Record<number, string> = { 12: 'ao meio-dia', 14: 'às duas da tarde', 16: 'às quatro da tarde', 18: 'às seis da tarde' };
 const DIA_DA_SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
 const NUMERO: Record<number, string> = { 1: 'um', 19: 'dezenove', 20: 'vinte', 21: 'vinte e um' };
 
