@@ -1,12 +1,13 @@
 /**
  * Calendário da Temporada (GLOSSARY: Fase de Liga, Rodada, Apito Inicial, Série).
  * Uma Rodada por dia. Com uma Série só (T1), turno único entre os 8 Times em 7 Rodadas, às 12h,
- * 14h, 16h e 18h. Com duas Séries, a B joga das 11h às 14h e a A das 15h às 18h (ADR-0050); com
+ * 14h, 16h e 18h. Na T2, só a Série A de 16: turno único em 15 Rodadas, um jogo por hora das
+ * 11h às 18h (ADR-0062). Da T3 em diante, as duas Séries de 8 em turno e returno. Com duas Séries, a B joga das 11h às 14h e a A das 15h às 18h (ADR-0050); com
  * 16 Times na A (ADR-0058), ela faz turno único em 15 Rodadas com dois jogos por horário, e a B
  * (8 Times) faz turno e returno em 14 Rodadas, para as duas terminarem juntas.
  * O Mata-mata é criado depois, quando a Fase de Liga termina.
  */
-import { TIMES_FUNDADORES, type Serie, type TimeId } from '@liga/shared';
+import { TIMES_FUNDADORES, TIMES_POR_SERIE, type Serie, type TimeId } from '@liga/shared';
 import { criarRng } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { gravarSeries, seriesDaProximaTemporada, seriesComTimes, type SeriesDaTemporada } from './series.js';
@@ -16,12 +17,16 @@ export const HORARIOS = [12, 14, 16, 18] as const;
 /** Com duas Séries (ADR-0050): a B joga antes, a A fecha o dia. */
 export const HORARIOS_COM_SERIES: Record<Serie, readonly number[]> = { B: [11, 12, 13, 14], A: [15, 16, 17, 18] };
 
+/** A Série A de 16 sem Série B (T2, ADR-0062): 8 jogos por Rodada, um por hora. */
+export const HORARIOS_DA_A_DE_16 = [11, 12, 13, 14, 15, 16, 17, 18] as const;
+
 /**
- * Horários da Fase de Liga de uma Série, um por jogo da Rodada. Com mais jogos que horários (a A
- * com 16 Times tem 8), cada horário recebe mais de um jogo ao mesmo tempo (ADR-0058).
+ * Horários da Fase de Liga de uma Série, um por jogo da Rodada. Sem Série B e com 8 jogos (a A de
+ * 16, ADR-0062), um jogo por hora das 11h às 18h. Com mais jogos que horários, cada horário recebe
+ * mais de um jogo ao mesmo tempo (ADR-0058).
  */
 export function horariosDaLiga(serie: Serie, comSeries: boolean, jogos = 4): readonly number[] {
-  const base = comSeries ? HORARIOS_COM_SERIES[serie] : HORARIOS;
+  const base = comSeries ? HORARIOS_COM_SERIES[serie] : jogos > HORARIOS.length ? HORARIOS_DA_A_DE_16 : HORARIOS;
   const porHorario = Math.ceil(jogos / base.length);
   return base.flatMap((h) => Array<number>(porHorario).fill(h)).slice(0, Math.max(jogos, base.length));
 }
@@ -61,13 +66,15 @@ export function turnoEReturno(seed: number, timesDaSerie: readonly TimeId[]): Co
 
 /**
  * O calendário de cada Série: turno único; a Série menor faz turno e returno quando o turno
- * dela cabe duas vezes no turno da maior (a B, com 8 Times, ao lado da A com 16).
+ * dela cabe duas vezes no turno da maior (a B, com 8 Times, ao lado da A com 16). Com as duas
+ * Séries de 8 (da T3 em diante, ADR-0062), as duas fazem turno e returno.
  */
 export function calendariosDasSeries(seed: number, quais: readonly Serie[], timesDe: (s: Serie) => readonly TimeId[]): { serie: Serie; rodadas: Confronto[][] }[] {
   const maior = Math.max(...quais.map((s) => timesDe(s).length - 1));
+  const duasDeOito = quais.length > 1 && quais.every((s) => timesDe(s).length <= TIMES_POR_SERIE[s]);
   return quais.map((serie) => {
     const times = timesDe(serie);
-    const duasVezes = 2 * (times.length - 1) <= maior;
+    const duasVezes = duasDeOito || 2 * (times.length - 1) <= maior;
     return { serie, rodadas: duasVezes ? turnoEReturno(seedDaSerie(seed, serie), times) : faseDeLiga(seedDaSerie(seed, serie), times) };
   });
 }

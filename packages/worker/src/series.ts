@@ -3,20 +3,21 @@
  *
  * A Série de cada Time é um dado da Temporada (tabela serie_do_time), porque muda com o
  * Acesso e o Rebaixamento. Uma Temporada sem essas linhas (a Temporada 1) tem uma Série só,
- * a A, com os 8 Times fundadores. Da T2 em diante, a A tem 16 Times e a B tem 8.
+ * a A, com os 8 Times fundadores. A T2 tem só a A, com 16 Times; no fim dela, os 8 piores caem
+ * e formam a B da T3, que tem 8 Times em cada Série (ADR-0062).
  */
-import { SERIES, TIMES_DA_SERIE_B, TIMES_FUNDADORES, TIMES_NOVOS, TIMES_POR_SERIE, TIMES_QUE_TROCAM_DE_SERIE, type Serie, type TimeId } from '@liga/shared';
+import { SERIES, sqlRodadaDaFinal, TIMES_FUNDADORES, TIMES_NOVOS, TIMES_POR_SERIE, TIMES_QUE_CAEM_NA_A_DE_16, TIMES_QUE_TROCAM_DE_SERIE, type Serie, type TimeId } from '@liga/shared';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 
 export type SeriesDaTemporada = Readonly<Record<Serie, readonly TimeId[]>>;
 
 /**
- * A Rodada da Final em SQL, para uma Rodada `r` (alias): 2 dias depois da última Rodada da
- * Fase de Liga da mesma Temporada (ADR-0058).
+ * A Rodada da Final em SQL, para uma Rodada `r` (alias): 2 depois da última Rodada da Fase de
+ * Liga da mesma Temporada (3 com 14 Rodadas, ADR-0062).
  */
 export const SQL_RODADA_DA_FINAL = (r = 'r') =>
-  `(SELECT max(x.numero) + 2 FROM rodada x WHERE x.temporada_id = ${r}.temporada_id AND x.fase = 'LIGA')`;
+  `(SELECT ${sqlRodadaDaFinal('max(x.numero)')} FROM rodada x WHERE x.temporada_id = ${r}.temporada_id AND x.fase = 'LIGA')`;
 
 /**
  * Time Primo na Série B de cada Time da A (ADR-0058): para onde vai o novato que pede um Time
@@ -86,12 +87,13 @@ export async function gravarSeries(banco: Banco, temporadaId: number, s: SeriesD
 }
 
 /**
- * As Séries da Temporada seguinte à `anteriorId` (ADR-0017 e ADR-0058):
- * - depois de uma Temporada sem Séries, ninguém desce: os fundadores e os 8 Times que chegaram
- *   na T2 formam a A (16), e os 8 Times novos da B estreiam a Série B;
- * - depois de uma Temporada com Séries, os 2 últimos da Fase de Liga da A descem e os 2
- *   finalistas do Mata-mata da B sobem.
- * Precisa da Final da B já disputada.
+ * As Séries da Temporada seguinte à `anteriorId` (ADR-0017, ADR-0058 e ADR-0062):
+ * - depois da Temporada 1 (8 Times, uma Série só), ninguém desce: os fundadores e os 8 Times
+ *   que chegam formam a Série A de 16, sem Série B;
+ * - depois de uma Temporada com a A de 16 e sem B (a T2), os 8 piores da Fase de Liga caem e
+ *   formam a Série B; os 8 melhores ficam na A;
+ * - depois de uma Temporada com as duas Séries, os 2 últimos da Fase de Liga da A descem e os 2
+ *   finalistas do Mata-mata da B sobem (precisa da Final da B já disputada).
  */
 export async function seriesDaProximaTemporada(
   banco: Banco,
@@ -99,9 +101,14 @@ export async function seriesDaProximaTemporada(
   classificacaoDaLiga: (serie: Serie) => Promise<TimeId[]>,
 ): Promise<SeriesDaTemporada> {
   const s = await seriesDaTemporada(banco, anteriorId);
-  if (!s.B.length) return { A: [...TIMES_FUNDADORES, ...TIMES_NOVOS].sort(), B: [...TIMES_DA_SERIE_B].sort() };
+  if (!s.B.length && s.A.length <= TIMES_FUNDADORES.length) return { A: [...TIMES_FUNDADORES, ...TIMES_NOVOS].sort(), B: [] };
 
   const ordemA = await classificacaoDaLiga('A');
+  if (!s.B.length) {
+    const caem = ordemA.slice(-TIMES_QUE_CAEM_NA_A_DE_16);
+    return { A: ordemA.filter((t) => !caem.includes(t)).sort(), B: [...caem].sort() };
+  }
+
   const rebaixados = ordemA.slice(-TIMES_QUE_TROCAM_DE_SERIE);
   const finalistasB = await finalistas(banco, anteriorId, 'B');
   if (finalistasB.length !== TIMES_QUE_TROCAM_DE_SERIE) throw new Error(`A Final da Série B da Temporada ${anteriorId} ainda não existe`);

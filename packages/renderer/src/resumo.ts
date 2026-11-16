@@ -21,6 +21,8 @@ export interface DadosDoResumo {
   placares: { mandante: TimeId; visitante: TimeId; golsMandante: number; golsVisitante: number; penaltis: { mandante: number; visitante: number } | null; hora: number; serie?: Serie }[];
   /** Tabela da Série A (ou da Liga inteira, antes das Séries). */
   tabela: { time: TimeId; jogos: number; pontos: number; vitorias: number; saldo: number }[];
+  /** Quantos Times da Série A caem no fim da Temporada (2 com Série B; 8 na T2, só com a A de 16, ADR-0062). */
+  caem?: number;
   /** Tabela da Série B, quando existe. */
   tabelaB?: { time: TimeId; jogos: number; pontos: number; vitorias: number; saldo: number }[];
   novosContratados: { username: string; time: TimeId; posicao: Posicao }[];
@@ -378,10 +380,11 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
           desenharEscudo(pin, p.visitante, 204, y + 7, 1.1);
           pin.texto(IDENTIDADE[p.mandante].sigla, 92, y + 21, 15, display, COR.placa);
           pin.texto(IDENTIDADE[p.visitante].sigla, 178, y + 21, 15, display, COR.placa);
-          plaquinha(pin, 115, y + 8, 18, 24, String(p.golsMandante), display);
-          plaquinha(pin, 151, y + 8, 18, 24, String(p.golsVisitante), display);
-          pin.texto('x', COLUNAS / 2 + 7, y + 20, 10, display, COR.placa);
-          if (p.penaltis) pin.texto(`pên. ${p.penaltis.mandante} x ${p.penaltis.visitante}`, COLUNAS / 2 + 7, y + 36, 6, texto, COR.amarelo, { peso: 600 });
+          // Placas do placar simétricas em torno do centro, com o "x" no meio delas.
+          plaquinha(pin, COLUNAS / 2 - 18, y + 8, 18, 24, String(p.golsMandante), display);
+          plaquinha(pin, COLUNAS / 2 + 18, y + 8, 18, 24, String(p.golsVisitante), display);
+          pin.texto('x', COLUNAS / 2, y + 20, 10, display, COR.placa);
+          if (p.penaltis) pin.texto(`pên. ${p.penaltis.mandante} x ${p.penaltis.visitante}`, COLUNAS / 2, y + 36, 6, texto, COR.amarelo, { peso: 600 });
           pin.ctx.restore();
           return;
         }
@@ -408,6 +411,8 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       for (const [rotulo, cx] of [['P', 180], ['J', 204], ['V', 224], ['SG', 244]] as const) pin.texto(rotulo, cx, cab, 9, texto, COR.placaSombra, { peso: 700 });
       // Até 8 Times, uma placa de 40 por linha; com 16 (Série A, ADR-0058), linhas de 21.
       const compacta = ds.tabela.length > 8;
+      // Zona de queda: os 2 últimos da A com Série B (ADR-0017); os 8 últimos na T2 (ADR-0062).
+      const caem = serie === 'B' ? 0 : (d.caem ?? (serie === 'A' ? TIMES_QUE_TROCAM_DE_SERIE : 0));
       const linha = compacta ? 21 : 40;
       ds.tabela.forEach((l, k) => {
         const a = aparece(k, compacta ? 0.09 : 0.18, 0.4);
@@ -416,7 +421,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
         if (compacta) {
           pin.ctx.globalAlpha = a;
           const lider = k === 0;
-          const caindo = serie === 'A' && k >= ds.tabela.length - TIMES_QUE_TROCAM_DE_SERIE;
+          const caindo = caem > 0 && k >= ds.tabela.length - caem;
           const classifica = k < 4;
           pin.placa(x + 6, y - 6, w - 12, 19, { fundo: lider ? COR.amarelo : caindo ? '#7A2A22' : classifica ? '#3E5A2E' : COR.madeiraEscura, sombra: lider ? '#C99500' : COR.contorno, degrau: 1 });
           const cor = lider ? COR.tinta : COR.placa;
@@ -432,8 +437,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
         }
         pin.ctx.globalAlpha = a;
         const lider = k === 0;
-        // Série A: os 2 últimos estão na zona de Rebaixamento (ADR-0017).
-        const caindo = serie === 'A' && k >= ds.tabela.length - TIMES_QUE_TROCAM_DE_SERIE;
+        const caindo = caem > 0 && k >= ds.tabela.length - caem;
         pin.placa(x + 6, y, w - 12, 34, { fundo: lider ? COR.amarelo : caindo ? '#7A2A22' : COR.madeiraEscura, sombra: lider ? '#C99500' : COR.contorno, degrau: 2 });
         const cor = lider ? COR.tinta : COR.placa;
         pin.texto(`${k + 1}`, x + 18, y + 18, 16, display, cor);

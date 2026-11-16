@@ -48,15 +48,15 @@ describe('Série A e Série B (ADR-0017)', () => {
     expect(liga.calendario.every((p) => p.serie === undefined)).toBe(true);
   });
 
-  it('depois da Temporada 1, ninguém desce: A com 16 (fundadores e os 8 que chegam), B com os 8 Times novos (ADR-0058)', async () => {
+  it('depois da Temporada 1, ninguém desce: a T2 tem só a Série A, com 16 Times, um jogo por hora das 11h às 18h (ADR-0062)', async () => {
     const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
     await jogarTemporada(t1);
     const t2 = await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-18', seed: 8 });
 
     const s = await seriesDaTemporada(banco, t2);
     expect(ordenados(s.A)).toEqual(ordenados([...TIMES_FUNDADORES, ...TIMES_NOVOS]));
-    expect(ordenados(s.B)).toEqual(ordenados(TIMES_DA_SERIE_B));
-    expect(ordenados(await timesAtivos(banco))).toHaveLength(24);
+    expect(s.B).toEqual([]);
+    expect(ordenados(await timesAtivos(banco))).toHaveLength(16);
 
     const jogos = (
       await banco.query<{ numero: number; serie: string; mandante_id: TimeId; visitante_id: TimeId; apito_inicial: Date }>(
@@ -64,35 +64,34 @@ describe('Série A e Série B (ADR-0017)', () => {
         [t2],
       )
     ).rows;
-    // A: turno único em 15 Rodadas (8 jogos por dia). B: turno e returno em 14 (4 por dia).
-    expect(jogos.filter((j) => j.serie === 'A')).toHaveLength(15 * 8);
-    expect(jogos.filter((j) => j.serie === 'B')).toHaveLength(14 * 4);
+    // Turno único em 15 Rodadas, 8 jogos por dia, todos da A.
+    expect(jogos).toHaveLength(15 * 8);
+    expect(jogos.every((j) => j.serie === 'A')).toBe(true);
     const hora = (j: (typeof jogos)[number]) => (new Date(j.apito_inicial).getUTCHours() + 21) % 24;
     for (let r = 1; r <= 15; r++) {
       const doDia = [...jogos.filter((j) => j.numero === r)].sort((a, b) => new Date(a.apito_inicial).getTime() - new Date(b.apito_inicial).getTime());
-      // B das 11h às 14h, um jogo por hora; A das 15h às 18h, dois por horário. No dia 15, só a A.
-      const esperadas = [...(r <= 14 ? [11, 12, 13, 14] : []), 15, 15, 16, 16, 17, 17, 18, 18];
-      expect(doDia.map(hora)).toEqual(esperadas);
-      expect(doDia.map((j) => j.serie).join('')).toBe(`${r <= 14 ? 'BBBB' : ''}AAAAAAAA`);
-      for (const j of doDia) {
-        const serie = j.serie === 'A' ? s.A : s.B;
-        expect(serie).toContain(j.mandante_id);
-        expect(serie).toContain(j.visitante_id);
-      }
-      expect(new Set(doDia.flatMap((j) => [j.mandante_id, j.visitante_id])).size).toBe(r <= 14 ? 24 : 16);
+      expect(doDia.map(hora)).toEqual([11, 12, 13, 14, 15, 16, 17, 18]);
+      expect(new Set(doDia.flatMap((j) => [j.mandante_id, j.visitante_id])).size).toBe(16);
     }
-    // A: cada par uma vez. B: cada par duas vezes, uma com cada mando.
-    const pares = (serie: string) => jogos.filter((j) => j.serie === serie).map((j) => `${j.mandante_id}-${j.visitante_id}`);
-    const semMando = (serie: string) => pares(serie).map((p) => p.split('-').sort().join('-'));
-    expect(new Set(semMando('A')).size).toBe((16 * 15) / 2);
-    expect(new Set(pares('B')).size).toBe(8 * 7);
-    expect(new Set(semMando('B')).size).toBe((8 * 7) / 2);
-  });
+    const semMando = jogos.map((j) => [j.mandante_id, j.visitante_id].sort().join('-'));
+    expect(new Set(semMando).size).toBe((16 * 15) / 2);
+    // O site mostra a zona de queda: os 8 últimos (ADR-0062).
+    const liga = (await exportarSite(banco, new Date('2026-11-18T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
+    expect(liga.caem).toBe(8);
+    expect(liga.tabelaB).toBeUndefined();
+  }, 120_000);
 
-  it('cada Série tem tabela, Mata-mata e campeão; os 2 últimos da A descem e os finalistas da B sobem', async () => {
+  it('no fim da T2, os 8 piores caem e formam a B da T3; na T3 cada Série tem tabela, Mata-mata e campeão, e depois 2 descem e 2 sobem', async () => {
     const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
     await jogarTemporada(t1);
-    const t2 = await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-18', seed: 8 });
+    const t0 = await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-18', seed: 8 });
+    await jogarTemporada(t0);
+    const ordemT2 = (await tabela(banco, t0, 'A')).map((l) => l.time);
+    expect((await banco.query<{ status: string }>(`SELECT status FROM temporada WHERE id = $1`, [t0])).rows[0]!.status).toBe('ENCERRADA');
+    const t2 = await criarTemporada(banco, { numero: 3, primeiraRodada: '2026-12-08', seed: 9 });
+    const sT3 = await seriesDaTemporada(banco, t2);
+    expect(ordenados(sT3.A)).toEqual(ordenados(ordemT2.slice(0, 8)));
+    expect(ordenados(sT3.B)).toEqual(ordenados(ordemT2.slice(8)));
     await jogarTemporada(t2);
 
     const s2 = await seriesDaTemporada(banco, t2);
@@ -100,7 +99,7 @@ describe('Série A e Série B (ADR-0017)', () => {
     const tabelaB = await tabela(banco, t2, 'B');
     expect(ordenados(tabelaA.map((l) => l.time))).toEqual(ordenados(s2.A));
     expect(ordenados(tabelaB.map((l) => l.time))).toEqual(ordenados(s2.B));
-    expect(tabelaA.every((l) => l.jogos === 15)).toBe(true);
+    expect(tabelaA.every((l) => l.jogos === 14)).toBe(true);
     expect(tabelaB.every((l) => l.jogos === 14)).toBe(true);
 
     // As semifinais de cada Série são entre os 4 melhores dela.
@@ -126,20 +125,21 @@ describe('Série A e Série B (ADR-0017)', () => {
     expect(sobem).toContain(campeaoB);
 
     // O site separa as duas Séries: tabela, campeão e Final de cada uma.
-    const { arquivos } = await exportarSite(banco, new Date('2026-12-06T12:00:00Z'));
+    const { arquivos } = await exportarSite(banco, new Date('2026-12-26T12:00:00Z'));
     const liga = arquivos.get('liga.json') as LigaPublica;
-    const h2 = liga.temporadas.find((x) => x.numero === 2)!;
+    const h2 = liga.temporadas.find((x) => x.numero === 3)!;
     expect(h2.campeao).toBe(campeaoA);
     expect(h2.serieB?.campeao).toBe(campeaoB);
     expect(ordenados(h2.tabela.map((l) => l.time))).toEqual(ordenados(s2.A));
     expect(ordenados(h2.serieB!.tabela.map((l) => l.time))).toEqual(ordenados(s2.B));
     expect(liga.calendario.filter((p) => p.serie === 'B')).toHaveLength(14 * 4 + 2 + 1);
+    expect(liga.calendario.filter((p) => p.serie === 'A')).toHaveLength(14 * 4 + 2 + 1);
 
-    const t3 = await criarTemporada(banco, { numero: 3, primeiraRodada: '2026-12-08', seed: 9 });
+    const t3 = await criarTemporada(banco, { numero: 4, primeiraRodada: '2026-12-28', seed: 10 });
     const s3 = await seriesDaTemporada(banco, t3);
     expect(ordenados(s3.A)).toEqual(ordenados([...s2.A.filter((x) => !rebaixados.includes(x)), ...sobem]));
     expect(ordenados(s3.B)).toEqual(ordenados([...s2.B.filter((x) => !sobem.includes(x)), ...rebaixados]));
-  }, 120_000);
+  }, 240_000);
 });
 
 describe('Inscrição e voto com duas Séries', () => {
@@ -166,7 +166,7 @@ describe('Inscrição e voto com duas Séries', () => {
     expect(j.time_id).toBe('JAC');
   }, 60_000);
 
-  it('na T2, Posição cheia no Time da A (2 GOL, 4 nas outras) manda para outro Time da A com vaga; sem vaga em nenhum, para a B no Time Primo (ADR-0058)', async () => {
+  it('na T2, Posição cheia no Time da A (2 GOL, 4 nas outras) manda para outro Time da A com vaga; sem vaga em nenhum, para o Time da A com menos gente na Posição (ADR-0062)', async () => {
     const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
     await jogarTemporada(t1);
     const t2 = await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-12-08', seed: 8 });
@@ -186,7 +186,7 @@ describe('Inscrição e voto com duas Séries', () => {
     expect(g3.time_id).not.toBe('JAC');
     expect(respostas.at(-1)).toContain('também da Série A');
 
-    // Todos os Times da A com 2 goleiros: o próximo começa na B, no Time Primo do Jacaré (Teiú).
+    // Todos os Times da A com 2 goleiros: sem Série B na T2, vai para um Time da A, como goleiro.
     for (const time of s.A) {
       const n = Number((await banco.query<{ n: string }>(`SELECT count(*) AS n FROM jogador WHERE time_id = $1 AND posicao = 'GOL'`, [time])).rows[0]!.n);
       for (let k = n; k < 2; k++) {
@@ -197,24 +197,25 @@ describe('Inscrição e voto com duas Séries', () => {
       }
     }
     expect(await processarComentario(banco, comentario('gol_x', 'gol_x', 'ENTRO Jacaré goleiro', '2026-12-01T12:10:00Z'), ctx)).toBe('REALOCADO');
-    expect(await timeDe('gol_x')).toEqual({ time_id: 'TEI', posicao: 'GOL' });
-    expect(respostas.at(-1)).toContain('completas em todos os times da Série A');
+    const gx = await timeDe('gol_x');
+    expect(gx.posicao).toBe('GOL');
+    expect(s.A).toContain(gx.time_id);
+    expect(respostas.at(-1)).toContain('também da Série A');
 
     // Atacante no Jacaré ainda tem vaga: entra na A.
     expect(await processarComentario(banco, comentario('ata_1', 'ata_1', 'ENTRO Jacaré atacante', '2026-12-01T12:12:00Z'), ctx)).toBe('INSCRITO');
     expect((await timeDe('ata_1')).time_id).toBe('JAC');
-    // Pedido direto de um Time da B entra nele.
-    expect(await processarComentario(banco, comentario('qua_1', 'qua_1', 'ENTRO Quati meia', '2026-12-01T12:13:00Z'), ctx)).toBe('INSCRITO');
-    expect(await timeDe('qua_1')).toEqual({ time_id: 'QUA', posicao: 'MEI' });
-    // "SERIEMA" é a Seriema; "SER" sozinho continua sendo palavra de ligação.
-    expect(await processarComentario(banco, comentario('ser_1', 'ser_1', 'quero ser goleiro da seriema', '2026-12-01T12:14:00Z'), ctx)).toBe('INSCRITO');
-    expect(await timeDe('ser_1')).toEqual({ time_id: 'SER', posicao: 'GOL' });
+    // Os Times guardados para a B não jogam a T2: o pedido espera (ADR-0062). "SERIEMA" é a
+    // Seriema; "SER" sozinho continua sendo palavra de ligação.
+    expect(await processarComentario(banco, comentario('qua_1', 'qua_1', 'ENTRO Quati meia', '2026-12-01T12:13:00Z'), ctx)).toBe('TIME_ESTREANTE');
+    expect(await processarComentario(banco, comentario('ser_1', 'ser_1', 'quero ser goleiro da seriema', '2026-12-01T12:14:00Z'), ctx)).toBe('TIME_ESTREANTE');
   }, 120_000);
 
   it('Candidatos por Série (A de 1 a 5, B de 6 a 10), um voto por @ em cada Série e um Craque em cada', async () => {
     const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
     await jogarTemporada(t1);
-    const t2 = await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-18', seed: 8 });
+    // Uma Temporada com as duas Séries de 8, como da T3 em diante (ADR-0062).
+    const t2 = await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-18', seed: 8, series: { A: TIMES_FUNDADORES, B: TIMES_NOVOS } });
     const s = await seriesDaTemporada(banco, t2);
     let n = 0;
     for (const time of [...s.A, ...s.B]) {
