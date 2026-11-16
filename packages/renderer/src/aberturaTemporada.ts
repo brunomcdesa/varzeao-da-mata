@@ -27,8 +27,8 @@ export interface DadosDaAberturaDaTemporada {
   /** Os Times da A que chegam nesta Temporada (ADR-0058). */
   chegamNaA: readonly TimeId[];
   serieB: readonly TimeId[];
-  /** Quantos Jogadores um Time da A recebe de novatos antes de mandar para a B (ADR-0058). */
-  novatosNaAAte: number;
+  /** Limite por Posição de cada Time da A (o dobro das vagas): cheia, o novato começa na B (ADR-0058). */
+  limiteNaA: { goleiros: number; porPosicao: number };
   /** Hora (no mesmo dia do post) do Reels que conta quem vai para a Série B; null se não houver. */
   horaDoRebalanceamento: number | null;
   exemplo: { time: TimeId; posicao: Posicao; username: string };
@@ -43,7 +43,7 @@ export const DADOS_DA_ABERTURA_T2: Omit<DadosDaAberturaDaTemporada, 'estreia'> =
   serieA: [...TIMES_FUNDADORES, ...TIMES_NOVOS],
   chegamNaA: TIMES_NOVOS,
   serieB: TIMES_DA_SERIE_B,
-  novatosNaAAte: 8,
+  limiteNaA: { goleiros: 2, porPosicao: 4 },
   // O Rebalanceamento sai antes da Abertura, junto com o Agradecimento: sem aviso aqui.
   horaDoRebalanceamento: null,
   exemplo: { time: 'JAC', posicao: 'ATA', username: 'voce' },
@@ -115,7 +115,7 @@ export function narracaoDaAbertura(roteiro: RoteiroAberturaDaTemporada): Fala[] 
       NOVIDADES:
         'E tem muita novidade: dentro de campo, pro capitão, pro seu jogador e no site. Amanhã sai um Reels explicando cada uma.' +
         (d.horaDoRebalanceamento ? ` E hoje, às ${horaFalada(d.horaDoRebalanceamento, true)}: quem vai jogar a Série B.` : ''),
-      ENTRAR: `Quer jogar? Comenta ENTRO, o time e a posição. Tipo: ENTRO ${curto(ex.time)} ${POSICAO_FALADA[ex.posicao]}. Time da Série A recebe gente até ter ${NUMERO_FALADO[d.novatosNaAAte] ?? d.novatosNaAAte} jogadores. Time cheio, você começa na Série B. E quem já joga continua com o seu jogador.`,
+      ENTRAR: `Quer jogar? Comenta ENTRO, o time e a posição. Tipo: ENTRO ${curto(ex.time)} ${POSICAO_FALADA[ex.posicao]}. Cada time da Série A recebe até ${NUMERO_FALADO[d.limiteNaA.goleiros] ?? d.limiteNaA.goleiros} goleiros e ${NUMERO_FALADO[d.limiteNaA.porPosicao] ?? d.limiteNaA.porPosicao} jogadores em cada posição. Posição cheia, você começa na Série B. E quem já joga continua com o seu jogador.`,
       AGENDA: `A estreia é ${semana === 'sábado' || semana === 'domingo' ? 'no' : 'na'} ${semana}, dia ${NUMERO_FALADO[dia] ?? dia}. A Série B joga ${faixa(d.horarios.B)}, um jogo por hora. E a Série A, ${faixa(d.horarios.A)}, com ${NUMERO_FALADO[d.jogosPorHorarioDaA] ?? d.jogosPorHorarioDaA} jogos em cada horário.`,
       CHAMADA: `As inscrições estão abertas. Comenta aí e garante a sua vaga na Temporada ${n}!`,
     };
@@ -348,10 +348,11 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
       }, 0);
       surge(entre(t, 2.8, 3.2), () => {
         pin.tabua(14, 156, 242, 96);
-        pin.texto(`Série A: até ${d.novatosNaAAte} por time`, COLUNAS / 2, 174, pin.caber(`Série A: até ${d.novatosNaAAte} por time`, 226, 15, display), display, COR.amarelo, { contorno: COR.contorno });
+        const limite = `Série A: ${d.limiteNaA.goleiros} goleiros, ${d.limiteNaA.porPosicao} por posição`;
+        pin.texto(limite, COLUNAS / 2, 174, pin.caber(limite, 226, 15, display), display, COR.amarelo, { contorno: COR.contorno });
         // Time da A cheio -> Time Primo na B: escudo da A, seta para a direita, escudo da B.
         desenharEscudo(pin, d.serieA[0]!, 56, 186, 1.2);
-        pin.texto('cheio', 69, 222, 8, texto, '#FF6B5B', { peso: 700 });
+        pin.texto('cheia', 69, 222, 8, texto, '#FF6B5B', { peso: 700 });
         pin.r(98, 197, 58, 8, COR.contorno);
         pin.r(99, 198, 56, 6, '#FFB84D');
         // Ponta: triângulo cheio, contorno primeiro e o miolo por cima.
@@ -359,7 +360,7 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
         for (let k = 0; k <= 10; k++) pin.r(153 + k, 191 + k, 1, 20 - 2 * k, '#FFB84D');
         desenharEscudo(pin, d.serieB[0]!, 186, 186, 1.2);
         pin.texto('Série B', 199, 222, 8, texto, COR.placa, { peso: 700 });
-        pin.texto('cheio? você começa na Série B', COLUNAS / 2, 238, pin.caber('cheio? você começa na Série B', 226, 11, texto, 700), texto, COR.placa, { peso: 700 });
+        pin.texto('posição cheia? você começa na Série B', COLUNAS / 2, 238, pin.caber('posição cheia? você começa na Série B', 226, 11, texto, 700), texto, COR.placa, { peso: 700 });
       });
       surge(entre(t, 5.0, 5.4), () => {
         pin.tabua(14, 266, 242, 140);
