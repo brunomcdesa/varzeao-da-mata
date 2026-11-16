@@ -105,9 +105,15 @@ export async function simular(banco: Banco, partidaId: number, escalada: Partida
 
     for (const d of resultado.desempenhos) {
       const time = resultado.times[d.slot.lado];
+      // Substituição (ADR-0061): o reserva que entrou tem a sua linha no Banco (lugar depois
+      // dos titulares); a do titular que saiu continua no lugar dele.
+      const troca = d.substituicao === 'ENTROU' ? resultado.substituicoes?.find((x) => x.lado === d.slot.lado && x.lugar === d.slot.indice) : undefined;
+      const lugar = troca ? escalada.escalacoes[d.slot.lado].jogadores.length + troca.banco : d.slot.indice;
       await b.query(
-        `UPDATE escalacao SET nota = $4, ovr_depois = $5, habilidades_depois = $6, faltas = $7, amarelos = $8, expulso = $9 WHERE partida_id = $1 AND time_id = $2 AND lugar = $3`,
-        [partidaId, time, d.slot.indice, d.nota, d.ovrDepois, JSON.stringify(d.habilidadesDepois), d.faltas ?? null, d.amarelos ?? null, d.expulso ?? false],
+        `UPDATE escalacao SET nota = $4, ovr_depois = $5, habilidades_depois = $6, faltas = $7, amarelos = $8, expulso = $9,
+                substituicao = $10, entrou = $11, lugar_em_campo = $12
+         WHERE partida_id = $1 AND time_id = $2 AND lugar = $3`,
+        [partidaId, time, lugar, d.nota, d.ovrDepois, JSON.stringify(d.habilidadesDepois), d.faltas ?? null, d.amarelos ?? null, d.expulso ?? false, d.substituicao ?? null, !!troca, troca ? d.slot.indice : null],
       );
       if (d.jogadorId !== null) {
         await b.query(`UPDATE jogador SET ovr = $2, habilidades = $3 WHERE id = $1`, [d.jogadorId, d.ovrDepois, JSON.stringify(d.habilidadesDepois)]);
@@ -175,8 +181,9 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
   const dados: DadosDoVideo = {
     resultado,
     escalacoes: escalada.escalacoes,
-    nomes: escalada.nomes,
-    apelidos: escalada.apelidos,
+    // Banco (ADR-0061): os nomes dos reservas vêm depois dos titulares (o "ocupante" do lugar).
+    nomes: { mandante: [...escalada.nomes.mandante, ...(escalada.banco?.mandante.map((x) => x.nome) ?? [])], visitante: [...escalada.nomes.visitante, ...(escalada.banco?.visitante.map((x) => x.nome) ?? [])] },
+    apelidos: { mandante: [...escalada.apelidos.mandante, ...(escalada.banco?.mandante.map((x) => x.apelido) ?? [])], visitante: [...escalada.apelidos.visitante, ...(escalada.banco?.visitante.map((x) => x.apelido) ?? [])] },
     subtitulo: subtituloDaPartida(p.rodada, p.fase, new Date(p.apito_inicial), briga !== null),
     aparencias: await aparenciasEscolhidas(banco),
     estrelas: await estrelasNoBanco(banco),

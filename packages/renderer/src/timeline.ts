@@ -35,6 +35,7 @@ import {
 export type { Ponto, AcaoJogador, EstiloJogada } from './jogada.js';
 import { climaDaPartida, ehT2, quemUsaSegundoUniforme, type Clima } from './clima.js';
 import { JUIZ_NO_APITO_INICIAL, RITMO_DO_JUIZ, acaoNaFalta, alvoDoJuiz, type JuizNoQuadro, type MomentoDoJuiz } from './juiz.js';
+import { DURACAO_TROCA, trocasDaPartida, type Troca } from './substituicao.js';
 import { F_RESOLUCAO_PENALTI, estadoDaDisputa, instanteDaCobranca, montarDisputa, quadroDaDisputa, resultadoDaCobranca, type Disputa, type EstadoPenaltis } from './penaltis.js';
 export type { Disputa, EstadoPenaltis, MarcaDePenalti } from './penaltis.js';
 
@@ -69,6 +70,8 @@ export interface Destaque {
   penalti?: boolean;
   /** T2: cartão na falta (o letreiro vira "Cartão amarelo!" ou "Expulso!"). */
   cartao?: 'AMARELO' | 'VERMELHO';
+  /** Substituição (ADR-0061): quem ocupava o lugar do protagonista (titulares + Banco). */
+  ocupante?: number;
   /** T2: o lance era uma cobrança de falta ou pênalti (muda o letreiro). */
   bolaParada?: Lance['bolaParada'];
 }
@@ -82,6 +85,10 @@ export interface JogadorNoQuadro {
   /** Para onde o Jogador olha quando está parado (normalmente a bola). */
   olhar: Ponto;
   acao: AcaoJogador;
+  /** Substituição (ADR-0061): quem está no lugar (índice em titulares + Banco); sem ele, o titular. */
+  ocupante?: number;
+  /** Quem acabou de ser substituído, caminhando para fora do campo (não está mais no lugar). */
+  saindo?: true;
 }
 
 export interface EstadoQuadro {
@@ -104,6 +111,8 @@ export interface EstadoQuadro {
   t2: InfoT2 | null;
   /** Temporada 2 (ADR-0054): o juiz em campo, só visual (null nas Partidas da T1). */
   juiz: JuizNoQuadro | null;
+  /** Substituição na tela (ADR-0061): as trocas em andamento e 0 → 1 do letreiro. */
+  trocas?: { lista: Troca[]; progresso: number } | null;
 }
 
 /** Temporada 2 (ADR-0019): o que só aparece nas Partidas com as regras da T2. */
@@ -202,6 +211,8 @@ export class Timeline {
   private readonly saidas: Map<string, number>;
   /** Temporada 2: corrida do juiz (x, y intercalados a cada FISICA.dt); null na T1. */
   private readonly corridaDoJuiz: Float32Array | null;
+  /** Substituições do intervalo (ADR-0061), com o instante em que aparecem. */
+  readonly trocas: Troca[];
 
   constructor(
     readonly resultado: ResultadoPartida,
@@ -284,6 +295,18 @@ export class Timeline {
         }
       : null;
     this.corridaDoJuiz = this.t2 ? this.simularJuiz() : null;
+    this.trocas = trocasDaPartida(resultado, escalacoes, this.janelas);
+  }
+
+  /** Quem ocupa o lugar em t (índice em titulares + Banco). */
+  ocupanteEm(slot: SlotRef, t: number): number {
+    const troca = this.trocas.find((x) => x.lado === slot.lado && x.lugar === slot.indice && t >= x.t);
+    return troca ? troca.ocupante : slot.indice;
+  }
+
+  /** A troca que está na tela em t, se houver (a placa do juiz). */
+  trocaEm(t: number): Troca | null {
+    return this.trocas.find((x) => t >= x.t && t < x.t + DURACAO_TROCA) ?? null;
   }
 
   /** O que o juiz está fazendo em t: acompanhando a bola, indo à falta ou voltando depois do gol. */
@@ -351,6 +374,9 @@ export class Timeline {
     const antes = this.juizEm(Math.max(0, t - DT_VEL));
     const vel = { x: (pos.x - antes.x) / DT_VEL, y: (pos.y - antes.y) / DT_VEL };
     const correndo = Math.hypot(vel.x, vel.y) > 0.0016;
+    // Substituição (ADR-0061): o juiz levanta a placa enquanto o reserva entra.
+    const troca = this.trocaEm(t);
+    if (troca) return { pos, vel, seed: this.resultado.seed, olhar: { x: troca.lado === 'mandante' ? 0.02 : 0.98, y: 0.5 }, acao: 'PLACA' };
     if (destaque?.tipo === 'FALTA') {
       const autor = jogadores.find((j) => j.slot.lado === destaque.protagonista.lado && j.slot.indice === destaque.protagonista.indice);
       const dist = autor ? Math.hypot(autor.pos.x - pos.x, autor.pos.y - pos.y) : 0;
@@ -457,6 +483,28 @@ export class Timeline {
       })
       // T2: o expulso não volta mais ao campo.
       .filter((j) => t < (this.saidas.get(chave(j.slot)) ?? Infinity));
+    // Substituição (ADR-0061): o reserva entra correndo da lateral até o lugar; quem saiu
+    // caminha do lugar até a lateral e some.
+    for (const troca of this.trocas) {
+      if (t < troca.t) continue;
+      const j = jogadores.find((x) => x.slot.lado === troca.lado && x.slot.indice === troca.lugar && !x.saindo);
+      if (!j) continue;
+      j.ocupante = troca.ocupante;
+      const f = (t - troca.t) / DURACAO_TROCA;
+      if (f >= 1) continue;
+      const noLugar = this.corridaEm(j.slot, troca.t);
+      // Pela lateral da torcida do próprio Time (mandante à esquerda, visitante à direita).
+      const lateral = { x: troca.lado === 'mandante' ? 0.02 : 0.98, y: 0.5 };
+      const entra = limitar(f / 0.75);
+      j.pos = lerpP(lateral, j.pos, suave(entra));
+      j.acao = entra < 1 ? 'CORRENDO' : j.acao;
+      j.vel = entra < 1 ? { x: (j.pos.x - lateral.x) * 0.01, y: (j.pos.y - lateral.y) * 0.01 } : j.vel;
+      const sai = limitar(f / 0.85);
+      if (sai < 1) {
+        const pos = lerpP(noLugar, lateral, suave(sai));
+        jogadores.push({ slot: j.slot, posicao: j.posicao, pos, vel: { x: (lateral.x - noLugar.x) * 0.004, y: (lateral.y - noLugar.y) * 0.004 }, olhar: lateral, acao: 'CORRENDO', ocupante: troca.saiu, saindo: true });
+      }
+    }
 
     const destaque = this.destaqueEm(t);
     return {
@@ -473,6 +521,10 @@ export class Timeline {
       penaltis: null,
       t2: this.t2,
       juiz: this.juizNoQuadro(t, bola, destaque, jogadores),
+      ...(() => {
+        const troca = this.trocaEm(t);
+        return troca ? { trocas: { lista: this.trocas.filter((x) => x.t === troca.t), progresso: (t - troca.t) / DURACAO_TROCA } } : {};
+      })(),
     };
   }
 
@@ -808,10 +860,12 @@ export class Timeline {
         const lado = tipo === 'GOL' || tipo === 'FORA' ? j.lance.ataque : j.lance.defensor.lado;
         const cartao = j.lance.falta?.cartao;
         const bp = j.lance.bolaParada;
+        const ocupante = this.ocupanteEm(protagonista, j.resolucao);
         return {
           tipo,
           lado,
           protagonista,
+          ...(ocupante !== protagonista.indice ? { ocupante } : {}),
           progresso: (t - j.resolucao) / dur,
           ...(cartao ? { cartao } : {}),
           ...(bp && bp !== 'LATERAL' && bp !== 'ESCANTEIO' ? { bolaParada: bp } : {}),

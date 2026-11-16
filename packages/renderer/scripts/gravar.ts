@@ -39,6 +39,8 @@ const { values: args } = parseArgs({
     /** Partida com as regras da Temporada 2 (ADR-0019 a 0024). Com --vitrine, procura uma com falta, cartão, pênalti e barreira. */
     t2: { type: 'boolean' },
     vitrine: { type: 'boolean' },
+    /** Com --t2: a primeira Partida a partir de --seed com Substituição no intervalo (ADR-0061). */
+    troca: { type: 'boolean' },
     /** Na prévia, instantes extras em segundos, separados por vírgula. */
     instantes: { type: 'string' },
     /** Mata-mata (ADR-0048): semifinal ou final, com --temporada N e, se houver Séries, --serie A|B. */
@@ -70,6 +72,11 @@ async function main(): Promise<void> {
     do partida = partidaDeTeste(s++, args.mandante as TimeId, args.visitante as TimeId, args.subtitulo, 'LIGA', true);
     while (!tem(partida));
     console.log(`seed ${s - 1}: ${partida.resultado.gols.mandante}x${partida.resultado.gols.visitante}`);
+  } else if (args.t2 && args.troca) {
+    let s = Number(args.seed ?? 1);
+    do partida = partidaDeTeste(s++, args.mandante as TimeId, args.visitante as TimeId, args.subtitulo, 'LIGA', true);
+    while (!partida.resultado.substituicoes || partida.resultado.lances.filter((l) => l.tipo === 'GOL').length < 2);
+    console.log(`seed ${s - 1}: ${partida.resultado.gols.mandante}x${partida.resultado.gols.visitante}, trocas ${JSON.stringify(partida.resultado.substituicoes)}`);
   } else if (args.seed) partida = partidaDeTeste(Number(args.seed), args.mandante as TimeId, args.visitante as TimeId, args.subtitulo, 'LIGA', !!args.t2);
   else throw new Error('informe --entrada partida.json, --seed N ou --escudos pasta');
   if (args.etapa) {

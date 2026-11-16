@@ -47,7 +47,13 @@ export interface EscalacaoMontada {
   nomes: (string | null)[];
   /** Apelido de cada lugar na hora da Escalação (ADR-0014); null = sem apelido. */
   apelidos: (string | null)[];
+  /** Banco (T2, ADR-0061): @ e apelido de cada reserva, na ordem do Banco. */
+  nomesDoBanco?: (string | null)[];
+  apelidosDoBanco?: (string | null)[];
 }
+
+/** Joga: titular, ou reserva que entrou (ADR-0061). Para contar jogos na tabela `escalacao e`. */
+export const JOGOU = `(NOT e.reserva OR e.entrou)`;
 
 interface Disponivel {
   id: string;
@@ -135,7 +141,7 @@ export async function montarEscalacao(
          SELECT j.id, j.username, j.apelido, j.posicao, j.ovr, j.habilidades, j.inscrito_em, j.especializacao, j.treino, j.canto,
                 count(p.id) AS jogos, max(p.apito_inicial) AS ultimo
          FROM jogador j
-         LEFT JOIN escalacao e ON e.jogador_id = j.id
+         LEFT JOIN escalacao e ON e.jogador_id = j.id AND ${JOGOU}
          LEFT JOIN partida p ON p.id = e.partida_id
            AND p.rodada_id IN (SELECT id FROM rodada WHERE temporada_id = $2)
          WHERE j.time_id = $1 AND NOT j.banido AND j.inscrito_em <= $4
@@ -232,7 +238,28 @@ export async function montarEscalacao(
   });
   const emCampo = new Set(escolhidos.flatMap((d) => (d ? [d.id] : [])));
   const cortados = formacao ? [...noPadrao].filter((id) => !emCampo.has(id)) : [];
-  return { escalacao: { time: o.time, jogadores }, nomes, apelidos, ...(formacao ? { cortados } : {}) };
+  // Banco (T2, ADR-0061): todos que sobraram da Escalação, na ordem da fila do rodízio.
+  const reservas = formacao
+    ? (['GOL', 'ZAG', 'MEI', 'ATA'] as const).flatMap((p) => porPosicao.get(p) ?? []).sort((a, b) => ordemDoRodizio(a, b, o.craque ?? null, prioridade))
+    : [];
+  const doBanco = reservas.map((r) => ({
+    jogadorId: r.id,
+    posicao: r.posicao,
+    ovr: r.ovr,
+    habilidades: r.habilidades,
+    ...(r.especializacao ? { especializacao: r.especializacao } : {}),
+    ...(r.treino ? { treino: r.treino } : {}),
+    ...(r.canto ? { canto: r.canto } : {}),
+    ...(resenha.has(r.id) ? { resenha: true } : {}),
+    ...(bonusT1.has(r.id) ? { bonusT1: true } : {}),
+  }));
+  return {
+    escalacao: { time: o.time, jogadores, ...(doBanco.length ? { banco: doBanco } : {}) },
+    nomes,
+    apelidos,
+    ...(formacao ? { cortados } : {}),
+    ...(doBanco.length ? { nomesDoBanco: reservas.map((r) => `@${r.username}`), apelidosDoBanco: reservas.map((r) => r.apelido ?? null) } : {}),
+  };
 }
 
 /**
@@ -284,6 +311,8 @@ export interface PartidaEscalada {
   escalacoes: { mandante: Escalacao; visitante: Escalacao };
   nomes: { mandante: (string | null)[]; visitante: (string | null)[] };
   apelidos: { mandante: (string | null)[]; visitante: (string | null)[] };
+  /** Banco (T2, ADR-0061): @ e apelido de cada reserva, na ordem do Banco. */
+  banco?: { mandante: { nome: string | null; apelido: string | null }[]; visitante: { nome: string | null; apelido: string | null }[] };
 }
 
 /**
@@ -354,6 +383,14 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
           [partidaId, m.escalacao.time, lugar, j.jogadorId, j.posicao, j.ovr, JSON.stringify(j.habilidades), m.apelidos[lugar] ?? null, j.especializacao ?? null, j.treino ?? null, j.canto ?? null, j.resenha ?? false, j.posicaoDeOrigem ?? null, j.bonusT1 ?? false],
         );
       }
+      // Banco (ADR-0061): nos lugares depois dos titulares, marcados como reserva.
+      for (const [k, j] of (m.escalacao.banco ?? []).entries()) {
+        const lugar = m.escalacao.jogadores.length + k;
+        await b.query(
+          `INSERT INTO escalacao (partida_id, time_id, lugar, jogador_id, posicao, ovr_antes, habilidades_antes, apelido, especializacao, treino, canto, resenha, bonus_t1, reserva) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true)`,
+          [partidaId, m.escalacao.time, lugar, j.jogadorId, j.posicao, j.ovr, JSON.stringify(j.habilidades), m.apelidosDoBanco?.[k] ?? null, j.especializacao ?? null, j.treino ?? null, j.canto ?? null, j.resenha ?? false, j.bonusT1 ?? false],
+        );
+      }
       for (const id of m.cortados ?? []) {
         await b.query(`INSERT INTO corte_da_formacao (partida_id, jogador_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [partidaId, id]);
       }
@@ -368,29 +405,46 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
       }
     }
     await b.query(`UPDATE partida SET status = 'ESCALADA' WHERE id = $1`, [partidaId]);
+    const doBanco = (m: EscalacaoMontada) => (m.nomesDoBanco ?? []).map((nome, k) => ({ nome, apelido: m.apelidosDoBanco?.[k] ?? null }));
     return {
       partidaId,
       escalacoes: { mandante: mandante.escalacao, visitante: visitante.escalacao },
       nomes: { mandante: mandante.nomes, visitante: visitante.nomes },
       apelidos: { mandante: mandante.apelidos, visitante: visitante.apelidos },
+      ...(mandante.nomesDoBanco || visitante.nomesDoBanco ? { banco: { mandante: doBanco(mandante), visitante: doBanco(visitante) } } : {}),
     };
   });
 }
 
 async function lerEscalacao(b: Banco, partidaId: number, mandante: TimeId, visitante: TimeId): Promise<PartidaEscalada> {
   const linhas = (
-    await b.query<{ time_id: TimeId; jogador_id: string | null; posicao: Posicao; ovr_antes: number; habilidades_antes: Habilidades | string | null; username: string | null; apelido: string | null; especializacao: Especializacao | null; treino: HabilidadeId | null; canto: Canto | null; resenha: boolean; posicao_de_origem: Posicao | null; bonus_t1: boolean }>(
-      `SELECT e.time_id, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.especializacao, e.treino, e.canto, e.resenha, e.posicao_de_origem, e.bonus_t1
+    await b.query<{ time_id: TimeId; jogador_id: string | null; posicao: Posicao; ovr_antes: number; habilidades_antes: Habilidades | string | null; username: string | null; apelido: string | null; especializacao: Especializacao | null; treino: HabilidadeId | null; canto: Canto | null; resenha: boolean; posicao_de_origem: Posicao | null; bonus_t1: boolean; reserva: boolean }>(
+      `SELECT e.time_id, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.especializacao, e.treino, e.canto, e.resenha, e.posicao_de_origem, e.bonus_t1, e.reserva
        FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id
        WHERE e.partida_id = $1 ORDER BY e.lugar`,
       [partidaId],
     )
   ).rows;
+  const jogadorDaLinha = (l: (typeof linhas)[number]) => ({
+    jogadorId: l.jogador_id,
+    posicao: l.posicao,
+    ovr: l.ovr_antes,
+    habilidades: habilidadesDe(l.posicao, l.ovr_antes, l.habilidades_antes),
+    ...(l.especializacao ? { especializacao: l.especializacao } : {}),
+    ...(l.treino ? { treino: l.treino } : {}),
+    ...(l.canto ? { canto: l.canto } : {}),
+    ...(l.resenha ? { resenha: true } : {}),
+    ...(l.bonus_t1 ? { bonusT1: true } : {}),
+    ...(l.posicao_de_origem ? { posicaoDeOrigem: l.posicao_de_origem } : {}),
+  });
+  const reservasDe = (time: TimeId) => linhas.filter((l) => l.time_id === time && l.reserva);
   const de = (time: TimeId) => {
-    const minhas = linhas.filter((l) => l.time_id === time);
+    const minhas = linhas.filter((l) => l.time_id === time && !l.reserva);
+    const reservas = reservasDe(time);
     return {
       escalacao: {
         time,
+        ...(reservas.length ? { banco: reservas.map(jogadorDaLinha) } : {}),
         jogadores: minhas.map((l) => ({
           jogadorId: l.jogador_id,
           posicao: l.posicao,
@@ -410,5 +464,13 @@ async function lerEscalacao(b: Banco, partidaId: number, mandante: TimeId, visit
   };
   const m = de(mandante);
   const v = de(visitante);
-  return { partidaId, escalacoes: { mandante: m.escalacao, visitante: v.escalacao }, nomes: { mandante: m.nomes, visitante: v.nomes }, apelidos: { mandante: m.apelidos, visitante: v.apelidos } };
+  const nomesDoBanco = (time: TimeId) => reservasDe(time).map((l) => ({ nome: l.username ? `@${l.username}` : null, apelido: l.apelido ?? null }));
+  const comBanco = reservasDe(mandante).length || reservasDe(visitante).length;
+  return {
+    partidaId,
+    escalacoes: { mandante: m.escalacao, visitante: v.escalacao },
+    nomes: { mandante: m.nomes, visitante: v.nomes },
+    apelidos: { mandante: m.apelidos, visitante: v.apelidos },
+    ...(comBanco ? { banco: { mandante: nomesDoBanco(mandante), visitante: nomesDoBanco(visitante) } } : {}),
+  };
 }

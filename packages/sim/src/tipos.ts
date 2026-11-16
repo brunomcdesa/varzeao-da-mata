@@ -123,6 +123,13 @@ export interface Desempenho {
   habilidadesDepois: Habilidades;
   /** Variação de cada Habilidade na Partida (uma casa decimal). */
   deltaHabilidades: Record<HabilidadeId, number>;
+  /**
+   * Substituição (ADR-0061): SAIU no intervalo (jogou o 1º tempo) ou ENTROU (jogou o 2º). O
+   * `slot` é o lugar em campo, o mesmo de quem saiu e de quem entrou.
+   */
+  substituicao?: 'SAIU' | 'ENTROU';
+  /** Reserva que entrou fora de posição: a Posição de inscrição dele (`posicao` é a vaga). */
+  posicaoDeOrigem?: Posicao;
   /** T2: faltas cometidas e cartões (dois amarelos na Partida viram vermelho). */
   faltas?: number;
   amarelos?: number;
@@ -148,4 +155,27 @@ export interface ResultadoPartida {
   ritmo?: number;
   /** T2 (ADR-0044): a Formação de cada Time. */
   formacao?: Record<Lado, Formacao>;
+  /**
+   * Substituições do intervalo (ADR-0061), em ordem. `lugar` é o slot em campo; a partir do lance
+   * `antesDoLance` (índice em `lances`), quem ocupa o lugar é o reserva `banco` (índice no Banco).
+   */
+  substituicoes?: Substituicao[];
+  /** Com Substituição (ADR-0061): o Jogador do `decisivo` (o lugar pode ter tido dois). */
+  decisivoJogadorId?: string | null;
+}
+
+export interface Substituicao {
+  lado: Lado;
+  lugar: number;
+  /** Índice do reserva no Banco da Escalação. */
+  banco: number;
+  saiu: string | null;
+  entrou: string | null;
+  /** Nota parcial de quem saiu, no intervalo. */
+  notaNoIntervalo: number;
+  /** O primeiro lance (índice em `lances`) com o reserva em campo. */
+  antesDoLance: number;
+  minuto: number;
+  /** O reserva entrou fora de posição (a vaga é de outra Posição). */
+  foraDePosicao?: true;
 }

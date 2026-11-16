@@ -66,6 +66,18 @@ export function partidaDeTeste(seed: number, mandante: TimeId, visitante: TimeId
         { const ovr = 64 + rng.int(13); return { jogadorId: `${time}-${i}`, posicao, ovr, habilidades: habilidadesDoPerfil(posicao, ovr) }; }
       }),
     };
+    // T2 (ADR-0061): um Banco com um zagueiro e um atacante; os nomes vêm depois dos titulares.
+    if (t2) {
+      const banco = (['ZAG', 'ATA'] as const).map((posicao, k) => {
+        let a = rng.pick(APELIDOS);
+        while (usados.has(a)) a = rng.pick(APELIDOS);
+        usados.add(a);
+        nomes.push(`@${a}_${IDENTIDADE[time].bicho}`);
+        const ovr = 64 + rng.int(13);
+        return { jogadorId: `${time}-r${k}`, posicao, ovr, habilidades: habilidadesDoPerfil(posicao, ovr) };
+      });
+      return { esc: { ...esc, banco }, nomes };
+    }
     return { esc, nomes };
   };
   const a = montar(mandante, seed * 7 + 1);
@@ -684,6 +696,7 @@ async function gravarPrevia(pagina: import('playwright').Page, dir: string, fps:
     const em = (f: number) => Math.floor((s.inicio + (s.fim - s.inicio) * f) * fps);
     if (s.tipo === 'ABERTURA') momentos.push(['00-abertura', em(0.6)]);
     else if (s.tipo === 'PENALTIS') for (const f of [0.05, 0.17, 0.24, 0.3, 0.52, 0.97]) momentos.push([`${String(i).padStart(2, '0')}-penaltis-${Math.round(f * 100)}`, em(f)]);
+    else if (s.tipo === 'TROCA') for (const f of [0.15, 0.45, 0.75]) momentos.push([`${String(i).padStart(2, '0')}-troca-${Math.round(f * 100)}`, em(f)]);
     else if (s.tipo !== 'LANCE' && s.tipo !== 'FIM') momentos.push([`${String(i).padStart(2, '0')}-${s.tipo.toLowerCase()}`, em(0.85)]);
     else if (s.tipo === 'FIM') momentos.push([`${String(i).padStart(2, '0')}-fim`, em(0.75)]);
     else {

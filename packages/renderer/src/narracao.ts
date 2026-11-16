@@ -4,11 +4,12 @@
  *
  * Regra do glossário: o Locutor fala dos Jogadores pela Posição e pelo Time, nunca pelo @.
  */
-import { FALA_DO_TIME, concordar, deQuemDepende, doTime, ehGoleada, listaDeTimes, necessidadeNaBriga, nomeDoClassico, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, concordar, deQuemDepende, doTime, ehGoleada, listaDeTimes, necessidadeNaBriga, nomeDoClassico, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, type Lado, type Lance, type SlotRef } from '@liga/sim';
 import { narradorDa } from './narradores.js';
 import { F_CHUTE_PENALTI, instanteDaCobranca, resultadoDaCobranca } from './penaltis.js';
 import type { Roteiro, Segmento } from './roteiro.js';
+import { ocupanteNoLance, type Troca } from './substituicao.js';
 
 export type Tom = 'normal' | 'animado' | 'grito';
 
@@ -79,6 +80,38 @@ export interface OpcoesNarracao {
 /** Onde passa o jogo completo: o site e, a partir da Temporada 2, também o App (ADR-0052). */
 export const ONDE_VER_O_JOGO = (t2: boolean) => (t2 ? 'no site e no app do Varzeão' : 'no site do Varzeão');
 
+/**
+ * "Mexida no Tatu: sai o zagueiro, entra o meia." Pela Posição e pelo Time, nunca pelo @. Fora
+ * de posição: "entra o meia, pra jogar de zagueiro".
+ */
+export function falaDaTroca(
+  trocas: readonly Troca[],
+  esc: Record<Lado, Escalacao>,
+  time: (lado: Lado) => TimeId,
+  ref: (lado: Lado, ocupante: number, posicao: Posicao) => string = (_l, _o, pos) => `o ${POSICAO[pos]}`,
+): string {
+  const partes: string[] = [];
+  for (const lado of ['mandante', 'visitante'] as const) {
+    const minhas = trocas.filter((x) => x.lado === lado);
+    if (!minhas.length) continue;
+    const titulares = esc[lado].jogadores.length;
+    const no = `n${FALA_DO_TIME[time(lado)].artigo} ${FALA_DO_TIME[time(lado)].curto}`;
+    const vaga = (x: Troca) => esc[lado].jogadores[x.lugar]!.posicao;
+    const sai = (x: Troca) => ref(lado, x.saiu, vaga(x));
+    const entra = (x: Troca) => {
+      const reserva = esc[lado].banco?.[x.ocupante - titulares];
+      const pos = ref(lado, x.ocupante, reserva?.posicao ?? vaga(x));
+      return x.foraDePosicao ? `${pos}, pra jogar de ${POSICAO[vaga(x)]}` : pos;
+    };
+    partes.push(
+      minhas.length === 1
+        ? `Mexida ${no}! Sai ${sai(minhas[0]!)}, entra ${entra(minhas[0]!)}.`
+        : `Duas mexidas ${no}! Saem ${minhas.map(sai).join(' e ')}. Entram ${minhas.map(entra).join(' e ')}.`,
+    );
+  }
+  return partes.join(' ');
+}
+
 export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string | null)[]>, o: OpcoesNarracao = {}): Fala[] {
   const tl = roteiro.timeline;
   const r = tl.resultado;
@@ -86,13 +119,22 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
   const time = (lado: Lado): TimeId => r.times[lado];
   /** T2 (ADR-0059): o apelido entra em toda fala de Jogador. Na T1, só nos gols. */
   const comApelido = !!tl.t2;
+  /** `indice` aqui é o ocupante (titulares e depois o Banco, ADR-0061), não o lugar. */
   const nomeDe = (s: SlotRef) => (comApelido ? apelidoFalavel(apelidos?.[s.lado]?.[s.indice]) : null);
+  /** Substituição (ADR-0061): quem estava no lugar no lance `iLance` e a Posição da vaga dele. */
+  const ocupanteNo = (s: SlotRef, iLance: number): SlotRef => ({ lado: s.lado, indice: ocupanteNoLance(r, esc[s.lado].jogadores.length, s.lado, s.indice, iLance) });
+  const posicaoDoOcupante = new Map<string, Posicao>();
   /** "o atacante da Onça", ou a marca do apelido, resolvida no fim (primeira vez ou não). */
-  const referencia = (s: SlotRef, comTime: boolean) =>
-    nomeDe(s) ? marcaDoApelido(s, comTime) : `o ${POSICAO[esc[s.lado].jogadores[s.indice]!.posicao]}${comTime ? ` ${doTime(time(s.lado))}` : ''}`;
-  const quem = (lance: Lance, papel: 'criador' | 'finalizador' | 'defensor') => referencia(lance[papel]!, true);
+  const referencia = (s: SlotRef, comTime: boolean, iLance = 0) => {
+    const o = ocupanteNo(s, iLance);
+    const pos = esc[s.lado].jogadores[s.indice]!.posicao;
+    // A primeira menção decide a Posição dita (a da troca, para o reserva fora de posição).
+    if (!posicaoDoOcupante.has(`${o.lado}.${o.indice}`)) posicaoDoOcupante.set(`${o.lado}.${o.indice}`, pos);
+    return nomeDe(o) ? marcaDoApelido(o, comTime) : `o ${POSICAO[pos]}${comTime ? ` ${doTime(time(s.lado))}` : ''}`;
+  };
+  const quem = (lance: Lance, papel: 'criador' | 'finalizador' | 'defensor') => referencia(lance[papel]!, true, r.lances.indexOf(lance));
   /** Só a posição, quando o Time já foi dito na mesma frase: "o atacante". */
-  const posicao = (lance: Lance, papel: 'criador' | 'finalizador' | 'defensor') => referencia(lance[papel]!, false);
+  const posicao = (lance: Lance, papel: 'criador' | 'finalizador' | 'defensor') => referencia(lance[papel]!, false, r.lances.indexOf(lance));
   const curto = (lado: Lado) => FALA_DO_TIME[time(lado)].curto;
   /** Escolhe uma variação evitando repetir frases já ditas neste vídeo. */
   const ditas = new Set<string>();
@@ -133,6 +175,18 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
     const texto = [falaDosGarantidos(briga, r.times), ...falasDaNecessidade(briga, r.times)].filter(Boolean).join(' ');
     if (texto) falas.push({ id: 'briga-inicio', texto, inicio: 0.4, limite: segs[0]!.fim, tom: 'normal', segmento: 0, parte: 'antes' });
   }
+
+  // Substituição (ADR-0061): o Narrador diz quem sai e quem entra, pela Posição e pelo Time.
+  segs.forEach((s, indice) => {
+    if (s.tipo !== 'TROCA') return;
+    // T2: com apelido, "Sai Bruninho, o zagueiro, entra Juca, o meia" (ADR-0059 e ADR-0061).
+    const ref = (lado: Lado, ocupante: number, pos: Posicao) => {
+      if (!posicaoDoOcupante.has(`${lado}.${ocupante}`)) posicaoDoOcupante.set(`${lado}.${ocupante}`, pos);
+      return nomeDe({ lado, indice: ocupante }) ? marcaDoApelido({ lado, indice: ocupante }, false) : `o ${POSICAO[pos]}`;
+    };
+    const texto = falaDaTroca(tl.trocas, esc, time, ref);
+    if (texto) falas.push({ id: 'troca', texto, inicio: s.inicio + 0.2, limite: s.fim, tom: 'normal', segmento: indice, parte: 'antes' });
+  });
 
   segs.forEach((s, indice) => {
     if (s.tipo !== 'LANCE') return;
@@ -294,7 +348,7 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
     if (lance.tipo === 'GOL') {
       const placar = tl.placarEm(tl.janelas[s.lance!]!.resolucao + 1);
       // T2: o nome do gol também passa pela apresentação (ADR-0059).
-      const nome = !lance.finalizador ? null : comApelido ? (nomeDe(lance.finalizador) ? quem(lance, 'finalizador') : null) : apelidoFalavel(apelidos?.[lance.finalizador.lado]?.[lance.finalizador.indice]);
+      const nome = !lance.finalizador ? null : comApelido ? (nomeDe(ocupanteNo(lance.finalizador, s.lance!)) ? quem(lance, 'finalizador') : null) : apelidoFalavel(apelidos?.[lance.finalizador.lado]?.[lance.finalizador.indice]);
       const rival = atq === 'mandante' ? 'visitante' : 'mandante';
       // O gol que confirma a Goleada: a fala extra comemora o placar (que está na tela).
       // Só a primeira vez: se o rival diminuir e a Goleada voltar, não repete (4×1, 4×2, 5×2).
@@ -348,7 +402,7 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
         res === 'GOL'
           ? [[`Converteu ${doTime(time(c.lado))}!`, 'animado'], [`Gol! Bateu bem!`, 'animado'], [`No canto! Gol ${doTime(time(c.lado))}!`, 'animado']]
           : res === 'DEFESA'
-            ? [[`Pegou! ${cap(referencia(c.goleiro, true))} defende!`, 'grito'], [`Defendeu!`, 'grito']]
+            ? [[`Pegou! ${cap(referencia(c.goleiro, true, r.lances.length))} defende!`, 'grito'], [`Defendeu!`, 'grito']]
             : [[`Pra fora! Desperdiçou!`, 'animado'], [`Mandou longe!`, 'animado']];
       const [texto, tom] = escolher(rng, opcoes);
       falas.push({ id: `penalti-${k}`, texto, inicio: roteiro.videoDosPenaltis(s, instanteDaCobranca(d, k)) - 0.05, limite: s.fim, tom, segmento: iPen, parte: 'antes' });
@@ -386,7 +440,7 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
   const apresentados = new Set<string>();
   for (const f of falas) f.texto = resolverApelidos(f.texto, apresentados, (lado, indice) => ({
     nome: nomeDe({ lado, indice })!,
-    posicao: POSICAO[esc[lado].jogadores[indice]!.posicao],
+    posicao: POSICAO[posicaoDoOcupante.get(`${lado}.${indice}`) ?? esc[lado].jogadores[indice]!.posicao],
     time: doTime(time(lado)),
   }));
   return falas;

@@ -344,15 +344,15 @@ describe('trava da Temporada 1', () => {
   });
 });
 
-describe('regras da Temporada 2 (VERSAO_SIM 16)', () => {
+describe('regras da Temporada 2 (VERSAO_SIM 17)', () => {
   const neutra = { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const;
   /** `t2`: null joga com as regras da T1. */
   const jogo = (seed: number, t2: Parameters<typeof simularPartida>[0]['t2'] | null = neutra, a = escalacao('CAP', 70), b = escalacao('ONC', 70, 'R')) =>
     simularPartida({ mandante: a, visitante: b, seed, fase: 'LIGA', ...(t2 ? { t2 } : {}) });
 
-  it('com as regras da T2 a Partida é da versão 16, guarda Postura e Ritmo e é determinística', () => {
+  it('com as regras da T2 a Partida é da versão 17, guarda Postura e Ritmo e é determinística', () => {
     const r = jogo(11);
-    expect(r.versaoSim).toBe(16);
+    expect(r.versaoSim).toBe(17);
     expect(r.postura).toEqual(neutra.postura);
     expect(r.ritmo).toBeGreaterThanOrEqual(6);
     expect(jogo(11)).toEqual(r);
@@ -572,7 +572,7 @@ describe('saída de bola depois do gol (ADR-0045)', () => {
     const t1 = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('ONC', 70), seed: 1 });
     const t2 = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('ONC', 70), seed: 1, t2: { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } });
     expect(t1.versaoSim).toBe(12);
-    expect(t2.versaoSim).toBe(16);
+    expect(t2.versaoSim).toBe(17);
   });
 });
 

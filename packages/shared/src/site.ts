@@ -235,6 +235,8 @@ export interface EscalacaoPublica {
   time: TimeId;
   /** `capitao`: faixa de Capitão nesta Partida (só na T2, ADR-0020). */
   jogadores: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; ovr: number; habilidades: Habilidades; capitao?: true }[];
+  /** Banco (T2, ADR-0061): os reservas, nos lugares depois dos titulares (7 e 8). */
+  banco?: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; ovr: number; habilidades: Habilidades }[];
 }
 
 export interface PartidaPublica {

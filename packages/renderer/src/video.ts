@@ -2,7 +2,8 @@
  * Desenho de um quadro do Reels: o campo da Timeline no instante que o Roteiro manda,
  * mais as cartelas de abertura e de fim e o escurecimento dos cortes.
  */
-import { FALA_DO_TIME, IDENTIDADE, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type MataMataDaPartida, type TimeId } from '@liga/shared';
+import { ocupanteDoDesempenho } from './substituicao.js';
+import { FALA_DO_TIME, IDENTIDADE, TAMANHO_ESCALACAO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type MataMataDaPartida, type TimeId } from '@liga/shared';
 import type { Lado, ResultadoPartida } from '@liga/sim';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, faixaDeTorcida, plaquinha, rotulo, type OpcoesDesenho } from './desenho.js';
@@ -48,7 +49,7 @@ export function desenharQuadroVideo(ctx: CanvasRenderingContext2D, roteiro: Rote
   const pin = new Pincel(ctx);
   const tipo = q.segmento.tipo;
   // Nas cartelas o fundo é o cenário vazio; no jogo, o quadro completo.
-  if (tipo === 'LANCE' || tipo === 'PENALTIS') desenharQuadro(ctx, roteiro.timeline.estado(q.tJogo), o);
+  if (tipo === 'LANCE' || tipo === 'TROCA' || tipo === 'PENALTIS') desenharQuadro(ctx, roteiro.timeline.estado(q.tJogo), o);
   else {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(cenario(), 0, 0, COLUNAS * pin.px, LINHAS * pin.px);
@@ -270,8 +271,10 @@ function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number
     pin.tabua(x, y, w, h);
     pin.texto('Melhor em campo', COLUNAS / 2, y + 16, 20, display, COR.amarelo, { contorno: COR.contorno });
     const id = IDENTIDADE[r.times[melhor.slot.lado]];
-    const arroba = o.nomes[melhor.slot.lado][melhor.slot.indice] ?? 'Jogador da Base';
-    const nome = rotulo(o, melhor.slot.lado, melhor.slot.indice) ?? 'Jogador da Base';
+    // Substituição (ADR-0061): o reserva que entrou tem o nome dele, não o do titular do lugar.
+    const quem = ocupanteDoDesempenho(r, TAMANHO_ESCALACAO, melhor);
+    const arroba = o.nomes[melhor.slot.lado][quem] ?? 'Jogador da Base';
+    const nome = rotulo(o, melhor.slot.lado, quem) ?? 'Jogador da Base';
     const goleiro = melhor.posicao === 'GOL';
     const visual = {
       camisa: goleiro ? id.secundaria : id.primaria,

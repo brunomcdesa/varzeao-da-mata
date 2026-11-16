@@ -128,13 +128,11 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
   const candidatos = (
     await banco.query<{ username: string; apelido: string | null; time_id: TimeId; posicao: Posicao; nota: string; gols: string; numero: number | null; serie: Serie }>(
       `SELECT j.username, j.apelido, j.time_id, j.posicao, c.nota, c.numero, c.serie,
-              (SELECT count(*) FROM partida p
-                 JOIN escalacao e ON e.partida_id = p.id
-                 CROSS JOIN LATERAL jsonb_array_elements(p.lances) l
+              -- Gols pelos desempenhos (com Substituição, o lugar em campo teve dois Jogadores, ADR-0061).
+              (SELECT coalesce(sum((d->>'gols')::int), 0) FROM partida p
+                 CROSS JOIN LATERAL jsonb_array_elements(p.resultado->'desempenhos') d
                 WHERE (p.rodada_id = c.rodada_id OR ($2 AND p.rodada_id IN (SELECT id FROM rodada WHERE temporada_id = $3)))
-                  AND e.jogador_id = j.id AND l->>'tipo' = 'GOL'
-                  AND (l->'finalizador'->>'indice')::int = e.lugar
-                  AND ((l->'finalizador'->>'lado') = 'mandante') = (e.time_id = p.mandante_id)) AS gols
+                  AND d->>'jogadorId' = j.id::text) AS gols
        FROM candidato c JOIN jogador j ON j.id = c.jogador_id
        WHERE c.rodada_id = $1 ORDER BY c.numero NULLS LAST, c.nota DESC, j.id`,
       [rodadaId, etapaDa(r.fase, r.numero) === 'FINAL', r.temporada_id],
@@ -197,12 +195,9 @@ async function anuncioDoCraque(banco: Banco, temporadaId: number, numero: number
     await banco.query<{ username: string; apelido: string | null; time_id: TimeId; posicao: Posicao; nota: string; votos: string; gols: string }>(
       `SELECT j.username, j.apelido, j.time_id, j.posicao, c.nota,
               (SELECT count(*) FROM voto_total v WHERE v.rodada_id = c.rodada_id AND v.jogador_id = c.jogador_id) AS votos,
-              (SELECT count(*) FROM partida p
-                 JOIN escalacao e ON e.partida_id = p.id
-                 CROSS JOIN LATERAL jsonb_array_elements(p.lances) l
-                WHERE p.rodada_id = c.rodada_id AND e.jogador_id = j.id AND l->>'tipo' = 'GOL'
-                  AND (l->'finalizador'->>'indice')::int = e.lugar
-                  AND ((l->'finalizador'->>'lado') = 'mandante') = (e.time_id = p.mandante_id)) AS gols
+              (SELECT coalesce(sum((d->>'gols')::int), 0) FROM partida p
+                 CROSS JOIN LATERAL jsonb_array_elements(p.resultado->'desempenhos') d
+                WHERE p.rodada_id = c.rodada_id AND d->>'jogadorId' = j.id::text) AS gols
        FROM candidato c JOIN jogador j ON j.id = c.jogador_id WHERE c.rodada_id = $1 AND c.jogador_id = $2`,
       [anterior.id, eleito.id],
     )

@@ -93,7 +93,7 @@ export async function ordemDoCapitao(b: Banco, time: TimeId): Promise<string[]> 
   return (
     await b.query<{ id: string }>(
       `SELECT j.id::text AS id FROM jogador j
-       LEFT JOIN escalacao e ON e.jogador_id = j.id AND e.time_id = j.time_id
+       LEFT JOIN escalacao e ON e.jogador_id = j.id AND e.time_id = j.time_id AND (NOT e.reserva OR e.entrou)
        WHERE j.time_id = $1 AND NOT j.banido
        GROUP BY j.id ORDER BY count(e.partida_id) DESC, j.inscrito_em, j.id`,
       [time],

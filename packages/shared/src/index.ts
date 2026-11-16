@@ -362,6 +362,11 @@ export function temBonusT1(numeroDaTemporada: number, numeroDaRodada: number, fa
 export interface Escalacao {
   time: TimeId;
   jogadores: readonly JogadorEscalado[];
+  /**
+   * Banco (T2, ADR-0061): até 2 reservas de linha, os próximos da fila do rodízio. No intervalo,
+   * podem entrar no lugar de quem foi mal. Nas Partidas sem Banco, nada muda.
+   */
+  banco?: readonly JogadorEscalado[];
 }
 export * from './site.js';
 export * from './rodada.js';

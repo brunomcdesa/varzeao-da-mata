@@ -11,7 +11,14 @@ export const paraEscalacao = (e: EscalacaoPublica): Escalacao => ({
   jogadores: [...e.jogadores]
     .sort((a, b) => a.lugar - b.lugar)
     .map((j) => ({ jogadorId: j.jogadorId, posicao: j.posicao, ovr: j.ovr, habilidades: j.habilidades ?? habilidadesDoPerfil(j.posicao, j.ovr) })),
+  // Banco (ADR-0061): a Timeline precisa dele para mostrar quem entrou no intervalo.
+  ...(e.banco?.length
+    ? { banco: [...e.banco].sort((a, b) => a.lugar - b.lugar).map((j) => ({ jogadorId: j.jogadorId, posicao: j.posicao, ovr: j.ovr, habilidades: j.habilidades ?? habilidadesDoPerfil(j.posicao, j.ovr) })) }
+    : {}),
 });
+
+/** Os da Escalação na ordem do "ocupante" (titulares e depois o Banco), para nomes e apelidos (ADR-0061). */
+export const todosDaEscalacao = (e: EscalacaoPublica) => [...[...e.jogadores].sort((a, b) => a.lugar - b.lugar), ...[...(e.banco ?? [])].sort((a, b) => a.lugar - b.lugar)];
 
 export function timelineDaPartida(p: Pick<PartidaPublica, 'resultado' | 'escalacoes' | 'torcida'>): Timeline | null {
   if (!p.resultado || !p.escalacoes) return null;

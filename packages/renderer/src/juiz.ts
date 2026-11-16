@@ -8,7 +8,8 @@ import type { Ponto } from './jogada.js';
 import { segundoUniforme } from './clima.js';
 import { aparencia, type Visual } from './sprites.js';
 
-export type AcaoDoJuiz = 'PARADO' | 'CORRENDO' | 'APITO' | 'CARTAO';
+/** PLACA: Substituição no intervalo (ADR-0061), com a placa levantada. */
+export type AcaoDoJuiz = 'PARADO' | 'CORRENDO' | 'APITO' | 'CARTAO' | 'PLACA';
 
 export interface JuizNoQuadro {
   pos: Ponto;

@@ -52,6 +52,8 @@ interface LinhaEscalacao {
   apelido: string | null;
   /** Capitão em campo (T2, ADR-0020). */
   capitao: boolean;
+  /** Banco (ADR-0061). */
+  reserva: boolean;
 }
 
 export interface ExportacaoDoSite {
@@ -119,7 +121,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
 
   const escalacoes = (
     await banco.query<LinhaEscalacao>(
-      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.capitao
+      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.capitao, e.reserva
        FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id ORDER BY e.partida_id, e.lugar`,
     )
   ).rows;
@@ -307,7 +309,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       });
     }
     if (r.classico && r.decisivo) {
-      const id = r.desempenhos.find((d) => d.slot.lado === r.decisivo!.lado && d.slot.indice === r.decisivo!.indice)?.jogadorId;
+      // Com Substituição, o lugar teve dois Jogadores: vale o Jogador do decisivo (ADR-0061).
+      const id = r.decisivoJogadorId !== undefined ? r.decisivoJogadorId : r.desempenhos.find((d) => d.slot.lado === r.decisivo!.lado && d.slot.indice === r.decisivo!.indice)?.jogadorId;
       const j = id ? porJogador.get(id) : undefined;
       if (j) {
         j.reiDoClassico++;
@@ -497,12 +500,17 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   // ---- uma página por Partida escalada (de todas as Temporadas: o histórico aponta para elas)
   for (const p of todas) {
     const linhas = escalacoesDe.get(p.id);
-    const de = (time: TimeId): EscalacaoPublica => ({
-      time,
-      jogadores: (linhas ?? [])
-        .filter((e) => e.time_id === time)
-        .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes), ...(e.capitao ? { capitao: true as const } : {}) })),
-    });
+    const de = (time: TimeId): EscalacaoPublica => {
+      const doTime = (linhas ?? []).filter((e) => e.time_id === time);
+      const banco = doTime.filter((e) => e.reserva).map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes) }));
+      return {
+        time,
+        jogadores: doTime
+          .filter((e) => !e.reserva)
+          .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes), ...(e.capitao ? { capitao: true as const } : {}) })),
+        ...(banco.length ? { banco } : {}),
+      };
+    };
     if (!linhas && !revelada(p)) continue;
     const publica: PartidaPublica = {
       id: p.id,

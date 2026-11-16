@@ -11,8 +11,10 @@ export interface Transmissao {
   parar(): void;
 }
 
-const nomesDe = (e: EscalacaoPublica) => [...e.jogadores].sort((a, b) => a.lugar - b.lugar).map((j) => (j.username ? `@${j.username}` : null));
-const apelidosDe = (e: EscalacaoPublica) => [...e.jogadores].sort((a, b) => a.lugar - b.lugar).map((j) => j.apelido ?? null);
+// Titulares e, depois deles, o Banco (ADR-0061): o reserva que entra usa o nome dele.
+const todos = (e: EscalacaoPublica) => [...[...e.jogadores].sort((a, b) => a.lugar - b.lugar), ...[...(e.banco ?? [])].sort((a, b) => a.lugar - b.lugar)];
+const nomesDe = (e: EscalacaoPublica) => todos(e).map((j) => (j.username ? `@${j.username}` : null));
+const apelidosDe = (e: EscalacaoPublica) => todos(e).map((j) => j.apelido ?? null);
 
 export const montarTimeline = (p: PartidaPublica): Timeline | null => timelineDaPartida(p);
 

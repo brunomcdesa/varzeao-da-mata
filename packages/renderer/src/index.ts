@@ -14,3 +14,5 @@ export * from './penaltis.js';
 export { NARRADORES, narradorDa, type Narrador } from './narradores.js';
 export { apelidoFalavel } from './narracao.js';
 export { timelineDaPartida, paraEscalacao, momentosDoAoVivo } from './partidaPublica.js';
+export { trocasDaPartida, ocupanteNoLance, ocupanteDoDesempenho, DURACAO_TROCA, type Troca } from './substituicao.js';
+export { todosDaEscalacao } from './partidaPublica.js';

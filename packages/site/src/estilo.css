@@ -1039,6 +1039,20 @@ main:focus {
 .escalacao li + li {
   border-top: 2px dashed var(--placa-sombra);
 }
+/* Substituição (ADR-0061): quem saiu ou entrou no intervalo, e o Banco. */
+.escalacao .troca {
+  display: block;
+  font: 600 0.75rem var(--texto);
+  color: var(--tinta-fraca);
+}
+.escalacao .banco-titulo {
+  font: 400 1.25rem var(--display);
+  margin: 10px 0 2px;
+  color: var(--tinta-fraca);
+}
+.escalacao .banco li.nao-entrou {
+  opacity: 0.6;
+}
 .escalacao .pos {
   font: 400 1.125rem var(--display);
   color: var(--tinta-fraca);

@@ -108,6 +108,14 @@ _Avoid_: equipe, clube, lado, seleção
 Todos os Jogadores inscritos num Time. A Inscrição fica aberta durante toda a Temporada, então o Elenco cresce ao longo dela.
 _Avoid_: plantel, grupo, squad
 
+**Banco**:
+Os reservas de um Time numa Partida da T2: todos que sobraram da Escalação, na ordem da fila do rodízio. Podem entrar no intervalo, pela Substituição. ADR-0061.
+_Avoid_: reservas, suplentes
+
+**Substituição**:
+A troca do intervalo, só na T2: sai quem tem Nota parcial abaixo de 5 (até 2 por Time) e entra um reserva do Banco da mesma Posição. Goleiro só por goleiro; na linha, sem reserva da Posição, entra um de outra Posição de linha. O reserva que entrou conta jogo. ADR-0061.
+_Avoid_: troca de jogador, mudança
+
 **Escalação**:
 Os 7 Jogadores de um Time que entram em campo numa Partida, escolhidos do Elenco por rodízio. As Partidas são de futebol society.
 _Avoid_: titulares, time titular, onze

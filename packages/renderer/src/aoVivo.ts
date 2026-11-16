@@ -99,7 +99,8 @@ export function roteiroAoVivo(tl: Timeline, apelidos?: Record<Lado, (string | nu
       if (k) falas.push({ ...base, em: aoVivo(instanteDaCobranca(d, Number(k[1]))), modo: 'de' });
       else if (f.id === 'penaltis-abertura') falas.push({ ...base, em: aoVivo(d.inicio) + 0.3, modo: 'de' });
       else falas.push({ ...base, em: aoVivo(instanteDaCobranca(d, d.cobrancas.length - 1)) + 1.5, modo: 'de' });
-    } else if (s.tipo === 'FIM') falas.push({ ...base, em: aoVivo(tl.duracao) + 0.2, modo: 'de' });
+    } else if (s.tipo === 'TROCA') falas.push({ ...base, em: aoVivo(s.jogoInicio!) + 0.2, modo: 'de' });
+    else if (s.tipo === 'FIM') falas.push({ ...base, em: aoVivo(tl.duracao) + 0.2, modo: 'de' });
   }
   // Intervalo: no meio do jogo o Locutor marca os 45 minutos.
   const meio = aoVivo(DURACAO_JOGO / 2);

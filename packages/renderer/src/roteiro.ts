@@ -9,18 +9,20 @@
 import type { TipoLance } from '@liga/sim';
 import { INTRO_PENALTIS } from './penaltis.js';
 import { DURACAO_JOGO, type Timeline } from './timeline.js';
+import { DURACAO_TROCA } from './substituicao.js';
 
 /** Segundos de vídeo da disputa de pênaltis: abertura, cada cobrança e o fim. */
 export const VIDEO_PENALTIS = { intro: 2.4, cobranca: 3, fim: 3 };
 
-export type TipoSegmento = 'ABERTURA' | 'LANCE' | 'PENALTIS' | 'FIM';
+/** TROCA: a Substituição do intervalo (ADR-0061), com a placa do juiz. */
+export type TipoSegmento = 'ABERTURA' | 'LANCE' | 'TROCA' | 'PENALTIS' | 'FIM';
 
 export interface Segmento {
   tipo: TipoSegmento;
   /** Início e fim no tempo de vídeo (s). */
   inicio: number;
   fim: number;
-  /** Só em LANCE: trecho de jogo mostrado (s de jogo) e índice do lance. */
+  /** Em LANCE e TROCA: trecho de jogo mostrado (s de jogo); em LANCE, também o índice do lance. */
   jogoInicio?: number;
   jogoFim?: number;
   /** Só em LANCE: instante de jogo da resolução (chute chegando ou desarme). */
@@ -91,6 +93,9 @@ const RECORTE: Record<TipoLance, { de: number; extraDepois: number }> = {
   FALTA: { de: 0.32, extraDepois: 20 },
 };
 
+/** Quanto a Substituição dura no Reels (s de vídeo), antes de esticar para a fala caber. */
+const DURACAO_TROCA_NO_VIDEO = 3.5;
+
 export class Roteiro {
   readonly segmentos: Segmento[];
   readonly duracao: number;
@@ -128,7 +133,20 @@ export class Roteiro {
     const segmentos: Segmento[] = [];
     let cursor = 0;
     segmentos.push({ tipo: 'ABERTURA', inicio: 0, fim: (cursor += Math.max(o.duracaoAbertura, minimo(0).antes ?? 0)) });
+    // Substituição (ADR-0061): um trecho com a troca, antes do primeiro lance do 2º tempo.
+    const trocas = timeline.trocas;
+    let trocaMostrada = !trocas.length;
+    const mostrarTroca = () => {
+      if (trocaMostrada) return;
+      trocaMostrada = true;
+      const t = Math.min(...trocas.map((x) => x.t));
+      const inicio = cursor;
+      cursor += Math.max(DURACAO_TROCA_NO_VIDEO, minimo(segmentos.length).antes ?? 0);
+      segmentos.push({ tipo: 'TROCA', inicio, fim: cursor, jogoInicio: t, jogoFim: t + DURACAO_TROCA });
+    };
+    const primeiroDoSegundoTempo = Math.min(...trocas.map((x) => x.antesDoLance));
     for (const i of escolhidos) {
+      if (i >= primeiroDoSegundoTempo) mostrarTroca();
       const lance = lances[i]!;
       const janela = timeline.janelas[i]!;
       const recorte = RECORTE[lance.tipo];
@@ -145,6 +163,7 @@ export class Roteiro {
       const fim = (cursor = resolucao + depois);
       segmentos.push({ tipo: 'LANCE', inicio, fim, jogoInicio, jogoFim, jogoResolucao: janela.resolucao, resolucao, lance: i });
     }
+    mostrarTroca();
     const d = timeline.disputa;
     if (d) {
       const base = VIDEO_PENALTIS.intro + d.cobrancas.length * VIDEO_PENALTIS.cobranca + VIDEO_PENALTIS.fim;
@@ -212,6 +231,7 @@ export class Roteiro {
           ? segmento.jogoInicio! + (segmento.jogoResolucao! - segmento.jogoInicio!) * (progresso / pivo)
           : segmento.jogoResolucao! + (segmento.jogoFim! - segmento.jogoResolucao!) * ((progresso - pivo) / (1 - pivo));
     }
+    else if (segmento.tipo === 'TROCA') tJogo = segmento.jogoInicio! + (segmento.jogoFim! - segmento.jogoInicio!) * progresso;
     else if (segmento.tipo === 'PENALTIS') tJogo = this.jogoDosPenaltis(segmento, tVideo);
     else if (segmento.tipo === 'FIM') tJogo = this.timeline.duracao;
 

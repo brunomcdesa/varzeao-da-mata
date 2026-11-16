@@ -1,8 +1,8 @@
 /** Partida: escalações a partir do Corte, transmissão ao vivo ou replay, lances e Notas. */
-import { IDENTIDADE, duracaoAoVivoMs, forcaDaEscalacao, nomeDaEtapa, type EscalacaoPublica, type PartidaPublica } from '@liga/shared';
+import { IDENTIDADE, TAMANHO_ESCALACAO, duracaoAoVivoMs, forcaDaEscalacao, nomeDaEtapa, type EscalacaoPublica, type PartidaPublica } from '@liga/shared';
 import type { Desempenho, Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { contagem, diaLongo, hora, jogadores, partida, situacaoAgora } from '../dados.js';
-import { DURACAO_JOGO, narradorDa, resultadoDaCobranca } from '@liga/renderer';
+import { DURACAO_JOGO, narradorDa, ocupanteNoLance, resultadoDaCobranca, todosDaEscalacao } from '@liga/renderer';
 import { montarTimeline, transmitir } from '../transmissao.js';
 import { desfechoDoMataMata } from '../mataMata.js';
 import { REACOES, entrarNaSala } from '../reacoes.js';
@@ -41,7 +41,24 @@ function linhaDoTempo(r: ResultadoPartida, timeline: Timeline): Html {
 }
 
 function escalacao(e: EscalacaoPublica, lado: Lado, r: ResultadoPartida | null, camisas: Map<string, number>): Html {
-  const desempenho = (lugar: number): Desempenho | undefined => r?.desempenhos.find((d) => d.slot.lado === lado && d.slot.indice === lugar);
+  // Substituição (ADR-0061): no lugar de quem saiu há dois desempenhos; o do titular não é o ENTROU.
+  const desempenho = (lugar: number): Desempenho | undefined => r?.desempenhos.find((d) => d.slot.lado === lado && d.slot.indice === lugar && d.substituicao !== 'ENTROU');
+  const doReserva = (jogadorId: string | null): Desempenho | undefined => (jogadorId ? r?.desempenhos.find((d) => d.slot.lado === lado && d.jogadorId === jogadorId && d.substituicao === 'ENTROU') : undefined);
+  const titularDoLugar = (lugar: number) => e.jogadores.find((j) => j.lugar === lugar);
+  const linhaDoBanco = (j: NonNullable<EscalacaoPublica['banco']>[number]): Html => {
+    const d = doReserva(j.jogadorId);
+    const saiu = d ? titularDoLugar(d.slot.indice) : undefined;
+    const delta = d ? d.ovrDepois - d.ovrAntes : 0;
+    return html`<li class="${d ? 'entrou' : 'nao-entrou'}">
+      ${bonecoImg(e.time, j.posicao, j.username, 2)}
+      <span class="pos" title="${NOME_DA_POSICAO[j.posicao]}">${j.posicao}</span>
+      <span class="quem">${comCamisa(jogadorLink(j.jogadorId, j.username, j.apelido), j.jogadorId ? camisas.get(j.jogadorId) : null)}
+        <small class="troca">${d ? html`<span class="sobe">▲</span> entrou no intervalo${saiu ? `, no lugar de ${saiu.apelido || (saiu.username ? `@${saiu.username}` : 'Base')}` : ''}${d.posicaoDeOrigem ? ` (jogou de ${NOME_DA_POSICAO[d.posicao].toLowerCase()})` : ''}` : r ? 'não entrou' : 'no Banco'}</small></span>
+      ${d && (d.gols || d.assistencias) ? html`<span class="feitos">${'●'.repeat(d.gols)}${d.assistencias ? html`<small>+${d.assistencias} assist.</small>` : ''}</span>` : html`<span class="feitos"></span>`}
+      <span class="ovr" title="OVR antes do jogo">${j.ovr}${d && delta ? html`<small class="${delta > 0 ? 'sobe' : 'desce'}">${delta > 0 ? '▲' : '▼'}${Math.abs(delta)}</small>` : ''}</span>
+      ${d ? html`<span class="nota-chip" title="Nota da Partida">${nota(d.nota)}</span>` : html`<span></span>`}
+    </li>`;
+  };
   return html`<section class="escalacao placa" aria-labelledby="esc-${lado}">
     <h3 id="esc-${lado}">${escudoImg(e.time, 1.5)} ${curto(e.time)}</h3>
     <ol>${[...e.jogadores]
@@ -52,18 +69,20 @@ function escalacao(e: EscalacaoPublica, lado: Lado, r: ResultadoPartida | null, 
         return html`<li>
           ${bonecoImg(e.time, j.posicao, j.username, 2)}
           <span class="pos" title="${NOME_DA_POSICAO[j.posicao]}">${j.posicao}</span>
-          <span class="quem">${comFaixa(comCamisa(jogadorLink(j.jogadorId, j.username, j.apelido), j.jogadorId ? camisas.get(j.jogadorId) : null), j.capitao)}</span>
+          <span class="quem">${comFaixa(comCamisa(jogadorLink(j.jogadorId, j.username, j.apelido), j.jogadorId ? camisas.get(j.jogadorId) : null), j.capitao)}${d?.substituicao === 'SAIU' ? html`<small class="troca"><span class="desce">▼</span> saiu no intervalo</small>` : ''}</span>
           ${d && (d.gols || d.assistencias) ? html`<span class="feitos">${'●'.repeat(d.gols)}${d.assistencias ? html`<small>+${d.assistencias} assist.</small>` : ''}</span>` : html`<span class="feitos"></span>`}
           <span class="ovr" title="OVR antes do jogo">${j.ovr}${d && delta ? html`<small class="${delta > 0 ? 'sobe' : 'desce'}">${delta > 0 ? '▲' : '▼'}${Math.abs(delta)}</small>` : ''}</span>
           ${d ? html`<span class="nota-chip" title="Nota da Partida">${nota(d.nota)}</span>` : ''}
         </li>`;
       })}</ol>
+    ${e.banco?.length ? html`<h4 class="banco-titulo">Banco</h4><ol class="banco">${[...e.banco].sort((a, b) => a.lugar - b.lugar).map(linhaDoBanco)}</ol>` : ''}
   </section>`;
 }
 
 function textoDoLance(r: ResultadoPartida, nomes: Record<Lado, (string | null)[]>, i: number): string {
   const l = r.lances[i]!;
-  const n = (s: SlotRef | undefined) => (s ? (nomes[s.lado][s.indice] ?? 'a Base') : '');
+  // Substituição (ADR-0061): no 2º tempo, o lugar pode ser do reserva que entrou.
+  const n = (s: SlotRef | undefined) => (s ? (nomes[s.lado][ocupanteNoLance(r, TAMANHO_ESCALACAO, s.lado, s.indice, i)] ?? 'a Base') : '');
   const de = (s: SlotRef | undefined) => (n(s) === 'a Base' ? 'da Base' : `de ${n(s)}`);
   const inicio = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
   const driblou = l.drible && l.marcador ? `, depois de driblar ${n(l.marcador) === 'a Base' ? 'o zagueiro da Base' : n(l.marcador)}` : '';
@@ -140,9 +159,10 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
   const r = (p.resultado as ResultadoPartida | null) ?? null;
   const timeline = montarTimeline(p);
   const classico = rotuloClassico(p.mandante, p.visitante);
+  // Titulares e, depois, o Banco (ADR-0061).
   const nomes: Record<Lado, (string | null)[]> = {
-    mandante: [...(p.escalacoes?.mandante.jogadores ?? [])].sort((a, b) => a.lugar - b.lugar).map((j) => (j.username ? j.apelido || `@${j.username}` : null)),
-    visitante: [...(p.escalacoes?.visitante.jogadores ?? [])].sort((a, b) => a.lugar - b.lugar).map((j) => (j.username ? j.apelido || `@${j.username}` : null)),
+    mandante: (p.escalacoes ? todosDaEscalacao(p.escalacoes.mandante) : []).map((j) => (j.username ? j.apelido || `@${j.username}` : null)),
+    visitante: (p.escalacoes ? todosDaEscalacao(p.escalacoes.visitante) : []).map((j) => (j.username ? j.apelido || `@${j.username}` : null)),
   };
   const mostrarFinal = s === 'ENCERRADA' && r;
   const desfecho = r && p.mataMata ? desfechoDoMataMata(p, r) : null;

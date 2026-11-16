@@ -166,7 +166,7 @@ describe('Temporada 2 no worker', () => {
     await inscrever('CAP', 'MEI');
     const p = await primeiraPartida(t2, 'CAP');
     const job = await rodarPartida(banco, p.id, { seed: 5 });
-    expect(job.dados.resultado.versaoSim).toBe(16);
+    expect(job.dados.resultado.versaoSim).toBe(17);
     const lado = p.mandante_id === 'CAP' ? 'mandante' : 'visitante';
     expect(job.dados.torcida?.[lado]).toBe(2);
     const site = await exportarSite(banco, new Date('2026-12-30T12:00:00Z'));
@@ -209,7 +209,7 @@ describe('Temporada 2 no worker', () => {
     const faixa = (await banco.query<{ id: string }>(`SELECT jogador_id::text AS id FROM escalacao WHERE partida_id = $1 AND time_id = 'ONC' AND capitao`, [p.id])).rows;
     expect(faixa).toEqual([{ id: novato }]);
     expect((await banco.query(`SELECT 1 FROM escalacao WHERE partida_id = $1 AND capitao`, [p.id])).rows.length).toBeLessThanOrEqual(2);
-    expect(res.versaoSim).toBe(16);
+    expect(res.versaoSim).toBe(17);
     const lado = p.mandante_id === 'ONC' ? 'mandante' : 'visitante';
     expect(res.postura![lado]).toBe('OFENSIVA');
     expect(res.postura![lado === 'mandante' ? 'visitante' : 'mandante']).toBe('EQUILIBRADA');
@@ -283,6 +283,83 @@ describe('Temporada 2 no worker', () => {
     const linha = (await banco.query<{ especializacao: string; treino: string; canto: string; amarelos: number | null }>(`SELECT especializacao, treino, canto, amarelos FROM escalacao WHERE partida_id = $1 AND jogador_id = $2`, [p.id, id])).rows[0]!;
     expect(linha).toMatchObject({ especializacao: 'PEGADOR_DE_PENALTI', treino: 'GOL', canto: 'DIREITA' });
     expect(linha.amarelos).not.toBeNull();
-    expect(res.versaoSim).toBe(16);
+    expect(res.versaoSim).toBe(17);
   });
 });
+
+describe('Substituição e Banco (ADR-0061)', () => {
+  it('o Banco são todos que sobraram, na ordem da fila; quem entra conta jogo e quem não entra, não', async () => {
+    const t2 = await novaT2();
+    // Onça com 7 titulares e 3 a mais (um goleiro, que não vai para o Banco).
+    // Inscrição direta no banco (sem o equilíbrio de Elencos da coleta).
+    const direto = async (posicao: string, quem: string, em: string) =>
+      (
+        await banco.query<{ id: string }>(
+          `INSERT INTO jogador (ig_user_id, username, time_id, posicao, ovr, habilidades, inscrito_em) VALUES ($1, $1, 'ONC', $2, 60, NULL, $3) RETURNING id::text AS id`,
+          [quem, posicao, em],
+        )
+      ).rows[0]!.id;
+    for (const [k, pos] of ['GOL', 'ZAG', 'ZAG', 'MEI', 'MEI', 'ATA', 'ATA'].entries()) await direto(pos, `titular_${k}`, '2026-11-10T12:00:00Z');
+    const reservaGol = await direto('GOL', 'reserva_gol', '2026-11-11T12:00:00Z');
+    const r1 = await direto('ZAG', 'reserva_zag', '2026-11-12T12:00:00Z');
+    const r2 = await direto('ATA', 'reserva_ata', '2026-11-13T12:00:00Z');
+    // O rival muito mais forte, para a Onça ir mal no 1º tempo em algum jogo.
+    await banco.query(`UPDATE jogador SET ovr = 45, habilidades = NULL WHERE time_id = 'ONC' AND username NOT LIKE 'reserva%'`);
+
+    const p = await primeiraPartida(t2, 'ONC');
+    const lado = p.mandante_id === 'ONC' ? 'mandante' : 'visitante';
+    const esc = await escalarPartida(banco, p.id);
+    const reservas = esc.escalacoes[lado].banco ?? [];
+    // Na ordem da fila: quem se inscreveu antes primeiro (todos com 0 jogos).
+    expect(reservas.map((x) => x.jogadorId)).toEqual([reservaGol, r1, r2]);
+    expect(esc.banco![lado].map((x) => x.nome)).toEqual(['@reserva_gol', '@reserva_zag', '@reserva_ata']);
+
+    // Relendo a Escalação (retomada), o Banco volta igual.
+    expect((await escalarPartida(banco, p.id)).escalacoes[lado].banco).toEqual(reservas);
+
+    // Procura uma semente em que a Onça troca no intervalo.
+    let job: Awaited<ReturnType<typeof rodarPartida>> | null = null;
+    for (let seed = 1; seed < 400 && !job; seed++) {
+      const r = (await import('@liga/sim')).simularPartida({
+        mandante: esc.escalacoes.mandante,
+        visitante: esc.escalacoes.visitante,
+        seed,
+        fase: 'LIGA',
+        t2: { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' }, formacao: { mandante: '2-2-2', visitante: '2-2-2' } },
+      });
+      if (r.substituicoes?.some((x) => x.lado === lado)) job = await rodarPartida(banco, p.id, { seed });
+    }
+    expect(job).not.toBeNull();
+    const res = job!.dados.resultado as ResultadoPartida;
+    const trocas = res.substituicoes!.filter((x) => x.lado === lado);
+    const entrou = reservas[trocas[0]!.banco]!.jogadorId!;
+    // O vídeo recebe os nomes do Banco depois dos titulares.
+    expect(job!.dados.nomes[lado]).toHaveLength(10);
+
+    const linha = async (id: string) =>
+      (await banco.query<{ entrou: boolean; reserva: boolean; substituicao: string | null; lugar_em_campo: number | null; nota: string | null }>(`SELECT entrou, reserva, substituicao, lugar_em_campo, nota FROM escalacao WHERE partida_id = $1 AND jogador_id = $2`, [p.id, id])).rows[0]!;
+    expect(await linha(entrou)).toMatchObject({ reserva: true, entrou: true, substituicao: 'ENTROU', lugar_em_campo: trocas[0]!.lugar });
+    expect((await linha(entrou)).nota).not.toBeNull();
+    const titular = (await banco.query<{ id: string }>(`SELECT jogador_id::text AS id FROM escalacao WHERE partida_id = $1 AND time_id = 'ONC' AND lugar = $2`, [p.id, trocas[0]!.lugar])).rows[0]!.id;
+    expect((await linha(titular)).substituicao).toBe('SAIU');
+
+    // Quem entrou conta jogo; quem ficou no Banco sem entrar não conta (e não ganha prioridade própria).
+    const naoEntrou = reservas.map((x) => x.jogadorId!).find((id) => !trocas.some((x) => reservas[x.banco]!.jogadorId === id));
+    const corte = new Date('2026-12-30T00:00:00Z');
+    const prox = await montarEscalacao(banco, { time: 'ONC', temporadaId: t2, corte, t2: { suspensos: nenhum2, confirmados: nenhum2, cortados: new Set(naoEntrou ? [naoEntrou] : []) } });
+    void prox;
+    const jogos = async (id: string) => Number((await banco.query<{ n: string }>(`SELECT count(*) AS n FROM escalacao e WHERE e.jogador_id = $1 AND (NOT e.reserva OR e.entrou)`, [id])).rows[0]!.n);
+    expect(await jogos(entrou)).toBe(1);
+    if (naoEntrou) {
+      expect(await jogos(naoEntrou)).toBe(0);
+      expect((await banco.query(`SELECT 1 FROM corte_da_formacao WHERE partida_id = $1 AND jogador_id = $2`, [p.id, naoEntrou])).rows).toHaveLength(0);
+    }
+
+    // O site mostra o Banco separado dos titulares.
+    const { arquivos } = await exportarSite(banco, new Date('2026-12-30T12:00:00Z'));
+    const publica = arquivos.get(`partidas/${p.id}.json`) as { escalacoes: { [k: string]: { jogadores: unknown[]; banco?: { jogadorId: string }[] } } };
+    expect(publica.escalacoes[lado]!.jogadores).toHaveLength(7);
+    expect(publica.escalacoes[lado]!.banco!.map((x) => x.jogadorId)).toEqual([reservaGol, r1, r2]);
+  }, 120_000);
+});
+const nenhum2 = new Set<string>();

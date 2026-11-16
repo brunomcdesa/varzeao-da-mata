@@ -86,11 +86,13 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
   desenharPlacar(pin, estado, o, display, texto);
   if (estado.penaltis) desenharFaixaDosPenaltis(pin, estado, o, display, texto);
   if (estado.destaque) desenharDestaque(pin, estado, o, display, texto);
+  else if (estado.trocas) desenharLetreiroDaTroca(pin, estado, o, display, texto);
   if (estado.t2) desenharCloseDaTorcida(pin, estado, o.times, texto);
 }
 
 function visualDe(j: JogadorNoQuadro, o: OpcoesDesenho, e?: EstadoQuadro): Visual {
-  const nome = o.nomes[j.slot.lado][j.slot.indice] ?? `base-${j.slot.lado}-${j.slot.indice}`;
+  const quem = j.ocupante ?? j.slot.indice;
+  const nome = o.nomes[j.slot.lado][quem] ?? `base-${j.slot.lado}-${quem}`;
   const v = visualDoJogador(o.times[j.slot.lado], j.posicao, nome);
   // T2: o visitante usa o segundo uniforme quando as camisas se confundem (o goleiro não muda).
   if (e?.t2?.segundoUniforme === j.slot.lado && j.posicao !== 'GOL') {
@@ -144,7 +146,7 @@ function cantoDoBoneco(pin: Pincel, p: Ponto, pulo: number): { x: number; y: num
 function desenharJuiz(pin: Pincel, j: JuizNoQuadro, o: OpcoesDesenho, fase: number, e: EstadoQuadro): void {
   const p = noCampo(j.pos);
   const visual = visualDoJuiz(o.times, e.t2?.segundoUniforme ?? null, j.seed);
-  const gesto = j.acao === 'APITO' || j.acao === 'CARTAO';
+  const gesto = j.acao === 'APITO' || j.acao === 'CARTAO' || j.acao === 'PLACA';
   const olhar = { x: j.olhar.x - j.pos.x, y: j.olhar.y - j.pos.y };
   const { pose, espelhar, pulo } = gesto
     ? { pose: 'FRENTE_APITO' as Pose, espelhar: false, pulo: 0 }
@@ -165,6 +167,7 @@ function desenharJuiz(pin: Pincel, j: JuizNoQuadro, o: OpcoesDesenho, fase: numb
 
 /** Cartão na mão levantada do juiz, desenhado por cima de todos (não some atrás de ninguém). */
 function desenharCartaoDoJuiz(pin: Pincel, j: JuizNoQuadro): void {
+  if (j.acao === 'PLACA') return desenharPlacaDoJuiz(pin, j);
   if (j.acao !== 'CARTAO' || !j.cartao) return;
   const { x, y } = cantoDoBoneco(pin, noCampo(j.pos), 0);
   {
@@ -176,6 +179,23 @@ function desenharCartaoDoJuiz(pin: Pincel, j: JuizNoQuadro): void {
   }
 }
 
+/**
+ * Placa de Substituição (ADR-0061) na mão levantada do juiz: preta, com a seta verde (entra)
+ * em cima e a vermelha (sai) embaixo.
+ */
+function desenharPlacaDoJuiz(pin: Pincel, j: JuizNoQuadro): void {
+  const { x, y } = cantoDoBoneco(pin, noCampo(j.pos), 0);
+  const mx = x / pin.px + MAO_DO_APITO.x * ESCALA_BONECO - 5;
+  const my = y / pin.px + MAO_DO_APITO.y * ESCALA_BONECO - 15;
+  pin.r(mx - 1, my - 1, 14, 16, COR.contorno);
+  pin.r(mx, my, 12, 14, '#1E1E1E');
+  // Seta verde para cima (entra) e vermelha para baixo (sai).
+  for (let k = 0; k < 3; k++) pin.r(mx + 6 - k, my + 1 + k, 1 + 2 * k, 1, '#3DDC64');
+  pin.r(mx + 5, my + 4, 3, 2, '#3DDC64');
+  pin.r(mx + 5, my + 8, 3, 2, '#FF4D4D');
+  for (let k = 0; k < 3; k++) pin.r(mx + 6 - k, my + 12 - k, 1 + 2 * k, 1, '#FF4D4D');
+}
+
 /** O nome escrito na tela: o apelido, senão o @ (null = Jogador da Base). */
 export function rotulo(o: Pick<OpcoesDesenho, 'nomes' | 'apelidos'>, lado: Lado, indice: number): string | null {
   return o.apelidos?.[lado]?.[indice] || o.nomes[lado][indice] || null;
@@ -183,7 +203,7 @@ export function rotulo(o: Pick<OpcoesDesenho, 'nomes' | 'apelidos'>, lado: Lado,
 
 function desenharNome(pin: Pincel, j: JogadorNoQuadro, o: OpcoesDesenho, fonte: string): void {
   const p = noCampo(j.pos);
-  const nome = rotulo(o, j.slot.lado, j.slot.indice) ?? 'Base';
+  const nome = rotulo(o, j.slot.lado, j.ocupante ?? j.slot.indice) ?? 'Base';
   pin.texto(nome, p.x, p.y + 6, 6.5, fonte, '#FFFFFF', { contorno: 'rgba(20,14,8,0.9)', peso: 600, espessura: 0.5 });
 }
 
@@ -451,10 +471,37 @@ function desenharFaixaDosPenaltis(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho
 }
 const FALA_CURTA = (t: TimeId) => FALA_DO_TIME[t].curto;
 
+/**
+ * Letreiro da Substituição (ADR-0061): placa de madeira com o escudo, "Substituição" e, para
+ * cada troca, quem sai (▼ vermelho) e quem entra (▲ verde), pelo nome escrito do jogo.
+ */
+function desenharLetreiroDaTroca(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, display: string, texto: string): void {
+  const { lista, progresso: p } = e.trocas!;
+  const entra = Math.min(1, p / 0.12);
+  const sai = p > 0.88 ? (p - 0.88) / 0.12 : 0;
+  const desloc = (1 - suave(entra)) * -COLUNAS + suave(sai) * COLUNAS;
+  const w = 210;
+  const h = 30 + lista.length * 26;
+  const x = (COLUNAS - w) / 2 + desloc;
+  const y = e.bola.y < 0.5 ? 470 - h : 66;
+  pin.tabua(x, y, w, h);
+  pin.texto('Substituição', x + w / 2, y + 15, 22, display, COR.amarelo, { contorno: COR.contorno });
+  lista.forEach((tr, k) => {
+    const ly = y + 30 + k * 26;
+    desenharEscudo(pin, o.times[tr.lado], x + 6, ly + 1, 0.8);
+    const quemSai = rotulo(o, tr.lado, tr.saiu) ?? 'Base';
+    const quemEntra = rotulo(o, tr.lado, tr.ocupante) ?? 'Base';
+    pin.texto('▼', x + 30, ly + 6, 9, texto, '#FF6B5B', { peso: 700 });
+    pin.texto(quemSai, x + 38, ly + 6, pin.caber(quemSai, w - 46, 9.5, texto, 700), texto, COR.placa, { peso: 700, alinhar: 'left' });
+    pin.texto('▲', x + 30, ly + 18, 9, texto, '#3DDC64', { peso: 700 });
+    pin.texto(quemEntra, x + 38, ly + 18, pin.caber(quemEntra, w - 46, 9.5, texto, 700), texto, COR.placa, { peso: 700, alinhar: 'left' });
+  });
+}
+
 function desenharDestaque(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, display: string, texto: string): void {
   const d = e.destaque!;
   const id = IDENTIDADE[o.times[d.lado]];
-  const nome = rotulo(o, d.protagonista.lado, d.protagonista.indice) ?? 'Jogador da Base';
+  const nome = rotulo(o, d.protagonista.lado, d.ocupante ?? d.protagonista.indice) ?? 'Jogador da Base';
   const p = d.progresso;
 
   if (d.tipo === 'GOL' && !d.penalti) {

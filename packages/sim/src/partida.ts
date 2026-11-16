@@ -11,6 +11,7 @@ import {
   type Formacao,
   type HabilidadeId,
   type Habilidades,
+  type JogadorEscalado,
   type Posicao,
 } from '@liga/shared';
 import { duelo, probabilidadeDuelo } from './duelo.js';
@@ -18,7 +19,7 @@ import { ACOES, evoluir, valorDaAcao, zeradas, type Acao } from './evolucao.js';
 import { notaDaPartida } from './nota.js';
 import { ESPECIALIZACAO, PARAMETROS, PARAMETROS_T2, VERSAO_SIM, VERSAO_SIM_T1 } from './parametros.js';
 import { criarRng, type Rng } from './rng.js';
-import type { Cobranca, Desempenho, EntradaPartida, Lado, Lance, LocalDaFalta, ResultadoPartida, SlotRef } from './tipos.js';
+import type { Cobranca, Desempenho, EntradaPartida, Lado, Lance, LocalDaFalta, ResultadoPartida, SlotRef, Substituicao } from './tipos.js';
 
 const LADOS: readonly Lado[] = ['mandante', 'visitante'];
 const outro = (lado: Lado): Lado => (lado === 'mandante' ? 'visitante' : 'mandante');
@@ -84,20 +85,44 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
   const escalacoes: Record<Lado, Escalacao> = { mandante: entrada.mandante, visitante: entrada.visitante };
   const classico = ehClassico(entrada.mandante.time, entrada.visitante.time);
 
-  const hab = (s: SlotRef, h: HabilidadeId): number => escalacoes[s.lado].jogadores[s.indice]!.habilidades[h];
+  // Substituição (ADR-0061): o Banco só vale com as regras da T2. Os lances continuam apontando
+  // o lugar em campo (SlotRef); quem ocupa cada lugar pode mudar no intervalo. Os números de cada
+  // Jogador (contadores, pontos, cartões) ficam com ele, pelo índice em `elenco` (titulares e
+  // depois o Banco). Sem Banco, o ocupante de cada lugar é o próprio titular, e nada muda.
+  const elenco: Record<Lado, readonly JogadorEscalado[]> = {
+    mandante: [...entrada.mandante.jogadores, ...(entrada.t2 ? entrada.mandante.banco ?? [] : [])],
+    visitante: [...entrada.visitante.jogadores, ...(entrada.t2 ? entrada.visitante.banco ?? [] : [])],
+  };
+  const titulares = (lado: Lado) => escalacoes[lado].jogadores.length;
+  const ocupante: Record<Lado, number[]> = {
+    mandante: entrada.mandante.jogadores.map((_, i) => i),
+    visitante: entrada.visitante.jogadores.map((_, i) => i),
+  };
+  const quem = (s: SlotRef): number => ocupante[s.lado][s.indice]!;
+  const jogadorEm = (s: SlotRef): JogadorEscalado => elenco[s.lado][quem(s)]!;
+  /** Chave do Jogador (não do lugar): cartões e faltas ficam com quem fez. */
+  const chaveJ = (s: SlotRef) => `${s.lado}:${quem(s)}`;
+  const hab = (s: SlotRef, h: HabilidadeId): number => jogadorEm(s).habilidades[h];
 
   // Regras da Temporada 2 (VERSAO_SIM 10). Sem `entrada.t2`, nada daqui muda a Partida: os
   // sorteios da T2 são próprios e os ajustes valem zero, então a T1 sai igual à versão 5.
   const t2 = entrada.t2;
   const rngT2 = criarRng(((entrada.seed >>> 0) ^ 0x68e31da4) >>> 0);
   const chave = (s: SlotRef) => `${s.lado}:${s.indice}`;
-  /** Expulsos (T2): saem da Partida e não entram em mais nenhum lance. */
+  /** Expulsos (T2): o lugar fica vazio até o fim (a expulsão não é compensada). */
   const expulsos = new Set<string>();
+  /** Expulsos, pelo Jogador (`chaveJ`). */
+  const expulsosJ = new Set<string>();
   /** Índice do lance FALTA em que cada expulso saiu (para o lateral não usar quem já saiu). */
   const expulsoNoLance = new Map<string, number>();
   const faltasDe = new Map<string, number>();
   const amarelosDe = new Map<string, number>();
-  const especializacao = (s: SlotRef) => (t2 ? escalacoes[s.lado].jogadores[s.indice]!.especializacao : undefined);
+  /** Especialização de quem ocupa o lugar; fora de posição (reserva de outra Posição), nenhuma. */
+  const especializacao = (s: SlotRef) => {
+    if (!t2) return undefined;
+    const j = jogadorEm(s);
+    return j.posicao === escalacoes[s.lado].jogadores[s.indice]!.posicao ? j.especializacao : undefined;
+  };
   /** Quanto a Especialização de `s` soma à chance de quem ataca no Duelo `campo` (0 na T1). */
   const mod = (s: SlotRef, campo: string): number => {
     const e = especializacao(s);
@@ -146,21 +171,21 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
   };
 
   const contadores: Record<Lado, Contadores[]> = {
-    mandante: entrada.mandante.jogadores.map(zerado),
-    visitante: entrada.visitante.jogadores.map(zerado),
+    mandante: elenco.mandante.map(zerado),
+    visitante: elenco.visitante.map(zerado),
   };
   const pontos: Record<Lado, Record<HabilidadeId, number>[]> = {
-    mandante: entrada.mandante.jogadores.map(zeradas),
-    visitante: entrada.visitante.jogadores.map(zeradas),
+    mandante: elenco.mandante.map(zeradas),
+    visitante: elenco.visitante.map(zeradas),
   };
-  const conta = (s: SlotRef): Contadores => contadores[s.lado][s.indice]!;
+  const conta = (s: SlotRef): Contadores => contadores[s.lado][quem(s)]!;
   const acao = (s: SlotRef, a: Acao): void => {
-    pontos[s.lado][s.indice]![ACOES[a].hab] += valorDaAcao(a, t2 !== undefined);
+    pontos[s.lado][quem(s)]![ACOES[a].hab] += valorDaAcao(a, t2 !== undefined);
   };
 
   const gols: Record<Lado, number> = { mandante: 0, visitante: 0 };
   const lances: Lance[] = [];
-  const golsEmOrdem: { lado: Lado; autor: SlotRef }[] = [];
+  const golsEmOrdem: { lado: Lado; autor: SlotRef; jogador?: number }[] = [];
   // Bolas paradas têm sorteio próprio: os 20 lances de ataque saem iguais aos da versão 2.
   const rngBP = criarRng(((entrada.seed >>> 0) ^ 0x5bd1e995) >>> 0);
   // Contra-ataque (VERSAO_SIM 4): sorteio próprio também.
@@ -226,13 +251,13 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     acao(goleiro, 'golSofridoGoleiro');
     for (const z of slotsDa(defesa, 'ZAG')) acao(z, 'golSofridoZagueiro');
     for (const s of [goleiro, ...slotsDa(defesa, 'ZAG')]) conta(s).golsSofridos++;
-    golsEmOrdem.push({ lado: ataque, autor: finalizador });
+    golsEmOrdem.push({ lado: ataque, autor: finalizador, jogador: quem(finalizador) });
     lances.push({ ...base, tipo: 'GOL', defensor: goleiro });
       depoisDoLance(lances[lances.length - 1]!);
   };
 
   /** T2: o Canto que o Jogador escolheu pelo site, ou um sorteado. */
-  const cantoDe = (s: SlotRef): Canto => escalacoes[s.lado].jogadores[s.indice]!.canto ?? rngT2.pick(CANTOS);
+  const cantoDe = (s: SlotRef): Canto => jogadorEm(s).canto ?? rngT2.pick(CANTOS);
   /** T2: o melhor em campo numa Habilidade (cobrador de falta), sem o goleiro. */
   const melhorEm = (lado: Lado, h: HabilidadeId, exceto?: SlotRef): SlotRef =>
     (['ZAG', 'MEI', 'ATA'] as const)
@@ -251,7 +276,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     acao(goleiro, 'golSofridoGoleiro');
     for (const z of slotsDa(defesa, 'ZAG')) acao(z, 'golSofridoZagueiro');
     for (const x of [goleiro, ...slotsDa(defesa, 'ZAG')]) conta(x).golsSofridos++;
-    golsEmOrdem.push({ lado: ataque, autor });
+    golsEmOrdem.push({ lado: ataque, autor, jogador: quem(autor) });
   };
   const empurrar = (l: Lance): void => {
     lances.push(l);
@@ -272,14 +297,14 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     finalizador: SlotRef | undefined,
     ca: { contraAtaque?: NonNullable<Lance['contraAtaque']> },
   ): void => {
-    faltasDe.set(chave(autor), (faltasDe.get(chave(autor)) ?? 0) + 1);
+    faltasDe.set(chaveJ(autor), (faltasDe.get(chaveJ(autor)) ?? 0) + 1);
     acao(autor, 'cometeuFalta');
     let cartao: 'AMARELO' | 'VERMELHO' | undefined;
     let segundoAmarelo = false;
     if (local === 'AREA' && rngT2.chance(PARAMETROS_T2.chanceVermelhoNoPenalti)) cartao = 'VERMELHO';
     else if (rngT2.chance(local === 'AREA' ? PARAMETROS_T2.chanceAmareloNoPenalti : PARAMETROS_T2.chanceAmarelo)) {
-      const n = (amarelosDe.get(chave(autor)) ?? 0) + 1;
-      amarelosDe.set(chave(autor), n);
+      const n = (amarelosDe.get(chaveJ(autor)) ?? 0) + 1;
+      amarelosDe.set(chaveJ(autor), n);
       cartao = n >= 2 ? 'VERMELHO' : 'AMARELO';
       segundoAmarelo = n >= 2;
     }
@@ -297,6 +322,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     // O expulso sai antes da cobrança (não entra na barreira).
     if (cartao === 'VERMELHO') {
       expulsos.add(chave(autor));
+      expulsosJ.add(chaveJ(autor));
       expulsoNoLance.set(chave(autor), lances.length - 1);
     }
     const min = Math.min(90, minuto + 1);
@@ -400,6 +426,62 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     empurrar({ ...base, tipo: 'GOL', defensor: goleiro });
   };
 
+  /**
+   * Substituição no intervalo (ADR-0061): em cada Time com Banco, sai quem está com Nota parcial
+   * abaixo de `notaParaSair` (piores primeiro, até `trocasPorTime`), sem o lugar de um expulso.
+   * Entra o primeiro reserva da mesma Posição. Sem ele: o goleiro só sai para outro goleiro (fica
+   * em campo); um de linha pode ser trocado pelo primeiro reserva de linha de outra Posição, fora
+   * de posição. Não usa sorteio: a Partida sem troca sai igual.
+   */
+  const substituicoes: Substituicao[] = [];
+  /** Lances de ataque (dos 20 de referência) que cada Jogador jogou, para a Nota de quem trocou. */
+  const lancesEmCampo = new Map<string, number>();
+  const substituir = (minuto: number, lancesJogados: number): void => {
+    for (const lado of LADOS) {
+      const banco = elenco[lado].slice(titulares(lado));
+      if (!banco.length) continue;
+      const saldo = gols[lado] - gols[outro(lado)];
+      const resultado = saldo > 0 ? 'vitoria' : saldo < 0 ? 'derrota' : 'empate';
+      const candidatos = escalacoes[lado].jogadores
+        .flatMap((vaga, lugar) => {
+          if (expulsos.has(`${lado}:${lugar}`)) return [];
+          const idx = ocupante[lado][lugar]!;
+          const ovr = ovrDasHabilidades(vaga.posicao, elenco[lado][idx]!.habilidades);
+          const nota = notaDaPartida({ posicao: vaga.posicao, ...contadores[lado][idx]!, resultado }, ovr, lancesJogados / PARAMETROS.lances);
+          return nota < PARAMETROS_T2.notaParaSair ? [{ lugar, nota }] : [];
+        })
+        .sort((a, b) => a.nota - b.nota || a.lugar - b.lugar);
+      const livres = banco.map((_, i) => i);
+      let feitas = 0;
+      for (const { lugar, nota } of candidatos) {
+        if (feitas >= PARAMETROS_T2.trocasPorTime) break;
+        const vaga = escalacoes[lado].jogadores[lugar]!.posicao;
+        const mesma = livres.findIndex((i) => banco[i]!.posicao === vaga);
+        // Goleiro só por goleiro; linha por linha (a mesma Posição primeiro).
+        const k = mesma >= 0 ? mesma : vaga === 'GOL' ? -1 : livres.findIndex((i) => banco[i]!.posicao !== 'GOL');
+        if (k < 0) continue;
+        feitas++;
+        const b = livres.splice(k, 1)[0]!;
+        const saiu = elenco[lado][ocupante[lado][lugar]!]!;
+        lancesEmCampo.set(`${lado}:${ocupante[lado][lugar]!}`, lancesJogados);
+        ocupante[lado][lugar] = titulares(lado) + b;
+        lancesEmCampo.set(`${lado}:${titulares(lado) + b}`, -lancesJogados);
+        substituicoes.push({
+          lado,
+          lugar,
+          banco: b,
+          saiu: saiu.jogadorId,
+          entrou: banco[b]!.jogadorId,
+          notaNoIntervalo: nota,
+          antesDoLance: lances.length,
+          minuto,
+          ...(banco[b]!.posicao !== vaga ? { foraDePosicao: true as const } : {}),
+        });
+      }
+    }
+  };
+  let intervaloFeito = !(elenco.mandante.length > titulares('mandante') || elenco.visitante.length > titulares('visitante'));
+
   // Ritmo (VERSAO_SIM 5): quantos lances de ataque a Partida tem, com sorteio próprio.
   const totalDeLances = t2
     ? Math.min(
@@ -412,6 +494,11 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     // o 90' (ADR-0045; antes os lances paravam entre o 76' e o 88'). Mesmo sorteio de antes.
     const posicaoNaFatia = (rng.int(3) + 0.5) / 3;
     const minuto = Math.min(90, Math.floor(((numero - 1 + posicaoNaFatia) * 90) / totalDeLances) + 1);
+    // Intervalo (ADR-0061): antes do primeiro lance do 2º tempo.
+    if (!intervaloFeito && minuto > 45) {
+      intervaloFeito = true;
+      substituir(45, numero - 1);
+    }
 
     // 1. Posse: o meia com a bola (Passe) contra o meia rival (Defesa). Depois de gol, quem
     // sofreu dá a saída (VERSAO_SIM 12/13, ADR-0045), mas ainda pode perder a bola no duelo.
@@ -613,7 +700,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     acao(goleiro, 'golSofridoGoleiro');
     for (const z of slotsDa(defesa, 'ZAG')) acao(z, 'golSofridoZagueiro');
     for (const s of [goleiro, ...slotsDa(defesa, 'ZAG')]) conta(s).golsSofridos++;
-    golsEmOrdem.push({ lado: ataque, autor: finalizador });
+    golsEmOrdem.push({ lado: ataque, autor: finalizador, jogador: quem(finalizador) });
     fechar({ ...base, tipo: 'GOL' });
   }
 
@@ -657,8 +744,17 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
   const resultadoDe = (lado: Lado): 'vitoria' | 'empate' | 'derrota' =>
     vencedor === null || penaltis ? 'empate' : vencedor === lado ? 'vitoria' : 'derrota';
 
+  /** O lugar em campo de cada Jogador que jogou (o reserva fica com o lugar de quem saiu). */
+  const lugarDe = (lado: Lado, idx: number): number | null => {
+    if (idx < titulares(lado)) return idx;
+    const troca = substituicoes.find((x) => x.lado === lado && titulares(lado) + x.banco === idx);
+    return troca ? troca.lugar : null;
+  };
   const desempenhos: Desempenho[] = LADOS.flatMap((lado) =>
-    escalacoes[lado].jogadores.map((jogador, indice): Desempenho => {
+    elenco[lado].flatMap((jogador, indice): Desempenho[] => {
+      const lugar = lugarDe(lado, indice);
+      // Reserva que não entrou não tem desempenho.
+      if (lugar === null) return [];
       const c = contadores[lado][indice]!;
       const antes: Habilidades = { ...jogador.habilidades };
       const daBase = jogador.jogadorId === null;
@@ -666,30 +762,48 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
       // Ganho maior da T2 (ADR-0056), Resenha (ADR-0034) e Bônus da Temporada 1 (ADR-0047) somam.
       const ganhos = (t2 ? PARAMETROS_T2.multiplicadorGanho : 1) + (jogador.resenha ? PARAMETROS.multiplicadorResenha - 1 : 0) + (t2 && jogador.bonusT1 ? PARAMETROS_T2.multiplicadorBonusT1 - 1 : 0);
       const { depois, delta } = daBase ? { depois: antes, delta: zeradas() } : evoluir(antes, pontos[lado][indice]!, classico, treino, ganhos, t2 ? PARAMETROS_T2.referenciaGanho : undefined);
-      const ovrAntes = ovrDasHabilidades(jogador.posicao, antes);
-      const ovrDepois = ovrDasHabilidades(jogador.posicao, depois);
-      return {
-        slot: { lado, indice },
-        jogadorId: jogador.jogadorId,
-        posicao: jogador.posicao,
-        ...c,
-        nota: notaDaPartida({ posicao: jogador.posicao, ...c, resultado: resultadoDe(lado) }, ovrAntes, totalDeLances / PARAMETROS.lances),
-        ovrAntes,
-        deltaOvr: ovrDepois - ovrAntes,
-        ovrDepois,
-        habilidadesAntes: antes,
-        habilidadesDepois: depois,
-        deltaHabilidades: delta,
-        ...(t2
-          ? {
-              faltas: faltasDe.get(`${lado}:${indice}`) ?? 0,
-              amarelos: amarelosDe.get(`${lado}:${indice}`) ?? 0,
-              expulso: expulsos.has(`${lado}:${indice}`),
-            }
-          : {}),
-      };
+      // A vaga do lugar: o reserva fora de posição joga com o OVR da vaga (como na Formação).
+      const posicao = escalacoes[lado].jogadores[lugar]!.posicao;
+      const ovrAntes = ovrDasHabilidades(posicao, antes);
+      const ovrDepois = ovrDasHabilidades(posicao, depois);
+      // Quem trocou no intervalo tem a Nota pela parte do jogo em que esteve em campo.
+      const naTroca = lancesEmCampo.get(`${lado}:${indice}`);
+      const jogados = naTroca === undefined ? totalDeLances : naTroca >= 0 ? naTroca : totalDeLances + naTroca;
+      const substituicao = naTroca === undefined ? undefined : naTroca >= 0 ? ('SAIU' as const) : ('ENTROU' as const);
+      return [
+        {
+          slot: { lado, indice: lugar },
+          jogadorId: jogador.jogadorId,
+          posicao,
+          ...(posicao !== jogador.posicao && indice >= titulares(lado) ? { posicaoDeOrigem: jogador.posicao } : {}),
+          ...(substituicao ? { substituicao } : {}),
+          ...c,
+          nota: notaDaPartida({ posicao, ...c, resultado: resultadoDe(lado) }, ovrAntes, jogados / PARAMETROS.lances),
+          ovrAntes,
+          deltaOvr: ovrDepois - ovrAntes,
+          ovrDepois,
+          habilidadesAntes: antes,
+          habilidadesDepois: depois,
+          deltaHabilidades: delta,
+          ...(t2
+            ? {
+                faltas: faltasDe.get(`${lado}:${indice}`) ?? 0,
+                amarelos: amarelosDe.get(`${lado}:${indice}`) ?? 0,
+                expulso: expulsosJ.has(`${lado}:${indice}`),
+              }
+            : {}),
+        },
+      ];
     }),
   );
+
+  /** Quem decidiu (gol da vitória ou pênalti decisivo), pelo Jogador que estava no lugar. */
+  const jogadorDecisivo = (): string | null => {
+    if (decisivoPenalti) return jogadorEm(decisivoPenalti).jogadorId;
+    if (vencedor === null || gols.mandante === gols.visitante) return null;
+    const g = golsEmOrdem.filter((x) => x.lado === vencedor)[gols[outro(vencedor)]];
+    return g ? elenco[g.lado][g.jogador ?? g.autor.indice]!.jogadorId : null;
+  };
 
   return {
     versaoSim: t2 ? VERSAO_SIM : VERSAO_SIM_T1,
@@ -702,8 +816,11 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     lances,
     desempenhos,
     decisivo: decisivoPenalti ?? golDaVitoria(golsEmOrdem, vencedor, gols),
+    // Com Substituição, o lugar não basta para saber quem decidiu: vai o Jogador (ADR-0061).
+    ...(substituicoes.length ? { decisivoJogadorId: jogadorDecisivo() } : {}),
     ...(t2 ? { postura: { mandante: posturaDe('mandante'), visitante: posturaDe('visitante') }, ritmo: totalDeLances } : {}),
     ...(t2?.formacao ? { formacao: { mandante: formacaoDe('mandante'), visitante: formacaoDe('visitante') } } : {}),
+    ...(substituicoes.length ? { substituicoes } : {}),
   };
 }
 
