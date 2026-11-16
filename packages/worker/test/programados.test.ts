@@ -4,7 +4,8 @@ import { dispararProgramadosAgora, programadosDaVez, type ReelsProgramado } from
 import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
 import { AgendaNaMemoria, PastaLocal, type ItemDaAgenda } from '../src/nuvem.js';
-import { jobProgramados, legendaDaAbertura } from '../src/programados.js';
+import { jobProgramados, legendaDaAbertura, legendaDasNovidades } from '../src/programados.js';
+import { REELS_PROGRAMADOS } from '@liga/shared';
 import type { Instagram } from '../src/instagram.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 import { mkdtemp } from 'node:fs/promises';
@@ -78,6 +79,20 @@ describe('Reels Programados (ADR-0051)', () => {
     expect(await jobProgramados({ banco, agenda, armazenamento, ig, gravar, lista: LISTA, agora: () => new Date('2026-11-17T15:20:00Z'), log: () => {} })).toEqual(['abertura-t2']);
     const item = (await agenda.ler<ItemDaAgenda>((await agenda.listar('agenda/'))[0]!))!;
     expect(item.publicarEm).toBe('2026-11-17T15:21:00.000Z');
+  });
+
+  it('Novidades da T2 (ADR-0062): quatro Reels na quarta, cada um com a sua legenda', () => {
+    const novidades = REELS_PROGRAMADOS.filter((p) => p.id.startsWith('novidades-'));
+    expect(novidades.map((p) => p.id)).toEqual(['novidades-campo', 'novidades-capitao', 'novidades-jogador', 'novidades-site']);
+    expect(new Set(REELS_PROGRAMADOS.map((p) => p.ref)).size).toBe(REELS_PROGRAMADOS.length);
+    for (const p of novidades) {
+      const l = legendaDasNovidades(p.id, '2026-11-19', p.publicarEm);
+      expect(l.length).toBeLessThan(2200);
+      expect(l).toContain('Estreia amanhã, quinta, 19/11');
+      expect(l).not.toMatch(/undefined|@/);
+    }
+    expect(legendaDasNovidades('novidades-campo', '2026-11-19', novidades[0]!.publicarEm)).toContain('Às 15h: o Capitão.');
+    expect(() => legendaDasNovidades('novidades-x', '2026-11-19', novidades[0]!.publicarEm)).toThrow();
   });
 
   it('legenda da Abertura: Série B, Inscrição e estreia', () => {

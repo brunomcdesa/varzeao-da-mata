@@ -33,12 +33,81 @@ export interface ContextoDosProgramados {
 const ESTREIA_PREVISTA: Record<string, { temporada: number; estreia: string }> = {
   'abertura-t2': { temporada: 2, estreia: '2026-11-19' },
   'agradecimento-t1': { temporada: 2, estreia: '2026-11-19' },
+  'novidades-campo': { temporada: 2, estreia: '2026-11-19' },
+  'novidades-capitao': { temporada: 2, estreia: '2026-11-19' },
+  'novidades-jogador': { temporada: 2, estreia: '2026-11-19' },
+  'novidades-site': { temporada: 2, estreia: '2026-11-19' },
 };
 
 /** Legenda de cada Programado. */
 async function legendaDe(banco: Banco, p: ReelsProgramado, temporada: number, estreia: string): Promise<string> {
   if (p.id === 'agradecimento-t1') return legendaDoAgradecimentoT1(await dadosDoAgradecimentoT1(banco, { publicarEm: p.publicarEm }));
+  if (p.id.startsWith('novidades-')) return legendaDasNovidades(p.id, estreia, p.publicarEm);
   return legendaDaAbertura(temporada, estreia);
+}
+
+/** Legendas dos Reels de Novidades da T2 (ADR-0062). */
+export function legendaDasNovidades(id: string, estreia: string, publicarEm: string): string {
+  const [a, m, d] = estreia.split('-').map(Number) as [number, number, number];
+  const dia = DIAS[new Date(Date.UTC(a, m - 1, d, 12)).getUTCDay()]!;
+  const data = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`;
+  const post = new Date(Date.parse(publicarEm) - 3 * 3600_000);
+  const amanha = Date.UTC(a, m - 1, d, 12) - Date.UTC(post.getUTCFullYear(), post.getUTCMonth(), post.getUTCDate(), 12) === 86_400_000;
+  const estreiaTxt = `🏁 Estreia ${amanha ? 'amanhã, ' : ''}${dia}, ${data}. Série B das 11h às 14h; Série A das 15h às 18h.`;
+  const fim = ['', estreiaTxt, 'Tabela, jogadores e o seu painel no link da bio.', '', '#futebol #varzea #jogo #liga'];
+  const corpo: Record<string, string[]> = {
+    'novidades-campo': [
+      '⚽ Novidades da Temporada 2 (1/4): dentro de campo!',
+      '',
+      '🟨 Juiz em campo, falta e cartão (o vermelho expulsa; dois amarelos na temporada dão suspensão)',
+      '🎯 Pênalti, falta com barreira e jogada ensaiada',
+      '🚩 Escanteio e lateral',
+      '📣 Arquibancada nas cores do time, com grito de guerra depois do gol',
+      '🌧️ Sol, chuva ou lama, e segundo uniforme quando as camisas se confundem',
+      '🔁 Substituição no intervalo: quem está indo mal sai e entra um reserva do Banco',
+      '🎙️ Cinco Narradores, cada um com a sua voz',
+      '',
+      'Às 15h: o Capitão.',
+    ],
+    'novidades-capitao': [
+      '©️ Novidades da Temporada 2 (2/4): o Capitão!',
+      '',
+      'O Capitão é o jogador com mais partidas pelo time (com Vínculo no site).',
+      'Antes de cada jogo, até o Corte, ele escolhe pelo site:',
+      '👉 a Postura, em segredo: Ofensiva, Equilibrada ou Defensiva',
+      '👉 a Formação: 2-2-2, 2-3-1, 3-2-1 ou 3-1-2',
+      '',
+      'Cada Formação tem a sua jogada: Tabela (2-3-1), Cobertura (3-2-1) e Ligação direta (3-1-2).',
+      '',
+      'Às 18h: o seu Jogador.',
+    ],
+    'novidades-jogador': [
+      '🧑 Novidades da Temporada 2 (3/4): o seu Jogador!',
+      '',
+      'Com o Vínculo (código na DM da Liga), você escolhe pelo site:',
+      '🏷️ Apelido: aparece no jogo e o Narrador fala nos lances',
+      '⭐ Especialização: 3 por posição, melhora uma coisa e piora outra',
+      '💪 Treino: a habilidade que sobe mais rápido',
+      '🥅 Canto do pênalti, de batedor e de goleiro',
+      '',
+      '✅ Comente CONFIRMO (ou confirme no site) até o Corte e passe na frente no rodízio.',
+      '💬 Resenha: comentou no Reels do último jogo do seu time? Habilidades 50% mais rápido; no Clássico, ainda passa na frente.',
+      '🏆 Seleção da Rodada: Muralha, Carrapato, Garçom e Matador, a maior Nota de cada posição.',
+      '',
+      'Às 21h: o Site e o App.',
+    ],
+    'novidades-site': [
+      '📱 Novidades da Temporada 2 (4/4): Site e App!',
+      '',
+      '📲 App: instale o site no celular, com ícone e tela cheia (sem loja)',
+      '🔔 Avisos dos seus times: Escalação, 5 min antes do Apito Inicial, gols e fim de jogo',
+      '👀 Ao Vivo com Público e Reações: ⚽ 🔥 😱 👏',
+      '📖 Página de Carreira, temporada por temporada, com troféus e o Selo da Temporada 1',
+    ],
+  };
+  const linhas = corpo[id];
+  if (!linhas) throw new Error(`Novidades sem legenda: ${id}`);
+  return [...linhas, ...fim].join('\n');
 }
 
 const DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];

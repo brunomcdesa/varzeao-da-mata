@@ -26,6 +26,11 @@ import telaVisual from './telas/8-visual.png';
 import telaVisualEscolhido from './telas/8b-visual-escolhido.png';
 import telaCamisa from './telas/9-visual-escolhido.png';
 import telaCard from './telas/11-card.png';
+import emojiGol from './emojis/gol.png';
+import emojiFogo from './emojis/fogo.png';
+import emojiSusto from './emojis/susto.png';
+import emojiPalmas from './emojis/palmas.png';
+import { RoteiroNovidades, desenharQuadroNovidades, type DadosDasNovidades } from '../src/novidades.js';
 import { RoteiroAnuncio, desenharQuadroAnuncio, type TelaDoSite } from '../src/anuncio.js';
 import { RoteiroExplicacao, desenharQuadroExplicacao, type DadosDaExplicacao } from '../src/explicacaoEscalacao.js';
 import { RoteiroExplicacaoOvr, desenharQuadroExplicacaoOvr, type DadosDaExplicacaoOvr } from '../src/explicacaoOvr.js';
@@ -57,6 +62,10 @@ let explicacao: RoteiroExplicacao | null = null;
 /** Quando preenchido, a página grava o Reels que explica o OVR. */
 let explicacaoOvr: RoteiroExplicacaoOvr | null = null;
 let agradecimento: RoteiroAgradecimentoT1 | null = null;
+/** Quando preenchido, a página grava um Reels de Novidades da T2 (ADR-0062). */
+let novidades: RoteiroNovidades | null = null;
+const emojis: HTMLImageElement[] = [emojiGol, emojiFogo, emojiSusto, emojiPalmas].map((src) => Object.assign(new Image(), { src }));
+const emojisProntos = Promise.all(emojis.map((img) => img.decode()));
 const URL_DAS_TELAS: Record<TelaDoSite, string> = { busca: telaBusca, convite: telaConvite, codigo: telaCodigo, vinculado: telaVinculado, transferencia: telaTransferencia, pedido: telaPedido, feito: telaFeito, visual: telaVisual, visualEscolhido: telaVisualEscolhido, camisa: telaCamisa, card: telaCard };
 const telas: Partial<Record<TelaDoSite, HTMLImageElement>> = {};
 const telasProntas = Promise.all(
@@ -75,6 +84,7 @@ const telasProntas = Promise.all(
 async function prepararAnuncio(minimos: Record<number, { antes?: number }> = {}, quadrosPorSegundo = 30): Promise<{ duracao: number; totalQuadros: number }> {
   await Promise.all([fontesProntas, escudoPronto, telasProntas]);
   fps = quadrosPorSegundo;
+  novidades = null;
   resumo = null;
   apresentacao = null;
   abertura = null;
@@ -103,6 +113,7 @@ const fontesProntas = Promise.all(
 async function preparar(dados: PartidaParaVideo, quadrosPorSegundo = 30): Promise<{ duracao: number; totalQuadros: number }> {
   await Promise.all([fontesProntas, escudoPronto]);
   fps = quadrosPorSegundo;
+  novidades = null;
   resumo = null;
   apresentacao = null;
   abertura = null;
@@ -132,6 +143,7 @@ async function prepararResumo(
 ): Promise<{ duracao: number; totalQuadros: number }> {
   await Promise.all([fontesProntas, escudoPronto]);
   fps = quadrosPorSegundo;
+  novidades = null;
   apresentacao = null;
   abertura = null;
   anuncio = null;
@@ -151,6 +163,7 @@ async function prepararApresentacao(
 ): Promise<{ duracao: number; totalQuadros: number }> {
   await Promise.all([fontesProntas, escudoPronto]);
   fps = quadrosPorSegundo;
+  novidades = null;
   resumo = null;
   anuncio = null;
   explicacao = null;
@@ -168,6 +181,7 @@ async function prepararAberturaDaTemporada(
 ): Promise<{ duracao: number; totalQuadros: number }> {
   await Promise.all([fontesProntas, escudoPronto]);
   fps = quadrosPorSegundo;
+  novidades = null;
   resumo = null;
   anuncio = null;
   explicacao = null;
@@ -187,6 +201,7 @@ async function prepararExplicacao(
 ): Promise<{ duracao: number; totalQuadros: number }> {
   await Promise.all([fontesProntas, escudoPronto]);
   fps = quadrosPorSegundo;
+  novidades = null;
   resumo = null;
   apresentacao = null;
   abertura = null;
@@ -204,6 +219,7 @@ async function prepararExplicacaoOvr(
 ): Promise<{ duracao: number; totalQuadros: number }> {
   await Promise.all([fontesProntas, escudoPronto]);
   fps = quadrosPorSegundo;
+  novidades = null;
   resumo = null;
   apresentacao = null;
   abertura = null;
@@ -221,6 +237,7 @@ async function prepararAgradecimentoT1(
 ): Promise<{ duracao: number; totalQuadros: number }> {
   await Promise.all([fontesProntas, escudoPronto]);
   fps = quadrosPorSegundo;
+  novidades = null;
   roteiro = null;
   resumo = null;
   apresentacao = null;
@@ -232,7 +249,28 @@ async function prepararAgradecimentoT1(
   return { duracao: agradecimento.duracao, totalQuadros: agradecimento.totalQuadros(fps) };
 }
 
+async function prepararNovidades(
+  dados: DadosDasNovidades,
+  minimos: Record<number, { antes?: number }> = {},
+  quadrosPorSegundo = 30,
+): Promise<{ duracao: number; totalQuadros: number }> {
+  await Promise.all([fontesProntas, escudoPronto, emojisProntos]);
+  fps = quadrosPorSegundo;
+  novidades = null;
+  roteiro = null;
+  resumo = null;
+  apresentacao = null;
+  anuncio = null;
+  explicacao = null;
+  explicacaoOvr = null;
+  abertura = null;
+  agradecimento = null;
+  novidades = new RoteiroNovidades(dados, minimos);
+  return { duracao: novidades.duracao, totalQuadros: novidades.totalQuadros(fps) };
+}
+
 function desenhar(n: number): void {
+  if (novidades) return desenharQuadroNovidades(ctx, novidades, n / fps, { escudo, emojis });
   if (agradecimento) return desenharQuadroAgradecimentoT1(ctx, agradecimento, n / fps, { escudo });
   if (explicacaoOvr) return desenharQuadroExplicacaoOvr(ctx, explicacaoOvr, n / fps, { escudo });
   if (explicacao) return desenharQuadroExplicacao(ctx, explicacao, n / fps, { escudo });
@@ -262,6 +300,7 @@ function capa(qualidade = 0.95): string {
 
 /** Segmentos do roteiro (para a prévia escolher quadros-chave). */
 function segmentos(): { tipo: string; inicio: number; fim: number; resolucao?: number }[] {
+  if (novidades) return novidades.segmentos.map((s) => ({ tipo: s.cena.id, inicio: s.inicio, fim: s.fim }));
   if (agradecimento) return agradecimento.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
   if (explicacaoOvr) return explicacaoOvr.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
   if (explicacao) return explicacao.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
@@ -284,5 +323,5 @@ function escudoPng(time: TimeId, escala: number): string {
   return c.toDataURL('image/png').slice('data:image/png;base64,'.length);
 }
 
-const api: VarzeaApi = { preparar, prepararResumo, prepararApresentacao, prepararAberturaDaTemporada, prepararAnuncio, prepararExplicacao, prepararExplicacaoOvr, prepararAgradecimentoT1, desenhar, capturar, capa, segmentos, escudoPng, times: () => [...TIMES] };
+const api: VarzeaApi = { preparar, prepararResumo, prepararApresentacao, prepararAberturaDaTemporada, prepararAnuncio, prepararExplicacao, prepararExplicacaoOvr, prepararAgradecimentoT1, prepararNovidades, desenhar, capturar, capa, segmentos, escudoPng, times: () => [...TIMES] };
 window.varzea = api;

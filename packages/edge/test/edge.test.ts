@@ -183,6 +183,14 @@ describe('relógio dos jobs', () => {
     expect(jobsDoMinuto(new Date('2026-11-17T22:31:00Z'))).toEqual([]);
   });
 
+  it('Novidades da T2 (ADR-0062): quarta 18/11, 90 e 60 min antes das 12h, 15h, 18h e 21h', () => {
+    for (const h of [13, 16, 19, 22]) {
+      expect(jobsDoMinuto(new Date(`2026-11-18T${h}:30:00Z`))).toEqual(['programados']);
+      expect(jobsDoMinuto(new Date(`2026-11-18T${h + 1}:00:00Z`))).toEqual(['programados']);
+    }
+    expect(jobsDoMinuto(new Date('2026-11-18T14:30:00Z'))).toEqual([]);
+  });
+
   it('chama o workflow_dispatch com origem=borda; sem token não faz nada', async () => {
     const { env } = montar();
     const chamadas: { url: string; corpo: string }[] = [];
