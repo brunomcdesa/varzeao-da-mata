@@ -46,7 +46,7 @@ async function legendaDe(banco: Banco, p: ReelsProgramado, temporada: number, es
   return legendaDaAbertura(temporada, estreia);
 }
 
-/** Legendas dos Reels de Novidades da T2 (ADR-0062). */
+/** Legendas dos Reels de Novidades da T2 (ADR-0063). */
 export function legendaDasNovidades(id: string, estreia: string, publicarEm: string): string {
   const [a, m, d] = estreia.split('-').map(Number) as [number, number, number];
   const dia = DIAS[new Date(Date.UTC(a, m - 1, d, 12)).getUTCDay()]!;

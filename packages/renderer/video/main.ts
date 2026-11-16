@@ -62,7 +62,7 @@ let explicacao: RoteiroExplicacao | null = null;
 /** Quando preenchido, a página grava o Reels que explica o OVR. */
 let explicacaoOvr: RoteiroExplicacaoOvr | null = null;
 let agradecimento: RoteiroAgradecimentoT1 | null = null;
-/** Quando preenchido, a página grava um Reels de Novidades da T2 (ADR-0062). */
+/** Quando preenchido, a página grava um Reels de Novidades da T2 (ADR-0063). */
 let novidades: RoteiroNovidades | null = null;
 const emojis: HTMLImageElement[] = [emojiGol, emojiFogo, emojiSusto, emojiPalmas].map((src) => Object.assign(new Image(), { src }));
 const emojisProntos = Promise.all(emojis.map((img) => img.decode()));

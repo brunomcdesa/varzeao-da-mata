@@ -1,5 +1,5 @@
 /**
- * Reels de Novidades da Temporada 2 (ADR-0062): quatro Reels curtos, um por tema, na quarta antes
+ * Reels de Novidades da Temporada 2 (ADR-0063): quatro Reels curtos, um por tema, na quarta antes
  * da estreia. Dentro de campo, Capitão, Seu Jogador e Site e App. As novidades de dentro de campo
  * e as Jogadas da Formação aparecem no próprio jogo (trechos de Partidas de exemplo, com a
  * legenda embaixo); o resto em cartelas, no estilo dos outros Reels de anúncio. Cada Reels tem o

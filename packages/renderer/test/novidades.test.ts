@@ -5,7 +5,7 @@ import { dadosDasNovidades } from '../scripts/partidasDasNovidades.js';
 
 const quando = { estreia: '2026-11-19', publicadoEm: '2026-11-18T15:00:00Z' };
 
-describe('Novidades da T2 (ADR-0062)', () => {
+describe('Novidades da T2 (ADR-0063)', () => {
   const dados = Object.fromEntries(REELS_DE_NOVIDADES.map((r) => [r, dadosDasNovidades(r, quando)])) as Record<(typeof REELS_DE_NOVIDADES)[number], ReturnType<typeof dadosDasNovidades>>;
 
   it('acha todos os trechos de jogo de cada Reels, sempre nos mesmos lances', () => {

@@ -629,7 +629,7 @@ export function estrelasDoEscudo(time: TimeId): HTMLCanvasElement | OffscreenCan
   return c;
 }
 
-/** Uma estrela solta (cartelas de exemplo, ADR-0062), do mesmo desenho das do escudo. */
+/** Uma estrela solta (cartelas de exemplo, ADR-0063), do mesmo desenho das do escudo. */
 export function desenharEstrelaSolta(ctx: CanvasRenderingContext2D, tipo: 'ouro' | 'prata', x: number, y: number, tamanhoDoPixel: number): void {
   ESTRELA.forEach((linha, yy) => {
     for (let xx = 0; xx < linha.length; xx++) {

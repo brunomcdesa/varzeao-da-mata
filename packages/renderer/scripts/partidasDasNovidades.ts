@@ -1,5 +1,5 @@
 /**
- * Partidas de exemplo dos Reels de Novidades da T2 (ADR-0062) e os trechos de jogo de cada
+ * Partidas de exemplo dos Reels de Novidades da T2 (ADR-0063) e os trechos de jogo de cada
  * novidade. Tudo determinístico: as mesmas sementes dão sempre os mesmos trechos. Os nomes em
  * cima dos bonecos são apelidos inventados (nunca um @ de verdade).
  */
