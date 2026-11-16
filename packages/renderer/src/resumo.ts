@@ -65,7 +65,7 @@ export interface DadosDoResumo {
   destaques?: { posicao: Posicao; serie?: Serie; username: string; time: TimeId; nota: number; numero: { valor: number; legenda: string } }[];
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
-  /** Estrelas de Título nos escudos (ADR-0059). */
+  /** Estrelas de Título nos escudos (ADR-0060). */
   estrelas?: Partial<Record<TimeId, Estrelas>>;
 }
 

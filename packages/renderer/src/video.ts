@@ -35,7 +35,7 @@ export interface PartidaParaVideo {
   aparencias?: Record<string, Aparencia>;
   /** Temporada 2: tamanho de cada Elenco, para a Arquibancada (ADR-0019). */
   torcida?: Record<Lado, number>;
-  /** Estrelas de Título nos escudos (ADR-0059). */
+  /** Estrelas de Título nos escudos (ADR-0060). */
   estrelas?: Partial<Record<TimeId, Estrelas>>;
   /** Partida do Mata-mata (ADR-0048): Semifinal ou Final, Temporada e Série. */
   mataMata?: MataMataDaPartida | null;

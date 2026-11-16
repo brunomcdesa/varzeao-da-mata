@@ -15,7 +15,7 @@ import { desenharEscudoDaLiga, veu } from './video.js';
 
 export interface DadosDaAberturaDaTemporada {
   temporada: number;
-  /** Estrelas de Título nos escudos (ADR-0059). */
+  /** Estrelas de Título nos escudos (ADR-0060). */
   estrelas?: Partial<Record<TimeId, Estrelas>>;
   /** Dia da Rodada 1, AAAA-MM-DD. */
   estreia: string;

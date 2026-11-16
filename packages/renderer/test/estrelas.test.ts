@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MAXIMO_DE_ESTRELAS, estrelasDosTimes } from '@liga/shared';
 import { definirEstrelas, filaDeEstrelas, larguraDasEstrelas } from '../src/escudos.js';
 
-describe('Estrelas de Título (ADR-0059)', () => {
+describe('Estrelas de Título (ADR-0060)', () => {
   it('o campeão só ganha a estrela quando a Temporada seguinte já foi criada', () => {
     expect(estrelasDosTimes([{ numero: 1, campeao: 'ONC' }])).toEqual({});
     expect(estrelasDosTimes([{ numero: 1, campeao: 'ONC' }, { numero: 2, campeao: null }])).toEqual({ ONC: { ouro: 1, prata: 0 } });

@@ -1,5 +1,5 @@
 /**
- * Estrelas de Título no escudo (ADR-0059): uma dourada por Título da Série A (ou da Liga
+ * Estrelas de Título no escudo (ADR-0060): uma dourada por Título da Série A (ou da Liga
  * inteira, antes das Séries) e uma prata por Título da Série B. A estrela só aparece quando a
  * Temporada seguinte já foi criada (abertura da Pré-temporada): até lá, o campeão é festejado
  * no Resumo e o escudo segue como estava.

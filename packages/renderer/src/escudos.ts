@@ -573,7 +573,7 @@ export function escudo(time: TimeId): HTMLCanvasElement | OffscreenCanvas {
   return c;
 }
 
-// ---- Estrelas de Título (ADR-0059): acima do escudo, douradas (Série A) antes das pratas (Série B).
+// ---- Estrelas de Título (ADR-0060): acima do escudo, douradas (Série A) antes das pratas (Série B).
 
 /** Estrela 7×7: K contorno, E miolo (ouro ou prata). Vizinhas se encostam pelo contorno. */
 const ESTRELA = ['...K...', '..KEK..', 'KKKEKKK', 'KEEEEEK', '.KEEEK.', '.KEKEK.', '.KK.KK.'];

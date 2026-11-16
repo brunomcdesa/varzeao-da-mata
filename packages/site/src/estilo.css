@@ -3869,7 +3869,7 @@ a.jogo:hover {
   margin-top: 6px;
 }
 
-/* Estrelas de Título (ADR-0059): o placar da Partida abre espaço para elas não encostarem no título. */
+/* Estrelas de Título (ADR-0060): o placar da Partida abre espaço para elas não encostarem no título. */
 .tabua-confronto:has(.com-estrelas) {
   padding-top: 24px;
 }

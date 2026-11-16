@@ -133,7 +133,7 @@ A conquista da Temporada. Conta para o Time campeão e para cada Jogador dele qu
 _Avoid_: taça, troféu (troféu é o nome genérico de qualquer conquista no Card)
 
 **Estrela de Título**:
-A estrela acima do escudo do Time, uma por Título: dourada para a Série A (ou a Liga da T1) e prata para a Série B. Aparece quando a Temporada seguinte é criada (ADR-0059).
+A estrela acima do escudo do Time, uma por Título: dourada para a Série A (ou a Liga da T1) e prata para a Série B. Aparece quando a Temporada seguinte é criada (ADR-0060).
 _Avoid_: estrelinha, selo (Selo é o da Temporada 1, do Jogador)
 
 **Temporada**:

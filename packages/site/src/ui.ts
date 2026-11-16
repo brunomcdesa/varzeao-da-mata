@@ -45,7 +45,7 @@ export const ESCALA_MINIMA_DAS_ESTRELAS = 1.5;
 
 /**
  * Escudo em pixel art; `escala` multiplica os 20×24 pixels originais. Com Título, as estrelas
- * (ADR-0059) vão na mesma imagem, acima do escudo, com margem negativa: o escudo ocupa o mesmo
+ * (ADR-0060) vão na mesma imagem, acima do escudo, com margem negativa: o escudo ocupa o mesmo
  * lugar na página, com ou sem estrela. Com `reservar`, a imagem cresce para cima em vez de
  * invadir o que está acima (escudo sozinho logo abaixo de um título).
  */

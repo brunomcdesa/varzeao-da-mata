@@ -93,7 +93,7 @@ export interface LigaPublica {
   craqueDaTemporadaB?: JogadorResumido | null;
   /** Todas as Temporadas, da mais recente para a mais antiga. */
   temporadas: TemporadaNaHistoria[];
-  /** Estrelas de Título no escudo de cada Time (ADR-0059); Time sem Título fica de fora. */
+  /** Estrelas de Título no escudo de cada Time (ADR-0060); Time sem Título fica de fora. */
   estrelas?: Partial<Record<TimeId, Estrelas>>;
   /** Temporada já criada que ainda não começou (o site a anuncia). */
   proximaTemporada?: { numero: number; inicio: string } | null;

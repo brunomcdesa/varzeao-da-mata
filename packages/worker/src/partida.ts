@@ -26,7 +26,7 @@ export interface DadosDoVideo {
   subtitulo?: string;
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
-  /** Estrelas de Título nos escudos (ADR-0059). */
+  /** Estrelas de Título nos escudos (ADR-0060). */
   estrelas?: Partial<Record<TimeId, Estrelas>>;
   /** Temporada 2: tamanho de cada Elenco, para a Arquibancada (ADR-0019). Nunca na T1. */
   torcida?: Record<Lado, number>;

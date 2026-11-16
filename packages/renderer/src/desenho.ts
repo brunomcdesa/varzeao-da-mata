@@ -222,7 +222,7 @@ export function desenharEscudo(pin: Pincel, time: TimeId, x: number, y: number, 
  */
 export const ALTURA_MINIMA_COM_ESTRELAS = 72;
 
-/** Estrelas de Título do Time centradas em `cx`, logo acima do topo do escudo (ADR-0059). */
+/** Estrelas de Título do Time centradas em `cx`, logo acima do topo do escudo (ADR-0060). */
 export function desenharEstrelas(pin: Pincel, time: TimeId, cx: number, topoDoEscudo: number, escala = 1): void {
   if (ALTURA_ESCUDO * escala * pin.px < ALTURA_MINIMA_COM_ESTRELAS) return;
   const img = estrelasDoEscudo(time);

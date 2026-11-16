@@ -42,7 +42,7 @@ export class ErroDeDados extends Error {
 
 export const liga = async (fresco = false): Promise<LigaPublica> => {
   const l = await completarLiga(await buscar<LigaPublica>(`${BASE_DADOS}liga.json`, fresco));
-  // Estrelas de Título nos escudos (ADR-0059).
+  // Estrelas de Título nos escudos (ADR-0060).
   definirEstrelas(l.estrelas ?? {});
   return l;
 };

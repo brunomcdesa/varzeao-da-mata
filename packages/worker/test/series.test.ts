@@ -247,7 +247,7 @@ describe('Inscrição e voto com duas Séries', () => {
     expect((await craqueDaRodada(banco, rodada, 'B'))!.id).toBe(await doNumero(7));
   }, 60_000);
 
-  it('o campeão da Temporada 1 ganha a estrela no escudo só quando a Temporada 2 é criada (ADR-0059)', async () => {
+  it('o campeão da Temporada 1 ganha a estrela no escudo só quando a Temporada 2 é criada (ADR-0060)', async () => {
     const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
     await jogarTemporada(t1);
     const vencedor = (await campeao(banco, t1, 'A'))!;
