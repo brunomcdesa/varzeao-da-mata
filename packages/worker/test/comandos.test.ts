@@ -66,7 +66,12 @@ describe('Voto', () => {
   it('a Série B tem os Times novos: "ENTRO Jacaré atacante", "quero o lobo guará goleiro"', () => {
     expect(interpretar('ENTRO Jacaré atacante')).toEqual({ tipo: 'INSCRICAO', time: 'JAC', posicao: 'ATA' });
     expect(interpretar('ENTRO lobo guará goleiro')).toEqual({ tipo: 'INSCRICAO', time: 'LOB', posicao: 'GOL' });
-    expect(interpretar('ENTRO cachorro do mato zagueiro')).toEqual({ tipo: 'INSCRICAO', time: 'CDM', posicao: 'ZAG' });
+    expect(interpretar('ENTRO leão zagueiro')).toEqual({ tipo: 'INSCRICAO', time: 'LEA', posicao: 'ZAG' });
+    // Times sugeridos por um seguidor (ADR-0065), com os nomes que ele usou.
+    expect(interpretar('ENTRO Lion Club atacante')).toEqual({ tipo: 'INSCRICAO', time: 'LEA', posicao: 'ATA' });
+    expect(interpretar('ENTRO Turtugas FC meia')).toEqual({ tipo: 'INSCRICAO', time: 'TAR', posicao: 'MEI' });
+    expect(interpretar('ENTRO tartaruga goleiro')).toEqual({ tipo: 'INSCRICAO', time: 'TAR', posicao: 'GOL' });
+    expect(interpretar('ENTRO Besouros Club zagueiro')).toEqual({ tipo: 'INSCRICAO', time: 'BES', posicao: 'ZAG' });
     expect(interpretar('ENTRO boto rosa meia')).toEqual({ tipo: 'INSCRICAO', time: 'BOT', posicao: 'MEI' });
     expect(interpretar('ENTRO Coruja atacante')).toEqual({ tipo: 'INSCRICAO', time: 'COR', posicao: 'ATA' });
   });

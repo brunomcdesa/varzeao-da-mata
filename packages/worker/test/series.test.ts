@@ -77,7 +77,7 @@ describe('Série A e Série B (ADR-0017)', () => {
     }
     // Todos os Clássicos acontecem.
     const pares = new Set(jogos.map((j) => [j.mandante_id, j.visitante_id].sort().join('-')));
-    for (const c of ['CAP-ONC', 'TAM-TAT', 'PRE-SAG', 'ARA-TUC', 'JAC-SUC', 'CDM-LOB', 'BOT-PIR', 'COR-MOR']) expect(pares).toContain(c);
+    for (const c of ['CAP-ONC', 'TAM-TAT', 'PRE-SAG', 'ARA-TUC', 'JAC-SUC', 'LEA-LOB', 'BOT-TAR', 'BES-COR']) expect(pares).toContain(c);
     // O site mostra uma tabela por Grupo e a zona de queda (4 por Grupo).
     const liga = (await exportarSite(banco, new Date('2026-11-18T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
     expect(liga.grupos?.map((g) => [g.nome, g.tabela.length])).toEqual([['Grupo do Chão', 8], ['Grupo da Copa', 8]]);

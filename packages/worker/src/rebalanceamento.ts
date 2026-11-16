@@ -19,12 +19,12 @@ import { seriesDaTemporada, type SeriesDaTemporada } from './series.js';
 export const TIME_PRIMO: Readonly<Partial<Record<TimeId, TimeId>>> = {
   CAP: 'SUC',
   ONC: 'JAC',
-  TAT: 'CDM',
+  TAT: 'LEA',
   TAM: 'LOB',
   PRE: 'COR',
-  SAG: 'MOR',
+  SAG: 'BES',
   TUC: 'BOT',
-  ARA: 'PIR',
+  ARA: 'TAR',
 };
 
 /** Quantos Jogadores cada Time fundador mantém: uma Escalação inteira, sem rodízio. */

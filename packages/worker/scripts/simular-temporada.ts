@@ -90,11 +90,11 @@ const APELIDO: Record<TimeId, string[]> = {
   JAC: ['JACARÉ', 'jacare', 'Jacarés'],
   SUC: ['SUCURI', 'sucuri', 'Sucuri'],
   LOB: ['LOBO-GUARÁ', 'lobo guara', 'Lobo'],
-  CDM: ['CACHORRO-DO-MATO', 'cachorro', 'Cachorro do mato'],
+  LEA: ['LEÃO', 'leao', 'Leão'],
   BOT: ['BOTO', 'boto', 'Boto rosa'],
-  PIR: ['PIRARUCU', 'pirarucu', 'Pirarucu'],
+  TAR: ['TARTARUGA', 'tartaruga', 'Tartarugas'],
   COR: ['CORUJA', 'coruja', 'Corujas'],
-  MOR: ['MORCEGO', 'morcego', 'Morcegos'],
+  BES: ['BESOURO', 'besouro', 'Besouros'],
   QUA: ['QUATI', 'quati', 'Quatis'],
   GAM: ['GAMBÁ', 'gamba', 'Gambá'],
   JAB: ['JABUTI', 'jabuti', 'Jabutis'],
@@ -111,7 +111,7 @@ const POSICAO = {
   ATA: ['ATACANTE', 'ata', 'artilheiro', 'centroavante'],
 } as const;
 // Times "da moda" recebem mais gente; as Posições também não saem iguais.
-const PESO_TIME: Record<TimeId, number> = { ONC: 1.6, CAP: 1.4, ARA: 1.2, TUC: 1, SAG: 1, TAT: 0.9, TAM: 0.8, PRE: 0.7, JAC: 0.9, SUC: 0.8, LOB: 0.9, CDM: 0.7, BOT: 1, PIR: 0.7, COR: 0.8, MOR: 0.9, QUA: 0.8, GAM: 0.7, JAB: 0.8, TEI: 0.7, ARI: 0.8, ANT: 0.7, SER: 0.7, BUG: 0.8 };
+const PESO_TIME: Record<TimeId, number> = { ONC: 1.6, CAP: 1.4, ARA: 1.2, TUC: 1, SAG: 1, TAT: 0.9, TAM: 0.8, PRE: 0.7, JAC: 0.9, SUC: 0.8, LOB: 0.9, LEA: 0.7, BOT: 1, TAR: 0.7, COR: 0.8, BES: 0.9, QUA: 0.8, GAM: 0.7, JAB: 0.8, TEI: 0.7, ARI: 0.8, ANT: 0.7, SER: 0.7, BUG: 0.8 };
 const PESO_POS = { ATA: 1.8, MEI: 1.3, ZAG: 0.9, GOL: 0.6 } as const;
 function sortearPeso<K extends string>(pesos: Record<K, number>): K {
   const total = Object.values<number>(pesos).reduce((s, p) => s + p, 0);

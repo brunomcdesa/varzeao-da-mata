@@ -15,8 +15,8 @@ describe('Estrutura da Temporada (ADR-0064)', () => {
   });
 
   it('os Grupos têm os Clássicos juntos e cada fundador com o seu Primo', () => {
-    expect([...GRUPOS_DA_A_DE_16.CHAO].sort()).toEqual(['CAP', 'CDM', 'JAC', 'LOB', 'ONC', 'SUC', 'TAM', 'TAT']);
-    expect([...GRUPOS_DA_A_DE_16.COPA].sort()).toEqual(['ARA', 'BOT', 'COR', 'MOR', 'PIR', 'PRE', 'SAG', 'TUC']);
+    expect([...GRUPOS_DA_A_DE_16.CHAO].sort()).toEqual(['CAP', 'JAC', 'LEA', 'LOB', 'ONC', 'SUC', 'TAM', 'TAT']);
+    expect([...GRUPOS_DA_A_DE_16.COPA].sort()).toEqual(['ARA', 'BES', 'BOT', 'COR', 'PRE', 'SAG', 'TAR', 'TUC']);
   });
 
   it('turno único dentro de cada Grupo: 7 Rodadas de 8 jogos, alternando Chão e Copa', () => {

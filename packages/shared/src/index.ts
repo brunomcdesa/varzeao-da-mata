@@ -9,7 +9,7 @@ export type Posicao = (typeof POSICOES)[number];
  */
 export const TIMES = [
   'CAP', 'ONC', 'TAT', 'TAM', 'PRE', 'SAG', 'TUC', 'ARA',
-  'JAC', 'SUC', 'LOB', 'CDM', 'BOT', 'PIR', 'COR', 'MOR',
+  'JAC', 'SUC', 'LOB', 'LEA', 'BOT', 'TAR', 'COR', 'BES',
   'QUA', 'GAM', 'JAB', 'TEI', 'ARI', 'ANT', 'SER', 'BUG',
 ] as const;
 export type TimeId = (typeof TIMES)[number];
@@ -17,7 +17,7 @@ export type TimeId = (typeof TIMES)[number];
 /** Os Times da Temporada 1, que formam a Série A na primeira Temporada com Séries. */
 export const TIMES_FUNDADORES: readonly TimeId[] = ['CAP', 'ONC', 'TAT', 'TAM', 'PRE', 'SAG', 'TUC', 'ARA'];
 /** Os Times que chegaram na T2 direto na Série A, ao lado dos fundadores (ADR-0058). */
-export const TIMES_NOVOS: readonly TimeId[] = ['JAC', 'SUC', 'LOB', 'CDM', 'BOT', 'PIR', 'COR', 'MOR'];
+export const TIMES_NOVOS: readonly TimeId[] = ['JAC', 'SUC', 'LOB', 'LEA', 'BOT', 'TAR', 'COR', 'BES'];
 /**
  * Times criados para uma Série B futura (ADR-0058). Guardados (ADR-0062): a T2 tem só a Série A,
  * e a B da T3 é formada pelos 8 Times que caem no fim da T2.
@@ -41,8 +41,8 @@ export const NOME_DO_GRUPO: Readonly<Record<Grupo, string>> = { CHAO: 'Grupo do 
 /** Nome curto, para placas e tabelas ("Chão", "Copa"). */
 export const NOME_CURTO_DO_GRUPO: Readonly<Record<Grupo, string>> = { CHAO: 'Chão', COPA: 'Copa' };
 export const GRUPOS_DA_A_DE_16: Readonly<Record<Grupo, readonly TimeId[]>> = {
-  CHAO: ['CAP', 'ONC', 'TAT', 'TAM', 'JAC', 'SUC', 'LOB', 'CDM'],
-  COPA: ['PRE', 'SAG', 'TUC', 'ARA', 'COR', 'MOR', 'BOT', 'PIR'],
+  CHAO: ['CAP', 'ONC', 'TAT', 'TAM', 'JAC', 'SUC', 'LOB', 'LEA'],
+  COPA: ['PRE', 'SAG', 'TUC', 'ARA', 'COR', 'BES', 'BOT', 'TAR'],
 };
 /** Quantos de cada Grupo vão para as Semifinais (1º de um contra o 2º do outro). */
 export const CLASSIFICAM_POR_GRUPO = 2;
@@ -96,11 +96,12 @@ export const IDENTIDADE: Readonly<Record<TimeId, { nome: string; sigla: string; 
   JAC: { nome: 'Jacaré Atlético Clube', sigla: 'JAC', bicho: 'jacare', primaria: '#2E8B57', secundaria: '#F2E6A6' },
   SUC: { nome: 'Sucuri Esporte Clube', sigla: 'SUC', bicho: 'sucuri', primaria: '#556B2F', secundaria: '#E9C46A' },
   LOB: { nome: 'Lobo-Guará Futebol Clube', sigla: 'LOB', bicho: 'lobo-guara', primaria: '#E07B24', secundaria: '#3B2A20' },
-  CDM: { nome: 'Cachorro-do-Mato Sport Club', sigla: 'CÃO', bicho: 'cachorro-do-mato', primaria: '#8A8D91', secundaria: '#D9A441' },
+  // Leão, Tartaruga e Besouro: nomes sugeridos por um seguidor (ADR-0065).
+  LEA: { nome: 'Leão Futebol Clube', sigla: 'LEA', bicho: 'leao', primaria: '#C98A1A', secundaria: '#4A2A12' },
   BOT: { nome: 'Boto Futebol Clube', sigla: 'BOT', bicho: 'boto', primaria: '#E58FA8', secundaria: '#1C2E5A' },
-  PIR: { nome: 'Associação Pirarucu', sigla: 'PIR', bicho: 'pirarucu', primaria: '#B3202A', secundaria: '#2E4A3F' },
+  TAR: { nome: 'Tartarugas Futebol Clube', sigla: 'TAR', bicho: 'tartaruga', primaria: '#2F7D6D', secundaria: '#E3C567' },
   COR: { nome: 'Coruja Esporte Clube', sigla: 'COR', bicho: 'coruja', primaria: '#8B6B4A', secundaria: '#F2C14E' },
-  MOR: { nome: 'Morcego Futebol Clube', sigla: 'MOR', bicho: 'morcego', primaria: '#1E2235', secundaria: '#8FD3FF' },
+  BES: { nome: 'Besouros Esporte Clube', sigla: 'BES', bicho: 'besouro', primaria: '#2B1D3A', secundaria: '#4FD1C5' },
   QUA: { nome: 'Quati Futebol Clube', sigla: 'QUA', bicho: 'quati', primaria: '#7B1E3A', secundaria: '#F0D9A8' },
   GAM: { nome: 'Gambá Esporte Clube', sigla: 'GAM', bicho: 'gamba', primaria: '#3A3A3A', secundaria: '#FFFFFF' },
   JAB: { nome: 'Jabuti Atlético Clube', sigla: 'JAB', bicho: 'jabuti', primaria: '#C9A227', secundaria: '#4B3621' },
@@ -118,9 +119,9 @@ export const CLASSICOS: ReadonlyArray<readonly [TimeId, TimeId]> = [
   ['PRE', 'SAG'],
   ['TUC', 'ARA'],
   ['JAC', 'SUC'],
-  ['LOB', 'CDM'],
-  ['BOT', 'PIR'],
-  ['COR', 'MOR'],
+  ['LOB', 'LEA'],
+  ['BOT', 'TAR'],
+  ['COR', 'BES'],
   ['QUA', 'GAM'],
   ['JAB', 'TEI'],
   ['ARI', 'ANT'],
@@ -145,9 +146,9 @@ const NOMES_CLASSICOS: Readonly<Record<string, string>> = {
   'PRE-SAG': 'Clássico do Galho',
   'ARA-TUC': 'Clássico das Penas',
   'JAC-SUC': 'Clássico do Brejo',
-  'CDM-LOB': 'Clássico da Matilha',
-  'BOT-PIR': 'Clássico do Rio',
-  'COR-MOR': 'Clássico da Madrugada',
+  'LEA-LOB': 'Clássico da Juba',
+  'BOT-TAR': 'Clássico do Rio',
+  'BES-COR': 'Clássico da Madrugada',
   'GAM-QUA': 'Clássico do Quintal',
   'JAB-TEI': 'Clássico do Sol',
   'ANT-ARI': 'Clássico da Lagoa',
@@ -172,11 +173,11 @@ export const FALA_DO_TIME: Readonly<Record<TimeId, { curto: string; artigo: 'o' 
   JAC: { curto: 'Jacaré', artigo: 'o', bordao: 'Paciência e bote certo.' },
   SUC: { curto: 'Sucuri', artigo: 'a', bordao: 'Abraço que não solta.' },
   LOB: { curto: 'Lobo-guará', artigo: 'o', bordao: 'Perna comprida, cabeça erguida.' },
-  CDM: { curto: 'Cachorro-do-mato', artigo: 'o', bordao: 'Late pouco, morde muito.' },
+  LEA: { curto: 'Leão', artigo: 'o', bordao: 'Quem manda na mata é a gente.' },
   BOT: { curto: 'Boto', artigo: 'o', bordao: 'Encanta e some.' },
-  PIR: { curto: 'Pirarucu', artigo: 'o', bordao: 'Peso pesado do rio.' },
+  TAR: { curto: 'Tartaruga', artigo: 'a', bordao: 'Casco firme, chegada certa.' },
   COR: { curto: 'Coruja', artigo: 'a', bordao: 'A gente vê tudo.' },
-  MOR: { curto: 'Morcego', artigo: 'o', bordao: 'A noite é nossa.' },
+  BES: { curto: 'Besouro', artigo: 'o', bordao: 'Pequeno, blindado e chato de parar.' },
   QUA: { curto: 'Quati', artigo: 'o', bordao: 'Fuça tudo até achar o gol.' },
   GAM: { curto: 'Gambá', artigo: 'o', bordao: 'Ninguém chega perto.' },
   JAB: { curto: 'Jabuti', artigo: 'o', bordao: 'Devagar e sempre.' },
@@ -340,11 +341,11 @@ export const GRITO_DO_TIME: Readonly<Record<TimeId, string>> = {
   JAC: 'Abre a boca, Jacaré!',
   SUC: 'Aperta, Sucuri!',
   LOB: 'Uuuh, Lobo-guará!',
-  CDM: 'Late e morde, Cachorrão!',
+  LEA: 'Ruge, Leão!',
   BOT: 'Encanta, Boto!',
-  PIR: 'Ô Pirarucu, peso do rio!',
+  TAR: 'Rema, Tartaruga!',
   COR: 'Olho aberto, Coruja!',
-  MOR: 'A noite é do Morcego!',
+  BES: 'Zum, zum, Besouro!',
   QUA: 'Fuça, Quati, fuça!',
   GAM: 'Sai da frente, é o Gambá!',
   JAB: 'Casco duro, Jabuti!',
