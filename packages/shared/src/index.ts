@@ -3,20 +3,29 @@
 export const POSICOES = ['GOL', 'ZAG', 'MEI', 'ATA'] as const;
 export type Posicao = (typeof POSICOES)[number];
 
-/** Os 16 Times da Liga: os 8 fundadores (Temporada 1) e os 8 que chegaram com a Série B (ADR-0017). */
-export const TIMES = ['CAP', 'ONC', 'TAT', 'TAM', 'PRE', 'SAG', 'TUC', 'ARA', 'JAC', 'SUC', 'LOB', 'CDM', 'BOT', 'PIR', 'COR', 'MOR'] as const;
+/**
+ * Os 24 Times da Liga: os 8 fundadores (Temporada 1), os 8 que chegaram na T2 direto na Série A
+ * (ADR-0017 e ADR-0058) e os 8 que estrearam a Série B na T2 (ADR-0058).
+ */
+export const TIMES = [
+  'CAP', 'ONC', 'TAT', 'TAM', 'PRE', 'SAG', 'TUC', 'ARA',
+  'JAC', 'SUC', 'LOB', 'CDM', 'BOT', 'PIR', 'COR', 'MOR',
+  'QUA', 'GAM', 'JAB', 'TEI', 'ARI', 'ANT', 'SER', 'BUG',
+] as const;
 export type TimeId = (typeof TIMES)[number];
 
 /** Os Times da Temporada 1, que formam a Série A na primeira Temporada com Séries. */
 export const TIMES_FUNDADORES: readonly TimeId[] = ['CAP', 'ONC', 'TAT', 'TAM', 'PRE', 'SAG', 'TUC', 'ARA'];
-/** Os Times que chegaram com a Série B. */
+/** Os Times que chegaram na T2 direto na Série A, ao lado dos fundadores (ADR-0058). */
 export const TIMES_NOVOS: readonly TimeId[] = ['JAC', 'SUC', 'LOB', 'CDM', 'BOT', 'PIR', 'COR', 'MOR'];
+/** Os Times que estrearam a Série B na T2 (ADR-0058). */
+export const TIMES_DA_SERIE_B: readonly TimeId[] = ['QUA', 'GAM', 'JAB', 'TEI', 'ARI', 'ANT', 'SER', 'BUG'];
 
 /** As duas Séries da Liga (GLOSSARY: Série). */
 export const SERIES = ['A', 'B'] as const;
 export type Serie = (typeof SERIES)[number];
-/** Times por Série. */
-export const TIMES_POR_SERIE = 8;
+/** Times em cada Série a partir da T2 (ADR-0058): 16 na A e 8 na B. */
+export const TIMES_POR_SERIE: Readonly<Record<Serie, number>> = { A: 16, B: 8 };
 /** Quantos Times descem da A e sobem da B a cada Temporada (ADR-0017). */
 export const TIMES_QUE_TROCAM_DE_SERIE = 2;
 
@@ -58,6 +67,14 @@ export const IDENTIDADE: Readonly<Record<TimeId, { nome: string; sigla: string; 
   PIR: { nome: 'Associação Pirarucu', sigla: 'PIR', bicho: 'pirarucu', primaria: '#B3202A', secundaria: '#2E4A3F' },
   COR: { nome: 'Coruja Esporte Clube', sigla: 'COR', bicho: 'coruja', primaria: '#8B6B4A', secundaria: '#F2C14E' },
   MOR: { nome: 'Morcego Futebol Clube', sigla: 'MOR', bicho: 'morcego', primaria: '#1E2235', secundaria: '#8FD3FF' },
+  QUA: { nome: 'Quati Futebol Clube', sigla: 'QUA', bicho: 'quati', primaria: '#7B1E3A', secundaria: '#F0D9A8' },
+  GAM: { nome: 'Gambá Esporte Clube', sigla: 'GAM', bicho: 'gamba', primaria: '#3A3A3A', secundaria: '#FFFFFF' },
+  JAB: { nome: 'Jabuti Atlético Clube', sigla: 'JAB', bicho: 'jabuti', primaria: '#C9A227', secundaria: '#4B3621' },
+  TEI: { nome: 'Teiú Futebol Clube', sigla: 'TEI', bicho: 'teiu', primaria: '#138A7E', secundaria: '#151515' },
+  ARI: { nome: 'Ariranha Sport Club', sigla: 'ARI', bicho: 'ariranha', primaria: '#5A3825', secundaria: '#4FB3BF' },
+  ANT: { nome: 'Associação Anta', sigla: 'ANT', bicho: 'anta', primaria: '#0F4C5C', secundaria: '#F4A259' },
+  SER: { nome: 'Seriema Esporte Clube', sigla: 'SER', bicho: 'seriema', primaria: '#D9C9A3', secundaria: '#C1272D' },
+  BUG: { nome: 'Bugio Futebol Clube', sigla: 'BUG', bicho: 'bugio', primaria: '#B9471E', secundaria: '#1B1B1B' },
 };
 
 /** Pares de rivais fixos (docs/times.md). */
@@ -70,6 +87,10 @@ export const CLASSICOS: ReadonlyArray<readonly [TimeId, TimeId]> = [
   ['LOB', 'CDM'],
   ['BOT', 'PIR'],
   ['COR', 'MOR'],
+  ['QUA', 'GAM'],
+  ['JAB', 'TEI'],
+  ['ARI', 'ANT'],
+  ['SER', 'BUG'],
 ];
 
 export function ehClassico(a: TimeId, b: TimeId): boolean {
@@ -93,6 +114,10 @@ const NOMES_CLASSICOS: Readonly<Record<string, string>> = {
   'CDM-LOB': 'Clássico da Matilha',
   'BOT-PIR': 'Clássico do Rio',
   'COR-MOR': 'Clássico da Madrugada',
+  'GAM-QUA': 'Clássico do Quintal',
+  'JAB-TEI': 'Clássico do Sol',
+  'ANT-ARI': 'Clássico da Lagoa',
+  'BUG-SER': 'Clássico do Grito',
 };
 
 /** Nome do Clássico entre dois Times, ou null se não forem rivais (docs/times.md). */
@@ -118,6 +143,14 @@ export const FALA_DO_TIME: Readonly<Record<TimeId, { curto: string; artigo: 'o' 
   PIR: { curto: 'Pirarucu', artigo: 'o', bordao: 'Peso pesado do rio.' },
   COR: { curto: 'Coruja', artigo: 'a', bordao: 'A gente vê tudo.' },
   MOR: { curto: 'Morcego', artigo: 'o', bordao: 'A noite é nossa.' },
+  QUA: { curto: 'Quati', artigo: 'o', bordao: 'Fuça tudo até achar o gol.' },
+  GAM: { curto: 'Gambá', artigo: 'o', bordao: 'Ninguém chega perto.' },
+  JAB: { curto: 'Jabuti', artigo: 'o', bordao: 'Devagar e sempre.' },
+  TEI: { curto: 'Teiú', artigo: 'o', bordao: 'Esquenta no sol e dá o bote.' },
+  ARI: { curto: 'Ariranha', artigo: 'a', bordao: 'Em bando ninguém segura.' },
+  ANT: { curto: 'Anta', artigo: 'a', bordao: 'Passa por cima.' },
+  SER: { curto: 'Seriema', artigo: 'a', bordao: 'Grita antes do gol.' },
+  BUG: { curto: 'Bugio', artigo: 'o', bordao: 'O grito se ouve de longe.' },
 };
 
 /** "da Capivara", "do Tatu". */
@@ -278,6 +311,14 @@ export const GRITO_DO_TIME: Readonly<Record<TimeId, string>> = {
   PIR: 'Ô Pirarucu, peso do rio!',
   COR: 'Olho aberto, Coruja!',
   MOR: 'A noite é do Morcego!',
+  QUA: 'Fuça, Quati, fuça!',
+  GAM: 'Sai da frente, é o Gambá!',
+  JAB: 'Casco duro, Jabuti!',
+  TEI: 'Dá o bote, Teiú!',
+  ARI: 'Mergulha, Ariranha!',
+  ANT: 'Atropela, Anta!',
+  SER: 'Grita, Seriema!',
+  BUG: 'Ruge, Bugio!',
 };
 
 /** Temporada 2: as regras que só valem a partir da Temporada 2 (ADRs 0020, 0021, 0023, 0024). */

@@ -2,12 +2,12 @@
  * Job `resumo` (18h10): fecha a Rodada com os Candidatos a Craque e junta o que o Reels
  * do Resumo da Rodada mostra: placares, tabela, Novos Contratados e Candidatos.
  */
-import { CANDIDATOS_POR_SERIE, RODADA_DA_FINAL, SERIES, etapaDa, numeroDoCandidato, rotuloDoCandidato, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { CANDIDATOS_POR_SERIE, SERIES, etapaDa, numeroDoCandidato, rotuloDoCandidato, type Posicao, type Serie, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA } from './calendario.js';
 import type { DadosDoResumo } from '@liga/renderer';
 import { destaquesDaRodadaNoBanco } from './destaques.js';
-import { seriesDaTemporada } from './series.js';
+import { SQL_RODADA_DA_FINAL, seriesDaTemporada } from './series.js';
 import { tabela } from './tabela.js';
 
 /** Candidatos a Craque por Série em cada Rodada. */
@@ -157,8 +157,8 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
       ? (
           await banco.query<{ mandante_id: TimeId; visitante_id: TimeId; apito_inicial: string | Date; serie: Serie }>(
             `SELECT p.mandante_id, p.visitante_id, p.apito_inicial, p.serie FROM partida p JOIN rodada f ON f.id = p.rodada_id
-             WHERE f.temporada_id = $1 AND f.numero = $2 ORDER BY p.serie, p.apito_inicial`,
-            [r.temporada_id, RODADA_DA_FINAL],
+             WHERE f.temporada_id = $1 AND f.fase = 'MATA_MATA' AND f.numero = ${SQL_RODADA_DA_FINAL('f')} ORDER BY p.serie, p.apito_inicial`,
+            [r.temporada_id],
           )
         ).rows.map((p) => ({ mandante: p.mandante_id, visitante: p.visitante_id, hora: horaBrasilia(new Date(p.apito_inicial)), ...(comSeries ? { serie: p.serie } : {}) }))
       : [];
@@ -220,7 +220,7 @@ export async function rodadaEmVotacao(b: Banco): Promise<number | null> {
          AND NOT EXISTS (SELECT 1 FROM rodada s JOIN partida p ON p.rodada_id = s.id
                          WHERE s.temporada_id = r.temporada_id AND s.numero = r.numero + 1 AND p.status <> 'PENDENTE')
          -- a votação da Final (Craque da Temporada) fecha quando o Craque é decidido
-         AND NOT (r.numero = ${RODADA_DA_FINAL} AND t.craque_jogador_id IS NOT NULL)
+         AND NOT (r.fase = 'MATA_MATA' AND r.numero = ${SQL_RODADA_DA_FINAL()} AND t.craque_jogador_id IS NOT NULL)
          -- e nenhuma votação passa para a Temporada seguinte
          AND NOT EXISTS (SELECT 1 FROM temporada n JOIN rodada nr ON nr.temporada_id = n.id JOIN partida np ON np.rodada_id = nr.id
                          WHERE n.numero > t.numero AND np.status <> 'PENDENTE')

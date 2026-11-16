@@ -1,13 +1,29 @@
-/** A Temporada: 7 Rodadas da Fase de Liga, depois Semifinais (dia 8) e Final (dia 9). */
-export const RODADAS_DA_LIGA = 7;
-export const RODADA_DAS_SEMIFINAIS = 8;
-export const RODADA_DA_FINAL = 9;
+/**
+ * A Temporada tem uma Rodada por dia: a Fase de Liga, depois as Semifinais e a Final, cada uma
+ * no dia seguinte. A Fase de Liga dura o turno único da maior Série (ADR-0058):
+ * - T1, só a Série A com 8 Times: 7 Rodadas, Semifinais na 8 e Final na 9;
+ * - da T2 em diante, A com 16 Times: 15 Rodadas, Semifinais na 16 e Final na 17 (a B, com 8,
+ *   joga turno e returno nas Rodadas 1 a 14).
+ */
+export interface EstruturaDaTemporada {
+  rodadasDaLiga: number;
+  rodadaDasSemifinais: number;
+  rodadaDaFinal: number;
+}
+
+export function estruturaDaLiga(rodadasDaLiga: number): EstruturaDaTemporada {
+  return { rodadasDaLiga, rodadaDasSemifinais: rodadasDaLiga + 1, rodadaDaFinal: rodadasDaLiga + 2 };
+}
+
+/** As durações de Fase de Liga que existem: 7 (A com 8 Times) e 15 (A com 16 Times). */
+export const RODADAS_DA_LIGA_POSSIVEIS = [7, 15] as const;
 
 export type Etapa = 'LIGA' | 'SEMIFINAL' | 'FINAL';
 
+/** A etapa de uma Rodada pelo número: a Final é sempre 2 dias depois da última Rodada da Liga. */
 export function etapaDa(fase: 'LIGA' | 'MATA_MATA', numero: number): Etapa {
   if (fase === 'LIGA') return 'LIGA';
-  return numero >= RODADA_DA_FINAL ? 'FINAL' : 'SEMIFINAL';
+  return RODADAS_DA_LIGA_POSSIVEIS.some((l) => numero === estruturaDaLiga(l).rodadaDaFinal) ? 'FINAL' : 'SEMIFINAL';
 }
 
 /** "Rodada 3", "Semifinais", "Final" (o dia inteiro). */

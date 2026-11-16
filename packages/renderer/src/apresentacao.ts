@@ -3,7 +3,7 @@
  * seguidores para se inscrever. Mesmo estilo de cartelas do Resumo (tábuas de várzea sobre o
  * campo), narrado pelo Locutor; cada cartela estica até a fala caber inteira.
  */
-import { FALA_DO_TIME, IDENTIDADE, NOME_DA_HABILIDADE, TIMES, type HabilidadeId, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, NOME_DA_HABILIDADE, TIMES_FUNDADORES, type HabilidadeId, type Posicao, type TimeId } from '@liga/shared';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, plaquinha } from './desenho.js';
 import type { Fala } from './narracao.js';
@@ -106,7 +106,7 @@ export function narracaoDaApresentacao(roteiro: RoteiroApresentacao): Fala[] {
   return roteiro.segmentos.map((s, i): Fala => {
     const texto: Record<CartelaApresentacao, string> = {
       ABERTURA: 'Chegou o Varzeão da Mata: a liga de futebol dos seguidores!',
-      TIMES: `São oito times: ${lista(TIMES.map(curto))}.`,
+      TIMES: `São oito times: ${lista(TIMES_FUNDADORES.map(curto))}.`,
       PARTIDA: 'Cada partida é simulada lance a lance, com narração, e vira Reels aqui no perfil.',
       ENTRAR: `Quer jogar? Comenta ENTRO, o time e a posição. Tipo: ENTRO ${curto(ex.time)} ${POSICAO_FALADA[ex.posicao]}. Pronto: você vira jogador, com boneco e tudo!`,
       POSICOES: 'Pode ser goleiro, zagueiro, meia ou atacante. São sete em campo por time.',
@@ -197,13 +197,13 @@ export function desenharQuadroApresentacao(ctx: CanvasRenderingContext2D, roteir
       });
       // Os 8 escudos passando no pé da tela.
       surge(entre(t, 1.5, 2.1), () => {
-        TIMES.forEach((time, k) => desenharEscudo(pin, time, 15 + k * 31, 400 + (k % 2) * 6, 1.1));
+        TIMES_FUNDADORES.forEach((time, k) => desenharEscudo(pin, time, 15 + k * 31, 400 + (k % 2) * 6, 1.1));
       });
       break;
     }
     case 'TIMES': {
       titulo('Os 8 Times');
-      TIMES.forEach((time, k) => {
+      TIMES_FUNDADORES.forEach((time, k) => {
         const col = k % 2;
         const lin = Math.floor(k / 2);
         const x = 14 + col * 124;

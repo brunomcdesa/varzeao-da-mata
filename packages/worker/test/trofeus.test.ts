@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { TIMES_FUNDADORES as TIMES, TIMES_NOVOS, type JogadorPublico, type LigaPublica } from '@liga/shared';
+import { TIMES_FUNDADORES as TIMES, TIMES_DA_SERIE_B, TIMES_NOVOS, type JogadorPublico, type LigaPublica } from '@liga/shared';
 import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
 import { processarComentario } from '../src/coletar.js';
@@ -109,8 +109,8 @@ describe('Seleção da Rodada no site (ADR-0041)', () => {
 });
 
 describe('Recompensa e agradecimento automáticos (ADR-0047)', () => {
-  it('a T2 nasce com a Recompensa e sem Rebalanceamento (ADR-0058); o agradecimento sai como Reels Programado', async () => {
-    // A Capivara com 9 inscritos: ninguém desce para a Série B.
+  it('a T2 nasce rebalanceada dentro da Série A (ADR-0058) e com a Recompensa; o agradecimento sai como Reels Programado', async () => {
+    // A Capivara com 9 inscritos: 2 vão para o Time Primo (Sucuri), que agora joga a Série A.
     let k = 0;
     for (const pos of ['ZAG', 'ZAG', 'ATA', 'MEI', 'ZAG', 'MEI']) {
       const u = `cap_extra_${++k}`;
@@ -123,16 +123,24 @@ describe('Recompensa e agradecimento automáticos (ADR-0047)', () => {
     const logs: string[] = [];
     const ctx = { banco, armazenamento: new PastaLocal('/tmp/varzea-agradecimento'), agenda: new AgendaNaMemoria(), ig: null, log: (m: string) => logs.push(m) } as unknown as ContextoDoJob;
     expect(await jobCraqueDaTemporada({ ...ctx, agora: () => new Date('2026-11-16T21:10:00Z') })).toBe(temporada);
-    // Sem Rebalanceamento: a Capivara segue com todos e ninguém foi para a Série B.
-    expect((await banco.query(`SELECT 1 FROM jogador WHERE time_id = 'CAP'`)).rows).toHaveLength(naCapivara);
-    expect((await banco.query(`SELECT 1 FROM jogador WHERE time_id = ANY($1)`, [[...TIMES_NOVOS]])).rows).toHaveLength(0);
-    expect((await banco.query(`SELECT 1 FROM fundador WHERE remanejado`)).rows).toHaveLength(0);
+    // Rebalanceamento dentro da A: a Capivara ficou com 7 e o resto foi para os Times que
+    // chegaram na A (o Time Primo ou, com a Posição cheia nele, outro deles), como Fundadores.
+    // Ninguém foi para a Série B.
+    const movidos = naCapivara - 7;
+    expect((await banco.query(`SELECT 1 FROM jogador WHERE time_id = 'CAP'`)).rows).toHaveLength(7);
+    expect((await banco.query(`SELECT 1 FROM jogador WHERE time_id = ANY($1)`, [[...TIMES_NOVOS]])).rows).toHaveLength(movidos);
+    expect((await banco.query(`SELECT 1 FROM jogador WHERE time_id = ANY($1)`, [[...TIMES_DA_SERIE_B]])).rows).toHaveLength(0);
+    expect((await banco.query(`SELECT 1 FROM fundador WHERE remanejado`)).rows).toHaveLength(movidos);
+    const t2 = (await banco.query<{ id: number }>(`SELECT id FROM temporada WHERE numero = 2`)).rows[0]!.id;
+    const naA = (await banco.query<{ time_id: string }>(`SELECT time_id FROM serie_do_time WHERE temporada_id = $1 AND serie = 'A'`, [t2])).rows.map((r) => r.time_id);
+    expect(naA).toEqual(expect.arrayContaining([...TIMES_NOVOS]));
     // Recompensa: todos os inscritos da T1 ganham o Selo.
     expect((await banco.query(`SELECT 1 FROM selo_temporada1`)).rows).toHaveLength(inscritos);
-    expect(logs.some((l) => l.startsWith('Rebalanceamento'))).toBe(false);
+    expect(logs.some((l) => l.startsWith(`Rebalanceamento da Temporada 2: ${movidos} Jogador(es) para os Times Primos da Série A`))).toBe(true);
 
     const dados = await dadosDoAgradecimentoT1(banco);
     expect(dados).toMatchObject({ inscritos, piso: 65, rodadasDoBonus: 3 });
+    // O Reels de agradecimento não fala do Rebalanceamento (aprovado sem essas cartelas).
     expect(dados.rebalanceamento).toBeUndefined();
 
     // Terça 18h30: o job programados grava e agenda o agradecimento para as 20h.

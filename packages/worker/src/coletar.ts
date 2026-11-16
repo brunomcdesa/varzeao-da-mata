@@ -4,10 +4,10 @@
  * não muda nada (idempotência pelo ig_comment_id).
  */
 import type { Habilidades, Posicao, TimeId } from '@liga/shared';
-import { CANDIDATOS_POR_SERIE, doTime, numeroDoCandidato, ovrDasHabilidades, temRegrasT2, type Serie } from '@liga/shared';
+import { CANDIDATOS_POR_SERIE, TIMES_POR_SERIE, doTime, numeroDoCandidato, ovrDasHabilidades, temRegrasT2, type Serie } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { CONTA_DA_LIGA, citacoes, interpretar, type Comando } from './comandos.js';
-import { timesAtivos } from './series.js';
+import { PRIMO_NA_B, seriesAtivas, timesAtivos, type SeriesDaTemporada } from './series.js';
 import { aplicarEscolha } from './temporada2.js';
 import { FOLGA_DE_ELENCO, FORMACAO, OVR_INICIAL, OVR_INICIAL_DEPOIS_DA_T1, REALOCAR_QUANDO_CHEIO, habilidadesDe, perfilNaPosicao, sortearHabilidadesIniciais, type FaixaDoOvr } from './regras.js';
 import { normalizar } from './vocabulario.js';
@@ -211,24 +211,70 @@ export async function faixaDoOvrInicial(b: Banco): Promise<FaixaDoOvr> {
   return depois ? OVR_INICIAL_DEPOIS_DA_T1 : OVR_INICIAL;
 }
 
+/**
+ * Limite por Posição de cada Time: o dobro das vagas da Escalação (2 goleiros e 4 em cada
+ * Posição de linha). Da T2 em diante (ADR-0058), o novato entra na Série A enquanto a Posição
+ * dele no Time pedido tem vaga; cheia, ele começa na Série B, no Time Primo.
+ */
+export const LIMITE_POR_POSICAO: Readonly<Record<Posicao, number>> = Object.fromEntries(
+  (['GOL', 'ZAG', 'MEI', 'ATA'] as const).map((p) => [p, 2 * FORMACAO.filter((x) => x === p).length]),
+) as Record<Posicao, number>;
+
+async function contarNaPosicao(b: Banco, time: TimeId, posicao: Posicao): Promise<number> {
+  return Number((await b.query<{ n: string }>(`SELECT count(*) AS n FROM jogador WHERE time_id = $1 AND posicao = $2 AND NOT banido`, [time, posicao])).rows[0]!.n);
+}
+
+/**
+ * O Time onde o novato entra. Sem Séries (T1): o pedido, ou o Time mais vazio se o pedido passou
+ * do equilíbrio de Elencos. Com a A de 16 Times (ADR-0058): Time da A com vaga na Posição
+ * recebe; Posição cheia manda para o Time Primo na B; na B vale o equilíbrio entre os Times da B.
+ */
+function destinoDoNovato(
+  pedido: TimeId,
+  series: SeriesDaTemporada,
+  contagem: ReadonlyMap<string, number>,
+  desempate: number,
+  posicaoCheiaNoPedido: boolean,
+): { time: TimeId; motivo: 'PEDIDO' | 'EQUILIBRIO' | 'SERIE_B' } {
+  const maisVazio = (times: readonly TimeId[], ideal?: TimeId): TimeId => {
+    const menor = Math.min(...times.map((t) => contagem.get(t) ?? 0));
+    if (ideal && (contagem.get(ideal) ?? 0) < menor + FOLGA_DE_ELENCO) return ideal;
+    const vazios = times.filter((t) => (contagem.get(t) ?? 0) === menor);
+    return vazios[desempate % vazios.length]!;
+  };
+  const comAGrande = series.B.length > 0 && series.A.length > TIMES_POR_SERIE.B;
+  if (comAGrande && series.A.includes(pedido)) {
+    if (!posicaoCheiaNoPedido) return { time: pedido, motivo: 'PEDIDO' };
+    const primo = PRIMO_NA_B[pedido];
+    return { time: maisVazio(series.B, primo && series.B.includes(primo) ? primo : undefined), motivo: 'SERIE_B' };
+  }
+  const daSerie = comAGrande ? series.B : [...series.A, ...series.B];
+  const time = maisVazio(daSerie, pedido);
+  return { time, motivo: time === pedido ? 'PEDIDO' : 'EQUILIBRIO' };
+}
+
 async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posicao | undefined, ctx: Contexto): Promise<Resultado> {
   if (await usernameBloqueado(b, c.username)) return 'NOME_BLOQUEADO';
 
-  // Só os Times que jogam a Temporada (com a Série B, os 16; antes dela, os fundadores).
-  const ativos = await timesAtivos(b);
+  // Só os Times que jogam a Temporada (com a Série B, os 24; antes dela, os fundadores).
+  const { series } = await seriesAtivas(b);
+  const ativos = [...series.A, ...series.B];
   if (!ativos.includes(pedido)) return 'TIME_ESTREANTE';
-  // Limite de equilíbrio na Liga inteira: nenhum Elenco pode passar o menor por mais que FOLGA_DE_ELENCO.
-  const contagem = await elencos(b, ativos);
-  const menor = Math.min(...contagem.values());
-  // Time cheio: entra no mais vazio (empate decidido pelo id do comentário, para espalhar),
+  // Time cheio: entra em outro Time (empate decidido pelo id do comentário, para espalhar),
   // na posição pedida, e recebe uma resposta explicando.
+  const contagem = await elencos(b, ativos);
   let time = pedido;
-  if (!ctx.forcar && contagem.get(pedido)! >= menor + FOLGA_DE_ELENCO) {
-    if (!(ctx.realocar ?? REALOCAR_QUANDO_CHEIO)) return 'TIME_CHEIO';
-    const vazios = ativos.filter((t) => contagem.get(t) === menor);
-    time = vazios[hashSimples(c.igCommentId) % vazios.length]!;
+  let motivo: 'PEDIDO' | 'EQUILIBRIO' | 'SERIE_B' = 'PEDIDO';
+  // Posição no Time pedido: a pedida, ou a mais vazia dele (só o Time).
+  const noPedido = pedida ?? (await posicaoMaisVazia(b, pedido));
+  if (!ctx.forcar) {
+    const cheia = (await contarNaPosicao(b, pedido, noPedido)) >= LIMITE_POR_POSICAO[noPedido];
+    const d = destinoDoNovato(pedido, series, contagem, hashSimples(c.igCommentId), cheia);
+    if (d.motivo === 'EQUILIBRIO' && !(ctx.realocar ?? REALOCAR_QUANDO_CHEIO)) return 'TIME_CHEIO';
+    ({ time, motivo } = d);
   }
-  const posicao = pedida ?? (await posicaoMaisVazia(b, time));
+  // Na B (Posição cheia na A), segue na mesma Posição; realocado por equilíbrio, a pedida ou a mais vazia.
+  const posicao = motivo === 'SERIE_B' ? noPedido : (pedida ?? (time === pedido ? noPedido : await posicaoMaisVazia(b, time)));
 
   const { ovr, habilidades } = sortearHabilidadesIniciais(c.igCommentId, posicao as Posicao, await faixaDoOvrInicial(b));
   await b.query(
@@ -239,9 +285,11 @@ async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posica
   const vaga = `${NOME_DA_POSICAO_FALADO[posicao]} ${doTime(time)}, OVR ${ovr}`;
   await ctx.responder?.(
     c.igCommentId,
-    time === pedido
+    motivo === 'PEDIDO'
       ? `@${c.username} você entrou no Varzeão da Mata! Agora é ${vaga}. Seu boneco já está no site (link na bio). ⚽`
-      : `@${c.username} o time ${doTime(pedido)} encheu, então você entrou no time ${doTime(time)} para equilibrar a Liga. Agora é ${vaga}. Bem-vindo ao Varzeão! ⚽`,
+      : motivo === 'SERIE_B'
+        ? `@${c.username} ${pedida ? 'essa posição' : 'o time'} ${doTime(pedido)} já está completa na Série A, então você começa na Série B, no time ${doTime(time)}. Agora é ${vaga}. Dá para subir com o time ou transferir na próxima Janela. Bem-vindo ao Varzeão! ⚽`
+        : `@${c.username} o time ${doTime(pedido)} encheu, então você entrou no time ${doTime(time)} para equilibrar a Liga. Agora é ${vaga}. Bem-vindo ao Varzeão! ⚽`,
   );
   return time === pedido ? 'INSCRITO' : 'REALOCADO';
 }
@@ -317,11 +365,14 @@ export async function transferirJogador(
   }
 
   if (destino !== j.time_id) {
-    const ativos = await timesAtivos(b);
-    if (!ativos.includes(destino)) {
+    const { series } = await seriesAtivas(b);
+    const todos = [...series.A, ...series.B];
+    if (!todos.includes(destino)) {
       return { resultado: 'DESTINO_CHEIO', mensagem: `o time ${doTime(destino)} ainda não estreou: ele entra na Liga com a Série B. Você pode pedir de novo quando a temporada dele começar. ⚽` };
     }
-    // Equilíbrio: conta os Elencos sem ele (ele sai da origem) e aplica a regra da Inscrição.
+    // Equilíbrio: conta os Elencos sem ele (ele sai da origem) e aplica a regra da Inscrição,
+    // comparando com os Times da mesma Série do destino (ADR-0058).
+    const ativos = series.B.includes(destino) ? series.B : series.B.length ? series.A : todos;
     const contagem = await elencos(b, ativos, jogadorId);
     const menor = Math.min(...contagem.values());
     if (contagem.get(destino)! >= menor + FOLGA_DE_ELENCO) {

@@ -79,7 +79,7 @@ describe('planejarRebalanceamento (ADR-0036)', () => {
   it('o aviso explica o motivo e o Time novo', () => {
     const [r] = planejarRebalanceamento(elencoDe('ONC', 8), SERIES).remanejados;
     expect(avisoDoRemanejado(r!)).toBe(
-      '@onc_8 a Série B chegou e você vai jogar todas as partidas! Para todo mundo entrar em campo, a Onça ficou com os 7 primeiros inscritos e você virou Fundador do Jacaré, na mesma posição. OVR, apelido e Carreira vão junto, e na próxima Janela você pode voltar sem gastar a Transferência. ⚽',
+      '@onc_8 a Série A agora tem 16 times e você vai jogar todas as partidas! Para todo mundo entrar em campo, a Onça ficou com os 7 primeiros inscritos e você virou Fundador do Jacaré, na mesma posição e na Série A. OVR, apelido e Carreira vão junto, e na próxima Janela você pode voltar sem gastar a Transferência. ⚽',
     );
   });
 });

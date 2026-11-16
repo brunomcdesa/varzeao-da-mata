@@ -9,7 +9,6 @@
  * caso diz "depende" quando a conta exata daria Garantido.
  */
 import { FALA_DO_TIME, type TimeId } from './index.js';
-import { RODADAS_DA_LIGA } from './rodada.js';
 
 export const VAGAS_NO_MATA_MATA = 4;
 
@@ -56,12 +55,15 @@ export interface PartidaParaBriga {
 }
 
 /**
- * A Briga de uma Partida (null fora da última Rodada da Fase de Liga). `partidas`: as da mesma
- * Série e Temporada. Conta só o que foi jogado antes do Apito Inicial desta Partida; o resto da
+ * A Briga de uma Partida (null fora da última Rodada da Fase de Liga da Série). `partidas`: as
+ * da mesma Série e Temporada; a última Rodada é a maior Rodada da Liga entre elas (na T2, a 15
+ * na A e a 14 na B, ADR-0058). Conta só o que foi jogado antes do Apito Inicial desta Partida; o resto da
  * Fase de Liga (inclusive Partida já simulada de horário mais tarde) é o que falta.
  */
 export function brigaDaPartida(alvo: PartidaParaBriga, partidas: readonly PartidaParaBriga[], times: readonly TimeId[], serie: 'A' | 'B' | null): BrigaPeloMataMata | null {
-  if (alvo.fase !== 'LIGA' || alvo.rodada !== RODADAS_DA_LIGA) return null;
+  if (alvo.fase !== 'LIGA') return null;
+  const ultima = Math.max(alvo.rodada, ...partidas.filter((p) => p.fase === 'LIGA').map((p) => p.rodada));
+  if (alvo.rodada !== ultima || !partidas.some((p) => p.fase === 'LIGA' && p.id !== alvo.id)) return null;
   const linhas = new Map<TimeId, LinhaDaBriga>(times.map((t) => [t, { time: t, pontos: 0, vitorias: 0, saldo: 0, golsPro: 0 }]));
   const depois: JogoQueFalta[] = [];
   for (const p of partidas) {

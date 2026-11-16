@@ -8,11 +8,15 @@ describe('Reels de Abertura da Temporada', () => {
     expect(roteiro().segmentos.map((s) => s.cartela)).toEqual(['ABERTURA', 'SERIES', 'ACESSO', 'NOVIDADES', 'ENTRAR', 'AGENDA', 'CHAMADA']);
   });
 
-  it('fala os 8 Times novos, a estreia e um jogo por hora, B antes da A', () => {
+  it('fala os 24 Times (8 chegam na A, 8 estreiam a B), a estreia e os horários, B antes da A (ADR-0058)', () => {
     const falas = narracaoDaAbertura(roteiro()).map((f) => f.texto).join(' ');
     for (const nome of ['Jacaré', 'Sucuri', 'Lobo-guará', 'Cachorro-do-mato', 'Boto', 'Pirarucu', 'Coruja', 'Morcego']) expect(falas).toContain(nome);
+    for (const nome of ['Quati', 'Gambá', 'Jabuti', 'Teiú', 'Ariranha', 'Anta', 'Seriema', 'Bugio']) expect(falas).toContain(nome);
+    expect(falas).toContain('vinte e quatro times');
+    expect(falas).toContain('Ninguém que jogou a Temporada 1 cai');
+    expect(falas).toContain('até ter oito jogadores');
     expect(falas).toContain('na quinta, dia dezenove');
-    expect(falas).toContain('a Série B das onze da manhã às duas da tarde, e a Série A das três às seis da tarde');
+    expect(falas).toContain('A Série B joga das onze da manhã às duas da tarde, um jogo por hora. E a Série A, das três às seis da tarde, com dois jogos em cada horário');
     expect(falas).toContain('Temporada 2');
     expect(falas).not.toContain('@');
   });

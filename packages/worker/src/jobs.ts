@@ -14,7 +14,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, IDENTIDADE, doTime, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, RODADA_DA_FINAL, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, doTime, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
 import { momentosDoAoVivo } from '@liga/renderer';
 import { recompensarT1 } from './recompensaT1.js';
 import type { Banco } from './banco.js';
@@ -23,9 +23,10 @@ import { processarComentario, type Comentario, type Resultado } from './coletar.
 import { CORTE_MINUTOS } from './escalacao.js';
 import { Instagram, ErroInstagram } from './instagram.js';
 import { CHAVE_TOKEN, gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
-import { avancarMataMata } from './mataMata.js';
+import { avancarMataMata, estruturaDaTemporada } from './mataMata.js';
+import { rebalancear } from './rebalanceamento.js';
 import { destaquesDaTemporadaNoBanco } from './destaques.js';
-import { seriesDaTemporada } from './series.js';
+import { SQL_RODADA_DA_FINAL, seriesDaTemporada } from './series.js';
 import { rodarPartida, type DadosDoVideo } from './partida.js';
 import { craqueDaRodada, dadosDoResumo, fecharRodada, HORA_DO_RESUMO, type DadosDoResumo } from './resumo.js';
 import { exportarSite } from './site.js';
@@ -534,7 +535,7 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
   const t = (
     await c.banco.query<{ id: number; numero: number; final_id: number; data: string | Date; craque_jogador_id: string | null }>(
       `SELECT t.id, t.numero, r.id AS final_id, r.data, t.craque_jogador_id::text AS craque_jogador_id
-       FROM temporada t JOIN rodada r ON r.temporada_id = t.id AND r.numero = ${RODADA_DA_FINAL}
+       FROM temporada t JOIN rodada r ON r.temporada_id = t.id AND r.fase = 'MATA_MATA' AND r.numero = ${SQL_RODADA_DA_FINAL()}
        WHERE t.status = 'ENCERRADA' AND t.craque_status = 'PENDENTE'
        ORDER BY t.numero LIMIT 1`,
     )
@@ -547,10 +548,13 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
 
   // A próxima Temporada já nasce aqui: Rodada 1 dois dias depois deste anúncio.
   const proxima = await garantirProximaTemporada(c.banco, t.numero, somarDias(dia, 3));
-  // Ao abrir a Pré-temporada da T2, sozinha: a Recompensa da Temporada 1 (ADR-0047), antes do
-  // Reels de agradecimento (Programado, ADR-0051). O Rebalanceamento do ADR-0036 não roda mais
-  // sozinho: ninguém da Série A desce para a B (ADR-0058).
-  if (proxima.numero === PRIMEIRA_TEMPORADA_COM_REGRAS_T2) await recompensaAutomatica(c);
+  // Ao abrir a Pré-temporada da T2, sozinhos: Rebalanceamento dentro da Série A (ADR-0058:
+  // ninguém desce para a B) e Recompensa da Temporada 1 (ADR-0047), antes do Reels de
+  // agradecimento (Programado, ADR-0051).
+  if (proxima.numero === PRIMEIRA_TEMPORADA_COM_REGRAS_T2) {
+    await rebalanceamentoAutomatico(c);
+    await recompensaAutomatica(c);
+  }
   await importarVotosDoSite(c.banco, c.agenda, t.final_id);
   // Com duas Séries, a B também elege o seu Craque da Temporada (ADR-0017).
   const craqueB = (await seriesDaTemporada(c.banco, t.id)).B.length ? await eleitoDaSerieB(c.banco, t.id, t.final_id) : null;
@@ -575,7 +579,7 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
   const historia = ((await exportarSite(c.banco, agora)).arquivos.get('liga.json') as LigaPublica).temporadas.find((x) => x.numero === t.numero);
   const dados: DadosDoResumo = {
     temporada: t.numero,
-    rodada: RODADA_DA_FINAL,
+    rodada: (await estruturaDaTemporada(c.banco, t.id)).rodadaDaFinal,
     fase: 'MATA_MATA',
     placares: [],
     tabela: [],
@@ -687,6 +691,20 @@ export function legendaDoFimDaTemporada(
     '#varzeaodamata #craquedatemporada',
   ];
   return linhas.filter((l, i, a) => l !== '' || (a[i - 1] !== '' && i > 0)).join('\n');
+}
+
+/** Rebalanceia a T2 uma vez, dentro da Série A; um erro só vira log (o Craque da Temporada segue). Os avisos por DM não saem daqui. */
+async function rebalanceamentoAutomatico(c: ContextoDoJob): Promise<void> {
+  const log = logDe(c);
+  try {
+    const t2 = (await c.banco.query<{ id: number }>(`SELECT id FROM temporada WHERE numero = $1`, [PRIMEIRA_TEMPORADA_COM_REGRAS_T2])).rows[0];
+    if (!t2 || (await c.banco.query(`SELECT 1 FROM rebalanceamento WHERE temporada_id = $1`, [t2.id])).rows.length) return;
+    const r = await rebalancear(c.banco, { gravar: true, agora: agoraDe(c) });
+    log(`Rebalanceamento da Temporada ${r.temporada}: ${r.plano.remanejados.length} Jogador(es) para os Times Primos da Série A, ${r.fundadores} Fundador(es).`);
+    for (const x of r.plano.remanejados) log(`  @${x.jogador.username} (${x.jogador.posicao}): ${x.jogador.time} → ${x.para}`);
+  } catch (e) {
+    log(`Rebalanceamento não aplicado: ${(e as Error).message}`);
+  }
 }
 
 /** Aplica a Recompensa da Temporada 1 uma vez; um erro só vira log (o Craque da Temporada segue). */

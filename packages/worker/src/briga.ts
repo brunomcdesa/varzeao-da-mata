@@ -45,7 +45,7 @@ export async function brigaDe(banco: Banco, partidaId: number): Promise<BrigaPel
   ).rows[0];
   if (!alvo) return null;
   const doAlvo = paraBriga(alvo);
-  if (!brigaDaPartida(doAlvo, [], [], null)) return null;
+  if (doAlvo.fase !== 'LIGA') return null;
   const partidas = (
     await banco.query<Linha>(
       `SELECT p.id, r.fase, r.numero AS rodada, p.mandante_id, p.visitante_id, p.apito_inicial, p.gols_mandante, p.gols_visitante

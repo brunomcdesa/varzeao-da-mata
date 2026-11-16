@@ -1,8 +1,9 @@
 /**
  * Calendário da Temporada (GLOSSARY: Fase de Liga, Rodada, Apito Inicial, Série).
- * Turno único entre os 8 Times de cada Série em 7 Rodadas, uma por dia. Com uma Série só, as
- * Partidas são às 12h, 14h, 16h e 18h. Com duas Séries, cada Partida tem o seu horário, de hora
- * em hora: a B das 11h às 14h e a A das 15h às 18h (ADR-0050).
+ * Uma Rodada por dia. Com uma Série só (T1), turno único entre os 8 Times em 7 Rodadas, às 12h,
+ * 14h, 16h e 18h. Com duas Séries, a B joga das 11h às 14h e a A das 15h às 18h (ADR-0050); com
+ * 16 Times na A (ADR-0058), ela faz turno único em 15 Rodadas com dois jogos por horário, e a B
+ * (8 Times) faz turno e returno em 14 Rodadas, para as duas terminarem juntas.
  * O Mata-mata é criado depois, quando a Fase de Liga termina.
  */
 import { TIMES_FUNDADORES, type Serie, type TimeId } from '@liga/shared';
@@ -15,9 +16,14 @@ export const HORARIOS = [12, 14, 16, 18] as const;
 /** Com duas Séries (ADR-0050): a B joga antes, a A fecha o dia. */
 export const HORARIOS_COM_SERIES: Record<Serie, readonly number[]> = { B: [11, 12, 13, 14], A: [15, 16, 17, 18] };
 
-/** Horários da Fase de Liga de uma Série. */
-export function horariosDaLiga(serie: Serie, comSeries: boolean): readonly number[] {
-  return comSeries ? HORARIOS_COM_SERIES[serie] : HORARIOS;
+/**
+ * Horários da Fase de Liga de uma Série, um por jogo da Rodada. Com mais jogos que horários (a A
+ * com 16 Times tem 8), cada horário recebe mais de um jogo ao mesmo tempo (ADR-0058).
+ */
+export function horariosDaLiga(serie: Serie, comSeries: boolean, jogos = 4): readonly number[] {
+  const base = comSeries ? HORARIOS_COM_SERIES[serie] : HORARIOS;
+  const porHorario = Math.ceil(jogos / base.length);
+  return base.flatMap((h) => Array<number>(porHorario).fill(h)).slice(0, Math.max(jogos, base.length));
 }
 /** Brasília é UTC−3, sem horário de verão. */
 export const FUSO_BRASILIA = -3;
@@ -29,17 +35,41 @@ export interface Confronto {
 
 /**
  * Turno único pelo método do círculo: em cada Rodada todo Time joga uma vez, cada par se
- * enfrenta uma única vez e os mandos ficam equilibrados (3 ou 4 em casa). A ordem dos Times
- * e dos horários é sorteada pelo seed, então os Clássicos caem em qualquer Rodada.
+ * enfrenta uma única vez e os mandos ficam equilibrados (com 8 Times, 3 ou 4 em casa; com 16,
+ * 7 ou 8). A ordem dos Times e dos horários é sorteada pelo seed, então os Clássicos caem em
+ * qualquer Rodada.
  */
 export function faseDeLiga(seed: number, timesDaSerie: readonly TimeId[] = TIMES_FUNDADORES): Confronto[][] {
+  const metade = (timesDaSerie.length - 1) / 2;
   // A escolha gulosa dos mandos falha em raros sorteios; aí tenta uma variação do seed.
   for (let tentativa = 0; ; tentativa++) {
     const rodadas = gerarTurno((seed + tentativa * 7919) >>> 0, timesDaSerie);
     const emCasa = new Map<TimeId, number>();
     for (const jogos of rodadas) for (const j of jogos) emCasa.set(j.mandante, (emCasa.get(j.mandante) ?? 0) + 1);
-    if (emCasa.size === timesDaSerie.length && [...emCasa.values()].every((n) => n === 3 || n === 4)) return rodadas;
+    if (emCasa.size === timesDaSerie.length && [...emCasa.values()].every((n) => n === Math.floor(metade) || n === Math.ceil(metade))) return rodadas;
   }
+}
+
+/**
+ * Turno e returno (ADR-0058): o turno único e, depois, os mesmos confrontos com o mando
+ * trocado. Todo Time joga em casa e fora contra cada adversário.
+ */
+export function turnoEReturno(seed: number, timesDaSerie: readonly TimeId[]): Confronto[][] {
+  const turno = faseDeLiga(seed, timesDaSerie);
+  return [...turno, ...turno.map((jogos) => jogos.map((j) => ({ mandante: j.visitante, visitante: j.mandante })))];
+}
+
+/**
+ * O calendário de cada Série: turno único; a Série menor faz turno e returno quando o turno
+ * dela cabe duas vezes no turno da maior (a B, com 8 Times, ao lado da A com 16).
+ */
+export function calendariosDasSeries(seed: number, quais: readonly Serie[], timesDe: (s: Serie) => readonly TimeId[]): { serie: Serie; rodadas: Confronto[][] }[] {
+  const maior = Math.max(...quais.map((s) => timesDe(s).length - 1));
+  return quais.map((serie) => {
+    const times = timesDe(serie);
+    const duasVezes = 2 * (times.length - 1) <= maior;
+    return { serie, rodadas: duasVezes ? turnoEReturno(seedDaSerie(seed, serie), times) : faseDeLiga(seedDaSerie(seed, serie), times) };
+  });
 }
 
 function gerarTurno(seed: number, timesDaSerie: readonly TimeId[]): Confronto[][] {
@@ -99,7 +129,8 @@ function seedDaSerie(seed: number, serie: Serie): number {
 }
 
 /**
- * Cria a Temporada com as 7 Rodadas da Fase de Liga a partir de `primeiraRodada`.
+ * Cria a Temporada com as Rodadas da Fase de Liga (7 na T1, 15 da T2 em diante) a partir de
+ * `primeiraRodada`.
  *
  * As Séries vêm de `o.series` ou, se não vierem, da Temporada anterior (Acesso e
  * Rebaixamento, ADR-0017). A Temporada 1 não tem Séries: só os fundadores, na A.
@@ -117,20 +148,23 @@ export async function criarTemporada(banco: Banco, o: { numero: number; primeira
     if (series) await gravarSeries(b, temporadaId, series);
     const quais = series ? seriesComTimes(series) : (['A'] as Serie[]);
     const comSeries = quais.includes('B');
-    const calendarios = quais.map((serie) => ({ serie, rodadas: faseDeLiga(seedDaSerie(o.seed, serie), series ? series[serie] : TIMES_FUNDADORES) }));
-    const totalDeRodadas = calendarios[0]!.rodadas.length;
+    const calendarios = calendariosDasSeries(o.seed, quais, (serie) => (series ? series[serie] : TIMES_FUNDADORES));
+    const totalDeRodadas = Math.max(...calendarios.map((c) => c.rodadas.length));
     for (let r = 0; r < totalDeRodadas; r++) {
       const dia = somarDias(o.primeiraRodada, r);
       const rodadaId = (
         await b.query<{ id: number }>(`INSERT INTO rodada (temporada_id, numero, fase, data) VALUES ($1, $2, 'LIGA', $3) RETURNING id`, [temporadaId, r + 1, dia])
       ).rows[0]!.id;
       for (const { serie, rodadas } of calendarios) {
+        // A Série com menos Rodadas (a B, na T2) folga nos últimos dias da Fase de Liga.
+        if (!rodadas[r]) continue;
+        const horarios = horariosDaLiga(serie, comSeries, rodadas[r]!.length);
         for (const [k, j] of rodadas[r]!.entries()) {
           await b.query(`INSERT INTO partida (rodada_id, mandante_id, visitante_id, apito_inicial, serie) VALUES ($1, $2, $3, $4, $5)`, [
             rodadaId,
             j.mandante,
             j.visitante,
-            apitoInicial(dia, horariosDaLiga(serie, comSeries)[k]!).toISOString(),
+            apitoInicial(dia, horarios[k]!).toISOString(),
             serie,
           ]);
         }

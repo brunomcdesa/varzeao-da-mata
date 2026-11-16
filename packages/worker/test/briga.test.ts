@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { brigaDaPartida, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type PartidaParaBriga, type TimeId } from '@liga/shared';
+import { brigaDaPartida, etapaDa, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type PartidaParaBriga, type TimeId } from '@liga/shared';
 import { desfechoDaBriga, falaDosGarantidos, falasDaNecessidade, seAcabarAssim } from '../../renderer/src/narracao.js';
 import { plaquinhasDaBriga } from '../../renderer/src/desenho.js';
 
@@ -76,6 +76,26 @@ describe('Briga pelo Mata-mata (ADR-0053)', () => {
     expect(b.tabela.find((l) => l.time === 'ARA')).toMatchObject({ pontos: 6, vitorias: 2 });
     // O jogo das 16h já simulado conta como "falta", não como resultado.
     expect(b.depois).toEqual([{ mandante: 'ONC', visitante: 'TAM', hora: 16 }]);
+  });
+
+  it('a última Rodada é a da própria Série: na T2, a 14 na B e a 15 na A (ADR-0058)', () => {
+    const p = (id: number, rodada: number, m: TimeId, v: TimeId, hora: number, gols: [number, number] | null): PartidaParaBriga => ({
+      id, fase: 'LIGA', rodada, mandante: m, visitante: v, apito: Date.UTC(2026, 11, rodada, hora + 3), hora, gols: gols ? { mandante: gols[0], visitante: gols[1] } : null,
+    });
+    const daB = [p(1, 13, 'QUA', 'GAM', 11, [1, 0]), p(2, 14, 'JAB', 'TEI', 11, null), p(3, 14, 'ARI', 'ANT', 12, null)];
+    const timesDaB: TimeId[] = ['QUA', 'GAM', 'JAB', 'TEI', 'ARI', 'ANT', 'SER', 'BUG'];
+    expect(brigaDaPartida(daB[1]!, daB, timesDaB, 'B')).not.toBeNull();
+    expect(brigaDaPartida(daB[0]!, daB, timesDaB, 'B')).toBeNull();
+    const daA = [p(4, 14, 'CAP', 'ONC', 15, [0, 0]), p(5, 15, 'TAT', 'TAM', 15, null)];
+    const timesDaA: TimeId[] = ['CAP', 'ONC', 'TAT', 'TAM', 'PRE', 'SAG', 'TUC', 'ARA', 'JAC', 'SUC', 'LOB', 'CDM', 'BOT', 'PIR', 'COR', 'MOR'];
+    expect(brigaDaPartida(daA[0]!, daA, timesDaA, 'A')).toBeNull();
+    expect(brigaDaPartida(daA[1]!, daA, timesDaA, 'A')).not.toBeNull();
+  });
+
+  it('etapas do Mata-mata: T1 com Semifinais na 8 e Final na 9; da T2, 16 e 17 (ADR-0058)', () => {
+    expect([etapaDa('MATA_MATA', 8), etapaDa('MATA_MATA', 9)]).toEqual(['SEMIFINAL', 'FINAL']);
+    expect([etapaDa('MATA_MATA', 16), etapaDa('MATA_MATA', 17)]).toEqual(['SEMIFINAL', 'FINAL']);
+    expect(etapaDa('LIGA', 9)).toBe('LIGA');
   });
 
   it('o Narrador fala dos garantidos, do que cada Time precisa e do desfecho', () => {

@@ -359,13 +359,30 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
     }
     case 'PLACARES': {
       titulo('Placares');
+      // Até 4 jogos, um por placa grande; com 8 (a Série A com 16 Times, ADR-0058), placas compactas.
+      const compacto = ds.placares.length > 4;
+      const alto = compacto ? 44 : 86;
       ds.placares.forEach((p, k) => {
-        const a = aparece(k);
+        const a = aparece(k, compacto ? 0.22 : 0.35);
         if (a <= 0) return;
-        const y = 92 + k * 86;
+        const y = (compacto ? 90 : 92) + k * alto;
         const dx = (1 - a) * -COLUNAS;
         pin.ctx.save();
         pin.ctx.translate(dx * pin.px, 0);
+        if (compacto) {
+          pin.tabua(14, y, 242, alto - 4);
+          pin.texto(`${p.hora}h`, 30, y + 20, 8, texto, COR.placaSombra, { peso: 600 });
+          desenharEscudo(pin, p.mandante, 44, y + 7, 1.1);
+          desenharEscudo(pin, p.visitante, 204, y + 7, 1.1);
+          pin.texto(IDENTIDADE[p.mandante].sigla, 92, y + 21, 15, display, COR.placa);
+          pin.texto(IDENTIDADE[p.visitante].sigla, 178, y + 21, 15, display, COR.placa);
+          plaquinha(pin, 115, y + 8, 18, 24, String(p.golsMandante), display);
+          plaquinha(pin, 151, y + 8, 18, 24, String(p.golsVisitante), display);
+          pin.texto('x', COLUNAS / 2 + 7, y + 20, 10, display, COR.placa);
+          if (p.penaltis) pin.texto(`pên. ${p.penaltis.mandante} x ${p.penaltis.visitante}`, COLUNAS / 2 + 7, y + 36, 6, texto, COR.amarelo, { peso: 600 });
+          pin.ctx.restore();
+          return;
+        }
         pin.tabua(16, y, 238, 70);
         pin.texto(`${p.hora}h`, COLUNAS / 2, y + 12, 8, texto, COR.placaSombra, { peso: 600 });
         desenharEscudo(pin, p.mandante, 24, y + 20, 1.6);
@@ -387,10 +404,30 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       pin.tabua(x, 84, w, 360);
       const cab = 100;
       for (const [rotulo, cx] of [['P', 180], ['J', 204], ['V', 224], ['SG', 244]] as const) pin.texto(rotulo, cx, cab, 9, texto, COR.placaSombra, { peso: 700 });
+      // Até 8 Times, uma placa de 40 por linha; com 16 (Série A, ADR-0058), linhas de 21.
+      const compacta = ds.tabela.length > 8;
+      const linha = compacta ? 21 : 40;
       ds.tabela.forEach((l, k) => {
-        const a = aparece(k, 0.18, 0.4);
+        const a = aparece(k, compacta ? 0.09 : 0.18, 0.4);
         if (a <= 0) return;
-        const y = 112 + k * 40;
+        const y = 112 + k * linha;
+        if (compacta) {
+          pin.ctx.globalAlpha = a;
+          const lider = k === 0;
+          const caindo = serie === 'A' && k >= ds.tabela.length - TIMES_QUE_TROCAM_DE_SERIE;
+          const classifica = k < 4;
+          pin.placa(x + 6, y - 6, w - 12, 19, { fundo: lider ? COR.amarelo : caindo ? '#7A2A22' : classifica ? '#3E5A2E' : COR.madeiraEscura, sombra: lider ? '#C99500' : COR.contorno, degrau: 1 });
+          const cor = lider ? COR.tinta : COR.placa;
+          pin.texto(`${k + 1}`, x + 17, y + 4, 11, display, cor);
+          desenharEscudo(pin, l.time, x + 28, y - 4, 0.62);
+          pin.texto(curto(l.time), x + 46, y + 4, pin.caber(curto(l.time), 110, 11, display), display, cor, { alinhar: 'left' });
+          pin.texto(String(l.pontos), 180, y + 4, 12, display, cor);
+          pin.texto(String(l.jogos), 204, y + 4, 10, display, cor);
+          pin.texto(String(l.vitorias), 224, y + 4, 10, display, cor);
+          pin.texto(l.saldo > 0 ? `+${l.saldo}` : String(l.saldo), 244, y + 4, 10, display, cor);
+          pin.ctx.globalAlpha = 1;
+          return;
+        }
         pin.ctx.globalAlpha = a;
         const lider = k === 0;
         // Série A: os 2 últimos estão na zona de Rebaixamento (ADR-0017).
@@ -407,7 +444,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
         pin.ctx.globalAlpha = 1;
       });
       if (serie) {
-        pin.ctx.globalAlpha = aparece(ds.tabela.length, 0.18, 0.4);
+        pin.ctx.globalAlpha = aparece(ds.tabela.length, compacta ? 0.09 : 0.18, 0.4);
         const regra = serie === 'A' ? 'Os 2 últimos caem para a Série B' : 'Os 2 finalistas do mata-mata sobem';
         pin.texto(regra, COLUNAS / 2, 458, pin.caber(regra, 236, 10, texto, 600), texto, COR.placa, { peso: 600 });
         pin.ctx.globalAlpha = 1;

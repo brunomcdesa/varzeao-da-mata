@@ -3,21 +3,26 @@
  *
  *   pnpm --filter @liga/renderer exec tsx scripts/previa-resumo.ts <pasta> [--series]
  *
- * Com --series, a Rodada tem Série A e Série B (ADR-0017). Com --fim, mostra o anúncio do fim
- * da Temporada (campeão e Craque, e os da Série B com --series).
+ * Com --series, a Rodada tem Série A e Série B (ADR-0017). Com --t2, no formato da T2 (ADR-0058):
+ * A com 16 Times (8 jogos, dois por horário) e B com os 8 Times novos. Com --fim, mostra o
+ * anúncio do fim da Temporada (campeão e Craque, e os da Série B com --series).
  */
 import { resolve } from 'node:path';
-import { TIMES_FUNDADORES, TIMES_NOVOS, rotuloDoCandidato, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { TIMES_DA_SERIE_B, TIMES_FUNDADORES as FUNDADORES, TIMES_NOVOS as NOVOS, rotuloDoCandidato, type Posicao, type Serie, type TimeId } from '@liga/shared';
 import { RoteiroResumo, type DadosDoResumo } from '../src/resumo.js';
 import { gravarResumo } from './gravacao.js';
 
 const pasta = resolve(process.cwd(), process.argv[2] ?? 'previa-resumo');
-const comSeries = process.argv.includes('--series');
+const t2 = process.argv.includes('--t2');
+const comSeries = t2 || process.argv.includes('--series');
+// Na T2 (ADR-0058): A com os 16 e B com os 8 Times novos.
+const TIMES_FUNDADORES = t2 ? [...FUNDADORES, ...NOVOS] : FUNDADORES;
+const TIMES_NOVOS = t2 ? TIMES_DA_SERIE_B : NOVOS;
 
 const linhas = (times: readonly TimeId[]) =>
   times.map((time, i) => ({ time, jogos: 3, pontos: 9 - i, vitorias: 3 - Math.floor(i / 3), saldo: 5 - i }));
 const placares = (times: readonly TimeId[], serie: Serie) =>
-  [12, 14, 16, 18].map((hora, k) => ({ mandante: times[k * 2]!, visitante: times[k * 2 + 1]!, golsMandante: (k + 2) % 4, golsVisitante: k % 3, penaltis: null, hora, serie }));
+  (times.length > 8 ? [15, 15, 16, 16, 17, 17, 18, 18] : [12, 14, 16, 18]).map((hora, k) => ({ mandante: times[k * 2]!, visitante: times[k * 2 + 1]!, golsMandante: (k + 2) % 4, golsVisitante: k % 3, penaltis: null, hora, serie }));
 const nomes = ['rafa.gol', 'bia_mata', 'duda10', 'leo.varzea', 'malu_fc', 'gui_oficial', 'nanda.jr', 'pedrinho', 'lari_gol', 'thiago.10'];
 const posicoes: Posicao[] = ['ATA', 'MEI', 'GOL', 'ZAG', 'ATA'];
 const candidatos = (times: readonly TimeId[], serie: Serie, base: number) =>

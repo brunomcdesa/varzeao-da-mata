@@ -97,11 +97,11 @@ _Avoid_: reprise, VT, gravação
 ### Competição
 
 **Liga**:
-A competição inteira, disputada entre 16 Times, divididos em Série A e Série B, ao longo de uma Temporada.
+A competição inteira, disputada entre 24 Times, divididos em Série A (16) e Série B (8), ao longo de uma Temporada. Na Temporada 1, eram só os 8 fundadores, numa Série só.
 _Avoid_: campeonato, torneio
 
 **Time**:
-Um dos 16 clubes fictícios, com identidade própria do projeto, que disputam a Liga. Cada Time está numa Série e tem um rival fixo, com quem faz o Clássico.
+Um dos 24 clubes fictícios, com identidade própria do projeto, que disputam a Liga. Cada Time está numa Série e tem um rival fixo, com quem faz o Clássico.
 _Avoid_: equipe, clube, lado, seleção
 
 **Elenco**:
@@ -137,7 +137,7 @@ Um ciclo completo da Liga, com duração de 7 a 10 dias.
 _Avoid_: edição, season
 
 **Rodada**:
-O conjunto de Partidas disputadas num mesmo dia da Temporada, em horários escalonados (12h, 14h, 16h e 18h), com uma Partida de cada Série em cada horário; há exatamente uma Rodada por dia. No Mata-mata, as Partidas ocupam os últimos horários do dia.
+O conjunto de Partidas disputadas num mesmo dia da Temporada; há exatamente uma Rodada por dia. Na Temporada 1, às 12h, 14h, 16h e 18h. Da T2 em diante, a Série B joga das 11h às 14h, um jogo por hora, e a Série A das 15h às 18h, com dois jogos em cada horário (ADR-0058). No Mata-mata, as Partidas ocupam os últimos horários do dia.
 _Avoid_: jornada, dia de jogo
 
 **Resumo da Rodada**:
@@ -161,7 +161,7 @@ O Jogador que decidiu um Clássico; o título fica registrado no seu Card.
 _Avoid_: herói do clássico, decisivo
 
 **Fase de Liga**:
-A primeira parte da Temporada, em turno único: os 8 Times de cada Série se enfrentam uma vez cada, ao longo de 7 Rodadas.
+A primeira parte da Temporada. Na Temporada 1, turno único entre os 8 Times em 7 Rodadas. Da T2 em diante, a Série A (16 Times) faz turno único em 15 Rodadas e a Série B (8 Times) faz turno e returno em 14, para as duas terminarem juntas; o Mata-mata vem nas Rodadas 16 e 17 (ADR-0058).
 _Avoid_: fase de grupos, classificatória, pontos corridos
 
 **Mata-mata**:
@@ -201,7 +201,7 @@ A voz que narra a Partida, no Reels e no Ao Vivo: uma de cinco, sorteada pela se
 _Avoid_: Locutor da Liga, locutor, comentarista, voz
 
 **Série**:
-Cada uma das duas divisões da Liga, com 8 Times: a Série A, de cima, e a Série B. Cada Série tem a sua Fase de Liga, o seu Mata-mata, o seu Título e os seus Craques.
+Cada uma das duas divisões da Liga: a Série A, de cima, com 16 Times, e a Série B, com 8 (ADR-0058). Cada Série tem a sua Fase de Liga, o seu Mata-mata, o seu Título e os seus Craques.
 _Avoid_: divisão, grupo, chave
 
 **Acesso**:
@@ -209,7 +209,7 @@ A subida de um Time da Série B para a Série A no fim da Temporada. Ganham o Ac
 _Avoid_: promoção, subida
 
 **Rebaixamento**:
-A descida de um Time da Série A para a Série B no fim da Temporada. Caem os dois últimos da Fase de Liga da Série A. Os Jogadores descem com o Time.
+A descida de um Time da Série A para a Série B no fim da Temporada. Caem os dois últimos da Fase de Liga da Série A. Os Jogadores descem com o Time. Vale a partir do fim da T2: na estreia das Séries, ninguém que jogou a Temporada 1 desceu (ADR-0058).
 _Avoid_: descenso, queda, degola
 
 **Capitão**:
@@ -281,15 +281,15 @@ O período da Pré-temporada em que qualquer Jogador pode trocar para qualquer T
 _Avoid_: mercado, janela de inverno
 
 **Rebalanceamento**:
-A redistribuição dos Elencos entre a Série A e a Série B na Pré-temporada da T2, para que todos os inscritos joguem. Primeiro entram os voluntários. Se faltar gente, saem os inscritos mais recentes de cada Time da A (ADR-0036).
+A redistribuição dos Elencos quando a T2 nasce, para que todos os inscritos joguem. Acontece dentro da Série A: cada Time fundador fica com os 7 primeiros inscritos, e os mais recentes vão para o Time Primo, um dos 8 Times que chegaram na T2 direto na A. Ninguém vai para a Série B (ADR-0036 e ADR-0058).
 _Avoid_: rebaixamento, corte, remoção
 
 **Time Primo**:
-O Time da Série B que forma par fixo com um Time da Série A e recebe quem é remanejado dele no Rebalanceamento (exemplo: Onça → Jacaré).
+O Time que forma par fixo com outro. No Rebalanceamento, cada fundador tem como Primo um dos Times que chegaram na T2 (exemplo: Onça → Jacaré). Da T2 em diante, cada Time da Série A também tem um Primo na Série B, para onde vai o novato que pede uma Posição já cheia no Time da A (exemplo: Jacaré → Teiú) (ADR-0058).
 _Avoid_: time irmão, time filial
 
 **Fundador**:
-O título de quem começa a primeira Temporada de um Time da Série B no Elenco dele. Aparece na página de Carreira e dá prioridade na escolha da camisa.
+O título de quem começa a primeira Temporada de um Time novo no Elenco dele (na T2, os 8 Times que chegaram na Série A). Aparece na página de Carreira e dá prioridade na escolha da camisa.
 _Avoid_: pioneiro, membro original
 
 **Selo da Temporada 1**:

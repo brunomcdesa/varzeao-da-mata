@@ -1,10 +1,11 @@
 /**
- * Rebalanceamento da Temporada 2 (ADR-0036, GLOSSARY: Rebalanceamento, Time Primo, Fundador).
+ * Rebalanceamento da Temporada 2 (ADR-0036 e ADR-0058, GLOSSARY: Rebalanceamento, Time Primo,
+ * Fundador).
  *
- * Roda uma vez, ao fechar a Janela de Transferências, numa Temporada com as regras da T2 na
- * Pré-temporada. Os voluntários já foram para a B pela Janela; aqui saem, de cada Time da A
- * acima do tamanho-alvo, os inscritos mais recentes, para o Time Primo na mesma Posição.
- * Depois, todo o Elenco dos Times da B vira Fundador.
+ * Roda uma vez, quando a T2 nasce. Ninguém desce para a Série B (ADR-0058): de cada Time
+ * fundador acima do tamanho-alvo saem os inscritos mais recentes para o Time Primo, um dos 8
+ * Times que chegaram na T2 direto na Série A, na mesma Posição. Depois, todo o Elenco desses
+ * Times vira Fundador.
  *
  * `planejarRebalanceamento` é pura (testável sem banco); `rebalancear` lê, planeja e, só com
  * `gravar`, aplica. Sem `gravar`, é a simulação que o dono aprova antes.
@@ -14,7 +15,7 @@ import type { Banco } from './banco.js';
 import { FORMACAO } from './regras.js';
 import { seriesDaTemporada, type SeriesDaTemporada } from './series.js';
 
-/** Time Primo de cada Time fundador (ADR-0036). Os Clássicos da A viram Clássicos da B. */
+/** Time Primo de cada Time fundador (ADR-0036): os Clássicos fundadores viram os Clássicos que chegaram na T2. */
 export const TIME_PRIMO: Readonly<Partial<Record<TimeId, TimeId>>> = {
   CAP: 'SUC',
   ONC: 'JAC',
@@ -26,7 +27,7 @@ export const TIME_PRIMO: Readonly<Partial<Record<TimeId, TimeId>>> = {
   ARA: 'PIR',
 };
 
-/** Quantos Jogadores cada Time da Série A mantém: uma Escalação inteira, sem rodízio. */
+/** Quantos Jogadores cada Time fundador mantém: uma Escalação inteira, sem rodízio. */
 export const TAMANHO_DA_A = 7;
 
 const VAGAS: Record<Posicao, number> = Object.fromEntries(POSICOES.map((p) => [p, FORMACAO.filter((x) => x === p).length])) as Record<Posicao, number>;
@@ -43,7 +44,7 @@ export interface JogadorNoElenco {
 export interface Remanejamento {
   jogador: JogadorNoElenco;
   para: TimeId;
-  /** false quando o Time Primo estava cheio na Posição e o destino foi outro Time da B. */
+  /** false quando o Time Primo estava cheio na Posição e o destino foi outro Time que recebe. */
   noPrimo: boolean;
 }
 
@@ -56,21 +57,32 @@ export interface PlanoDeRebalanceamento {
 const ordemDeInscricao = (a: JogadorNoElenco, b: JogadorNoElenco) => a.inscritoEm.localeCompare(b.inscritoEm) || Number(a.id) - Number(b.id);
 
 /**
- * O plano: para cada Time da A com mais de `tamanho` Jogadores, sai o mais recente da Posição
- * com mais sobra em relação à Escalação (no empate, a que o Time Primo mais precisa), até o
- * Time ficar com `tamanho`. O destino é o Time Primo, ou, se ele já tem a Posição completa,
- * o Time da B com menos Jogadores nela.
+ * Os Times que recebem Jogadores no Rebalanceamento: os Times Primos que jogam a Temporada (na
+ * T2, os 8 que chegaram direto na Série A, ADR-0058).
+ */
+export function timesQueRecebem(series: SeriesDaTemporada): TimeId[] {
+  const todos = [...series.A, ...series.B];
+  return [...new Set(Object.values(TIME_PRIMO))].filter((t): t is TimeId => !!t && todos.includes(t));
+}
+
+/**
+ * O plano: para cada Time fundador com mais de `tamanho` Jogadores, sai o mais recente da
+ * Posição com mais sobra em relação à Escalação (no empate, a que o Time Primo mais precisa),
+ * até o Time ficar com `tamanho`. O destino é o Time Primo, ou, se ele já tem a Posição
+ * completa, o Time que recebe com menos Jogadores nela.
  */
 export function planejarRebalanceamento(elenco: readonly JogadorNoElenco[], series: SeriesDaTemporada, tamanho = TAMANHO_DA_A): PlanoDeRebalanceamento {
   const elencos: Record<string, JogadorNoElenco[]> = Object.fromEntries([...series.A, ...series.B].map((t) => [t, [] as JogadorNoElenco[]]));
   for (const j of [...elenco].sort(ordemDeInscricao)) elencos[j.time]?.push(j);
   const naPosicao = (t: TimeId, p: Posicao) => elencos[t]!.filter((j) => j.posicao === p).length;
   const remanejados: Remanejamento[] = [];
-  if (!series.B.length) return { remanejados, elencos };
+  const recebem = timesQueRecebem(series);
+  if (!recebem.length) return { remanejados, elencos };
 
-  for (const time of series.A) {
+  for (const time of [...series.A, ...series.B]) {
     const primo = TIME_PRIMO[time];
-    const daB = primo && series.B.includes(primo) ? primo : null;
+    if (!primo) continue;
+    const daB = recebem.includes(primo) ? primo : null;
     while (elencos[time]!.length > tamanho) {
       const sobra = (p: Posicao) => naPosicao(time, p) - VAGAS[p];
       const falta = (p: Posicao) => (daB ? VAGAS[p] - naPosicao(daB, p) : 0);
@@ -81,7 +93,7 @@ export function planejarRebalanceamento(elenco: readonly JogadorNoElenco[], seri
       const noPrimo = daB !== null && naPosicao(daB, posicao) < VAGAS[posicao];
       const para = noPrimo
         ? daB
-        : [...series.B].sort((a, b) => naPosicao(a, posicao) - naPosicao(b, posicao) || elencos[a]!.length - elencos[b]!.length || a.localeCompare(b))[0]!;
+        : [...recebem].sort((a, b) => naPosicao(a, posicao) - naPosicao(b, posicao) || elencos[a]!.length - elencos[b]!.length || a.localeCompare(b))[0]!;
       elencos[time] = elencos[time]!.filter((j) => j !== sai);
       const movido = { ...sai, time: para };
       elencos[para]!.push(movido);
@@ -98,8 +110,8 @@ export function avisoDoRemanejado(r: Remanejamento): string {
   const para = FALA_DO_TIME[r.para];
   const destino = `${para.artigo === 'a' ? 'da' : 'do'} ${para.curto}`;
   return (
-    `@${r.jogador.username} a Série B chegou e você vai jogar todas as partidas! ` +
-    `Para todo mundo entrar em campo, ${de.artigo === 'a' ? 'a' : 'o'} ${de.curto} ficou com os 7 primeiros inscritos e você virou Fundador ${destino}, na mesma posição. ` +
+    `@${r.jogador.username} a Série A agora tem 16 times e você vai jogar todas as partidas! ` +
+    `Para todo mundo entrar em campo, ${de.artigo === 'a' ? 'a' : 'o'} ${de.curto} ficou com os 7 primeiros inscritos e você virou Fundador ${destino}, na mesma posição e na Série A. ` +
     `OVR, apelido e Carreira vão junto, e na próxima Janela você pode voltar sem gastar a Transferência. ⚽`
   );
 }
@@ -128,7 +140,7 @@ export async function rebalancear(banco: Banco, opcoes: { gravar: boolean; agora
     throw new Error(`A Temporada ${t.numero} já foi rebalanceada.`);
   }
   const series = await seriesDaTemporada(banco, t.id);
-  if (!series.B.length) throw new Error(`A Temporada ${t.numero} não tem Série B.`);
+  if (!timesQueRecebem(series).length) throw new Error(`A Temporada ${t.numero} não tem Times Primos para receber Jogadores.`);
 
   const elenco = (
     await banco.query<{ id: string; username: string; time_id: TimeId; posicao: Posicao; inscrito_em: Date | string; numero: number | null }>(
@@ -150,7 +162,7 @@ export async function rebalancear(banco: Banco, opcoes: { gravar: boolean; agora
       if (!ocupada) await b.query(`UPDATE jogador SET numero = $2 WHERE id = $1`, [r.jogador.id, r.jogador.numero]);
     }
     const remanejados = new Set(plano.remanejados.map((r) => r.jogador.id));
-    for (const time of series.B) {
+    for (const time of timesQueRecebem(series)) {
       for (const j of plano.elencos[time] ?? []) {
         await b.query(
           `INSERT INTO fundador (jogador_id, time_id, temporada_id, remanejado) VALUES ($1, $2, $3, $4) ON CONFLICT (jogador_id, time_id) DO NOTHING`,

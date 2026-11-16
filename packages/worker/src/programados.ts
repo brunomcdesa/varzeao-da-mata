@@ -7,13 +7,12 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, PISO_DA_TEMPORADA_1, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, REELS_PROGRAMADOS, RODADAS_DO_BONUS_T1, TIMES_NOVOS, programadosDaVez, type ReelsProgramado, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, PISO_DA_TEMPORADA_1, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, REELS_PROGRAMADOS, RODADAS_DO_BONUS_T1, TIMES_DA_SERIE_B, TIMES_NOVOS, programadosDaVez, type ReelsProgramado, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
 import type { Instagram } from './instagram.js';
 import type { DadosDoAgradecimentoT1 } from '@liga/renderer';
 import { PARAMETROS_T2 } from '@liga/sim';
-import { TAMANHO_DA_A, TIME_PRIMO } from './rebalanceamento.js';
 import { numerosDaTemporada1 } from './recompensaT1.js';
 
 /** Grava o vídeo de um Programado em `saida`. A estreia vem da Temporada nova (ou da data prevista). */
@@ -45,6 +44,11 @@ async function legendaDe(banco: Banco, p: ReelsProgramado, temporada: number, es
 const DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
 const marca = (id: string) => `programados/${id}`;
 
+const lista = (times: readonly TimeId[]) => {
+  const nomes = times.map((t) => FALA_DO_TIME[t].curto);
+  return `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)}`;
+};
+
 export function legendaDaAbertura(temporada: number, estreia: string): string {
   const [a, m, d] = estreia.split('-').map(Number) as [number, number, number];
   const dia = DIAS[new Date(Date.UTC(a, m - 1, d, 12)).getUTCDay()]!;
@@ -52,14 +56,17 @@ export function legendaDaAbertura(temporada: number, estreia: string): string {
   return [
     `⚽ Vem aí a Temporada ${temporada} do Varzeão da Mata!`,
     '',
-    `Agora são 16 times em duas séries. Na Série B chegam: ${TIMES_NOVOS.map((t) => FALA_DO_TIME[t].curto).join(', ')}.`,
-    'Os 2 últimos da A caem e os 2 finalistas da B sobem.',
+    `Agora são 24 times em duas séries. A Série A cresce para 16, com a chegada de ${lista(TIMES_NOVOS)}.`,
+    `E estreia a Série B, com ${lista(TIMES_DA_SERIE_B)}.`,
+    'Ninguém que jogou a Temporada 1 cai: todo mundo segue na Série A.',
+    'Quem entra agora vai para a A enquanto o time tiver vaga; time cheio, começa na B.',
+    'No fim da temporada, os 2 últimos da A caem e os 2 finalistas da B sobem.',
     '',
     'Pra jogar, comente:',
     '👉 ENTRO + TIME + POSIÇÃO',
     'Ex.: ENTRO JACARÉ ATACANTE',
     '',
-    `🏁 Estreia ${dia}, ${data}. Um jogo por hora: Série B das 11h às 14h, Série A das 15h às 18h.`,
+    `🏁 Estreia ${dia}, ${data}. Série B das 11h às 14h, um jogo por hora; Série A das 15h às 18h, dois jogos por horário.`,
     'Amanhã sai um Reels pra cada novidade. Tabela e jogadores no link da bio.',
     '',
     '#futebol #varzea #jogo #liga',
@@ -116,18 +123,12 @@ export async function jobProgramados(c: ContextoDosProgramados): Promise<string[
 }
 
 /**
- * Dados do Reels de agradecimento (ADR-0047), lidos na hora de gravar: números da T1, a
- * Recompensa e o Rebalanceamento (se já foi feito). Se a Abertura da T2 sai depois, no mesmo
- * dia, o Reels chama para ela.
+ * Dados do Reels de agradecimento (ADR-0047), lidos na hora de gravar: números da T1 e a
+ * Recompensa. O Rebalanceamento fica fora (ADR-0058): o formato novo das Séries é contado na
+ * Abertura da T2. Se a Abertura sai depois, no mesmo dia, o Reels chama para ela.
  */
 export async function dadosDoAgradecimentoT1(banco: Banco, o: { publicarEm?: string } = {}): Promise<DadosDoAgradecimentoT1> {
   const numeros = await numerosDaTemporada1(banco);
-  const movidos = (
-    await banco.query<{ movidos: number }>(
-      `SELECT r.movidos FROM rebalanceamento r JOIN temporada t ON t.id = r.temporada_id WHERE t.numero = $1`,
-      [PRIMEIRA_TEMPORADA_COM_REGRAS_T2],
-    )
-  ).rows[0]?.movidos;
   const nosso = Date.parse(o.publicarEm ?? REELS_PROGRAMADOS.find((p) => p.id === 'agradecimento-t1')?.publicarEm ?? '');
   const abertura = Date.parse(REELS_PROGRAMADOS.find((p) => p.id === 'abertura-t2')?.publicarEm ?? '');
   const local = (ms: number) => new Date(ms - 3 * 3600_000);
@@ -137,7 +138,6 @@ export async function dadosDoAgradecimentoT1(banco: Banco, o: { publicarEm?: str
     piso: PISO_DA_TEMPORADA_1,
     rodadasDoBonus: RODADAS_DO_BONUS_T1,
     multiplicadorDoBonus: PARAMETROS_T2.multiplicadorBonusT1,
-    ...(movidos ? { rebalanceamento: { movidos, tamanhoDaA: TAMANHO_DA_A, pares: Object.entries(TIME_PRIMO).map(([a, b]) => [a as TimeId, b!] as const) } } : {}),
     ...(mesmoDiaDepois ? { aberturaAs: local(abertura).getUTCHours() } : {}),
   };
 }

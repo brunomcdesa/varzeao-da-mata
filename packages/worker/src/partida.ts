@@ -6,7 +6,7 @@
 import { aparenciasEscolhidas } from './perfil.js';
 import type { Aparencia } from '@liga/shared';
 import { randomInt } from 'node:crypto';
-import { RODADAS_DA_LIGA, mataMataDaPartida, nomeDaEtapa, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
+import { mataMataDaPartida, nomeDaEtapa, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
 import { brigaDe } from './briga.js';
 import { simularPartida, type Lado, type ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
@@ -135,11 +135,11 @@ async function mataMataDe(banco: Banco, p: LinhaPartida): Promise<MataMataDaPart
   return mataMataDaPartida({ fase: p.fase, rodada: p.rodada, temporada: p.temporada, serie: p.serie, comSeries });
 }
 
-/** "Rodada 3, jogo das 14h" (ou "Semifinal…" no Mata-mata). */
-export function subtituloDaPartida(rodada: number, fase: 'LIGA' | 'MATA_MATA', apito: Date): string {
+/** "Rodada 3, jogo das 14h" (ou "Semifinal…" no Mata-mata). `ultima`: última Rodada da Liga da Série. */
+export function subtituloDaPartida(rodada: number, fase: 'LIGA' | 'MATA_MATA', apito: Date, ultima = false): string {
   const hora = (apito.getUTCHours() + FUSO_BRASILIA + 24) % 24;
   const nome = nomeDaEtapa(fase, rodada);
-  if (fase === 'LIGA' && rodada === RODADAS_DA_LIGA) return `Última Rodada, jogo das ${hora}h`;
+  if (fase === 'LIGA' && ultima) return `Última Rodada, jogo das ${hora}h`;
   return fase === 'LIGA' ? `${nome}, jogo das ${hora}h` : nome;
 }
 
@@ -167,17 +167,18 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
   const escalada = await escalarPartida(banco, partidaId, { craque: o.craque ?? null, ...(o.vinculos ? { vinculos: o.vinculos } : {}) });
   const resultado = await simular(banco, partidaId, escalada, o.seed !== undefined ? { seed: o.seed } : {});
   const p = await lerPartida(banco, partidaId);
+  // Briga pelo Mata-mata (ADR-0053): só na última Rodada da Liga da Série.
+  const briga = await brigaDe(banco, partidaId);
   const dados: DadosDoVideo = {
     resultado,
     escalacoes: escalada.escalacoes,
     nomes: escalada.nomes,
     apelidos: escalada.apelidos,
-    subtitulo: subtituloDaPartida(p.rodada, p.fase, new Date(p.apito_inicial)),
+    subtitulo: subtituloDaPartida(p.rodada, p.fase, new Date(p.apito_inicial), briga !== null),
     aparencias: await aparenciasEscolhidas(banco),
   };
   const mataMata = await mataMataDe(banco, p);
   if (mataMata) dados.mataMata = mataMata;
-  const briga = await brigaDe(banco, partidaId);
   if (briga) dados.briga = briga;
   if (resultado.postura != null) {
     const elencos = await tamanhoDosElencos(banco);

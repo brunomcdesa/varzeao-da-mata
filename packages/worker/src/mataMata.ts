@@ -1,5 +1,5 @@
 /**
- * Mata-mata: depois da 7ª Rodada, os 4 melhores da Fase de Liga jogam as Semifinais no dia
+ * Mata-mata: depois da última Rodada da Fase de Liga (a 7ª na T1, a 15ª da T2 em diante), os 4 melhores da Fase de Liga jogam as Semifinais no dia
  * seguinte (1º × 4º às 14h, 2º × 3º às 16h) e a Final no
  * outro dia, às 18h. Empate em qualquer jogo do Mata-mata vai para os pênaltis. O melhor colocado é o mandante.
  * Com duas Séries, cada uma tem o seu Mata-mata, e a B joga antes da A (ADR-0050).
@@ -7,11 +7,11 @@
  * `avancarMataMata` é idempotente: o job `resumo` chama todo dia e ela só faz o próximo passo
  * quando ele está pronto.
  */
-import { RODADA_DA_FINAL, RODADA_DAS_SEMIFINAIS, RODADAS_DA_LIGA, type Serie, type TimeId } from '@liga/shared';
+import { estruturaDaLiga, type EstruturaDaTemporada, type Serie, type TimeId } from '@liga/shared';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { apitoInicial } from './calendario.js';
-import { seriesComTimes, seriesDaTemporada } from './series.js';
+import { SQL_RODADA_DA_FINAL, seriesComTimes, seriesDaTemporada } from './series.js';
 import { tabela } from './tabela.js';
 
 export const HORARIOS_DAS_SEMIFINAIS = [14, 16] as const;
@@ -42,12 +42,19 @@ function diaSeguinte(dia: string): string {
   return new Date(Date.UTC(a, m - 1, d + 1)).toISOString().slice(0, 10);
 }
 
+/** Quantas Rodadas tem a Fase de Liga da Temporada, e em que Rodadas caem Semifinais e Final. */
+export async function estruturaDaTemporada(banco: Banco, temporadaId: number): Promise<EstruturaDaTemporada> {
+  const n = (await banco.query<{ n: number | null }>(`SELECT max(numero)::int AS n FROM rodada WHERE temporada_id = $1 AND fase = 'LIGA'`, [temporadaId])).rows[0]?.n;
+  return estruturaDaLiga(n ?? 0);
+}
+
 /** Campeão de uma Série na Temporada (null enquanto a Final não foi simulada). */
 export async function campeao(banco: Banco, temporadaId: number, serie: Serie = 'A'): Promise<TimeId | null> {
   const r = (
     await banco.query<{ resultado: ResultadoPartida | null }>(
-      `SELECT p.resultado FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND r.numero = $2 AND p.serie = $3`,
-      [temporadaId, RODADA_DA_FINAL, serie],
+      `SELECT p.resultado FROM partida p JOIN rodada r ON r.id = p.rodada_id
+       WHERE r.temporada_id = $1 AND r.fase = 'MATA_MATA' AND r.numero = ${SQL_RODADA_DA_FINAL()} AND p.serie = $2`,
+      [temporadaId, serie],
     )
   ).rows[0];
   const res = r?.resultado;
@@ -69,15 +76,16 @@ export async function avancarMataMata(banco: Banco, temporadaId: number): Promis
     if (rodadas.some((r) => r.prontos > 0)) await b.query(`UPDATE temporada SET status = 'EM_ANDAMENTO' WHERE id = $1 AND status = 'PRE_TEMPORADA'`, [temporadaId]);
 
     const series = seriesComTimes(await seriesDaTemporada(b, temporadaId));
-    const liga = rodadas.filter((r) => r.numero <= RODADAS_DA_LIGA);
-    const semis = da(RODADA_DAS_SEMIFINAIS);
-    const final = da(RODADA_DA_FINAL);
+    const e = await estruturaDaTemporada(b, temporadaId);
+    const liga = rodadas.filter((r) => r.numero <= e.rodadasDaLiga);
+    const semis = da(e.rodadaDasSemifinais);
+    const final = da(e.rodadaDaFinal);
 
     if (!semis) {
-      if (liga.length < RODADAS_DA_LIGA || !liga.every(completa)) return 'NADA';
-      const dia = diaSeguinte(diaTexto(da(RODADAS_DA_LIGA)!.data));
+      if (!e.rodadasDaLiga || liga.length < e.rodadasDaLiga || !liga.every(completa)) return 'NADA';
+      const dia = diaSeguinte(diaTexto(da(e.rodadasDaLiga)!.data));
       const id = (
-        await b.query<{ id: number }>(`INSERT INTO rodada (temporada_id, numero, fase, data) VALUES ($1, $2, 'MATA_MATA', $3) RETURNING id`, [temporadaId, RODADA_DAS_SEMIFINAIS, dia])
+        await b.query<{ id: number }>(`INSERT INTO rodada (temporada_id, numero, fase, data) VALUES ($1, $2, 'MATA_MATA', $3) RETURNING id`, [temporadaId, e.rodadaDasSemifinais, dia])
       ).rows[0]!.id;
       for (const serie of series) {
         const t = await tabela(b, temporadaId, serie);
@@ -99,7 +107,7 @@ export async function avancarMataMata(banco: Banco, temporadaId: number): Promis
       if (!completa(semis)) return 'NADA';
       const dia = diaSeguinte(diaTexto(semis.data));
       const id = (
-        await b.query<{ id: number }>(`INSERT INTO rodada (temporada_id, numero, fase, data) VALUES ($1, $2, 'MATA_MATA', $3) RETURNING id`, [temporadaId, RODADA_DA_FINAL, dia])
+        await b.query<{ id: number }>(`INSERT INTO rodada (temporada_id, numero, fase, data) VALUES ($1, $2, 'MATA_MATA', $3) RETURNING id`, [temporadaId, e.rodadaDaFinal, dia])
       ).rows[0]!.id;
       for (const serie of series) {
         const jogos = (

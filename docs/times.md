@@ -1,6 +1,6 @@
 # Times do Varzeão da Mata
 
-Dezesseis clubes fictícios, todos com bichos brasileiros como tema e em oito pares de rivais: os oito fundadores (Temporada 1) e os oito que chegaram com a Série B (ADR-0017). A personalidade de cada um é só visual e narrativa e não afeta a simulação. Nenhum dos bichos é mascote conhecido de clube brasileiro real.
+Vinte e quatro clubes fictícios, todos com bichos brasileiros como tema e em doze pares de rivais: os oito fundadores (Temporada 1), os oito que chegaram na T2 direto na Série A e os oito que estrearam a Série B na T2 (ADR-0017 e ADR-0058). A personalidade de cada um é só visual e narrativa e não afeta a simulação. Nenhum dos bichos é mascote conhecido de clube brasileiro real.
 
 | Sigla | Nome | Cores | Personalidade | Bordão |
 |---|---|---|---|---|
@@ -20,6 +20,14 @@ Dezesseis clubes fictícios, todos com bichos brasileiros como tema e em oito pa
 | PIR | Associação Pirarucu | vermelho + verde-escuro | Pesado, joga na força | "Peso pesado do rio." |
 | COR | Coruja Esporte Clube | marrom + amarelo | Observadora, joga de olho no rival | "A gente vê tudo." |
 | MOR | Morcego Futebol Clube | azul-noite + azul-gelo | Noturno, cresce nos jogos das 18h | "A noite é nossa." |
+| QUA | Quati Futebol Clube | vinho + creme | Fuçador, revira a defesa | "Fuça tudo até achar o gol." |
+| GAM | Gambá Esporte Clube | grafite + branco | Ninguém quer marcar de perto | "Ninguém chega perto." |
+| JAB | Jabuti Atlético Clube | mostarda + marrom | Lento e constante, nunca desiste | "Devagar e sempre." |
+| TEI | Teiú Futebol Clube | verde-azulado + preto | Parado no sol, rápido no bote | "Esquenta no sol e dá o bote." |
+| ARI | Ariranha Sport Club | marrom-chocolate + azul-água | Joga em bando, toque rápido | "Em bando ninguém segura." |
+| ANT | Associação Anta | azul-petróleo + laranja | Grandona, passa por cima | "Passa por cima." |
+| SER | Seriema Esporte Clube | areia + vermelho | Barulhenta, comemora antes | "Grita antes do gol." |
+| BUG | Bugio Futebol Clube | ruivo + preto | A torcida que mais faz barulho | "O grito se ouve de longe." |
 
 ## Clássicos
 
@@ -33,6 +41,10 @@ Dezesseis clubes fictícios, todos com bichos brasileiros como tema e em oito pa
 | Clássico da Matilha | Lobo-guará × Cachorro-do-mato | primos do Cerrado |
 | Clássico do Rio | Boto × Pirarucu | os gigantes do rio |
 | Clássico da Madrugada | Coruja × Morcego | os dois da noite |
+| Clássico do Quintal | Quati × Gambá | os que reviram tudo atrás de comida |
+| Clássico do Sol | Jabuti × Teiú | os de sangue frio que vivem tomando sol |
+| Clássico da Lagoa | Ariranha × Anta | os dois que vivem na beira d'água |
+| Clássico do Grito | Seriema × Bugio | os mais barulhentos do mato |
 
 Os Clássicos caem por sorteio no calendário, ganham abertura especial no Reels, fazem as ações valerem o dobro para as Habilidades (com limite de ±4 por Habilidade por Partida, em vez de ±2) e dão o título de Rei do Clássico a quem decidiu a Partida.
 
@@ -54,3 +66,11 @@ Os Clássicos caem por sorteio no calendário, ganham abertura especial no Reels
 - PIR: pirarucu, pir
 - COR: coruja, cor
 - MOR: morcego, mor
+- QUA: quati, qua
+- GAM: gambá, gamba, saruê, gam
+- JAB: jabuti, jab
+- TEI: teiú, teiu, teju, tei
+- ARI: ariranha, ari
+- ANT: anta, ant
+- SER: seriema (sem "SER", que é palavra de ligação: "quero ser goleiro")
+- BUG: bugio, guariba, bug
