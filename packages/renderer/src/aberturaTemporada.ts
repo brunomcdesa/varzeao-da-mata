@@ -289,16 +289,18 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
         });
         surge(entre(t, 0.4, 0.8), () => {
           pin.tabua(12, 88, 246, 186);
-          pin.texto(`os ${d.caem} últimos da Fase de Liga`, COLUNAS / 2, 106, pin.caber(`os ${d.caem} últimos da Fase de Liga`, 226, 12, texto, 700), texto, COR.placa, { peso: 700 });
+          const cab = `os ${d.caem} últimos da Fase de Liga`;
+          pin.texto(cab, COLUNAS / 2, 106, pin.caber(cab, 226, 12, texto, 700), texto, COR.placa, { peso: 700 });
         });
         // As posições da zona de queda (9º a 16º), duas fileiras de 4, cada uma com a seta.
         const primeira = d.serieA.length - d.caem + 1;
         for (let k = 0; k < d.caem; k++) {
-          const x = 30 + (k % 4) * 56;
-          const y = 120 + Math.floor(k / 4) * 66;
+          // plaquinha centrada em x; a seta logo à direita, sem encostar na próxima.
+          const x = 34 + (k % 4) * 60;
+          const y = 124 + Math.floor(k / 4) * 62;
           surge(entre(t, 1.0 + k * 0.15, 1.3 + k * 0.15), () => {
-            plaquinha(pin, x, y, 30, 26, `${primeira + k}º`, display);
-            seta(pin, x + 42, y + Math.round(Math.sin(t * 5 + k) * 2), false, '#FF6B5B');
+            plaquinha(pin, x, y, 30, 26, String(primeira + k), display);
+            seta(pin, x + 24, y + 2 + Math.round(Math.sin(t * 5 + k) * 2), false, '#FF6B5B');
           }, 6);
         }
         surge(entre(t, 2.6, 3.0), () => pin.texto('caem', COLUNAS / 2, 258, 26, display, '#FF6B5B', { contorno: COR.contorno, espessura: 1.5 }));
@@ -457,7 +459,7 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
         pin.texto('Horários', COLUNAS / 2, 212, 12, texto, COR.placa, { peso: 700 });
         if (soA) {
           // Um jogo por hora, das 11h às 18h: duas fileiras de 4 placas.
-          d.horarios.A.forEach((h, k) => plaquinha(pin, 40 + (k % 4) * 50, 226 + Math.floor(k / 4) * 36, 42, 26, `${h}h`, display));
+          d.horarios.A.forEach((h, k) => plaquinha(pin, COLUNAS / 2 - 75 + (k % 4) * 50, 226 + Math.floor(k / 4) * 36, 42, 26, `${h}h`, display));
           pin.texto('Um jogo por hora', COLUNAS / 2, 304, 10, texto, COR.placaSombra, { peso: 700 });
           return;
         }
