@@ -141,7 +141,7 @@ describe('Recompensa e agradecimento automáticos (ADR-0047)', () => {
     const dados = await dadosDoAgradecimentoT1(banco);
     expect(dados).toMatchObject({ inscritos, piso: 65, rodadasDoBonus: 3 });
     // O Reels de agradecimento não fala do Rebalanceamento (aprovado sem essas cartelas).
-    expect(dados.rebalanceamento).toBeUndefined();
+    expect(dados).not.toHaveProperty('rebalanceamento');
 
     // Terça 18h30: o job programados grava e agenda o agradecimento para as 20h.
     const containers: { legenda: string }[] = [];

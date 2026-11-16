@@ -143,22 +143,14 @@ export async function dadosDoAgradecimentoT1(banco: Banco, o: { publicarEm?: str
 }
 
 /** Legenda do Reels de agradecimento da Temporada 1 (ADR-0047). */
-export function legendaDoAgradecimentoT1(d?: Pick<DadosDoAgradecimentoT1, 'rebalanceamento' | 'aberturaAs'>): string {
+export function legendaDoAgradecimentoT1(d?: Pick<DadosDoAgradecimentoT1, 'aberturaAs'>): string {
   const bonus = Math.round((PARAMETROS_T2.multiplicadorBonusT1 - 1) * 100);
-  const r = d?.rebalanceamento;
   return [
     '🏆 Fim da Temporada 1! Obrigado a cada um que comentou, se inscreveu e acreditou no Varzeão desde o começo.',
     '',
     '🎖️ Quem jogou a T1 ganha o Selo Temporada 1 na página de Carreira.',
     `📈 Ninguém da T1 começa a T2 com OVR abaixo de ${PISO_DA_TEMPORADA_1}.`,
     `⚡ Nas ${RODADAS_DO_BONUS_T1} primeiras Rodadas da T2, suas Habilidades sobem ${bonus}% mais rápido (e soma com a Resenha).`,
-    ...(r
-      ? [
-          '',
-          `🔀 Agora são duas Séries. Cada Time da A fica com os ${r.tamanhoDaA} primeiros inscritos e ${r.movidos} Jogadores vão para a Série B, no Time Primo, na mesma posição (OVR, apelido e Carreira vão junto).`,
-          '🏅 Quem foi para a B vira Fundador: título na Carreira, prioridade na camisa e volta grátis na próxima Janela. Confira seu Time no site (link na bio).',
-        ]
-      : []),
     d?.aberturaAs !== undefined ? `👀 Hoje, às ${d.aberturaAs}h, sai a Abertura da Temporada 2. Ativa as notificações!` : '👀 A Temporada 2 vem aí, com muita novidade. Ativa as notificações!',
     '',
     '#varzeaodamata #futebol #varzea',

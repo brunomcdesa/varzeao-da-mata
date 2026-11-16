@@ -13,7 +13,7 @@ export interface ReelsProgramado {
 }
 
 export const REELS_PROGRAMADOS: readonly ReelsProgramado[] = [
-  // Agradecimento a quem jogou a T1, com a Recompensa e o Rebalanceamento (ADR-0047): terça
+  // Agradecimento a quem jogou a T1, com a Recompensa (ADR-0047; o Rebalanceamento fica fora, ADR-0058): terça
   // 17/11, 20h de Brasília, depois do Resumo da Temporada (19h).
   { id: 'agradecimento-t1', ref: 2002, publicarEm: '2026-11-17T23:00:00Z' },
   // Abertura da Temporada 2: terça 17/11, 21h de Brasília, depois do Resumo da Temporada (19h)

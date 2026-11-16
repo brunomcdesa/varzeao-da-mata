@@ -39,17 +39,13 @@ describe('Reels de agradecimento da Temporada 1 (ADR-0047)', () => {
     expect(NARRADORES.find((n) => n.id === NARRADOR_DO_AGRADECIMENTO)?.nome).toBe('Seu Dito');
   });
 
-  it('com o Rebalanceamento feito, mostra as Séries e o Fundador; chama para a Abertura do mesmo dia', () => {
-    const com: DadosDoAgradecimentoT1 = { ...dados, rebalanceamento: { movidos: 41, tamanhoDaA: 7, pares: [['CAP', 'SUC']] }, aberturaAs: 21 };
-    const roteiro = new RoteiroAgradecimentoT1(com);
-    expect(roteiro.segmentos.map((s) => s.cartela)).toEqual(['ABERTURA', 'NUMEROS', 'OBRIGADO', 'SELO', 'PISO', 'BONUS', 'REBALANCEAMENTO', 'FUNDADOR', 'CHAMADA']);
+  it('não fala do Rebalanceamento nem do Fundador (ADR-0058); chama para a Abertura do mesmo dia', () => {
+    const roteiro = new RoteiroAgradecimentoT1({ ...dados, aberturaAs: 21 });
+    expect(roteiro.segmentos.map((s) => s.cartela)).toEqual(['ABERTURA', 'NUMEROS', 'OBRIGADO', 'SELO', 'PISO', 'BONUS', 'CHAMADA']);
     const textos = narracaoDoAgradecimentoT1(roteiro).map((f) => f.texto);
-    expect(textos[6]).toContain('sete primeiros inscritos, e 41 jogadores vão pra Série B');
-    expect(textos[7]).toContain('Fundador');
-    expect(textos[8]).toContain('hoje, às nove da noite, sai a abertura');
+    expect(textos.join(' ')).not.toMatch(/Série B|Fundador|time primo/i);
+    expect(textos[6]).toContain('hoje, às nove da noite, sai a abertura');
     expect(textos.join(' ')).not.toMatch(/@/);
-    // Rebalanceamento sem ninguém movido: sem essas cartelas.
-    expect(new RoteiroAgradecimentoT1({ ...dados, rebalanceamento: { movidos: 0, tamanhoDaA: 7, pares: [] } }).segmentos).toHaveLength(7);
   });
 
   it('fala a hora do jeito do Narrador', () => {
