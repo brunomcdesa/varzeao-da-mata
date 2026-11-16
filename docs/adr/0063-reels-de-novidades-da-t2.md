@@ -2,6 +2,8 @@
 
 Status: decidido em 16/11/2026, com a prévia aprovada pelo dono.
 
+Numerado antes como 0062 no branch; renumerado porque o 0062 ficou com a T2 só com a Série A.
+
 ## Contexto
 
 A Abertura da T2 (terça 17/11, 21h) avisa que "amanhã sai um Reels pra cada novidade". O dono

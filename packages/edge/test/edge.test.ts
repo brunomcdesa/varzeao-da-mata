@@ -183,7 +183,7 @@ describe('relógio dos jobs', () => {
     expect(jobsDoMinuto(new Date('2026-11-17T22:31:00Z'))).toEqual([]);
   });
 
-  it('Novidades da T2 (ADR-0062): quarta 18/11, 90 e 60 min antes das 12h, 14h, 16h e 18h', () => {
+  it('Novidades da T2 (ADR-0063): quarta 18/11, 90 e 60 min antes das 12h, 14h, 16h e 18h', () => {
     for (const h of [13, 15, 17, 19]) {
       expect(jobsDoMinuto(new Date(`2026-11-18T${h}:30:00Z`))).toEqual(['programados']);
       expect(jobsDoMinuto(new Date(`2026-11-18T${h + 1}:00:00Z`))).toEqual(['programados']);

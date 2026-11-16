@@ -88,7 +88,7 @@ try {
         if (id === 'abertura-t2') await gravacao!.gravarAberturaDaTemporada({ ...DADOS_DA_ABERTURA_T2, estreia: o.estreia, estrelas: await estrelasNoBanco(banco) }, { saida, crf: 18 });
         else if (id === 'agradecimento-t1') await gravacao!.gravarAgradecimentoT1(await dadosDoAgradecimentoT1(banco), { saida, crf: 18 });
         else if (id.startsWith('novidades-')) {
-          // Novidades da T2 (ADR-0062): Partidas de exemplo, sempre as mesmas.
+          // Novidades da T2 (ADR-0063): Partidas de exemplo, sempre as mesmas.
           const reels = id.slice('novidades-'.length).toUpperCase() as 'CAMPO' | 'CAPITAO' | 'JOGADOR' | 'SITE';
           const publicadoEm = REELS_PROGRAMADOS.find((p) => p.id === id)!.publicarEm;
           await gravacao!.gravarNovidades(gravacao!.dadosDasNovidades(reels, { estreia: o.estreia, publicadoEm }), { saida, crf: 18 });

@@ -46,14 +46,14 @@ async function legendaDe(banco: Banco, p: ReelsProgramado, temporada: number, es
   return legendaDaAbertura(temporada, estreia);
 }
 
-/** Legendas dos Reels de Novidades da T2 (ADR-0062). */
+/** Legendas dos Reels de Novidades da T2 (ADR-0063). */
 export function legendaDasNovidades(id: string, estreia: string, publicarEm: string): string {
   const [a, m, d] = estreia.split('-').map(Number) as [number, number, number];
   const dia = DIAS[new Date(Date.UTC(a, m - 1, d, 12)).getUTCDay()]!;
   const data = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`;
   const post = new Date(Date.parse(publicarEm) - 3 * 3600_000);
   const amanha = Date.UTC(a, m - 1, d, 12) - Date.UTC(post.getUTCFullYear(), post.getUTCMonth(), post.getUTCDate(), 12) === 86_400_000;
-  const estreiaTxt = `🏁 Estreia ${amanha ? 'amanhã, ' : ''}${dia}, ${data}. 8 jogos por dia, um por hora, das 11h às 18h.`;
+  const estreiaTxt = `🏁 Estreia ${amanha ? 'amanhã, ' : ''}${dia}, ${data}. Série A com 16 times em 2 grupos, um jogo por hora, das 11h às 18h.`;
   const fim = ['', estreiaTxt, 'Tabela, jogadores e o seu painel no link da bio.', '', '#futebol #varzea #jogo #liga'];
   const corpo: Record<string, string[]> = {
     'novidades-campo': [

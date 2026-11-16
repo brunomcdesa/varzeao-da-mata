@@ -575,7 +575,7 @@ export async function gravarAgradecimentoT1(dados: DadosDoAgradecimentoT1, o: Op
 }
 
 /**
- * Grava um Reels de Novidades da T2 (ADR-0062). Cada fala sai na voz do seu Narrador: a do
+ * Grava um Reels de Novidades da T2 (ADR-0063). Cada fala sai na voz do seu Narrador: a do
  * Reels e, na apresentação dos Narradores, a de cada um.
  */
 export async function gravarNovidades(dados: DadosDasNovidades, o: OpcoesGravacao): Promise<{ duracao: number }> {

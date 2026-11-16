@@ -1,5 +1,5 @@
 /**
- * Grava um Reels de Novidades da T2 (ADR-0062), para a prévia ou à mão:
+ * Grava um Reels de Novidades da T2 (ADR-0063), para a prévia ou à mão:
  *
  *   pnpm novidades --reels CAMPO --previa ./previa
  *   pnpm novidades --reels SITE --saida ~/Vídeos/novidades-site.mp4

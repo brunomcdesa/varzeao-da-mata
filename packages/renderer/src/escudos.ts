@@ -628,3 +628,15 @@ export function estrelasDoEscudo(time: TimeId): HTMLCanvasElement | OffscreenCan
   cacheDasEstrelas.set(chave, c);
   return c;
 }
+
+/** Uma estrela solta (cartelas de exemplo, ADR-0063), do mesmo desenho das do escudo. */
+export function desenharEstrelaSolta(ctx: CanvasRenderingContext2D, tipo: 'ouro' | 'prata', x: number, y: number, tamanhoDoPixel: number): void {
+  ESTRELA.forEach((linha, yy) => {
+    for (let xx = 0; xx < linha.length; xx++) {
+      const ch = linha[xx];
+      if (ch === '.') continue;
+      ctx.fillStyle = ch === 'K' ? PALETAS.K! : MIOLO[tipo];
+      ctx.fillRect(Math.round(x + xx * tamanhoDoPixel), Math.round(y + yy * tamanhoDoPixel), Math.ceil(tamanhoDoPixel), Math.ceil(tamanhoDoPixel));
+    }
+  });
+}

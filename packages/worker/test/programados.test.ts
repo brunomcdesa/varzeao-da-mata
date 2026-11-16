@@ -81,7 +81,7 @@ describe('Reels Programados (ADR-0051)', () => {
     expect(item.publicarEm).toBe('2026-11-17T15:21:00.000Z');
   });
 
-  it('Novidades da T2 (ADR-0062): quatro Reels na quarta, cada um com a sua legenda', () => {
+  it('Novidades da T2 (ADR-0063): quatro Reels na quarta, cada um com a sua legenda', () => {
     const novidades = REELS_PROGRAMADOS.filter((p) => p.id.startsWith('novidades-'));
     expect(novidades.map((p) => p.id)).toEqual(['novidades-campo', 'novidades-capitao', 'novidades-jogador', 'novidades-site']);
     expect(new Set(REELS_PROGRAMADOS.map((p) => p.ref)).size).toBe(REELS_PROGRAMADOS.length);
