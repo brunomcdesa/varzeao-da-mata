@@ -53,7 +53,7 @@ export function legendaDasNovidades(id: string, estreia: string, publicarEm: str
   const data = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`;
   const post = new Date(Date.parse(publicarEm) - 3 * 3600_000);
   const amanha = Date.UTC(a, m - 1, d, 12) - Date.UTC(post.getUTCFullYear(), post.getUTCMonth(), post.getUTCDate(), 12) === 86_400_000;
-  const estreiaTxt = `🏁 Estreia ${amanha ? 'amanhã, ' : ''}${dia}, ${data}. Série B das 11h às 14h; Série A das 15h às 18h.`;
+  const estreiaTxt = `🏁 Estreia ${amanha ? 'amanhã, ' : ''}${dia}, ${data}. Série A com 16 times, um jogo por hora, das 11h às 18h.`;
   const fim = ['', estreiaTxt, 'Tabela, jogadores e o seu painel no link da bio.', '', '#futebol #varzea #jogo #liga'];
   const corpo: Record<string, string[]> = {
     'novidades-campo': [

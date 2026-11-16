@@ -16,6 +16,7 @@ import type { Segmento } from './roteiro.js';
 import type { Pose } from './sprites.js';
 import { Timeline } from './timeline.js';
 import { desenharEscudoDaLiga, veu, type PartidaParaVideo } from './video.js';
+import { desenharEstrelaSolta } from './escudos.js';
 
 export type ReelsDeNovidades = 'CAMPO' | 'CAPITAO' | 'JOGADOR' | 'SITE';
 export const REELS_DE_NOVIDADES: readonly ReelsDeNovidades[] = ['CAMPO', 'CAPITAO', 'JOGADOR', 'SITE'];
@@ -107,7 +108,7 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
           ['Amarelo', 'Às vezes, na falta.\nDois no mesmo jogo viram vermelho.'],
           ['Vermelho', 'Quando a falta impede um gol claro.\nExpulsa na hora: o Time fica com 6.'],
           ['Suspensão', 'Um vermelho, ou dois amarelos na\nTemporada: fora do jogo seguinte.'],
-        ], 'O amarelo vem às vezes, na falta, e dois amarelos no mesmo jogo viram vermelho. O vermelho vem quando a falta impede um gol claro, e expulsa na hora: o time segue com seis até o fim. E um vermelho, ou dois amarelos na temporada, deixam o jogador fora do jogo seguinte.', 'Suspenso, o rodízio põe outro no lugar', 9),
+        ], 'O amarelo vem às vezes, na falta, e dois amarelos no mesmo jogo viram vermelho. O vermelho vem quando a falta impede um gol claro, e expulsa na hora: o time segue com seis até o fim. E um vermelho, ou dois amarelos na temporada, deixam o jogador fora do jogo seguinte.', 'Suspenso? Entra outro no lugar', 9),
         lista('local-da-falta', 'Onde foi a falta', [
           ['Dentro da área', 'Pênalti.'],
           ['Na entrada da área', 'Chute direto, com Barreira.'],
@@ -154,8 +155,8 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
         lista('formacoes', 'Cada uma tem um jeito', [
           ['2-3-1 · Meio forte', 'Os meias tabelam e chutam mais\nde fora; a defesa fica exposta.'],
           ['3-2-1 · Defesa forte', 'O terceiro zagueiro faz a\nCobertura; o ataque perde força.'],
-          ['3-1-2 · Contra-ataque', 'O zagueiro lança direto para a\ndupla de ataque; o meio perde a bola.'],
-        ], 'No dois, três, um, o meio fica forte: os meias tabelam e chutam mais de fora, mas a defesa fica exposta. No três, dois, um, a defesa fica forte, e o ataque perde força. No três, um, dois, é contra-ataque: o zagueiro lança direto pra dupla de ataque, e o meio perde mais a bola. Nenhuma é melhor que as outras. E postura e formação somam, com limite.', 'Nenhuma Formação é melhor que as outras', 12),
+          ['3-1-2 · Contra-ataque', 'O zagueiro lança direto para o\nataque; o meio perde mais a bola.'],
+        ], 'No dois, três, um, o meio fica forte: os meias tabelam e chutam mais de fora, mas a defesa fica exposta. No três, dois, um, a defesa fica forte, e o ataque perde força. No três, um, dois, é contra-ataque: o zagueiro lança direto pra dupla de ataque, e o meio perde mais a bola. Nenhuma é melhor que as outras. E postura e formação somam, com limite.', 'Nenhuma é melhor que as outras', 12),
         lista('vagas', 'As vagas', [
           ['Seguem a Formação', 'Com 1 atacante, os atacantes do\nTime revezam uma vaga só.'],
           ['Fora de posição', 'Faltou gente? Entra um de outra\nPosição, com o OVR da vaga.'],
@@ -190,10 +191,10 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
           ['1. Craque da Rodada', 'O da Rodada anterior.'],
           ['2. Quem tem prioridade', 'Presença, 2 jogos seguidos fora,\ncortado pela Formação e Resenha\nno Clássico.'],
           ['3. O rodízio', 'Quem jogou menos, depois quem\njogou há mais tempo.'],
-        ], 'A fila de cada posição fica assim: primeiro o craque da rodada anterior. Depois, quem tem prioridade: quem confirmou presença, quem ficou dois jogos seguidos de fora, quem a formação cortou, e, no clássico, quem tem resenha. Depois, o rodízio de sempre: quem jogou menos, e quem jogou há mais tempo.', 'Ficou 2 jogos seguidos fora? Passa na frente', 12),
+        ], 'A fila de cada posição fica assim: primeiro o craque da rodada anterior. Depois, quem tem prioridade: quem confirmou presença, quem ficou dois jogos seguidos de fora, quem a formação cortou, e, no clássico, quem tem resenha. Depois, o rodízio de sempre: quem jogou menos, e quem jogou há mais tempo.', 'Ficou 2 jogos fora? Prioridade', 12),
         c('resenha', 9, 'Comentou no Reels do último jogo do seu time, até o corte do próximo? Isso é resenha: as suas habilidades sobem cinquenta por cento mais rápido nesse jogo, se você for escalado. E se o próximo jogo for o clássico, você ainda passa na frente no rodízio.', { cartela: 'RESENHA' }),
         jogo('PENALTI', 'Seu canto', 'No pênalti, vale o canto que você escolheu no site: esquerda, meio ou direita. Pra batedor e goleiro, no jogo e na disputa do mata-mata. Acertar o canto ajuda o goleiro; errar ajuda o batedor. Quem não escolhe tem o canto sorteado.', 9),
-        c('selecao', 9, 'E toda rodada sai a seleção da rodada, em cada série: o muralha, o carrapato, o garçom e o matador, a maior nota de cada posição. Sai sozinha no resumo, sem voto, e vira troféu na carreira. No fim, tem a seleção da temporada.', { cartela: 'SELECAO' }),
+        c('selecao', 9, 'E toda rodada sai a seleção da rodada: o muralha, o carrapato, o garçom e o matador, a maior nota de cada posição. Sai sozinha no resumo, sem voto, e vira troféu na carreira. No fim, tem a seleção da temporada.', { cartela: 'SELECAO' }),
         c('chamada', 5, `A estreia é ${estreia}!${chamaProximo}`, { cartela: 'CHAMADA' }, 'animado'),
       ];
       break;
@@ -205,7 +206,7 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
           ['Android', 'No Chrome, toque em\n"Instalar o App".'],
           ['iPhone', 'No Safari: Compartilhar e\n"Adicionar à Tela de Início".'],
           ['Veio pelo Instagram?', 'Abra no navegador do celular:\ndentro do Instagram não dá.'],
-        ], 'No Android, abre o site no Chrome e toca em instalar o app. No iPhone, no Safari, toca em compartilhar e depois em adicionar à tela de início. Abriu pelo Instagram? Abre no navegador do celular primeiro, porque dentro do Instagram não dá pra instalar.', 'No iPhone, vincule o Jogador de novo dentro do App', 10),
+        ], 'No Android, abre o site no Chrome e toca em instalar o app. No iPhone, no Safari, toca em compartilhar e depois em adicionar à tela de início. Abriu pelo Instagram? Abre no navegador do celular primeiro, porque dentro do Instagram não dá pra instalar.', 'No iPhone, vincule de novo dentro do App', 10),
         c('avisos', 9, 'Liga os avisos e escolhe os seus times. Chega aviso quando sai a escalação, cinco minutos antes do apito inicial, a cada gol e no fim do jogo, com o placar. O aviso do gol nunca chega antes do lance aparecer no ao vivo. No iPhone, os avisos só chegam com o app instalado.', { cartela: 'AVISOS' }),
         c('ao-vivo', 8, 'O jogo completo passa ao vivo no site e no app; o Reels é só os melhores momentos. E no ao vivo aparece quanta gente está assistindo.', { cartela: 'AO_VIVO' }),
         lista('reacoes', 'Reações', [
@@ -214,8 +215,8 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
           ['Só no Ao Vivo', 'Não ficam no Replay.'],
         ], 'E dá pra reagir: gol, fogo, susto e palmas. A reação sobe na tela de todo mundo que está assistindo, uma por segundo. E não fica no replay: perdeu o jogo, o replay mostra a partida lance a lance.', undefined, 8),
         c('carreira', 9, 'E cada jogador ganha a página de carreira: temporada por temporada, o time e a série, jogos, gols, assistências, nota média, OVR do começo e do fim, cartões e troféus. E quem jogou a temporada um ganha o selo Temporada Um.', { cartela: 'CARREIRA' }),
-        c('estrela', 7, 'E o campeão ganha estrela no escudo: dourada pelo título da Série A, prata pela Série B. Ela aparece em todo lugar: no site, nos Reels e no ao vivo.', { cartela: 'ESTRELA' }),
-        c('chamada', 5, `A temporada dois começa ${estreia}! Série B a partir das onze, Série A a partir das três da tarde. Link na bio!`, { cartela: 'CHAMADA' }, 'animado'),
+        c('estrela', 7, 'E o campeão ganha estrela no escudo: dourada pelo título da Série A. E quando tiver Série B, prata pelo título dela. Ela aparece em todo lugar: no site, nos Reels e no ao vivo.', { cartela: 'ESTRELA' }),
+        c('chamada', 5, `A temporada dois começa ${estreia}! São dezesseis times na Série A, um jogo por hora, das onze às seis da tarde. Link na bio!`, { cartela: 'CHAMADA' }, 'animado'),
       ];
       break;
   }
@@ -363,8 +364,11 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
   };
   const linha = (txt: string, y: number, tam = 13, cor: string = COR.placa, largura = 230) =>
     pin.texto(txt, COLUNAS / 2, y, pin.caber(txt, largura, tam, texto, 700), texto, cor, { peso: 700 });
+  /** Deslocamento vertical do conteúdo da cartela (para centralizar); o título não desce. */
+  let desce = 0;
   const titulo = (txt: string, y = 34) => {
     const a = entre(t, 0, 0.35);
+    y -= desce;
     pin.ctx.globalAlpha = a;
     pin.tabua(COLUNAS / 2 - 118, y - (1 - a) * 8, 236, 34);
     pin.texto(txt, COLUNAS / 2, y + 17 - (1 - a) * 8, pin.caber(txt, 216, 24, display), display, COR.amarelo, { contorno: COR.contorno });
@@ -421,6 +425,10 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
   veu(pin, 0.84);
   selo();
   const cartela = cena.visual.cartela;
+  // Centraliza na vertical o que vem embaixo do título (medido nas prévias).
+  desce = DESCE[cartela] ?? 0;
+  pin.ctx.save();
+  pin.ctx.translate(0, desce * pin.px);
   switch (cartela) {
     case 'ABERTURA': {
       surge(entre(t, 0, 0.5), () => escudoLiga(COLUNAS / 2, 104, 92));
@@ -472,7 +480,7 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
           pin.r(mx - 6, y + 37, 12, 2, COR.contorno);
           pin.texto(n.nome, mx + 18, y + 20, pin.caber(n.nome, 170, 20, display), display, aceso ? COR.amarelo : COR.placa, { alinhar: 'left', contorno: COR.contorno });
           const fala = `"${n.apresentacao}"`;
-          pin.texto(fala, mx + 18, y + 40, pin.caber(fala, 200 - (aceso ? 0 : 8), 10, texto, 700), texto, COR.placa, { alinhar: 'left', peso: 700 });
+          pin.texto(fala, mx + 18, y + 40, pin.caber(fala, 184 - (aceso ? 0 : 8), 10, texto, 700), texto, COR.placa, { alinhar: 'left', peso: 700 });
           if (aceso) {
             // Ondas de som.
             for (let w = 0; w < 3; w++) {
@@ -495,8 +503,8 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
       });
       surge(entre(t, 0.9, 1.3), () => {
         pin.tabua(24, 236, 222, 64);
-        linha('Série B · das 11h às 14h', 256, 14);
-        linha('Série A · das 15h às 18h', 280, 14);
+        linha('Série A · 16 Times', 256, 14, COR.placa, 196);
+        linha('Um jogo por hora, das 11h às 18h', 280, 14, COR.placa, 196);
       });
       const proximo = REELS_DE_NOVIDADES[REELS_DE_NOVIDADES.indexOf(d.reels) + 1];
       surge(entre(t, 1.6, 2.0), () => {
@@ -522,11 +530,11 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
       const dur = q.segmento.fim - q.segmento.inicio;
       const n = v.itens.length;
       const linhas = v.itens.map(([, apoio]) => apoio.split('\n').length);
-      const alturas = linhas.map((l) => 34 + l * 14);
-      const vao = 8;
-      const total = alturas.reduce((a, b) => a + b, 0) + vao * (n - 1);
-      let y = 84;
-      void total;
+      const alturas = linhas.map((l) => 40 + l * 16);
+      const vao = 10;
+      const total = alturas.reduce((a, b) => a + b, 0) + vao * (n - 1) + (v.rodape ? 34 : 0);
+      // Centralizada entre o título e o pé da tela.
+      let y = Math.max(80, 80 + (372 - total) / 2);
       v.itens.forEach(([nome, apoio], k) => {
         // Cada tábua entra mais ou menos quando o Narrador chega nela.
         const de = 0.3 + (k * (dur * 0.75)) / n;
@@ -534,39 +542,34 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
         const yy = y;
         surge(entre(t, de, de + 0.35), () => {
           pin.tabua(14, yy, 242, h);
-          pin.texto(nome, 28, yy + 17, pin.caber(nome, 214, 18, display), display, COR.amarelo, { alinhar: 'left', contorno: COR.contorno });
-          apoio.split('\n').forEach((l, i) => pin.texto(l, 28, yy + 36 + i * 14, pin.caber(l, 214, 11.5, texto, 700), texto, COR.placa, { alinhar: 'left', peso: 700 }));
+          pin.texto(nome, 28, yy + 19, pin.caber(nome, 214, 20, display), display, COR.amarelo, { alinhar: 'left', contorno: COR.contorno });
+          apoio.split('\n').forEach((l, i) => pin.texto(l, 28, yy + 40 + i * 16, pin.caber(l, 214, 13, texto, 700), texto, COR.placa, { alinhar: 'left', peso: 700 }));
         }, 10);
         y += h + vao;
       });
-      if (v.rodape) surge(entre(t, 0.3 + dur * 0.75, 0.65 + dur * 0.75), () => linha(v.rodape!, Math.min(440, y + 22), 12, VERDE));
+      if (v.rodape) surge(entre(t, 0.3 + dur * 0.75, 0.65 + dur * 0.75), () => linha(v.rodape!, Math.min(446, y + 14), 13, VERDE, 222));
       break;
     }
     case 'ESTRELA': {
       titulo('Estrela de Título');
-      // Escudo de exemplo (não é de nenhum Time), com a estrela em cima.
-      const escudoDeExemplo = (cx: number, y: number, cor: string, estrela: string, rotulo: string) => {
-        pin.r(cx - 30, y, 60, 52, COR.contorno);
-        pin.r(cx - 28, y + 2, 56, 46, COR.placa);
-        pin.r(cx - 24, y + 6, 48, 38, '#5B8FD9');
-        for (let k = 0; k < 10; k++) pin.r(cx - 22 + k * 2, y + 52 + k, 44 - k * 4, 1, COR.contorno);
-        // Estrela de 5 pontas em pixel.
-        const sy = y - 22;
-        const pontos = [[0, 0, 1], [-1, 1, 3], [-2, 2, 5], [-7, 3, 15], [-5, 4, 11], [-4, 5, 9], [-4, 6, 9], [-5, 7, 4], [2, 7, 4], [-6, 8, 3], [4, 8, 3]];
-        for (const [dx, dy, w] of pontos) pin.r(cx + dx! * 1.6 - 0.8, sy + dy! * 1.8, w! * 1.6, 1.8, estrela);
-        pin.texto(cor, cx, y + 88, 16, display, COR.amarelo, { contorno: COR.contorno });
-        pin.texto(rotulo, cx, y + 106, 11, texto, COR.placa, { peso: 700 });
+      // O escudo da Liga como exemplo (não é de nenhum Time), com a estrela em cima.
+      const exemplo = (cx: number, tipo: 'ouro' | 'prata', nome: string, apoio: string) => {
+        const tp = 4;
+        desenharEstrelaSolta(pin.ctx as CanvasRenderingContext2D, tipo, (cx - 3.5 * tp) * pin.px, 88 * pin.px, tp * pin.px);
+        escudoLiga(cx, 158, 76);
+        pin.texto(nome, cx, 220, 20, display, COR.amarelo, { contorno: COR.contorno });
+        pin.texto(apoio, cx, 240, 12, texto, COR.placa, { peso: 700 });
       };
-      surge(entre(t, 0.4, 0.8), () => escudoDeExemplo(80, 120, 'Dourada', DOURADO, 'Título da Série A'));
-      surge(entre(t, 1.6, 2.0), () => escudoDeExemplo(190, 120, 'Prata', '#C9CED6', 'Título da Série B'));
-      surge(entre(t, 3.0, 3.4), () => {
-        pin.tabua(20, 270, 230, 60);
-        linha('No site, nos Reels e no Ao Vivo', 290, 13);
-        linha('Uma estrela por título', 312, 12, VERDE);
+      surge(entre(t, 0.4, 0.8), () => exemplo(74, 'ouro', 'Dourada', 'Título da Série A'));
+      surge(entre(t, 1.6, 2.0), () => exemplo(196, 'prata', 'Prata', 'Título da Série B'));
+      surge(entre(t, 2.6, 3.0), () => {
+        pin.tabua(20, 268, 230, 92);
+        linha('Uma estrela por título,', 288, 14, COR.placa, 210);
+        linha('lado a lado em cima do escudo', 308, 14, COR.placa, 210);
+        linha('No site, nos Reels e no Ao Vivo', 336, 13, VERDE, 210);
       });
       break;
     }
-    // ------------------------------------------ Capitão
     case 'CAPITAO': {
       titulo('O Capitão');
       surge(entre(t, 0.3, 0.8), () => {
@@ -814,7 +817,7 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
           pin.texto(nota, 221, y + 33, 20, display, '#FFFFFF');
         }, 12);
       });
-      surge(entre(t, 3.2, 3.6), () => linha('A maior Nota de cada Posição · vira troféu', 392, 12, VERDE));
+      surge(entre(t, 3.2, 3.6), () => linha('Maior Nota da Posição: troféu', 392, 13, VERDE));
       break;
     }
 
@@ -847,25 +850,25 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
     }
     case 'AVISOS': {
       titulo('Avisos');
-      const s = celular(50, 76, 170, 300);
+      const s = celular(18, 74, 234, 330);
       pin.r(s.x, s.y, s.w, s.h, '#2E4A6B');
-      pin.texto('15:58', s.x + s.w / 2, s.y + 26, 26, display, '#FFFFFF');
+      pin.texto('15:58', s.x + s.w / 2, s.y + 24, 26, display, '#FFFFFF');
       const avisos: [string, string, number][] = [
-        ['Saiu a Escalação', 'Onça × Jacaré, às 16h. Veja quem entra.', 0.6],
-        ['Daqui a 5 min: Onça × Jacaré', 'Abra o App para ver o Ao Vivo.', 1.6],
+        ['Saiu a Escalação', 'Onça × Jacaré, às 16h.', 0.6],
+        ['Daqui a 5 min: Onça × Jacaré', 'Abra o App e veja o Ao Vivo.', 1.6],
         ['GOL da Onça!', 'Onça 1 × 0 Jacaré', 2.6],
         ['Fim de jogo', 'Onça 2 × 1 Jacaré', 3.6],
       ];
       avisos.forEach(([tit, sub, de], k) => {
         surge(entre(t, de, de + 0.35), () => {
-          const y = s.y + 50 + k * 56;
-          pin.r(s.x + 6, y, s.w - 12, 48, 'rgba(255,255,255,0.92)');
-          escudoLiga(s.x + 22, y + 24, 20);
-          pin.texto(tit, s.x + 38, y + 17, pin.caber(tit, s.w - 50, 12, texto, 700), texto, COR.tinta, { alinhar: 'left', peso: 700 });
-          pin.texto(sub, s.x + 38, y + 33, pin.caber(sub, s.w - 50, 10, texto, 500), texto, '#555555', { alinhar: 'left', peso: 500 });
+          const y = s.y + 46 + k * 64;
+          pin.r(s.x + 5, y, s.w - 10, 58, 'rgba(255,255,255,0.94)');
+          escudoLiga(s.x + 22, y + 29, 24);
+          pin.texto(tit, s.x + 40, y + 20, pin.caber(tit, s.w - 50, 15, texto, 700), texto, COR.tinta, { alinhar: 'left', peso: 700 });
+          pin.texto(sub, s.x + 40, y + 40, pin.caber(sub, s.w - 50, 12.5, texto, 600), texto, '#444444', { alinhar: 'left', peso: 600 });
         }, -10);
       });
-      surge(entre(t, 4.4, 4.8), () => linha('Você escolhe os Times', 404, 14, VERDE));
+      surge(entre(t, 4.4, 4.8), () => linha('Você escolhe os Times', 424, 15, VERDE));
       break;
     }
     case 'AO_VIVO': {
@@ -891,7 +894,7 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
       pin.r(s.x, s.y, s.w, 18, '#1E1E1E');
       pin.r(s.x + 8, s.y + 6, 6, 6, '#E53935');
       const publico = Math.round(37 + 12 * entre(t, 0.5, 4));
-      pin.texto(`AO VIVO · ${publico} assistindo`, s.x + 20, s.y + 9, 10, texto, '#FFFFFF', { alinhar: 'left', peso: 700 });
+      pin.texto(`AO VIVO · ${publico} assistindo`, s.x + 20, s.y + 9, 12, texto, '#FFFFFF', { alinhar: 'left', peso: 700 });
       // Reações subindo.
       const emojis = o.emojis ?? [];
       for (let k = 0; k < 14; k++) {
@@ -914,7 +917,7 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
         linha('Público e Reações', 418, 14, COR.amarelo);
         const nomes = ['Gol', 'Fogo', 'Susto', 'Palmas'];
         nomes.forEach((n, k) => {
-          const x = 40 + k * 56;
+          const x = 28 + k * 53;
           const img = emojis[k];
           if (img) {
             pin.ctx.imageSmoothingEnabled = true;
@@ -928,49 +931,57 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
     }
     case 'CARREIRA': {
       titulo('Carreira');
-      const s = celular(40, 74, 190, 320);
-      const cx = s.x + s.w / 2;
+      const s = celular(18, 72, 234, 352);
       surge(entre(t, 0.3, 0.7), () => {
-        boneco(pin, 'FRENTE_PARADO', uniforme('ONC', 'ATA', 'carreira'), s.x + 10, s.y + 10, 3);
-        pin.texto('Bruninho', s.x + 52, s.y + 22, 18, display, COR.tinta, { alinhar: 'left' });
-        pin.texto('Atacante · Onça', s.x + 52, s.y + 40, 11, texto, '#6B5A3E', { alinhar: 'left', peso: 700 });
+        boneco(pin, 'FRENTE_PARADO', uniforme('ONC', 'ATA', 'carreira'), s.x + 10, s.y + 8, 3.2);
+        pin.texto('Bruninho', s.x + 56, s.y + 22, 22, display, COR.tinta, { alinhar: 'left' });
+        pin.texto('Atacante · Onça', s.x + 56, s.y + 42, 13, texto, '#6B5A3E', { alinhar: 'left', peso: 700 });
       });
-      const temporadas: [string, string, string, string][] = [
-        ['Temporada 1', 'Onça · 7 jogos · 5 gols', 'OVR 64 → 68', 'Selo T1'],
-        ['Temporada 2', 'Onça · Série A', 'OVR 68 → ...', ''],
+      const temporadas: [string, string, string, boolean][] = [
+        ['Temporada 2', 'Onça · Série A · 3 jogos · 2 gols', 'OVR 68 → 70', false],
+        ['Temporada 1', 'Onça · 7 jogos · 5 gols · 2 assist.', 'OVR 64 → 68', true],
       ];
-      temporadas.forEach(([nome, linha1, ovr, extra], k) => {
+      temporadas.forEach(([nome, linha1, ovr, selo], k) => {
         surge(entre(t, 1.2 + k * 0.9, 1.6 + k * 0.9), () => {
-          const y = s.y + 70 + k * 74;
-          pin.r(s.x + 8, y, s.w - 16, 66, '#FFFFFF');
-          pin.r(s.x + 8, y, 4, 66, COR.amarelo);
-          pin.texto(nome, s.x + 20, y + 14, 15, display, COR.tinta, { alinhar: 'left' });
-          pin.texto(linha1, s.x + 20, y + 32, pin.caber(linha1, s.w - 40, 10, texto, 700), texto, '#444444', { alinhar: 'left', peso: 700 });
-          pin.texto(ovr, s.x + 20, y + 50, 10, texto, '#2E7D32', { alinhar: 'left', peso: 700 });
-          if (extra) {
-            pin.placa(s.x + s.w - 68, y + 40, 54, 18, { fundo: '#5B3A1E', luz: DOURADO, sombra: '#3A2410', degrau: 2 });
-            pin.texto('Selo T1', s.x + s.w - 41, y + 49, 10, texto, DOURADO, { peso: 700 });
+          const y = s.y + 64 + k * 82;
+          pin.r(s.x + 6, y, s.w - 12, 74, '#FFFFFF');
+          pin.r(s.x + 6, y, 4, 74, COR.amarelo);
+          pin.texto(nome, s.x + 18, y + 15, 18, display, COR.tinta, { alinhar: 'left' });
+          pin.texto(linha1, s.x + 18, y + 36, pin.caber(linha1, s.w - 34, 12, texto, 700), texto, '#333333', { alinhar: 'left', peso: 700 });
+          pin.texto(ovr, s.x + 18, y + 57, 12.5, texto, '#2E7D32', { alinhar: 'left', peso: 700 });
+          if (selo) {
+            pin.placa(s.x + s.w - 84, y + 46, 70, 22, { fundo: '#5B3A1E', luz: DOURADO, sombra: '#3A2410', degrau: 2 });
+            pin.texto('Selo T1', s.x + s.w - 49, y + 57, 12, texto, DOURADO, { peso: 700 });
           }
         }, 8);
       });
       surge(entre(t, 3.2, 3.6), () => {
-        const y = s.y + 226;
-        pin.texto('Troféus', s.x + 14, y, 14, display, COR.tinta, { alinhar: 'left' });
-        const trofeus = ['Matador', 'Craque', 'Fundador'];
+        const y = s.y + 238;
+        pin.texto('Troféus', s.x + 12, y, 18, display, COR.tinta, { alinhar: 'left' });
+        const trofeus = ['Matador', 'Craque da Rodada', 'Rei do Clássico'];
+        const larg = [54, 88, 72];
+        let x = s.x + 4;
         trofeus.forEach((tr, k) => {
-          const x = s.x + 14 + k * 54;
-          pin.r(x, y + 12, 48, 22, COR.contorno);
-          pin.r(x + 1, y + 13, 46, 20, DOURADO);
-          pin.texto(tr, x + 24, y + 23, pin.caber(tr, 42, 9, texto, 700), texto, COR.contorno, { peso: 700 });
+          pin.r(x, y + 14, larg[k]!, 26, COR.contorno);
+          pin.r(x + 1, y + 15, larg[k]! - 2, 24, DOURADO);
+          pin.texto(tr, x + larg[k]! / 2, y + 27, pin.caber(tr, larg[k]! - 6, 11, texto, 700), texto, COR.contorno, { peso: 700 });
+          x += larg[k]! + 3;
         });
       });
-      void cx;
-      surge(entre(t, 4.2, 4.6), () => linha('Temporada por Temporada', 412, 14, VERDE));
+      surge(entre(t, 4.2, 4.6), () => linha('Temporada por Temporada', 440, 15, VERDE));
       break;
     }
   }
+  pin.ctx.restore();
   escurecer(ctx, q.escurecer);
 }
+
+/** Quanto o conteúdo de cada cartela desce para ficar no meio da tela (a LISTA se centraliza sozinha). */
+const DESCE: Partial<Record<string, number>> = {
+  CAPITAO: 34, POSTURA: 22, FORMACAO: 16, NARRADORES: 14, NARRADOR: 14,
+  VINCULO: 44, APELIDO: 52, ESPECIALIZACAO: 14, TREINO: 58, PRESENCA: 58, RESENHA: 56, SELECAO: 24,
+  APP: 14, ESTRELA: 40,
+};
 
 function escurecer(ctx: CanvasRenderingContext2D, alfa: number): void {
   if (alfa <= 0) return;
