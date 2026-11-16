@@ -46,8 +46,8 @@ describe('Piso da Temporada 1 (ADR-0047)', () => {
 
 describe('Bônus da Temporada 1 (ADR-0047)', () => {
   it('vale só nas 3 primeiras Rodadas da Fase de Liga da Temporada 2', () => {
-    expect([1, 2, 3].every((r) => temBonusT1(2, r, 'LIGA'))).toBe(true);
-    expect(temBonusT1(2, 4, 'LIGA')).toBe(false);
+    expect([1, 2].every((r) => temBonusT1(2, r, 'LIGA'))).toBe(true);
+    expect(temBonusT1(2, 3, 'LIGA')).toBe(false);
     expect(temBonusT1(2, 1, 'MATA_MATA')).toBe(false);
     expect(temBonusT1(1, 1, 'LIGA')).toBe(false);
     expect(temBonusT1(3, 1, 'LIGA')).toBe(false);

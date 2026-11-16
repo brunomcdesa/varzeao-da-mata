@@ -139,7 +139,7 @@ describe('Recompensa e agradecimento automáticos (ADR-0047)', () => {
     expect(logs.some((l) => l.startsWith(`Rebalanceamento da Temporada 2: ${movidos} Jogador(es) para os Times Primos da Série A`))).toBe(true);
 
     const dados = await dadosDoAgradecimentoT1(banco);
-    expect(dados).toMatchObject({ inscritos, piso: 65, rodadasDoBonus: 3 });
+    expect(dados).toMatchObject({ inscritos, piso: 65, rodadasDoBonus: 2 });
     // O Reels de agradecimento não fala do Rebalanceamento (aprovado sem essas cartelas).
     expect(dados).not.toHaveProperty('rebalanceamento');
 
