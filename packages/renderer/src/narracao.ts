@@ -5,7 +5,7 @@
  * Regra do glossário: o Locutor fala dos Jogadores pela Posição e pelo Time, nunca pelo @.
  */
 import { FALA_DO_TIME, concordar, deQuemDepende, doTime, ehGoleada, listaDeTimes, necessidadeNaBriga, nomeDoClassico, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
-import { criarRng, type Lado, type Lance } from '@liga/sim';
+import { criarRng, type Lado, type Lance, type SlotRef } from '@liga/sim';
 import { narradorDa } from './narradores.js';
 import { F_CHUTE_PENALTI, instanteDaCobranca, resultadoDaCobranca } from './penaltis.js';
 import type { Roteiro, Segmento } from './roteiro.js';
@@ -58,8 +58,10 @@ export function apelidoFalavel(a: string | null | undefined): string | null {
 }
 
 /**
- * `apelidos`: o apelido de cada lugar na Escalação (ADR-0014). O narrador fala o nome só nos
- * gols; no resto, pela posição e pelo Time.
+ * `apelidos`: o apelido de cada lugar na Escalação (ADR-0014). Na Temporada 1, o narrador fala o
+ * nome só nos gols; no resto, pela posição e pelo Time. A partir da Temporada 2 (ADR-0059), toda
+ * fala de um Jogador com apelido falável usa o apelido: na primeira vez com a posição e o Time
+ * ("Bruninho, atacante da Onça,"), depois só o apelido.
  */
 export interface OpcoesNarracao {
   /** Partida do Mata-mata: abertura e fim falam da Semifinal ou da Final (ADR-0048). */
@@ -82,15 +84,15 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
   const r = tl.resultado;
   const esc = tl.escalacoes;
   const time = (lado: Lado): TimeId => r.times[lado];
-  const quem = (lance: Lance, papel: 'criador' | 'finalizador' | 'defensor') => {
-    const s = lance[papel]!;
-    return `o ${POSICAO[esc[s.lado].jogadores[s.indice]!.posicao]} ${doTime(time(s.lado))}`;
-  };
+  /** T2 (ADR-0059): o apelido entra em toda fala de Jogador. Na T1, só nos gols. */
+  const comApelido = !!tl.t2;
+  const nomeDe = (s: SlotRef) => (comApelido ? apelidoFalavel(apelidos?.[s.lado]?.[s.indice]) : null);
+  /** "o atacante da Onça", ou a marca do apelido, resolvida no fim (primeira vez ou não). */
+  const referencia = (s: SlotRef, comTime: boolean) =>
+    nomeDe(s) ? marcaDoApelido(s, comTime) : `o ${POSICAO[esc[s.lado].jogadores[s.indice]!.posicao]}${comTime ? ` ${doTime(time(s.lado))}` : ''}`;
+  const quem = (lance: Lance, papel: 'criador' | 'finalizador' | 'defensor') => referencia(lance[papel]!, true);
   /** Só a posição, quando o Time já foi dito na mesma frase: "o atacante". */
-  const posicao = (lance: Lance, papel: 'criador' | 'finalizador' | 'defensor') => {
-    const s = lance[papel]!;
-    return `o ${POSICAO[esc[s.lado].jogadores[s.indice]!.posicao]}`;
-  };
+  const posicao = (lance: Lance, papel: 'criador' | 'finalizador' | 'defensor') => referencia(lance[papel]!, false);
   const curto = (lado: Lado) => FALA_DO_TIME[time(lado)].curto;
   /** Escolhe uma variação evitando repetir frases já ditas neste vídeo. */
   const ditas = new Set<string>();
@@ -144,14 +146,14 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
     const f = lance.finalizador ? quem(lance, 'finalizador') : '';
     const pc = posicao(lance, 'criador');
     const pf = lance.finalizador ? posicao(lance, 'finalizador') : '';
-    const pro = (p: string) => p.replace(/^o /, 'pro ');
+    const pro = (p: string) => comPreposicao(p, 'pro');
     const construcao: Record<string, string[]> = {
       TABELA: [`Tabela ${doTime(time(atq))}! ${cap(pc)} toca e recebe de volta...`, `${cap(c)} faz a parede com ${pf}...`, `Toque de primeira ${doTime(time(atq))}...`],
       CHUTE_DE_LONGE: [`${cap(f)} ajeita... vai arriscar de longe!`, `Olha ${f}, de fora da área!`, `Espaço ${pro(f)} bater...`],
       LANCAMENTO: [`Lançamento longo ${doTime(time(atq))}!`, `${cap(c)} vira o jogo, bola longa ${pro(pf)}!`, `Bola esticada ${doTime(time(atq))}...`],
       CRUZAMENTO: [`${cap(c)} vai pela ponta... cruzou!`, `Cruzamento ${doTime(time(atq))}, ${pf} sobe!`, `Bola na área ${doTime(time(atq))}...`],
       INDIVIDUAL: [`${cap(f)} parte pra cima do zagueiro...`, `${cap(f)} limpa a marcação...`, `${cap(f)} vai no drible...`],
-      DESARME: [`${cap(c)} conduz ${doTime(time(atq))}...`, `Vem ${doTime(time(atq))} pelo meio...`, `${cap(c)} tenta a jogada...`],
+      DESARME: [`${cap(c)} conduz a bola...`, `Vem ${doTime(time(atq))} pelo meio...`, `${cap(c)} tenta a jogada...`],
     };
     // Frases aprovadas em 11/11 (ADR-0045): mais opções de construção.
     const chegando = [`${cap(FALA_DO_TIME[time(atq)].artigo)} ${curto(atq)} vem trabalhando a bola...`, `${cap(c)} carrega pelo meio...`, `Olha ${FALA_DO_TIME[time(atq)].artigo} ${curto(atq)} chegando!`];
@@ -160,7 +162,7 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
     if (lance.dobra?.passe) {
       for (const k of Object.keys(construcao)) construcao[k] = [`Dobraram a marcação... e a bola sai pro companheiro livre!`, `Dois zagueiros em cima... tocou ${pro(pf)}, livre!`];
     } else if (lance.dobra && !lance.bolaParada) {
-      construcao[plano.estilo] = [...construcao[plano.estilo]!, `A zaga ${doTime(time(lance.dobra.zagueiro.lado))} dobra a marcação ${f.replace(/^o /, 'no ')}!`];
+      construcao[plano.estilo] = [...construcao[plano.estilo]!, `A zaga ${doTime(time(lance.dobra.zagueiro.lado))} dobra a marcação ${comPreposicao(f, 'no')}!`];
     }
     // Contra-ataque: o rival perdeu a bola com gente na frente.
     if (lance.contraAtaque) {
@@ -170,7 +172,7 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
       for (const k of Object.keys(construcao)) construcao[k] = linhas;
     }
     // Bola parada: o escanteio e o lateral aparecem na tela, então o narrador fala deles.
-    construcao.ESCANTEIO = [`Escanteio ${doTime(time(atq))}! ${cap(pc)} vai cobrar...`, `Bola na bandeirinha. Cobra ${pc} ${doTime(time(atq))}...`, `Escanteio! ${cap(c)} levanta na área...`];
+    construcao.ESCANTEIO = [`Escanteio ${doTime(time(atq))}! ${cap(pc)} vai cobrar...`, `Bola na bandeirinha. Cobra ${c}...`, `Escanteio! ${cap(c)} levanta na área...`];
     if (lance.bolaParada === 'LATERAL') {
       for (const k of Object.keys(construcao)) {
         if (k !== 'ESCANTEIO') construcao[k] = [`Lateral ${doTime(time(atq))}, cobrança rápida...`, `Cobrou o lateral, ${pc} recebe...`, `Lateral cobrado, ${c} domina...`];
@@ -179,8 +181,8 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
     // Temporada 2: faltas e cobranças (ADR-0024).
     construcao.FALTA = construcao.DESARME!;
     if (lance.tipo === 'FALTA' && lance.finalizador) construcao.FALTA = [`${cap(f)} recebe e parte pra cima...`, `${cap(f)} vai no drible...`];
-    construcao.PENALTI = [`Pênalti ${doTime(time(atq))}! ${cap(pc)} ajeita a bola...`, `${cap(pc)} vai bater o pênalti...`, `Bola na marca. Cobra ${pc} ${doTime(time(atq))}...`];
-    construcao.FALTA_DIRETA = [`Falta perigosa! ${cap(pc)} na bola, barreira armada...`, `Falta na entrada da área. Vai bater ${pc} ${doTime(time(atq))}...`];
+    construcao.PENALTI = [`Pênalti ${doTime(time(atq))}! ${cap(pc)} ajeita a bola...`, `${cap(pc)} vai bater o pênalti...`, `Bola na marca. Cobra ${c}...`];
+    construcao.FALTA_DIRETA = [`Falta perigosa! ${cap(pc)} na bola, barreira armada...`, `Falta na entrada da área. Vai bater ${c}...`];
     construcao.FALTA_CURTA = [`Falta ${doTime(time(atq))}, jogada ensaiada...`, `${cap(pc)} rola curto pra ${pf}...`];
     if (lance.bolaParada === 'FALTA_CRUZADA') construcao.ESCANTEIO = [`Falta ${doTime(time(atq))}! ${cap(pc)} vai levantar na área...`, `Cobrança de falta, bola na área...`];
     // O finalizador foi no drible e perdeu a bola: a construção fala dele.
@@ -220,11 +222,11 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
         [narrador.gol.replace('{time}', doTime(time(atq))), 'grito'],
       ],
       DEFESA: [
-        [`Que defesa ${def.replace(/^o /, 'do ')}!`, 'animado'],
+        [`Que defesa ${comPreposicao(def, 'do')}!`, 'animado'],
         [`Defesaça! ${cap(def)} fecha o gol!`, 'animado'],
         [`Pegou! ${cap(def)} tá atento!`, 'animado'],
         [`Espalmou ${def}!`, 'animado'],
-        [`Que reflexo ${def.replace(/^o /, 'do ')}!`, 'animado'],
+        [`Que reflexo ${comPreposicao(def, 'do')}!`, 'animado'],
         [`Mãos firmes! ${cap(posicao(lance, 'defensor'))} segura.`, 'animado'],
       ],
       FORA: [
@@ -237,16 +239,16 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
       ],
       BLOQUEIO: [
         [`Bloqueou! ${cap(def)} se jogou na frente!`, 'animado'],
-        [`Travou o chute! Que corte ${def.replace(/^o /, 'do ')}!`, 'animado'],
+        [`Travou o chute! Que corte ${comPreposicao(def, 'do')}!`, 'animado'],
         [`Na zaga! ${cap(def)} bloqueia!`, 'animado'],
-        [`Bloqueou com o corpo! Que coragem ${def.replace(/^o /, 'do ')}!`, 'animado'],
+        [`Bloqueou com o corpo! Que coragem ${comPreposicao(def, 'do')}!`, 'animado'],
         [`Parou na zaga!`, 'animado'],
       ],
       DESARME: [
         [`Desarmou! ${cap(def)} chega firme.`, 'normal'],
-        [`Roubou a bola ${def.replace(/^o /, 'o ')}!`, 'normal'],
+        [`Roubou a bola ${def}!`, 'normal'],
         [`Chegou na hora certa! Bola recuperada.`, 'normal'],
-        [`Bote perfeito ${def.replace(/^o /, 'do ')}!`, 'normal'],
+        [`Bote perfeito ${comPreposicao(def, 'do')}!`, 'normal'],
         [`Tomou a bola no tempo certo!`, 'normal'],
       ],
     };
@@ -260,7 +262,7 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
             ? [[`${naArea ? 'Pênalti! ' : 'Falta! '}Cartão amarelo para ${def}.`, 'animado'], [`${naArea ? 'Derrubou na área! Pênalti! ' : 'Falta dura! '}Amarelo para ${def}.`, 'animado']]
             : naArea
               ? [[`Derrubou na área! É pênalti!`, 'grito'], [`Pênalti! ${cap(def)} chegou atrasado!`, 'grito']]
-              : [[`Falta ${def.replace(/^o /, 'do ')}! O juiz marca.`, 'normal'], [`Apita o juiz, falta!`, 'normal']];
+              : [[`Falta ${comPreposicao(def, 'do')}! O juiz marca.`, 'normal'], [`Apita o juiz, falta!`, 'normal']];
     }
     if (lance.bolaParada === 'PENALTI') {
       resolucao.GOL = [[`Gol de pênalti ${doTime(time(atq))}!`, 'grito'], [`Bateu no canto! Gol ${doTime(time(atq))}!`, 'grito']];
@@ -291,7 +293,8 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
 
     if (lance.tipo === 'GOL') {
       const placar = tl.placarEm(tl.janelas[s.lance!]!.resolucao + 1);
-      const nome = lance.finalizador ? apelidoFalavel(apelidos?.[lance.finalizador.lado]?.[lance.finalizador.indice]) : null;
+      // T2: o nome do gol também passa pela apresentação (ADR-0059).
+      const nome = !lance.finalizador ? null : comApelido ? (nomeDe(lance.finalizador) ? quem(lance, 'finalizador') : null) : apelidoFalavel(apelidos?.[lance.finalizador.lado]?.[lance.finalizador.indice]);
       const rival = atq === 'mandante' ? 'visitante' : 'mandante';
       // O gol que confirma a Goleada: a fala extra comemora o placar (que está na tela).
       // Só a primeira vez: se o rival diminuir e a Goleada voltar, não repete (4×1, 4×2, 5×2).
@@ -345,7 +348,7 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
         res === 'GOL'
           ? [[`Converteu ${doTime(time(c.lado))}!`, 'animado'], [`Gol! Bateu bem!`, 'animado'], [`No canto! Gol ${doTime(time(c.lado))}!`, 'animado']]
           : res === 'DEFESA'
-            ? [[`Pegou! O goleiro ${doTime(time(c.goleiro.lado))} defende!`, 'grito'], [`Defendeu!`, 'grito']]
+            ? [[`Pegou! ${cap(referencia(c.goleiro, true))} defende!`, 'grito'], [`Defendeu!`, 'grito']]
             : [[`Pra fora! Desperdiçou!`, 'animado'], [`Mandou longe!`, 'animado']];
       const [texto, tom] = escolher(rng, opcoes);
       falas.push({ id: `penalti-${k}`, texto, inicio: roteiro.videoDosPenaltis(s, instanteDaCobranca(d, k)) - 0.05, limite: s.fim, tom, segmento: iPen, parte: 'antes' });
@@ -379,6 +382,13 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
     : r.vencedor ? vitoria(r.vencedor) : 'Tudo igual no Varzeão!';
   const consequencia = o.mataMata && r.vencedor ? ` ${desfechoDoMataMata(o.mataMata, time(r.vencedor))}` : briga ? desfechoDaBriga(briga, r.times, g).map((t) => ` ${t}`).join('') : '';
   falas.push({ id: 'fim', texto: `Fim de jogo! ${placar}. ${vencedor}${consequencia} ${o.aoVivo ? 'Curtiu? Compartilha com a galera!' : `O jogo completo, Ao Vivo e no Replay, tá ${ONDE_VER_O_JOGO(!!tl.t2)}!`} ${narrador.despedida}`, inicio: fim.inicio + 0.35, limite: fim.fim, tom: 'animado', segmento: segs.length - 1, parte: 'antes' });
+  // Apelidos (ADR-0059): a primeira vez de cada Jogador vem com a posição e o Time.
+  const apresentados = new Set<string>();
+  for (const f of falas) f.texto = resolverApelidos(f.texto, apresentados, (lado, indice) => ({
+    nome: nomeDe({ lado, indice })!,
+    posicao: POSICAO[esc[lado].jogadores[indice]!.posicao],
+    time: doTime(time(lado)),
+  }));
   return falas;
 }
 
@@ -428,6 +438,47 @@ export function exigenciasDaNarracao(roteiro: Pick<Roteiro, 'segmentos'>, falas:
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/**
+ * Marca de um Jogador com apelido dentro do texto de uma fala (ADR-0059). Fica no texto enquanto
+ * a fala é escolhida e vira o nome no fim, quando já se sabe se é a primeira vez dele na Partida.
+ */
+const MARCA = /\u0001(mandante|visitante)\.(\d+)\.([TP])\.(\w*)\u0002/g;
+function marcaDoApelido(s: SlotRef, comTime: boolean, preposicao = ''): string {
+  return `\u0001${s.lado}.${s.indice}.${comTime ? 'T' : 'P'}.${preposicao}\u0002`;
+}
+
+/** "o goleiro" → "do goleiro"; com apelido, "de Bruninho" (sem artigo: não sabemos o gênero). */
+export function comPreposicao(ref: string, p: 'do' | 'no' | 'pro'): string {
+  if (ref.startsWith('\u0001')) return ref.replace(/\.\w*\u0002$/, `.${p}\u0002`);
+  return ref.replace(/^o /, `${p} `);
+}
+
+const PREPOSICAO_DO_NOME: Record<string, string> = { do: 'de ', no: 'em ', pro: 'pra ', '': '' };
+
+/**
+ * Troca as marcas pelos apelidos. Na primeira vez: "Bruninho, atacante da Onça," (ou "Bruninho,
+ * o atacante," quando o Time já foi dito na frase); depois, só "Bruninho".
+ */
+export function resolverApelidos(
+  texto: string,
+  apresentados: Set<string>,
+  dados: (lado: Lado, indice: number) => { nome: string; posicao: string; time: string },
+): string {
+  if (!texto.includes('\u0001')) return texto;
+  const VIRGULA = '\u0003';
+  return texto
+    .replace(MARCA, (_, lado: Lado, indice: string, modo: string, prep: string) => {
+      const d = dados(lado, Number(indice));
+      const chave = `${lado}.${indice}`;
+      const antes = PREPOSICAO_DO_NOME[prep] ?? '';
+      if (apresentados.has(chave)) return `${antes}${d.nome}`;
+      apresentados.add(chave);
+      return `${antes}${d.nome}, ${modo === 'T' ? `${d.posicao} ${d.time}` : `o ${d.posicao}`}${VIRGULA}`;
+    })
+    .replace(/\u0003(?=\s*[,.!?…]|\s*$)/g, '')
+    .replace(/\u0003/g, ',');
+}
 
 /** Temporada 2: o Narrador comenta o Clima na abertura (o Clima aparece na tela). */
 const FALA_DO_CLIMA = {

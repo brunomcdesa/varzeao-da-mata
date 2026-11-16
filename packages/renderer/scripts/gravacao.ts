@@ -164,13 +164,13 @@ async function codificar(pagina: import('playwright').Page, totalQuadros: number
 }
 
 /** Sintetiza as falas pelo Locutor e devolve as amostras de cada uma (48 kHz mono). */
-async function sintetizar(falas: Fala[], voz?: string, jeito?: string): Promise<Map<string, Float32Array>> {
+async function sintetizar(falas: Fala[], voz?: string, jeito?: string, porPedido?: number): Promise<Map<string, Float32Array>> {
   const locutor = criarLocutor(join(raiz, '.cache/locutor'), undefined, voz, jeito);
   if (locutor.modo === 'espeak') console.warn('  Sem chave de voz: usando a voz de teste do espeak-ng.');
   if (locutor.modo === 'mudo') console.warn('  Sem chave de voz nem espeak-ng: o vídeo sai sem a voz do Locutor.');
   const wavs = await locutor.falarTodas(falas, (feitas) => {
     if (process.stdout.isTTY) process.stdout.write(`\r  voz ${feitas}/${falas.length}   `);
-  });
+  }, porPedido);
   if (process.stdout.isTTY) process.stdout.write('\r');
   const vozes = new Map<string, Float32Array>();
   const ritmos: number[] = [];
@@ -619,12 +619,14 @@ export async function gravarNarracaoAoVivo(partida: PartidaParaVideo, saida: str
   const timeline = new Timeline(partida.resultado, partida.escalacoes, partida.torcida ? { torcida: partida.torcida } : {});
   const falas = roteiroAoVivo(timeline, partida.apelidos, { mataMata: partida.mataMata ?? null, briga: partida.briga ?? null });
   const narrador = narradorDa(partida.resultado.seed);
-  // Em lotes: um pedido só com o jogo inteiro ficaria longo demais para recortar.
-  const vozes = new Map<string, Float32Array>();
-  for (let i = 0; i < falas.length; i += 20) {
-    const lote = falas.slice(i, i + 20).map((f) => ({ id: f.id, texto: f.texto, tom: f.tom }) as Fala);
-    for (const [id, a] of await sintetizar(lote, narrador.voz, narrador.jeito)) vozes.set(id, a);
-  }
+  // Pedidos de até 20 falas novas: um pedido só com o jogo inteiro ficaria longo demais para
+  // recortar. Só as que não estão no cache vão (ADR-0059).
+  const vozes = await sintetizar(
+    falas.map((f) => ({ id: f.id, texto: f.texto, tom: f.tom }) as Fala),
+    narrador.voz,
+    narrador.jeito,
+    20,
+  );
   const duracaoFala = (id: string) => vozes.get(id)!.length / TAXA;
   const agenda = agendarAoVivo(falas, duracaoFala);
   const fimFala = (a: { id: string; inicio: number; fim?: number }) => a.fim ?? a.inicio + duracaoFala(a.id);

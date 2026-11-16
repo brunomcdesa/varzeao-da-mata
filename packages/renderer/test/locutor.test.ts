@@ -50,4 +50,21 @@ describe('Locutor com Gemini', () => {
     await expect(locutor.falarTodas([{ texto: 'Bola rolando!', tom: 'normal' }])).rejects.toThrow('lite chamado');
     expect(modelos).toEqual(['gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts']);
   });
+
+  it('Ao Vivo: as falas novas vão em pedidos de até `porPedido` (ADR-0059)', async () => {
+    vi.stubEnv('GEMINI_API_KEY', 'chave-de-teste');
+    vi.stubEnv('GEMINI_TTS_RPM', '10000');
+    vi.stubEnv('LOCUTOR_RESERVA', 'mudo');
+    vi.stubEnv('LOCUTOR', '');
+    const corpos: string[] = [];
+    vi.stubGlobal('fetch', async (_: string, init: { body: string }) => {
+      corpos.push(init.body);
+      return new Response(JSON.stringify({ error: { message: 'limit: 100 requests per day on Tier 1. Please retry in 12h46m9s' } }), { status: 429 });
+    });
+    const locutor = criarLocutor(mkdtempSync(join(tmpdir(), 'locutor-')), 'gemini');
+    const falas = Array.from({ length: 45 }, (_, i) => ({ texto: `Lance ${i + 1} termina aqui.`, tom: 'normal' as const }));
+    await locutor.falarTodas(falas, undefined, 20);
+    expect(corpos[0]).toContain('Lance 20 termina');
+    expect(corpos[0]).not.toContain('Lance 21 termina');
+  });
 });

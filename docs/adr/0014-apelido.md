@@ -15,7 +15,7 @@ Motivo: pedido da torcida. Muita gente tem um @ difícil de ler e quer ser chama
 ## Onde vale
 
 - **Jogo:** o apelido entra na Escalação (`escalacao.apelido`) na hora de escalar. Jogos e replays antigos ficam com o nome da época. O boneco continua sendo desenhado pelo @, então trocar o apelido não muda o visual.
-- **Narração:** a regra do glossário continua: o narrador fala dos jogadores pela posição e pelo Time. A exceção são os gols ("Bruninho não perdoa!"), o Craque da Temporada, o artilheiro e a maior nota entre os candidatos. Apelido que não dá para ler em voz alta (só números ou símbolos) fica pela posição.
+- **Narração:** a regra do glossário continua: o narrador fala dos jogadores pela posição e pelo Time. A exceção são os gols ("Bruninho não perdoa!"), o Craque da Temporada, o artilheiro e a maior nota entre os candidatos. Apelido que não dá para ler em voz alta (só números ou símbolos) fica pela posição. A partir da T2, o apelido entra em toda fala de Jogador (ADR-0059).
 - **Legenda do Reels:** os autores dos gols aparecem como "Apelido (@conta)", e assim o post marca a pessoa.
 - **Site:** usa o apelido atual em todo lugar. A página da partida usa o apelido da época do jogo.
 
