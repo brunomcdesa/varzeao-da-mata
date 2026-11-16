@@ -1,6 +1,6 @@
 # T2 em dois Grupos de 8: Grupo do Chão e Grupo da Copa
 
-Status: decidido em 16/11/2026. Complementa o ADR-0063.
+Status: decidido em 16/11/2026. Complementa o ADR-0062.
 
 Com os 16 Times em turno único, a T2 duraria 17 dias. A T1 durou 9 (7 Rodadas, Semifinais e
 Final), e o ritmo de cerca de uma Temporada por semana mantém o interesse, as Janelas e os

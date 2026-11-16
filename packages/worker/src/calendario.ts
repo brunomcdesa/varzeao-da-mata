@@ -18,12 +18,12 @@ export const HORARIOS = [12, 14, 16, 18] as const;
 /** Com duas Séries (ADR-0050): a B joga antes, a A fecha o dia. */
 export const HORARIOS_COM_SERIES: Record<Serie, readonly number[]> = { B: [11, 12, 13, 14], A: [15, 16, 17, 18] };
 
-/** A Série A de 16 em Grupos (T2, ADR-0063 e ADR-0064): 8 jogos por Rodada, um por hora. */
+/** A Série A de 16 em Grupos (T2, ADR-0062 e ADR-0064): 8 jogos por Rodada, um por hora. */
 export const HORARIOS_DA_A_DE_16 = [11, 12, 13, 14, 15, 16, 17, 18] as const;
 
 /**
  * Horários da Fase de Liga de uma Série, um por jogo da Rodada. Sem Série B e com 8 jogos (a A de
- * 16, ADR-0063), um jogo por hora das 11h às 18h. Com mais jogos que horários, cada horário recebe
+ * 16, ADR-0062), um jogo por hora das 11h às 18h. Com mais jogos que horários, cada horário recebe
  * mais de um jogo ao mesmo tempo (ADR-0058).
  */
 export function horariosDaLiga(serie: Serie, comSeries: boolean, jogos = 4): readonly number[] {

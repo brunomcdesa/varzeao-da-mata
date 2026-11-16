@@ -180,7 +180,7 @@ describe('Inscrição e voto com duas Séries', () => {
     expect(j.time_id).toBe('JAC');
   }, 60_000);
 
-  it('na T2, Posição cheia no Time da A (2 GOL, 4 nas outras) manda para outro Time da A com vaga; sem vaga em nenhum, para o Time da A com menos gente na Posição (ADR-0063)', async () => {
+  it('na T2, Posição cheia no Time da A (2 GOL, 4 nas outras) manda para outro Time da A com vaga; sem vaga em nenhum, para o Time da A com menos gente na Posição (ADR-0062)', async () => {
     const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
     await jogarTemporada(t1);
     const t2 = await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-12-08', seed: 8 });
@@ -219,7 +219,7 @@ describe('Inscrição e voto com duas Séries', () => {
     // Atacante no Jacaré ainda tem vaga: entra na A.
     expect(await processarComentario(banco, comentario('ata_1', 'ata_1', 'ENTRO Jacaré atacante', '2026-12-01T12:12:00Z'), ctx)).toBe('INSCRITO');
     expect((await timeDe('ata_1')).time_id).toBe('JAC');
-    // Os Times guardados para a B não jogam a T2: o pedido espera (ADR-0063). "SERIEMA" é a
+    // Os Times guardados para a B não jogam a T2: o pedido espera (ADR-0062). "SERIEMA" é a
     // Seriema; "SER" sozinho continua sendo palavra de ligação.
     expect(await processarComentario(banco, comentario('qua_1', 'qua_1', 'ENTRO Quati meia', '2026-12-01T12:13:00Z'), ctx)).toBe('TIME_ESTREANTE');
     expect(await processarComentario(banco, comentario('ser_1', 'ser_1', 'quero ser goleiro da seriema', '2026-12-01T12:14:00Z'), ctx)).toBe('TIME_ESTREANTE');
@@ -228,7 +228,7 @@ describe('Inscrição e voto com duas Séries', () => {
   it('Candidatos por Série (A de 1 a 5, B de 6 a 10), um voto por @ em cada Série e um Craque em cada', async () => {
     const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
     await jogarTemporada(t1);
-    // Uma Temporada com as duas Séries de 8, como da T3 em diante (ADR-0063).
+    // Uma Temporada com as duas Séries de 8, como da T3 em diante (ADR-0062).
     const t2 = await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-18', seed: 8, series: { A: TIMES_FUNDADORES, B: TIMES_NOVOS } });
     const s = await seriesDaTemporada(banco, t2);
     let n = 0;

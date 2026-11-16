@@ -17,7 +17,7 @@ const pasta = resolve(process.cwd(), process.argv[2] ?? 'previa-resumo');
 const t2 = process.argv.includes('--t2');
 const soA = process.argv.includes('--so-a');
 const comSeries = !soA && (t2 || process.argv.includes('--series'));
-// Na T2 (ADR-0058): A com os 16 e B com os 8 Times novos. Com --so-a (ADR-0063), só a A de 16.
+// Na T2 (ADR-0058): A com os 16 e B com os 8 Times novos. Com --so-a (ADR-0062), só a A de 16.
 const TIMES_FUNDADORES = t2 || soA ? [...FUNDADORES, ...NOVOS] : FUNDADORES;
 const TIMES_NOVOS = t2 ? TIMES_DA_SERIE_B : NOVOS;
 

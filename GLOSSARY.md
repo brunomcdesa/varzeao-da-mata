@@ -213,7 +213,7 @@ A voz que narra a Partida, no Reels e no Ao Vivo: uma de cinco, sorteada pela se
 _Avoid_: Locutor da Liga, locutor, comentarista, voz
 
 **Série**:
-Cada uma das duas divisões da Liga: a Série A, de cima, e a Série B. A T2 tem só a Série A, com 16 Times em dois Grupos; da T3 em diante, cada Série tem 8 (ADR-0063 e ADR-0064). Cada Série tem a sua Fase de Liga, o seu Mata-mata, o seu Título e os seus Craques.
+Cada uma das duas divisões da Liga: a Série A, de cima, e a Série B. A T2 tem só a Série A, com 16 Times em dois Grupos; da T3 em diante, cada Série tem 8 (ADR-0062 e ADR-0064). Cada Série tem a sua Fase de Liga, o seu Mata-mata, o seu Título e os seus Craques.
 _Avoid_: divisão, grupo, chave
 
 **Grupo**:
@@ -225,7 +225,7 @@ A subida de um Time da Série B para a Série A no fim da Temporada. Ganham o Ac
 _Avoid_: promoção, subida
 
 **Rebaixamento**:
-A descida de um Time da Série A para a Série B no fim da Temporada. Os Jogadores descem com o Time. No fim da T2, caem os quatro últimos de cada Grupo e formam a Série B da T3; da T3 em diante, caem os dois últimos (ADR-0063 e ADR-0064).
+A descida de um Time da Série A para a Série B no fim da Temporada. Os Jogadores descem com o Time. No fim da T2, caem os quatro últimos de cada Grupo e formam a Série B da T3; da T3 em diante, caem os dois últimos (ADR-0062 e ADR-0064).
 _Avoid_: descenso, queda, degola
 
 **Capitão**:
@@ -301,7 +301,7 @@ A redistribuição dos Elencos quando a T2 nasce, para que todos os inscritos jo
 _Avoid_: rebaixamento, corte, remoção
 
 **Time Primo**:
-O Time que forma par fixo com outro. No Rebalanceamento, cada fundador tem como Primo um dos Times que chegaram na T2 (exemplo: Onça → Jacaré). Os pares com os Times guardados para a Série B (exemplo: Jacaré → Teiú) não valem enquanto esses Times não jogarem (ADR-0058 e ADR-0063).
+O Time que forma par fixo com outro. No Rebalanceamento, cada fundador tem como Primo um dos Times que chegaram na T2 (exemplo: Onça → Jacaré). Os pares com os Times guardados para a Série B (exemplo: Jacaré → Teiú) não valem enquanto esses Times não jogarem (ADR-0058 e ADR-0062).
 _Avoid_: time irmão, time filial
 
 **Fundador**:

@@ -5,7 +5,7 @@
  * Acesso e o Rebaixamento. Uma Temporada sem essas linhas (a Temporada 1) tem uma Série só,
  * a A, com os 8 Times fundadores. A T2 tem só a A, com 16 Times em dois Grupos de 8 (coluna
  * `grupo`); no fim dela, os 4 últimos de cada Grupo caem e formam a B da T3, que tem 8 Times em
- * cada Série (ADR-0063 e ADR-0064).
+ * cada Série (ADR-0062 e ADR-0064).
  */
 import { CAEM_POR_GRUPO, GRUPOS, GRUPOS_DA_A_DE_16, SERIES, sqlRodadaDaFinal, TIMES_FUNDADORES, TIMES_NOVOS, TIMES_POR_SERIE, TIMES_QUE_TROCAM_DE_SERIE, type Grupo, type Serie, type TimeId } from '@liga/shared';
 import type { ResultadoPartida } from '@liga/sim';
@@ -16,7 +16,7 @@ export type GruposDaTemporada = Readonly<Record<Grupo, readonly TimeId[]>>;
 
 /**
  * A Rodada da Final em SQL, para uma Rodada `r` (alias): 2 depois da última Rodada da Fase de
- * Liga da mesma Temporada (3 com 14 Rodadas, ADR-0063).
+ * Liga da mesma Temporada (3 com 14 Rodadas, ADR-0062).
  */
 export const SQL_RODADA_DA_FINAL = (r = 'r') =>
   `(SELECT ${sqlRodadaDaFinal('max(x.numero)')} FROM rodada x WHERE x.temporada_id = ${r}.temporada_id AND x.fase = 'LIGA')`;
@@ -111,7 +111,7 @@ export async function gravarSeries(banco: Banco, temporadaId: number, s: SeriesD
 }
 
 /**
- * As Séries da Temporada seguinte à `anteriorId` (ADR-0017, ADR-0058 e ADR-0063):
+ * As Séries da Temporada seguinte à `anteriorId` (ADR-0017, ADR-0058 e ADR-0062):
  * - depois da Temporada 1 (8 Times, uma Série só), ninguém desce: os fundadores e os 8 Times
  *   que chegam formam a Série A de 16, sem Série B;
  * - depois de uma Temporada com a A de 16 em Grupos (a T2, ADR-0064), os 4 últimos de cada

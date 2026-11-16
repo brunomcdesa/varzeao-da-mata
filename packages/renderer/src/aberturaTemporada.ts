@@ -1,7 +1,7 @@
 /**
  * Reels de Abertura de uma Temporada nova (a partir da T2): anuncia as Séries, o Acesso e o
  * Rebaixamento, avisa que as novidades saem em Reels próprios e chama para a Inscrição. Na T2
- * (ADR-0063) só há a Série A de 16: o Reels conta que os 8 piores caem e formam a Série B da T3.
+ * (ADR-0062) só há a Série A de 16: o Reels conta que os 8 piores caem e formam a Série B da T3.
  * Mesmo estilo e mesmos ajudantes do Reels de apresentação da Liga (apresentacao.ts).
  */
 import { FALA_DO_TIME, GRUPOS_DA_A_DE_16, IDENTIDADE, NOME_DO_GRUPO, TIMES_FUNDADORES, TIMES_NOVOS, type Estrelas, type Posicao, type TimeId } from '@liga/shared';
@@ -31,7 +31,7 @@ export interface DadosDaAberturaDaTemporada {
   chegamNaA: readonly TimeId[];
   serieB: readonly TimeId[];
   /**
-   * Quantos Times da A caem no fim da Temporada quando ela só tem a Série A de 16 (T2, ADR-0063):
+   * Quantos Times da A caem no fim da Temporada quando ela só tem a Série A de 16 (T2, ADR-0062):
    * os 8 piores formam a Série B da Temporada seguinte. 0 quando a Temporada já tem Série B.
    */
   caem: number;
@@ -49,7 +49,7 @@ export interface DadosDaAberturaDaTemporada {
 
 export const DADOS_DA_ABERTURA_T2: Omit<DadosDaAberturaDaTemporada, 'estreia'> = {
   temporada: 2,
-  // T2 só com a Série A de 16, em dois Grupos de 8 (ADR-0063 e ADR-0064): um jogo por hora, das
+  // T2 só com a Série A de 16, em dois Grupos de 8 (ADR-0062 e ADR-0064): um jogo por hora, das
   // 11h às 18h, 7 Rodadas.
   horarios: { B: [], A: [11, 12, 13, 14, 15, 16, 17, 18] },
   jogosPorHorarioDaA: 1,
@@ -186,7 +186,7 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
   const d = roteiro.dados;
   const t = q.tempo;
   const passo = Math.floor(tVideo * 4);
-  // T2 só com a Série A de 16 (ADR-0063).
+  // T2 só com a Série A de 16 (ADR-0062).
   const soA = d.serieB.length === 0;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(cenario(), 0, 0, COLUNAS * pin.px, LINHAS * pin.px);
@@ -289,7 +289,7 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
         pin.ctx.globalAlpha = 1;
       }
       if (soA) {
-        // Sem Série B nesta Temporada: ela nasce na próxima, com quem cair (ADR-0063).
+        // Sem Série B nesta Temporada: ela nasce na próxima, com quem cair (ADR-0062).
         surge(entre(t, 4.0, 4.4), () => {
           pin.tabua(12, 250, 246, 150);
           pin.texto('E a Série B?', COLUNAS / 2, 274, 20, display, COR.amarelo, { contorno: COR.contorno });

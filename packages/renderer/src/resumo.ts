@@ -21,7 +21,7 @@ export interface DadosDoResumo {
   placares: { mandante: TimeId; visitante: TimeId; golsMandante: number; golsVisitante: number; penaltis: { mandante: number; visitante: number } | null; hora: number; serie?: Serie }[];
   /** Tabela da Série A (ou da Liga inteira, antes das Séries). */
   tabela: { time: TimeId; jogos: number; pontos: number; vitorias: number; saldo: number }[];
-  /** Quantos Times da Série A caem no fim da Temporada (2 com Série B; 8 na T2, só com a A de 16, ADR-0063). */
+  /** Quantos Times da Série A caem no fim da Temporada (2 com Série B; 8 na T2, só com a A de 16, ADR-0062). */
   caem?: number;
   /** Com Grupos (T2, ADR-0064): a tabela de cada Grupo; os 2 primeiros vão às Semifinais e os `caem` últimos caem. */
   grupos?: { grupo: Grupo; tabela: { time: TimeId; jogos: number; pontos: number; vitorias: number; saldo: number }[] }[];

@@ -1,6 +1,6 @@
 # T2: ninguém da Série A desce na estreia das Séries
 
-Status: decidido em 14/11/2026 e 16/11/2026. As Séries da T2 (B com 8 Times novos) foram substituídas pelo ADR-0063; o Rebalanceamento dentro da A continua valendo.
+Status: decidido em 14/11/2026 e 16/11/2026. As Séries da T2 (B com 8 Times novos) foram substituídas pelo ADR-0062; o Rebalanceamento dentro da A continua valendo.
 
 Substitui, para a T2, o Rebalanceamento do ADR-0036 (quem sobrava num Time da A ia para o Time
 Primo da B). Descer para a B logo na estreia soava como punição para quem jogou a T1.

@@ -19,7 +19,7 @@ export const TIMES_FUNDADORES: readonly TimeId[] = ['CAP', 'ONC', 'TAT', 'TAM', 
 /** Os Times que chegaram na T2 direto na Série A, ao lado dos fundadores (ADR-0058). */
 export const TIMES_NOVOS: readonly TimeId[] = ['JAC', 'SUC', 'LOB', 'CDM', 'BOT', 'PIR', 'COR', 'MOR'];
 /**
- * Times criados para uma Série B futura (ADR-0058). Guardados (ADR-0063): a T2 tem só a Série A,
+ * Times criados para uma Série B futura (ADR-0058). Guardados (ADR-0062): a T2 tem só a Série A,
  * e a B da T3 é formada pelos 8 Times que caem no fim da T2.
  */
 export const TIMES_DA_SERIE_B: readonly TimeId[] = ['QUA', 'GAM', 'JAB', 'TEI', 'ARI', 'ANT', 'SER', 'BUG'];
@@ -27,7 +27,7 @@ export const TIMES_DA_SERIE_B: readonly TimeId[] = ['QUA', 'GAM', 'JAB', 'TEI', 
 /** As duas Séries da Liga (GLOSSARY: Série). */
 export const SERIES = ['A', 'B'] as const;
 export type Serie = (typeof SERIES)[number];
-/** Times em cada Série a partir da T3 (ADR-0063 e ADR-0064): 8 na A e 8 na B, em turno único. */
+/** Times em cada Série a partir da T3 (ADR-0062 e ADR-0064): 8 na A e 8 na B, em turno único. */
 export const TIMES_POR_SERIE: Readonly<Record<Serie, number>> = { A: 8, B: 8 };
 /** Quantos Times descem da A e sobem da B a cada Temporada (ADR-0017), da T3 em diante. */
 export const TIMES_QUE_TROCAM_DE_SERIE = 2;
