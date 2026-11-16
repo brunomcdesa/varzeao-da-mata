@@ -900,7 +900,8 @@ function planoCobranca(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: R
 
   // O cobrador fica do lado da bola oposto ao gol: abaixo dela quando o gol atacado está no
   // alto da tela e acima quando está embaixo (P cresce para longe do gol: alvo - dir * prof).
-  const atras = { x: ponto.x - lado * 0.01, y: ponto.y - dir * 0.035 };
+  // Longe o bastante para o boneco não esconder a bola enquanto toma distância.
+  const atras = { x: ponto.x - lado * 0.01, y: ponto.y - dir * 0.06 };
   const linhaDoChute = (p: Ponto) => ({ x: p.x, y: p.y - dir * 0.014 });
   if (lance.bolaParada === 'FALTA_CURTA') {
     // Toque curto para o lado e chute de longe.
@@ -928,7 +929,8 @@ function planoCobranca(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: R
     // Barreira: os defensores em fila entre a bola e o gol; pulam na hora do chute.
     (lance.barreira ?? []).forEach((b, i, todos) => {
       const meio = (todos.length - 1) / 2;
-      const lugar = { x: lerp(ponto.x, 0.5, 0.35) + (i - meio) * 0.03, y: ponto.y - dir * 0.075 };
+      // Do lado do gol: o gol atacado fica no sentido `dir` a partir da bola.
+      const lugar = { x: lerp(ponto.x, 0.5, 0.35) + (i - meio) * 0.03, y: ponto.y + dir * 0.075 };
       ator(b, [[0, null], [ida, null], [pronto, lugar], [0.7, lugar], [volta, lugar], [1, null]]);
       acao(b, 0.6, 0.66, 'CABECEIO');
     });

@@ -113,7 +113,13 @@ export function dadosDasNovidades(reels: ReelsDeNovidades, o: { estreia: string;
     guardar('FALTA_CARTAO', procurar(padrao, (l) => l.tipo === 'FALTA' && l.falta?.cartao === 'AMARELO' && l.falta.local === 'LONGE'), (tl, i) =>
       trechoDoLance(tl, i, 30, 38, (r) => [{ tipo: 'APITO_FALTA', t: r }]),
     );
-    guardar('BARREIRA', procurar(padrao, (l) => l.bolaParada === 'FALTA_DIRETA' && (l.barreira?.length ?? 0) >= 2), (tl, i) => trechoDoLance(tl, i, 40, 20, (r) => [{ tipo: 'CHUTE', t: r - 4 }]));
+    // Chute por cima da Barreira que vai ao gol (gol ou defesa): desde a Barreira formada
+    // (25% da jogada) até depois da resolução, com o chute (60%) no meio do trecho.
+    guardar('BARREIRA', procurar(padrao, (l) => l.bolaParada === 'FALTA_DIRETA' && (l.barreira?.length ?? 0) >= 2 && (l.tipo === 'GOL' || l.tipo === 'DEFESA')), (tl, i) => {
+      const j = tl.janelas[i]!;
+      const chute = j.inicio + (j.fim - j.inicio) * 0.6;
+      return { de: j.inicio + (j.fim - j.inicio) * 0.25, chave: chute, ate: j.resolucao + (j.lance.tipo === 'GOL' ? 30 : 15), sons: [{ tipo: 'CHUTE', t: chute }, ...(j.lance.tipo === 'GOL' ? gol(j.resolucao) : [{ tipo: 'QUASE' as const, t: j.resolucao }])] };
+    });
     guardar('ESCANTEIO', procurar(padrao, (l) => l.bolaParada === 'ESCANTEIO' && (l.tipo === 'GOL' || l.tipo === 'DEFESA')), (tl, i) =>
       trechoDoLance(tl, i, 45, 20, (r) => (tl.janelas[i]!.lance.tipo === 'GOL' ? gol(r) : [{ tipo: 'QUASE', t: r }])),
     );

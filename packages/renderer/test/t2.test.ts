@@ -108,4 +108,23 @@ describe('Temporada 2 no renderer', () => {
       }
     }
   });
+
+  it('a Barreira fica entre a bola e o gol, e o chute bloqueado vai na direção do gol (nos dois sentidos)', () => {
+    for (const lado of ['mandante', 'visitante'] as const) {
+      const comBarreira = (l: { bolaParada?: string; ataque: string; barreira?: unknown[] }) => l.bolaParada === 'FALTA_DIRETA' && l.ataque === lado && (l.barreira?.length ?? 0) > 0;
+      const { resultado, timeline } = partidaCom((p) => p.resultado.lances.some(comBarreira));
+      const i = resultado.lances.findIndex(comBarreira);
+      const l = resultado.lances[i]!;
+      const j = timeline.janelas[i]!;
+      const gol = lado === 'mandante' ? 0.02 : 0.98;
+      const e = timeline.estado(j.inicio + (j.fim - j.inicio) * 0.5);
+      for (const b of l.barreira!) {
+        const p = e.jogadores.find((x) => x.slot.lado === b.lado && x.slot.indice === b.indice)!;
+        expect(Math.abs(p.pos.y - gol), `${lado}: barreira mais perto do gol que a bola`).toBeLessThan(Math.abs(e.bola.y - gol));
+      }
+      // Logo depois do chute, a bola chega mais perto do gol (por cima ou na Barreira).
+      const depois = timeline.estado(j.inicio + (j.fim - j.inicio) * 0.66);
+      expect(Math.abs(depois.bola.y - gol)).toBeLessThan(Math.abs(e.bola.y - gol));
+    }
+  });
 });
