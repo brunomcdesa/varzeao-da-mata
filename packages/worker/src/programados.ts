@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, PISO_DA_TEMPORADA_1, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, REELS_PROGRAMADOS, RODADAS_DO_BONUS_T1, TIMES_DA_SERIE_B, TIMES_NOVOS, programadosDaVez, type ReelsProgramado, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, PISO_DA_TEMPORADA_1, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, REELS_PROGRAMADOS, RODADAS_DO_BONUS_T1, TIMES_NOVOS, programadosDaVez, type ReelsProgramado, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
 import type { Instagram } from './instagram.js';
@@ -56,17 +56,15 @@ export function legendaDaAbertura(temporada: number, estreia: string): string {
   return [
     `⚽ Vem aí a Temporada ${temporada} do Varzeão da Mata!`,
     '',
-    `Agora são 24 times em duas séries. A Série A cresce para 16, com a chegada de ${lista(TIMES_NOVOS)}.`,
-    `E estreia a Série B, com ${lista(TIMES_DA_SERIE_B)}.`,
-    'Ninguém que jogou a Temporada 1 cai: todo mundo segue na Série A.',
-    'Quem entra agora vai para a Série A (até 2 goleiros e 4 em cada posição por time). Posição cheia no time pedido, vai para outro time da A; só sem vaga em nenhum, começa na B.',
-    'No fim da temporada, os 2 últimos da A caem e os 2 finalistas da B sobem.',
+    `A Série A cresce para 16 times: os 8 da Temporada ${temporada - 1} e mais ${lista(TIMES_NOVOS)}.`,
+    `Todo mundo começa na Série A. No fim da temporada, os 8 piores caem e formam a Série B, que estreia na Temporada ${temporada + 1}. Depois, 2 sobem e 2 descem.`,
+    'Quem entra agora escolhe o time (até 2 goleiros e 4 em cada posição por time). Posição cheia, vai para outro time na mesma posição.',
     '',
     'Pra jogar, comente:',
     '👉 ENTRO + TIME + POSIÇÃO',
     'Ex.: ENTRO JACARÉ ATACANTE',
     '',
-    `🏁 Estreia ${dia}, ${data}. Série B das 11h às 14h, um jogo por hora; Série A das 15h às 18h, dois jogos por horário.`,
+    `🏁 Estreia ${dia}, ${data}. 8 jogos por dia, um por hora, das 11h às 18h.`,
     'Amanhã sai um Reels pra cada novidade. Tabela e jogadores no link da bio.',
     '',
     '#futebol #varzea #jogo #liga',

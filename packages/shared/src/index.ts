@@ -18,16 +18,33 @@ export type TimeId = (typeof TIMES)[number];
 export const TIMES_FUNDADORES: readonly TimeId[] = ['CAP', 'ONC', 'TAT', 'TAM', 'PRE', 'SAG', 'TUC', 'ARA'];
 /** Os Times que chegaram na T2 direto na Série A, ao lado dos fundadores (ADR-0058). */
 export const TIMES_NOVOS: readonly TimeId[] = ['JAC', 'SUC', 'LOB', 'CDM', 'BOT', 'PIR', 'COR', 'MOR'];
-/** Os Times que estrearam a Série B na T2 (ADR-0058). */
+/**
+ * Times criados para uma Série B futura (ADR-0058). Guardados (ADR-0062): a T2 tem só a Série A,
+ * e a B da T3 é formada pelos 8 Times que caem no fim da T2.
+ */
 export const TIMES_DA_SERIE_B: readonly TimeId[] = ['QUA', 'GAM', 'JAB', 'TEI', 'ARI', 'ANT', 'SER', 'BUG'];
 
 /** As duas Séries da Liga (GLOSSARY: Série). */
 export const SERIES = ['A', 'B'] as const;
 export type Serie = (typeof SERIES)[number];
-/** Times em cada Série a partir da T2 (ADR-0058): 16 na A e 8 na B. */
-export const TIMES_POR_SERIE: Readonly<Record<Serie, number>> = { A: 16, B: 8 };
-/** Quantos Times descem da A e sobem da B a cada Temporada (ADR-0017). */
+/** Times em cada Série a partir da T3 (ADR-0062): 8 na A e 8 na B. */
+export const TIMES_POR_SERIE: Readonly<Record<Serie, number>> = { A: 8, B: 8 };
+/** Quantos Times descem da A e sobem da B a cada Temporada (ADR-0017), da T3 em diante. */
 export const TIMES_QUE_TROCAM_DE_SERIE = 2;
+/**
+ * Quantos Times caem no fim de uma Temporada só com a Série A de 16 (a T2, ADR-0062): os 8
+ * piores da Fase de Liga formam a Série B da Temporada seguinte.
+ */
+export const TIMES_QUE_CAEM_NA_A_DE_16 = 8;
+
+/**
+ * Quantos Times da Série A caem no fim da Temporada: 2 com Série B, 8 com a A de 16 sem B (T2),
+ * nenhum com uma Série só de 8 (T1). (ADR-0017 e ADR-0062.)
+ */
+export function timesQueCaem(timesNaA: number, temSerieB: boolean): number {
+  if (temSerieB) return TIMES_QUE_TROCAM_DE_SERIE;
+  return timesNaA > TIMES_POR_SERIE.A ? TIMES_QUE_CAEM_NA_A_DE_16 : 0;
+}
 
 /**
  * Candidatos a Craque por Série. Por dentro, o número do Candidato é único na Rodada: A de 1

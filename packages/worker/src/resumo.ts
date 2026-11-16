@@ -2,7 +2,7 @@
  * Job `resumo` (18h10): fecha a Rodada com os Candidatos a Craque e junta o que o Reels
  * do Resumo da Rodada mostra: placares, tabela, Novos Contratados e Candidatos.
  */
-import { CANDIDATOS_POR_SERIE, SERIES, etapaDa, numeroDoCandidato, rotuloDoCandidato, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { CANDIDATOS_POR_SERIE, SERIES, etapaDa, numeroDoCandidato, rotuloDoCandidato, timesQueCaem, type Posicao, type Serie, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA } from './calendario.js';
 import type { DadosDoResumo } from '@liga/renderer';
@@ -160,6 +160,8 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
           )
         ).rows.map((p) => ({ mandante: p.mandante_id, visitante: p.visitante_id, hora: horaBrasilia(new Date(p.apito_inicial)), ...(comSeries ? { serie: p.serie } : {}) }))
       : [];
+  const tabelaA = await tabela(banco, r.temporada_id, 'A');
+  const caem = timesQueCaem(tabelaA.length, comSeries);
   // Seleção da Rodada (ADR-0041), a partir da T2.
   const destaques = await destaquesDaRodadaNoBanco(banco, rodadaId, r.temporada, comSeries);
   return {
@@ -171,7 +173,8 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
     rodada: r.numero,
     fase: r.fase,
     placares,
-    tabela: await tabela(banco, r.temporada_id, 'A'),
+    tabela: tabelaA,
+    ...(caem ? { caem } : {}),
     ...(comSeries ? { tabelaB: await tabela(banco, r.temporada_id, 'B') } : {}),
     novosContratados: novos.slice(0, max).map((n) => ({ username: n.username, time: n.time_id, posicao: n.posicao })),
     totalNovos: novos.length,

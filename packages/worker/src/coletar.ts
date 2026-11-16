@@ -213,8 +213,8 @@ export async function faixaDoOvrInicial(b: Banco): Promise<FaixaDoOvr> {
 
 /**
  * Limite por Posição de cada Time: o dobro das vagas da Escalação (2 goleiros e 4 em cada
- * Posição de linha). Da T2 em diante (ADR-0058), o novato entra na Série A enquanto a Posição
- * dele no Time pedido tem vaga; cheia, ele começa na Série B, no Time Primo.
+ * Posição de linha). Na T2 (Série A de 16, sem B, ADR-0062), o novato entra no Time pedido
+ * enquanto a Posição dele tem vaga; cheia, vai para o Time da A com menos gente nela.
  */
 export const LIMITE_POR_POSICAO: Readonly<Record<Posicao, number>> = Object.fromEntries(
   (['GOL', 'ZAG', 'MEI', 'ATA'] as const).map((p) => [p, 2 * FORMACAO.filter((x) => x === p).length]),
@@ -224,8 +224,8 @@ export const LIMITE_POR_POSICAO: Readonly<Record<Posicao, number>> = Object.from
 /**
  * O Time onde o novato entra. Sem Séries (T1): o pedido, ou o Time mais vazio se o pedido passou
  * do equilíbrio de Elencos. Com a A de 16 Times (ADR-0058): o Time pedido, se tem vaga na
- * Posição; senão, outro Time da A com vaga nela; sem vaga em nenhum, o Time Primo na B. Na B
- * vale o equilíbrio entre os Times da B.
+ * Posição; senão, outro Time da A com vaga nela; sem vaga em nenhum, o Time Primo na B (ou, sem
+ * Série B, o Time da A com menos gente na Posição). Na B vale o equilíbrio entre os Times da B.
  */
 function destinoDoNovato(
   pedido: TimeId,
@@ -241,7 +241,8 @@ function destinoDoNovato(
     const vazios = times.filter((t) => (contagem.get(t) ?? 0) === menor);
     return vazios[desempate % vazios.length]!;
   };
-  const comAGrande = series.B.length > 0 && series.A.length > TIMES_POR_SERIE.B;
+  // A Série A de 16 (T2, ADR-0058 e ADR-0062): Limite por Posição entre os Times da A.
+  const comAGrande = series.A.length > TIMES_POR_SERIE.A;
   if (comAGrande && series.A.includes(pedido) && naPosicaoDaA) {
     const na = (t: TimeId) => naPosicaoDaA.get(t) ?? 0;
     if (na(pedido) < limite) return { time: pedido, motivo: 'PEDIDO' };
@@ -254,6 +255,12 @@ function destinoDoNovato(
       const elenco = Math.min(...menores.map((t) => contagem.get(t) ?? 0));
       const empatados = menores.filter((t) => (contagem.get(t) ?? 0) === elenco);
       return { time: empatados[desempate % empatados.length]!, motivo: 'OUTRO_DA_A' };
+    }
+    // Sem Série B (T2, ADR-0062): o Time da A com menos gente na Posição.
+    if (!series.B.length) {
+      const menor = Math.min(...series.A.map(na));
+      const menores = series.A.filter((t) => na(t) === menor);
+      return { time: menores[desempate % menores.length]!, motivo: 'OUTRO_DA_A' };
     }
     const primo = PRIMO_NA_B[pedido];
     return { time: maisVazio(series.B, primo && series.B.includes(primo) ? primo : undefined), motivo: 'SERIE_B' };

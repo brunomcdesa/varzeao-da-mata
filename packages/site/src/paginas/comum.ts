@@ -33,8 +33,10 @@ export function linhaDePartida(p: PartidaNoCalendario, o: { comDia?: boolean; de
  * Tabela da Fase de Liga. `serie`: com Série B, a A marca os 2 últimos (Rebaixamento) e a
  * legenda diz a regra de cada Série (ADR-0017).
  */
-export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compacta?: boolean; destaque?: string; semLegenda?: boolean; serie?: Serie; forma?: Map<TimeId, ('V' | 'E' | 'D')[]> } = {}): Html {
-  const caem = o.serie === 'A' ? linhas.length - TIMES_QUE_TROCAM_DE_SERIE : Infinity;
+export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compacta?: boolean; destaque?: string; semLegenda?: boolean; serie?: Serie; caem?: number; forma?: Map<TimeId, ('V' | 'E' | 'D')[]> } = {}): Html {
+  // Zona de queda: os 2 últimos da A com Série B (ADR-0017); na T2, os 8 últimos (ADR-0062).
+  const nCaem = o.serie === 'B' ? 0 : (o.caem ?? (o.serie === 'A' ? TIMES_QUE_TROCAM_DE_SERIE : 0));
+  const caem = nCaem ? linhas.length - nCaem : Infinity;
   return html`<table class="classificacao ${o.compacta ? 'compacta' : ''}">
     <thead><tr>
       <th scope="col" class="pos"><span class="sr">Posição</span></th>
@@ -60,7 +62,7 @@ export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compact
   ${o.semLegenda
     ? ''
     : html`<p class="legenda">Os 4 primeiros vão para o Mata-mata (1º × 4º e 2º × 3º); empate no Mata-mata vai para os pênaltis.${
-        o.serie === 'A' ? ' Os 2 últimos caem para a Série B.' : o.serie === 'B' ? ' Os 2 finalistas do Mata-mata sobem para a Série A.' : ''
+        o.serie === 'B' ? ' Os 2 finalistas do Mata-mata sobem para a Série A.' : nCaem ? ` Os ${nCaem} últimos caem para a Série B${o.serie ? '' : ', que começa na próxima temporada'}.` : ''
       } Desempate na tabela: vitórias, saldo e gols pró.</p>`}`;
 }
 

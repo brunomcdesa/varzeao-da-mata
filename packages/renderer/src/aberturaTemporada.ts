@@ -1,9 +1,10 @@
 /**
  * Reels de Abertura de uma Temporada nova (a partir da T2): anuncia as Séries, o Acesso e o
- * Rebaixamento, avisa que as novidades saem em Reels próprios e chama para a Inscrição.
+ * Rebaixamento, avisa que as novidades saem em Reels próprios e chama para a Inscrição. Na T2
+ * (ADR-0062) só há a Série A de 16: o Reels conta que os 8 piores caem e formam a Série B da T3.
  * Mesmo estilo e mesmos ajudantes do Reels de apresentação da Liga (apresentacao.ts).
  */
-import { FALA_DO_TIME, IDENTIDADE, TIMES_DA_SERIE_B, TIMES_FUNDADORES, TIMES_NOVOS, type Estrelas, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, TIMES_FUNDADORES, TIMES_NOVOS, type Estrelas, type Posicao, type TimeId } from '@liga/shared';
 import { boneco, dataDa, entre, horaFalada, lista, NUMERO_FALADO, POSICAO_ESCRITA, POSICAO_FALADA, uniforme } from './apresentacao.js';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, plaquinha } from './desenho.js';
@@ -29,7 +30,12 @@ export interface DadosDaAberturaDaTemporada {
   /** Os Times da A que chegam nesta Temporada (ADR-0058). */
   chegamNaA: readonly TimeId[];
   serieB: readonly TimeId[];
-  /** Limite por Posição de cada Time da A (o dobro das vagas): cheia, o novato começa na B (ADR-0058). */
+  /**
+   * Quantos Times da A caem no fim da Temporada quando ela só tem a Série A de 16 (T2, ADR-0062):
+   * os 8 piores formam a Série B da Temporada seguinte. 0 quando a Temporada já tem Série B.
+   */
+  caem: number;
+  /** Limite por Posição de cada Time da A (o dobro das vagas): cheia, o novato vai para outro Time. */
   limiteNaA: { goleiros: number; porPosicao: number };
   /** Hora (no mesmo dia do post) do Reels que conta quem vai para a Série B; null se não houver. */
   horaDoRebalanceamento: number | null;
@@ -38,13 +44,15 @@ export interface DadosDaAberturaDaTemporada {
 
 export const DADOS_DA_ABERTURA_T2: Omit<DadosDaAberturaDaTemporada, 'estreia'> = {
   temporada: 2,
-  horarios: { B: [11, 12, 13, 14], A: [15, 16, 17, 18] },
-  jogosPorHorarioDaA: 2,
-  rodadas: { A: 15, B: 14 },
+  // T2 só com a Série A de 16 (ADR-0062): um jogo por hora, das 11h às 18h.
+  horarios: { B: [], A: [11, 12, 13, 14, 15, 16, 17, 18] },
+  jogosPorHorarioDaA: 1,
+  rodadas: { A: 15, B: 0 },
   horaDoResumo: 19,
   serieA: [...TIMES_FUNDADORES, ...TIMES_NOVOS],
   chegamNaA: TIMES_NOVOS,
-  serieB: TIMES_DA_SERIE_B,
+  serieB: [],
+  caem: 8,
   limiteNaA: { goleiros: 2, porPosicao: 4 },
   // O Rebalanceamento sai antes da Abertura, junto com o Agradecimento: sem aviso aqui.
   horaDoRebalanceamento: null,
@@ -109,8 +117,20 @@ export function narracaoDaAbertura(roteiro: RoteiroAberturaDaTemporada): Fala[] 
   const { dia, semana } = dataDa(d);
   const ex = d.exemplo;
   const n = d.temporada;
+  const soA = d.serieB.length === 0;
+  const limite = `${NUMERO_FALADO[d.limiteNaA.goleiros] ?? d.limiteNaA.goleiros} goleiros e ${NUMERO_FALADO[d.limiteNaA.porPosicao] ?? d.limiteNaA.porPosicao} jogadores em cada posição`;
   return roteiro.segmentos.map((s, i): Fala => {
-    const texto: Record<CartelaAbertura, string> = {
+    const texto: Record<CartelaAbertura, string> = soA
+      ? {
+          ABERTURA: `Acabou a Temporada ${n - 1}. E já vem aí a Temporada ${n} do Varzeão da Mata!`,
+          SERIES: `A Série A cresce para ${NUMERO_FALADO[d.serieA.length] ?? d.serieA.length} times: os oito da Temporada ${n - 1}, e mais oito que chegam: ${lista(d.chegamNaA.map(curto))}.`,
+          ACESSO: `Todo mundo começa na Série A. Mas no fim desta temporada, os ${NUMERO_FALADO[d.caem] ?? d.caem} piores caem e formam a Série B, que estreia na Temporada ${n + 1}. Daí em diante, dois sobem e dois descem.`,
+          NOVIDADES: 'E tem muita novidade: dentro de campo, pro capitão, pro seu jogador e no site. Amanhã sai um Reels explicando cada uma.',
+          ENTRAR: `Quer jogar? Comenta ENTRO, o time e a posição. Tipo: ENTRO ${curto(ex.time)} ${POSICAO_FALADA[ex.posicao]}. Cada time recebe até ${limite}. Posição cheia, você vai para outro time. E quem já joga continua com o seu jogador.`,
+          AGENDA: `A estreia é ${semana === 'sábado' || semana === 'domingo' ? 'no' : 'na'} ${semana}, dia ${NUMERO_FALADO[dia] ?? dia}. São oito jogos por dia, um por hora, ${faixa(d.horarios.A)}.`,
+          CHAMADA: `As inscrições estão abertas. Comenta aí e garante a sua vaga na Temporada ${n}!`,
+        }
+      : {
       ABERTURA: `Acabou a Temporada ${n - 1}. E já vem aí a Temporada ${n} do Varzeão da Mata!`,
       SERIES: `Agora são ${NUMERO_FALADO[d.serieA.length + d.serieB.length] ?? d.serieA.length + d.serieB.length} times, em duas séries. A Série A cresce: os oito times da Temporada ${n - 1}, e mais oito que chegam: ${lista(d.chegamNaA.map(curto))}. E estreia a Série B, com ${lista(d.serieB.map(curto))}.`,
       ACESSO: `Ninguém que jogou a Temporada ${n - 1} cai: todo mundo segue na Série A. No fim desta temporada, os dois últimos da Série A caem, e os dois finalistas da Série B sobem.`,
@@ -120,7 +140,7 @@ export function narracaoDaAbertura(roteiro: RoteiroAberturaDaTemporada): Fala[] 
       ENTRAR: `Quer jogar? Comenta ENTRO, o time e a posição. Tipo: ENTRO ${curto(ex.time)} ${POSICAO_FALADA[ex.posicao]}. Cada time da Série A recebe até ${NUMERO_FALADO[d.limiteNaA.goleiros] ?? d.limiteNaA.goleiros} goleiros e ${NUMERO_FALADO[d.limiteNaA.porPosicao] ?? d.limiteNaA.porPosicao} jogadores em cada posição. Posição cheia, você vai para outro time da Série A. Só se não tiver vaga em nenhum, você começa na Série B. E quem já joga continua com o seu jogador.`,
       AGENDA: `A estreia é ${semana === 'sábado' || semana === 'domingo' ? 'no' : 'na'} ${semana}, dia ${NUMERO_FALADO[dia] ?? dia}. A Série B joga ${faixa(d.horarios.B)}, um jogo por hora. E a Série A, ${faixa(d.horarios.A)}, com ${NUMERO_FALADO[d.jogosPorHorarioDaA] ?? d.jogosPorHorarioDaA} jogos em cada horário.`,
       CHAMADA: `As inscrições estão abertas. Comenta aí e garante a sua vaga na Temporada ${n}!`,
-    };
+        };
     const animado = s.cartela === 'ABERTURA' || s.cartela === 'CHAMADA' || s.cartela === 'ENTRAR';
     return { id: `abertura-${i}`, texto: texto[s.cartela], inicio: s.inicio + 0.35, limite: s.fim, tom: animado ? 'animado' : 'normal', segmento: i, parte: 'antes' };
   });
@@ -155,6 +175,8 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
   const d = roteiro.dados;
   const t = q.tempo;
   const passo = Math.floor(tVideo * 4);
+  // T2 só com a Série A de 16 (ADR-0062).
+  const soA = d.serieB.length === 0;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(cenario(), 0, 0, COLUNAS * pin.px, LINHAS * pin.px);
   veu(pin, 0.84);
@@ -209,7 +231,7 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
       break;
     }
     case 'SERIES': {
-      titulo(`${d.serieA.length + d.serieB.length} Times, 2 Séries`);
+      titulo(soA ? `${d.serieA.length} Times na Série A` : `${d.serieA.length + d.serieB.length} Times, 2 Séries`);
       surge(entre(t, 0.3, 0.7), () => {
         pin.tabua(12, 78, 246, 160);
         pin.texto('Série A', COLUNAS / 2, 96, 20, display, COR.amarelo, { contorno: COR.contorno });
@@ -229,6 +251,18 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
         pin.texto('chegam', COLUNAS / 2, 163, 9, texto, COR.tinta, { peso: 700 });
         pin.ctx.globalAlpha = 1;
       }
+      if (soA) {
+        // Sem Série B nesta Temporada: ela nasce na próxima, com quem cair (ADR-0062).
+        surge(entre(t, 4.0, 4.4), () => {
+          pin.tabua(12, 250, 246, 150);
+          pin.texto('E a Série B?', COLUNAS / 2, 274, 20, display, COR.amarelo, { contorno: COR.contorno });
+          pin.texto(`começa na Temporada ${d.temporada + 1}`, COLUNAS / 2, 310, pin.caber(`começa na Temporada ${d.temporada + 1}`, 226, 18, display), display, COR.placa, { contorno: COR.contorno });
+          pin.texto(`com os ${d.caem} que caírem agora`, COLUNAS / 2, 338, pin.caber(`com os ${d.caem} que caírem agora`, 226, 11, texto, 700), texto, COR.placaSombra, { peso: 700 });
+          const pula = Math.round(Math.sin(t * 5) * 2);
+          seta(pin, COLUNAS / 2, 356 + pula, false, '#FF6B5B');
+        });
+        break;
+      }
       surge(entre(t, 4.0, 4.4), () => {
         pin.tabua(12, 250, 246, 160);
         pin.texto('Série B', COLUNAS / 2, 268, 20, display, COR.amarelo, { contorno: COR.contorno });
@@ -246,6 +280,39 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
       break;
     }
     case 'ACESSO': {
+      if (soA) {
+        titulo('Quem cai?');
+        surge(entre(t, 0.1, 0.4), () => {
+          pin.placa(24, 69, 222, 12, { fundo: '#7FD36B', sombra: COR.contorno, degrau: 1 });
+          const aviso = 'Todo mundo começa na Série A';
+          pin.texto(aviso, COLUNAS / 2, 75, pin.caber(aviso, 214, 9, texto, 700), texto, COR.tinta, { peso: 700 });
+        });
+        surge(entre(t, 0.4, 0.8), () => {
+          pin.tabua(12, 88, 246, 186);
+          pin.texto(`os ${d.caem} últimos da Fase de Liga`, COLUNAS / 2, 106, pin.caber(`os ${d.caem} últimos da Fase de Liga`, 226, 12, texto, 700), texto, COR.placa, { peso: 700 });
+        });
+        // As posições da zona de queda (9º a 16º), duas fileiras de 4, cada uma com a seta.
+        const primeira = d.serieA.length - d.caem + 1;
+        for (let k = 0; k < d.caem; k++) {
+          const x = 30 + (k % 4) * 56;
+          const y = 120 + Math.floor(k / 4) * 66;
+          surge(entre(t, 1.0 + k * 0.15, 1.3 + k * 0.15), () => {
+            plaquinha(pin, x, y, 30, 26, `${primeira + k}º`, display);
+            seta(pin, x + 42, y + Math.round(Math.sin(t * 5 + k) * 2), false, '#FF6B5B');
+          }, 6);
+        }
+        surge(entre(t, 2.6, 3.0), () => pin.texto('caem', COLUNAS / 2, 258, 26, display, '#FF6B5B', { contorno: COR.contorno, espessura: 1.5 }));
+        surge(entre(t, 3.2, 3.6), () => {
+          pin.tabua(12, 286, 246, 82);
+          pin.texto('e formam a Série B', COLUNAS / 2, 308, pin.caber('e formam a Série B', 226, 18, display), display, COR.amarelo, { contorno: COR.contorno });
+          pin.texto(`da Temporada ${d.temporada + 1}`, COLUNAS / 2, 334, pin.caber(`da Temporada ${d.temporada + 1}`, 226, 18, display), display, COR.amarelo, { contorno: COR.contorno });
+          pin.texto('o Jogador vai junto com o Time', COLUNAS / 2, 356, pin.caber('o Jogador vai junto com o Time', 226, 10, texto, 700), texto, COR.placa, { peso: 700 });
+        });
+        surge(entre(t, 4.6, 5.0), () => {
+          pin.texto('depois: 2 sobem e 2 descem', COLUNAS / 2, 392, pin.caber('depois: 2 sobem e 2 descem', 230, 12, texto, 700), texto, COR.placa, { peso: 700 });
+        });
+        break;
+      }
       titulo('Sobe e desce');
       // Antes de tudo: quem jogou a Temporada anterior não cai agora (ADR-0058).
       surge(entre(t, 0.1, 0.4), () => {
@@ -350,7 +417,7 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
       }, 0);
       surge(entre(t, 2.8, 3.2), () => {
         pin.tabua(14, 156, 242, 96);
-        const limite = `Série A: ${d.limiteNaA.goleiros} goleiros, ${d.limiteNaA.porPosicao} por posição`;
+        const limite = soA ? `Cada Time: ${d.limiteNaA.goleiros} goleiros, ${d.limiteNaA.porPosicao} por posição` : `Série A: ${d.limiteNaA.goleiros} goleiros, ${d.limiteNaA.porPosicao} por posição`;
         pin.texto(limite, COLUNAS / 2, 174, pin.caber(limite, 226, 15, display), display, COR.amarelo, { contorno: COR.contorno });
         // Posição cheia no Time pedido -> outro Time da A com vaga: escudo, seta, escudo.
         desenharEscudo(pin, d.serieA[0]!, 56, 186, 1.2);
@@ -361,8 +428,9 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
         for (let k = 0; k <= 12; k++) pin.r(152 + k, 189 + k, 1, 24 - 2 * k, COR.contorno);
         for (let k = 0; k <= 10; k++) pin.r(153 + k, 191 + k, 1, 20 - 2 * k, '#FFB84D');
         desenharEscudo(pin, d.serieA[1]!, 186, 186, 1.2);
-        pin.texto('outro da A', 199, 222, 8, texto, COR.placa, { peso: 700 });
-        pin.texto('sem vaga em nenhum? aí, Série B', COLUNAS / 2, 238, pin.caber('sem vaga em nenhum? aí, Série B', 226, 11, texto, 700), texto, COR.placa, { peso: 700 });
+        pin.texto(soA ? 'outro Time' : 'outro da A', 199, 222, 8, texto, COR.placa, { peso: 700 });
+        const rodape = soA ? 'na mesma posição que você pediu' : 'sem vaga em nenhum? aí, Série B';
+        pin.texto(rodape, COLUNAS / 2, 238, pin.caber(rodape, 226, 11, texto, 700), texto, COR.placa, { peso: 700 });
       });
       surge(entre(t, 5.0, 5.4), () => {
         pin.tabua(14, 266, 242, 140);
@@ -387,6 +455,12 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
       surge(entre(t, 1.2, 1.6), () => {
         pin.tabua(14, 196, 242, 124);
         pin.texto('Horários', COLUNAS / 2, 212, 12, texto, COR.placa, { peso: 700 });
+        if (soA) {
+          // Um jogo por hora, das 11h às 18h: duas fileiras de 4 placas.
+          d.horarios.A.forEach((h, k) => plaquinha(pin, 40 + (k % 4) * 50, 226 + Math.floor(k / 4) * 36, 42, 26, `${h}h`, display));
+          pin.texto('Um jogo por hora', COLUNAS / 2, 304, 10, texto, COR.placaSombra, { peso: 700 });
+          return;
+        }
         (['B', 'A'] as const).forEach((serie, linha) => {
           const y = 226 + linha * 38;
           pin.texto(`Série ${serie}`, 44, y + 13, 12, display, COR.amarelo, { contorno: COR.contorno });
@@ -401,7 +475,7 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
       });
       surge(entre(t, 4.0, 4.4), () => {
         pin.tabua(22, 386, 226, 52);
-        const formato = `A: ${d.rodadas.A} rodadas · B: ${d.rodadas.B}, ida e volta`;
+        const formato = soA ? `${d.rodadas.A} rodadas, todos contra todos` : `A: ${d.rodadas.A} rodadas · B: ${d.rodadas.B}, ida e volta`;
         pin.texto(formato, COLUNAS / 2, 406, pin.caber(formato, 206, 14, display), display, COR.amarelo, { contorno: COR.contorno });
         pin.texto('depois, semifinal e final', COLUNAS / 2, 424, 10, texto, COR.placa, { peso: 700 });
       });

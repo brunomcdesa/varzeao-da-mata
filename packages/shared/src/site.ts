@@ -81,6 +81,8 @@ export interface LigaPublica {
   tabela: LinhaTabelaPublica[];
   /** Tabela da Série B, quando a Temporada tem Séries (ADR-0017). */
   tabelaB?: LinhaTabelaPublica[];
+  /** Quantos Times da Série A caem no fim da Temporada atual (2 com Série B; 8 na T2, ADR-0062). */
+  caem?: number;
   /** Os Times de cada Série na Temporada atual, quando ela tem Séries. */
   series?: Record<Serie, TimeId[]> | null;
   calendario: PartidaNoCalendario[];
