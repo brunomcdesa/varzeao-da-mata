@@ -131,6 +131,10 @@ describe('jobs', () => {
     const item = (await agenda.ler<ItemDaAgenda>(chave!))!;
     expect(item).toMatchObject({ tipo: 'PARTIDA', ref: id, containerId: 'C1', publicarEm: '2026-11-07T15:05:00.000Z' });
     expect(ig.containers[0]!.legenda).toMatch(/Rodada 1, jogo das 12h/);
+    // Sem spoiler: as primeiras linhas (o que aparece sem abrir a legenda) não trazem placar nem gols.
+    const linhasDaLegenda = ig.containers[0]!.legenda.split('\n');
+    expect(linhasDaLegenda.slice(0, 5).join('\n')).not.toMatch(/\d+ × \d+|Gols:|Resultado/);
+    expect(linhasDaLegenda.findIndex((l) => l.startsWith('🏁 Resultado:'))).toBeGreaterThanOrEqual(5);
     const url = ig.containers[0]!.videoUrl;
     expect(url).toMatch(/^file:\/\/.*\/publico\/videos\/[0-9a-f-]{36}\.mp4$/);
     expect(await readFile(url.replace('file://', ''), 'utf8')).toBe('mp4 de mentira');

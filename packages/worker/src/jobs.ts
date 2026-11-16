@@ -232,13 +232,16 @@ export function legendaDaPartida(d: DadosDoVideo, rodada: number): string {
       return arroba && apelido ? `${apelido} (${arroba})` : arroba;
     })
     .filter((n): n is string => !!n);
+  // Sem spoiler: o começo da legenda (o que aparece sem abrir) não traz placar nem autores dos gols.
   const linhas = [
-    `⚽ ${nome(mandante)} ${g.mandante} × ${g.visitante} ${nome(visitante)}${d.resultado.penaltis ? ` (pênaltis ${d.resultado.penaltis.placar.mandante}–${d.resultado.penaltis.placar.visitante})` : ''}`,
+    `⚽ ${nome(mandante)} × ${nome(visitante)}`,
     `${classico ? `${classico} · ` : ''}${d.subtitulo}`,
-    autores.length ? `Gols: ${[...new Set(autores)].join(', ')}` : '',
     '',
     O_QUE_E,
     'Quer jogar? Comente ENTRO + seu Time + sua posição. Exemplo: ENTRO ONÇA ATACANTE',
+    '',
+    `🏁 Resultado: ${nome(mandante)} ${g.mandante} × ${g.visitante} ${nome(visitante)}${d.resultado.penaltis ? ` (pênaltis ${d.resultado.penaltis.placar.mandante}–${d.resultado.penaltis.placar.visitante})` : ''}`,
+    autores.length ? `Gols: ${[...new Set(autores)].join(', ')}` : '',
     'Replay e escalações no site (link na bio).',
     '',
     `#varzeaodamata #rodada${rodada} #${IDENTIDADE[mandante].bicho} #${IDENTIDADE[visitante].bicho}`,
