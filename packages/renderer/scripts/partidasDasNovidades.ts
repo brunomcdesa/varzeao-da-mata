@@ -123,6 +123,13 @@ export function dadosDasNovidades(reels: ReelsDeNovidades, o: { estreia: string;
     guardar('ESCANTEIO', procurar(padrao, (l) => l.bolaParada === 'ESCANTEIO' && (l.tipo === 'GOL' || l.tipo === 'DEFESA')), (tl, i) =>
       trechoDoLance(tl, i, 45, 20, (r) => (tl.janelas[i]!.lance.tipo === 'GOL' ? gol(r) : [{ tipo: 'QUASE', t: r }])),
     );
+    // Contra-ataque em que a defesa não voltou a tempo, e Marcação dupla com o passe para o livre.
+    guardar('CONTRA_ATAQUE', procurar(padrao, (l) => !!l.contraAtaque && !l.contraAtaque.recomposto && (l.tipo === 'GOL' || l.tipo === 'DEFESA')), (tl, i) =>
+      trechoDoLance(tl, i, 70, 25, (r) => (tl.janelas[i]!.lance.tipo === 'GOL' ? gol(r) : [{ tipo: 'QUASE', t: r }])),
+    );
+    guardar('MARCACAO_DUPLA', procurar(padrao, (l) => !!l.dobra?.passe && (l.tipo === 'GOL' || l.tipo === 'DEFESA')), (tl, i) =>
+      trechoDoLance(tl, i, 60, 25, (r) => (tl.janelas[i]!.lance.tipo === 'GOL' ? gol(r) : [{ tipo: 'QUASE', t: r }])),
+    );
     guardar('GOL_TORCIDA', procurar(padrao, (l) => l.tipo === 'GOL' && !l.bolaParada, 5), (tl, i) => trechoDoLance(tl, i, 25, 70, gol));
     // Chuva e o segundo uniforme na mesma Partida (camisas parecidas: Onça × Lobo-guará).
     guardar(

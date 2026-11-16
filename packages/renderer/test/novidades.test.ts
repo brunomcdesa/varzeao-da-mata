@@ -10,7 +10,7 @@ describe('Novidades da T2 (ADR-0062)', () => {
 
   it('acha todos os trechos de jogo de cada Reels, sempre nos mesmos lances', () => {
     const esperados: Record<string, ClipeId[]> = {
-      CAMPO: ['FALTA_CARTAO', 'PENALTI', 'BARREIRA', 'ESCANTEIO', 'GOL_TORCIDA', 'CLIMA', 'TROCA'],
+      CAMPO: ['FALTA_CARTAO', 'PENALTI', 'BARREIRA', 'ESCANTEIO', 'CONTRA_ATAQUE', 'MARCACAO_DUPLA', 'GOL_TORCIDA', 'CLIMA', 'TROCA'],
       CAPITAO: ['TABELA', 'COBERTURA', 'LIGACAO_DIRETA'],
       JOGADOR: ['PENALTI'],
     };
@@ -58,6 +58,19 @@ describe('Novidades da T2 (ADR-0062)', () => {
       const longo = new RoteiroNovidades(dados[r], { 1: { antes: 20 } });
       expect(longo.duracao).toBeGreaterThan(base.duracao);
       for (const f of narracaoDasNovidades(base)) expect(f.texto).not.toMatch(/@/);
+    }
+  });
+
+  it('o Narrador fala de cada novidade essencial (nada fica de fora)', () => {
+    const essenciais: Record<string, string[]> = {
+      CAMPO: ['falta', 'juiz', 'amarelo', 'vermelho', 'com seis', 'jogo seguinte', 'pênalti', 'barreira', 'jogada ensaiada', 'escanteio', 'contra-ataque', 'zagueiros', 'arquibancada', 'elenco', 'grito de guerra', 'clima', 'lama', 'segundo uniforme', 'substituição', 'abaixo de cinco', 'duas trocas', 'banco', 'goleiro só', 'expulso não', 'cinco narradores', 'sorteado', 'apelido'],
+      CAPITAO: ['mais partidas', 'vínculo', 'suspenso', 'faixa', 'corte', 'em segredo', 'ofensiva', 'equilibrada', 'defensiva', 'ritmo', 'formação', 'dois, dois, dois', 'jogo inteiro', 'nenhuma é melhor', 'somam', 'fora de posição', 'jogador da base', 'prioridade', 'tabela', 'cobertura', 'ligação direta'],
+      JOGADOR: ['vínculo', 'código', 'DM', 'apelido', 'catorze letras', 'palavrão', 'uma vez por dia', 'especialização', 'artilheiro', 'pegador de pênalti', 'treino', 'cinquenta por cento', 'uma vez e meia', 'dois pontos', 'CONFIRMO', 'craque da rodada', 'dois jogos seguidos', 'resenha', 'clássico', 'canto', 'sorteado', 'seleção da rodada', 'muralha', 'matador', 'seleção da temporada'],
+      SITE: ['app', 'sem loja', 'Android', 'iPhone', 'Instagram', 'avisos', 'escalação', 'apito inicial', 'gol', 'fim do jogo', 'ao vivo', 'melhores momentos', 'assistindo', 'reagir', 'replay', 'carreira', 'troféus', 'selo', 'estrela'],
+    };
+    for (const r of REELS_DE_NOVIDADES) {
+      const tudo = cenasDasNovidades(dados[r]).map((x) => x.fala).join(' ').toLowerCase();
+      for (const e of essenciais[r]!) expect(tudo, `${r}: ${e}`).toContain(e.toLowerCase());
     }
   });
 

@@ -28,7 +28,7 @@ export const HORA_DAS_NOVIDADES: Record<ReelsDeNovidades, number> = { CAMPO: 12,
 
 /** Os trechos de jogo que os Reels usam (achados nas Partidas de exemplo pelo script de gravação). */
 export type ClipeId =
-  | 'FALTA_CARTAO' | 'PENALTI' | 'BARREIRA' | 'ESCANTEIO' | 'GOL_TORCIDA' | 'CLIMA' | 'TROCA'
+  | 'FALTA_CARTAO' | 'PENALTI' | 'BARREIRA' | 'ESCANTEIO' | 'CONTRA_ATAQUE' | 'MARCACAO_DUPLA' | 'GOL_TORCIDA' | 'CLIMA' | 'TROCA'
   | 'TABELA' | 'COBERTURA' | 'LIGACAO_DIRETA';
 
 /** Um trecho de jogo: de `de` até `ate` (s de jogo), com o momento principal em `chave`. */
@@ -55,7 +55,7 @@ type CartelaId =
   | 'ABERTURA' | 'NARRADORES' | 'NARRADOR' | 'CHAMADA'
   | 'CAPITAO' | 'POSTURA' | 'FORMACAO'
   | 'VINCULO' | 'APELIDO' | 'ESPECIALIZACAO' | 'TREINO' | 'PRESENCA' | 'RESENHA' | 'SELECAO'
-  | 'APP' | 'AVISOS' | 'AO_VIVO' | 'CARREIRA';
+  | 'APP' | 'AVISOS' | 'AO_VIVO' | 'CARREIRA' | 'ESTRELA';
 
 export interface CenaNovidade {
   id: string;
@@ -65,7 +65,11 @@ export interface CenaNovidade {
   tom: 'normal' | 'animado';
   /** Outro Narrador nesta fala (a apresentação de cada um). */
   narrador?: string;
-  visual: { clipe: ClipeId; legenda: string } | { cartela: CartelaId; k?: number };
+  visual:
+    | { clipe: ClipeId; legenda: string }
+    | { cartela: CartelaId; k?: number }
+    /** Tábuas com nome e apoio (apoio com \n em mais de uma linha) e uma linha no rodapé. */
+    | { cartela: 'LISTA'; titulo: string; itens: [string, string][]; rodape?: string };
 }
 
 const TITULO: Record<ReelsDeNovidades, string> = { CAMPO: 'Dentro de campo', CAPITAO: 'O Capitão', JOGADOR: 'Seu Jogador', SITE: 'Site e App' };
@@ -92,56 +96,125 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
   const estreia = quandoEstreia(d).falado;
   const c = (id: string, base: number, fala: string, visual: CenaNovidade['visual'], tom: CenaNovidade['tom'] = 'normal', narrador?: string): CenaNovidade => ({ id, base, fala, visual, tom, ...(narrador ? { narrador } : {}) });
   const jogo = (clipe: ClipeId, legenda: string, fala: string, base = 6.5) => c(clipe.toLowerCase(), base, fala, { clipe, legenda });
+  const lista = (id: string, titulo: string, itens: [string, string][], fala: string, rodape?: string, base = 7) => c(id, base, fala, { cartela: 'LISTA', titulo, itens, ...(rodape ? { rodape } : {}) });
   let cenas: CenaNovidade[];
   switch (d.reels) {
     case 'CAMPO':
       cenas = [
-        c('abertura', 4.5, 'Novidades da temporada dois, parte um: dentro de campo!', { cartela: 'ABERTURA' }, 'animado'),
-        jogo('FALTA_CARTAO', 'Falta e cartão', 'Agora tem juiz em campo! Ele apita a falta e mostra o cartão. O vermelho expulsa na hora. E dois amarelos na temporada dão suspensão.'),
-        jogo('PENALTI', 'Pênalti', 'Falta dentro da área é pênalti!'),
-        jogo('BARREIRA', 'Falta com barreira', 'Na entrada da área, é chute direto, com barreira. E de mais longe, jogada ensaiada.'),
-        jogo('ESCANTEIO', 'Escanteio', 'E a bola parada também tem escanteio e lateral.'),
-        jogo('GOL_TORCIDA', 'Arquibancada', 'Do lado do campo, a arquibancada, nas cores de cada time. Ela cresce com o elenco e, depois do gol, canta o grito de guerra!'),
-        jogo('CLIMA', 'Sol, chuva ou lama', 'Cada jogo tem o seu clima: sol, chuva ou lama. E quando as camisas se confundem, o visitante joga com o segundo uniforme.'),
-        jogo('TROCA', 'Substituição', 'No intervalo, quem está indo mal sai, e entra um reserva do banco, da mesma posição. Até duas trocas por time.'),
-        c('narradores', 3, 'E agora são cinco narradores, cada um com a sua voz.', { cartela: 'NARRADORES' }),
+        c('abertura', 4.5, 'Novidades da temporada dois, parte um: dentro de campo! Presta atenção, que é muita coisa.', { cartela: 'ABERTURA' }, 'animado'),
+        jogo('FALTA_CARTAO', 'Falta e cartão', 'Agora tem falta! Parte dos desarmes vira falta. E tem juiz em campo: ele corre atrás do lance, apita a falta e mostra o cartão.'),
+        lista('cartoes', 'Cartões', [
+          ['Amarelo', 'Às vezes, na falta.\nDois no mesmo jogo viram vermelho.'],
+          ['Vermelho', 'Quando a falta impede um gol claro.\nExpulsa na hora: o Time fica com 6.'],
+          ['Suspensão', 'Um vermelho, ou dois amarelos na\nTemporada: fora do jogo seguinte.'],
+        ], 'O amarelo vem às vezes, na falta, e dois amarelos no mesmo jogo viram vermelho. O vermelho vem quando a falta impede um gol claro, e expulsa na hora: o time segue com seis até o fim. E um vermelho, ou dois amarelos na temporada, deixam o jogador fora do jogo seguinte.', 'Suspenso, o rodízio põe outro no lugar', 9),
+        lista('local-da-falta', 'Onde foi a falta', [
+          ['Dentro da área', 'Pênalti.'],
+          ['Na entrada da área', 'Chute direto, com Barreira.'],
+          ['Mais longe', 'Jogada ensaiada: cruzamento\npara a cabeçada ou toque curto.'],
+        ], 'E o lugar da falta decide a cobrança. Dentro da área, é pênalti. Na entrada da área, chute direto, com barreira. Mais longe, jogada ensaiada: cruzamento pra cabeçada, ou um toque curto pro chute. E quem cobra é sempre o melhor do time em campo pra aquela cobrança.', 'Cobra o melhor do Time para a cobrança', 9),
+        jogo('PENALTI', 'Pênalti', 'Olha o pênalti! Batedor contra goleiro, e cada um vai pro canto que escolheu no site.'),
+        jogo('BARREIRA', 'Falta com barreira', 'Na entrada da área, a barreira fica entre a bola e o gol. O chute pode bater nela antes de chegar no goleiro.'),
+        jogo('ESCANTEIO', 'Escanteio', 'Depois de uma defesa ou de um chute travado, vem o escanteio: cruzamento, cabeçada, e pode ser gol.'),
+        jogo('CONTRA_ATAQUE', 'Contra-ataque', 'E tem contra-ataque: quando um time perde a bola com gente lá na frente, e a defesa não volta a tempo, o rival chega com vantagem.'),
+        jogo('MARCACAO_DUPLA', 'Marcação dupla', 'Às vezes os dois zagueiros vão juntos no mesmo atacante. Fica mais difícil pra ele, mas um companheiro fica livre. Se o passe sai, é chute sem marcador.'),
+        jogo('GOL_TORCIDA', 'Arquibancada', 'Do lado do campo, a arquibancada, nas cores de cada time. Quanto maior o elenco, maior a torcida. Ela comemora, sofre junto, e depois do gol canta o grito de guerra do time!', 8),
+        jogo('CLIMA', 'Sol, chuva ou lama', 'Cada jogo tem o seu clima: sol, tempo nublado, chuva ou lama. Muda o visual e a fala do narrador, mas não decide nenhum lance. E quando as camisas se confundem, o visitante joga com o segundo uniforme.', 8),
+        jogo('TROCA', 'Substituição', 'E no intervalo tem substituição! Quem está com nota abaixo de cinco pode sair, até duas trocas por time. O juiz levanta a placa, e quem sai vai pro lado da própria torcida.', 8),
+        lista('banco', 'O Banco', [
+          ['Todos que sobraram', 'Quem não entrou na Escalação\nfica no Banco.'],
+          ['Mesma Posição primeiro', 'Sem reserva da Posição, entra\noutro de linha.'],
+          ['Goleiro só por goleiro', 'Sem goleiro no Banco,\no goleiro fica em campo.'],
+          ['Entrou, conta jogo', 'E o expulso não é substituído.'],
+        ], 'No banco ficam todos que sobraram da escalação. Entra primeiro o reserva da mesma posição. Na linha, sem reserva da posição, entra outro jogador de linha. Goleiro só sai pra outro goleiro. Quem entrou conta o jogo. E o expulso não é substituído.', undefined, 10),
+        c('narradores', 3, 'E agora são cinco narradores, cada um com a sua voz e o seu jeito. O narrador é sorteado a cada jogo.', { cartela: 'NARRADORES' }),
         ...NARRADORES.map((n, k) => c(`narrador-${k}`, 1.6, n.apresentacao, { cartela: 'NARRADOR', k }, 'animado', n.id)),
+        lista('apelido-na-fala', 'Apelido na narração', [
+          ['Em toda fala', 'O Narrador chama o Jogador\npelo apelido.'],
+          ['Na primeira vez', 'Com a Posição e o Time:\n"Bruninho, atacante da Onça".'],
+          ['Sem apelido', 'Continua pela Posição e pelo Time.'],
+        ], 'E na temporada dois, o narrador fala o apelido do jogador em toda fala. Na primeira vez, com a posição e o time. Quem não tem apelido continua sendo chamado pela posição e pelo time.', 'O Narrador nunca fala o @', 8),
         c('chamada', 5, `A estreia é ${estreia}!${chamaProximo}`, { cartela: 'CHAMADA' }, 'animado'),
       ];
       break;
     case 'CAPITAO':
       cenas = [
         c('abertura', 4.5, 'Novidades da temporada dois, parte dois: o capitão!', { cartela: 'ABERTURA' }, 'animado'),
-        c('capitao', 7, 'Todo time tem um capitão: o jogador com mais partidas pelo time, que tem o vínculo no site.', { cartela: 'CAPITAO' }),
-        c('postura', 8, 'Antes de cada jogo, até o corte, ele escolhe a postura, em segredo: ofensiva, equilibrada ou defensiva.', { cartela: 'POSTURA' }),
-        c('formacao', 8.5, 'E escolhe a formação: dois, dois, dois; dois, três, um; três, dois, um; ou três, um, dois. As vagas da escalação seguem a formação.', { cartela: 'FORMACAO' }),
-        jogo('TABELA', 'Tabela · 2-3-1', 'Cada formação tem a sua jogada. No dois, três, um: a tabela entre os meias.'),
-        jogo('COBERTURA', 'Cobertura · 3-2-1', 'No três, dois, um: o terceiro zagueiro faz a cobertura.'),
-        jogo('LIGACAO_DIRETA', 'Ligação direta · 3-1-2', 'E no três, um, dois: o zagueiro faz a ligação direta pro ataque.'),
-        c('chamada', 5, `Capitão, escolhe pelo site até o corte! A estreia é ${estreia}.${chamaProximo}`, { cartela: 'CHAMADA' }, 'animado'),
+        c('capitao', 7, 'Todo time tem um capitão: o jogador com mais partidas pelo time. Ele precisa ter o vínculo no site. Sem vínculo, ou suspenso, a faixa passa pro próximo da lista que tenha vínculo.', { cartela: 'CAPITAO' }),
+        lista('faixa', 'A faixa C', [
+          ['Pública', 'O "C" aparece no site, no Elenco\ne na Escalação.'],
+          ['Em campo', 'Se o Capitão ficou de fora, a faixa\nvai para o primeiro que entrou.'],
+        ], 'A faixa é pública: o C aparece do lado do nome dele no site, no elenco e na escalação. E se o rodízio deixou o capitão de fora, em campo a faixa vai pro primeiro da lista que entrou.', undefined, 7),
+        c('postura', 9, 'Antes de cada jogo, até o corte, trinta minutos antes do apito inicial, ele escolhe a postura pelo site, em segredo. Ofensiva: o time ataca mais e deixa a defesa exposta. Equilibrada: não muda nada, e é a postura quando ele não escolhe. Defensiva: o time se fecha e ataca menos.', { cartela: 'POSTURA' }),
+        lista('ritmo', 'Postura e Ritmo', [
+          ['Dois Ofensivos', 'Jogo mais aberto, com mais lances.'],
+          ['Dois Defensivos', 'Jogo mais travado, com menos lances.'],
+        ], 'E a postura dos dois times mexe no ritmo: dois times ofensivos deixam o jogo mais aberto, com mais lances. Dois defensivos deixam o jogo mais travado.', 'Só o Capitão vê as opções', 7),
+        c('formacao', 9, 'Junto com a postura, e também até o corte, ele escolhe a formação. São quatro: dois, dois, dois, o padrão quando ele não escolhe; dois, três, um; três, dois, um; e três, um, dois. Vale pro jogo inteiro.', { cartela: 'FORMACAO' }),
+        lista('formacoes', 'Cada uma tem um jeito', [
+          ['2-3-1 · Meio forte', 'Os meias tabelam e chutam mais\nde fora; a defesa fica exposta.'],
+          ['3-2-1 · Defesa forte', 'O terceiro zagueiro faz a\nCobertura; o ataque perde força.'],
+          ['3-1-2 · Contra-ataque', 'O zagueiro lança direto para a\ndupla de ataque; o meio perde a bola.'],
+        ], 'No dois, três, um, o meio fica forte: os meias tabelam e chutam mais de fora, mas a defesa fica exposta. No três, dois, um, a defesa fica forte, e o ataque perde força. No três, um, dois, é contra-ataque: o zagueiro lança direto pra dupla de ataque, e o meio perde mais a bola. Nenhuma é melhor que as outras. E postura e formação somam, com limite.', 'Nenhuma Formação é melhor que as outras', 12),
+        lista('vagas', 'As vagas', [
+          ['Seguem a Formação', 'Com 1 atacante, os atacantes do\nTime revezam uma vaga só.'],
+          ['Fora de posição', 'Faltou gente? Entra um de outra\nPosição, com o OVR da vaga.'],
+          ['Jogador da Base', 'Só quando não sobra ninguém.'],
+          ['Ficou de fora?', 'Quem a Formação cortou tem\nprioridade no jogo seguinte.'],
+        ], 'As vagas da escalação seguem a formação. Faltou gente numa posição? Entra alguém de outra posição, fora de posição, com o OVR calculado pra vaga. O jogador da base só entra quando não sobra ninguém. E quem a formação deixou de fora ganha prioridade no jogo seguinte do time.', undefined, 11),
+        jogo('TABELA', 'Tabela · 2-3-1', 'E cada formação tem a sua jogada. No dois, três, um, a tabela: o meia toca pro outro meia e recebe de volta antes de criar.', 7),
+        jogo('COBERTURA', 'Cobertura · 3-2-1', 'No três, dois, um, a cobertura: quando o atacante dribla o marcador, o zagueiro da sobra chega pra mais um desarme.', 7),
+        jogo('LIGACAO_DIRETA', 'Ligação direta · 3-1-2', 'E no três, um, dois, a ligação direta: o zagueiro lança direto pros atacantes, sem passar pelo meio. O dois, dois, dois não tem jogada própria.', 7),
+        c('chamada', 5, `Capitão, entra no site e escolhe antes do corte! A estreia é ${estreia}.${chamaProximo}`, { cartela: 'CHAMADA' }, 'animado'),
       ];
       break;
     case 'JOGADOR':
       cenas = [
         c('abertura', 4.5, 'Novidades da temporada dois, parte três: o seu jogador!', { cartela: 'ABERTURA' }, 'animado'),
-        c('vinculo', 6.5, 'Tudo começa no vínculo: pega o código no site, manda na DM da liga, e cuida do seu jogador pelo celular.', { cartela: 'VINCULO' }),
-        c('apelido', 6.5, 'Escolhe um apelido: ele aparece em cima do seu jogador, e o narrador fala o seu apelido nos lances.', { cartela: 'APELIDO' }),
-        c('especializacao', 8, 'Escolhe a especialização: são três por posição, como artilheiro, volante, xerife ou paredão. Melhora uma coisa e piora outra.', { cartela: 'ESPECIALIZACAO' }),
-        c('treino', 6, 'No treino, você escolhe a habilidade que sobe mais rápido.', { cartela: 'TREINO' }),
-        c('presenca', 7, 'Vai jogar? Comenta CONFIRMO, ou confirma no site, até o corte, e você passa na frente no rodízio da escalação.', { cartela: 'PRESENCA' }),
-        c('resenha', 7.5, 'Comentou no Reels do último jogo do seu time? As suas habilidades sobem mais rápido. E se o próximo jogo for o clássico, você ainda passa na frente.', { cartela: 'RESENHA' }),
-        jogo('PENALTI', 'Seu canto', 'No pênalti, vale o canto que você escolheu: esquerda, meio ou direita. Batedor e goleiro.'),
-        c('selecao', 8, 'E toda rodada sai a seleção da rodada: o muralha, o carrapato, o garçom e o matador. A maior nota de cada posição, que vira troféu na carreira.', { cartela: 'SELECAO' }),
+        c('vinculo', 7, 'Quase tudo do seu jogador se faz pelo site, com o vínculo: no site, você acha o seu jogador, pega o código e manda na DM da liga. Pronto: o jogador fica ligado ao seu celular.', { cartela: 'VINCULO' }),
+        c('apelido', 8, 'Escolhe um apelido: de duas a catorze letras, sem palavrão, e que ninguém mais da liga tenha. Ele aparece em cima do seu jogador, nos Reels, no ao vivo e no site, e o narrador fala o apelido nos lances. Dá pra trocar uma vez por dia.', { cartela: 'APELIDO' }),
+        c('especializacao', 10, 'A especialização é o seu jeito de jogar: três por posição. No ataque, artilheiro, driblador ou oportunista. No meio, armador, volante ou meia-atacante. Na zaga, xerife, bloqueador ou antecipação. E no gol, paredão, gato ou pegador de pênalti.', { cartela: 'ESPECIALIZACAO' }),
+        lista('especializacao-regras', 'Especialização', [
+          ['Melhora e piora', 'Ganha num Duelo e perde um pouco\nem outro: o OVR continua valendo.'],
+          ['Uma por jogo', 'Vale a partir do próximo jogo.'],
+          ['Troca uma vez por dia', 'Sem escolha, joga como antes.'],
+        ], 'Cada uma melhora uma coisa e piora um pouco outra, pro OVR continuar valendo. Vale a partir do próximo jogo, e dá pra trocar uma vez por dia. Sem escolha, você joga como antes.', 'O que cada uma faz está no site', 8),
+        c('treino', 7, 'No treino, você escolhe uma habilidade de foco: os ganhos dela sobem cinquenta por cento mais rápido, sem tirar das outras.', { cartela: 'TREINO' }),
+        lista('evolucao', 'Evolução na T2', [
+          ['Ganhos 1,5 vez', 'Para todo mundo. As perdas\ncontinuam iguais.'],
+          ['Limite por jogo', '2 pontos por Habilidade;\n4 no Clássico.'],
+          ['Os bônus somam', 'Treino, Resenha e o Bônus\nda Temporada 1.'],
+        ], 'E na temporada dois, todo mundo evolui mais rápido: os ganhos de habilidade valem uma vez e meia, e as perdas continuam iguais. O limite por jogo continua: dois pontos por habilidade, quatro no clássico. E os bônus somam: treino, resenha e o bônus da temporada um.', undefined, 9),
+        c('presenca', 8, 'Vai jogar? Comenta CONFIRMO no post, ou confirma no site, até o corte do próximo jogo do seu time. Quem confirma passa na frente no rodízio, logo depois do craque da rodada. A confirmação vale só pra aquele jogo.', { cartela: 'PRESENCA' }),
+        lista('fila', 'A fila da Escalação', [
+          ['1. Craque da Rodada', 'O da Rodada anterior.'],
+          ['2. Quem tem prioridade', 'Presença, 2 jogos seguidos fora,\ncortado pela Formação e Resenha\nno Clássico.'],
+          ['3. O rodízio', 'Quem jogou menos, depois quem\njogou há mais tempo.'],
+        ], 'A fila de cada posição fica assim: primeiro o craque da rodada anterior. Depois, quem tem prioridade: quem confirmou presença, quem ficou dois jogos seguidos de fora, quem a formação cortou, e, no clássico, quem tem resenha. Depois, o rodízio de sempre: quem jogou menos, e quem jogou há mais tempo.', 'Ficou 2 jogos seguidos fora? Passa na frente', 12),
+        c('resenha', 9, 'Comentou no Reels do último jogo do seu time, até o corte do próximo? Isso é resenha: as suas habilidades sobem cinquenta por cento mais rápido nesse jogo, se você for escalado. E se o próximo jogo for o clássico, você ainda passa na frente no rodízio.', { cartela: 'RESENHA' }),
+        jogo('PENALTI', 'Seu canto', 'No pênalti, vale o canto que você escolheu no site: esquerda, meio ou direita. Pra batedor e goleiro, no jogo e na disputa do mata-mata. Acertar o canto ajuda o goleiro; errar ajuda o batedor. Quem não escolhe tem o canto sorteado.', 9),
+        c('selecao', 9, 'E toda rodada sai a seleção da rodada, em cada série: o muralha, o carrapato, o garçom e o matador, a maior nota de cada posição. Sai sozinha no resumo, sem voto, e vira troféu na carreira. No fim, tem a seleção da temporada.', { cartela: 'SELECAO' }),
         c('chamada', 5, `A estreia é ${estreia}!${chamaProximo}`, { cartela: 'CHAMADA' }, 'animado'),
       ];
       break;
     case 'SITE':
       cenas = [
         c('abertura', 4.5, 'Novidades da temporada dois, parte quatro: o site e o app!', { cartela: 'ABERTURA' }, 'animado'),
-        c('app', 7, 'O site do Varzeão vira app: instala no celular, com ícone na tela inicial e tela cheia. Sem precisar de loja.', { cartela: 'APP' }),
-        c('avisos', 7.5, 'Liga os avisos e escolhe os seus times: escalação, cinco minutos antes do apito inicial, gols e fim de jogo.', { cartela: 'AVISOS' }),
-        c('ao-vivo', 7.5, 'No ao vivo, aparece quanta gente está assistindo. E dá pra mandar reação, que sobe na tela de todo mundo.', { cartela: 'AO_VIVO' }),
-        c('carreira', 7.5, 'E na página de carreira, a história do seu jogador, temporada por temporada: time, números, OVR e troféus.', { cartela: 'CARREIRA' }),
+        c('app', 7, 'O site do Varzeão agora vira app no celular: ícone na tela inicial e tela cheia. Sem loja e sem baixar nada: é o mesmo site, sempre atualizado.', { cartela: 'APP' }),
+        lista('instalar', 'Como instalar', [
+          ['Android', 'No Chrome, toque em\n"Instalar o App".'],
+          ['iPhone', 'No Safari: Compartilhar e\n"Adicionar à Tela de Início".'],
+          ['Veio pelo Instagram?', 'Abra no navegador do celular:\ndentro do Instagram não dá.'],
+        ], 'No Android, abre o site no Chrome e toca em instalar o app. No iPhone, no Safari, toca em compartilhar e depois em adicionar à tela de início. Abriu pelo Instagram? Abre no navegador do celular primeiro, porque dentro do Instagram não dá pra instalar.', 'No iPhone, vincule o Jogador de novo dentro do App', 10),
+        c('avisos', 9, 'Liga os avisos e escolhe os seus times. Chega aviso quando sai a escalação, cinco minutos antes do apito inicial, a cada gol e no fim do jogo, com o placar. O aviso do gol nunca chega antes do lance aparecer no ao vivo. No iPhone, os avisos só chegam com o app instalado.', { cartela: 'AVISOS' }),
+        c('ao-vivo', 8, 'O jogo completo passa ao vivo no site e no app; o Reels é só os melhores momentos. E no ao vivo aparece quanta gente está assistindo.', { cartela: 'AO_VIVO' }),
+        lista('reacoes', 'Reações', [
+          ['Gol, Fogo, Susto e Palmas', 'Sobem na tela de todo mundo.'],
+          ['Uma por segundo', 'Para cada pessoa assistindo.'],
+          ['Só no Ao Vivo', 'Não ficam no Replay.'],
+        ], 'E dá pra reagir: gol, fogo, susto e palmas. A reação sobe na tela de todo mundo que está assistindo, uma por segundo. E não fica no replay: perdeu o jogo, o replay mostra a partida lance a lance.', undefined, 8),
+        c('carreira', 9, 'E cada jogador ganha a página de carreira: temporada por temporada, o time e a série, jogos, gols, assistências, nota média, OVR do começo e do fim, cartões e troféus. E quem jogou a temporada um ganha o selo Temporada Um.', { cartela: 'CARREIRA' }),
+        c('estrela', 7, 'E o campeão ganha estrela no escudo: dourada pelo título da Série A, prata pela Série B. Ela aparece em todo lugar: no site, nos Reels e no ao vivo.', { cartela: 'ESTRELA' }),
         c('chamada', 5, `A temporada dois começa ${estreia}! Série B a partir das onze, Série A a partir das três da tarde. Link na bio!`, { cartela: 'CHAMADA' }, 'animado'),
       ];
       break;
@@ -443,6 +516,56 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
       break;
     }
 
+    case 'LISTA': {
+      const v = cena.visual as { titulo: string; itens: [string, string][]; rodape?: string };
+      titulo(v.titulo);
+      const dur = q.segmento.fim - q.segmento.inicio;
+      const n = v.itens.length;
+      const linhas = v.itens.map(([, apoio]) => apoio.split('\n').length);
+      const alturas = linhas.map((l) => 34 + l * 14);
+      const vao = 8;
+      const total = alturas.reduce((a, b) => a + b, 0) + vao * (n - 1);
+      let y = 84;
+      void total;
+      v.itens.forEach(([nome, apoio], k) => {
+        // Cada tábua entra mais ou menos quando o Narrador chega nela.
+        const de = 0.3 + (k * (dur * 0.75)) / n;
+        const h = alturas[k]!;
+        const yy = y;
+        surge(entre(t, de, de + 0.35), () => {
+          pin.tabua(14, yy, 242, h);
+          pin.texto(nome, 28, yy + 17, pin.caber(nome, 214, 18, display), display, COR.amarelo, { alinhar: 'left', contorno: COR.contorno });
+          apoio.split('\n').forEach((l, i) => pin.texto(l, 28, yy + 36 + i * 14, pin.caber(l, 214, 11.5, texto, 700), texto, COR.placa, { alinhar: 'left', peso: 700 }));
+        }, 10);
+        y += h + vao;
+      });
+      if (v.rodape) surge(entre(t, 0.3 + dur * 0.75, 0.65 + dur * 0.75), () => linha(v.rodape!, Math.min(440, y + 22), 12, VERDE));
+      break;
+    }
+    case 'ESTRELA': {
+      titulo('Estrela de Título');
+      // Escudo de exemplo (não é de nenhum Time), com a estrela em cima.
+      const escudoDeExemplo = (cx: number, y: number, cor: string, estrela: string, rotulo: string) => {
+        pin.r(cx - 30, y, 60, 52, COR.contorno);
+        pin.r(cx - 28, y + 2, 56, 46, COR.placa);
+        pin.r(cx - 24, y + 6, 48, 38, '#5B8FD9');
+        for (let k = 0; k < 10; k++) pin.r(cx - 22 + k * 2, y + 52 + k, 44 - k * 4, 1, COR.contorno);
+        // Estrela de 5 pontas em pixel.
+        const sy = y - 22;
+        const pontos = [[0, 0, 1], [-1, 1, 3], [-2, 2, 5], [-7, 3, 15], [-5, 4, 11], [-4, 5, 9], [-4, 6, 9], [-5, 7, 4], [2, 7, 4], [-6, 8, 3], [4, 8, 3]];
+        for (const [dx, dy, w] of pontos) pin.r(cx + dx! * 1.6 - 0.8, sy + dy! * 1.8, w! * 1.6, 1.8, estrela);
+        pin.texto(cor, cx, y + 88, 16, display, COR.amarelo, { contorno: COR.contorno });
+        pin.texto(rotulo, cx, y + 106, 11, texto, COR.placa, { peso: 700 });
+      };
+      surge(entre(t, 0.4, 0.8), () => escudoDeExemplo(80, 120, 'Dourada', DOURADO, 'Título da Série A'));
+      surge(entre(t, 1.6, 2.0), () => escudoDeExemplo(190, 120, 'Prata', '#C9CED6', 'Título da Série B'));
+      surge(entre(t, 3.0, 3.4), () => {
+        pin.tabua(20, 270, 230, 60);
+        linha('No site, nos Reels e no Ao Vivo', 290, 13);
+        linha('Uma estrela por título', 312, 12, VERDE);
+      });
+      break;
+    }
     // ------------------------------------------ Capitão
     case 'CAPITAO': {
       titulo('O Capitão');
@@ -581,18 +704,18 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
       titulo('Especialização');
       const pos: [Posicao, string][] = [['ATA', 'Atacante'], ['MEI', 'Meia'], ['ZAG', 'Zagueiro'], ['GOL', 'Goleiro']];
       pos.forEach(([p, nome], k) => {
-        const y = 80 + k * 76;
+        const y = 78 + k * 80;
         surge(entre(t, 0.4 + k * 0.6, 0.8 + k * 0.6), () => {
-          pin.tabua(14, y, 242, 68);
-          boneco(pin, 'FRENTE_PARADO', uniforme('CAP', p, `esp-${k}`), 22, y + 12, 2.6);
-          pin.texto(nome, 62, y + 16, 16, display, COR.amarelo, { alinhar: 'left', contorno: COR.contorno });
+          pin.tabua(14, y, 242, 74);
+          boneco(pin, 'FRENTE_PARADO', uniforme('CAP', p, `esp-${k}`), 22, y + 14, 2.8);
+          pin.texto(nome, 66, y + 15, 16, display, COR.amarelo, { alinhar: 'left', contorno: COR.contorno });
           (ESPECIALIZACOES[p] as readonly string[]).forEach((e, i) => {
             const nomeE = NOME_DA_ESPECIALIZACAO[e as keyof typeof NOME_DA_ESPECIALIZACAO];
-            pin.texto(nomeE, 62 + i * 64, y + 44, pin.caber(nomeE, 60, 11, texto, 700), texto, COR.placa, { alinhar: 'left', peso: 700 });
+            pin.texto(`· ${nomeE}`, 66, y + 33 + i * 13, 11.5, texto, COR.placa, { alinhar: 'left', peso: 700 });
           });
         }, 12);
       });
-      surge(entre(t, 3.4, 3.8), () => linha('Melhora uma coisa, piora outra', 404, 13, VERDE));
+      surge(entre(t, 3.4, 3.8), () => linha('Melhora uma coisa, piora outra', 412, 13, VERDE));
       break;
     }
     case 'TREINO': {
