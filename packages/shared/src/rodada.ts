@@ -2,8 +2,8 @@
  * A Temporada tem uma Rodada por dia: a Fase de Liga, depois as Semifinais e a Final, cada uma
  * no dia seguinte. A Fase de Liga dura o turno único da maior Série (ADR-0058):
  * - T1, só a Série A com 8 Times: 7 Rodadas, Semifinais na 8 e Final na 9;
- * - T2, só a A com 16 Times: 15 Rodadas, Semifinais na 16 e Final na 17 (ADR-0062);
- * - da T3 em diante, A e B com 8 em turno e returno: 14 Rodadas, Semifinais na 16 e Final na 17.
+ * - T2, a A com 16 Times em dois Grupos de 8 (ADR-0064): 7 Rodadas, Semifinais na 8 e Final na 9;
+ * - da T3 em diante, A e B com 8 em turno único: também 7, 8 e 9.
  */
 export interface EstruturaDaTemporada {
   rodadasDaLiga: number;
@@ -11,28 +11,20 @@ export interface EstruturaDaTemporada {
   rodadaDaFinal: number;
 }
 
-/**
- * Com as duas Séries de 8 em turno e returno (14 Rodadas, da T3 em diante, ADR-0062), o
- * Mata-mata fica com os mesmos números da A de 16 (Semifinais 16, Final 17): o número 15 fica
- * sem Rodada. Assim cada número de Rodada do Mata-mata tem uma etapa só.
- */
-const RODADAS_DA_LIGA_EM_TURNO_E_RETURNO = 14;
-
 export function estruturaDaLiga(rodadasDaLiga: number): EstruturaDaTemporada {
-  const pula = rodadasDaLiga === RODADAS_DA_LIGA_EM_TURNO_E_RETURNO ? 1 : 0;
-  return { rodadasDaLiga, rodadaDasSemifinais: rodadasDaLiga + 1 + pula, rodadaDaFinal: rodadasDaLiga + 2 + pula };
+  return { rodadasDaLiga, rodadaDasSemifinais: rodadasDaLiga + 1, rodadaDaFinal: rodadasDaLiga + 2 };
 }
 
 /** A Rodada da Final em SQL, a partir da última Rodada da Fase de Liga (`ultima`, expressão SQL). */
 export function sqlRodadaDaFinal(ultima: string): string {
-  return `(CASE WHEN ${ultima} = ${RODADAS_DA_LIGA_EM_TURNO_E_RETURNO} THEN ${ultima} + 3 ELSE ${ultima} + 2 END)`;
+  return `(${ultima} + 2)`;
 }
 
 /**
- * As durações de Fase de Liga que existem: 7 (A com 8 Times, T1), 15 (A com 16 Times, T2) e 14
- * (A e B com 8, turno e returno, da T3 em diante).
+ * As durações de Fase de Liga que existem: 7 (turno único entre 8 Times: a T1, os Grupos da T2 e
+ * as Séries da T3 em diante) e 15 (a A de 16 em turno único, ADR-0058; não é mais usada).
  */
-export const RODADAS_DA_LIGA_POSSIVEIS = [7, 14, 15] as const;
+export const RODADAS_DA_LIGA_POSSIVEIS = [7, 15] as const;
 
 export type Etapa = 'LIGA' | 'SEMIFINAL' | 'FINAL';
 

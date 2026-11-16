@@ -204,7 +204,9 @@ export const inicio: Pagina = async (main) => {
             <h2 id="titulo-tabela">Tabela</h2>
             ${temSeries(l)
               ? seriesDaLiga(l).map((s: Serie) => html`<h3 class="subsecao-serie"><span class="selo-serie serie-${s.toLowerCase()}">Série ${s}</span></h3>${tabelaDeClassificacao(tabelaDaSerie(l, s), { compacta: true, semLegenda: true, serie: s })}`)
-              : tabelaDeClassificacao(l.tabela, { compacta: true, semLegenda: true, ...(l.caem ? { caem: l.caem } : {}) })}
+              : l.grupos?.length
+                ? l.grupos.map((g) => html`<h3 class="subsecao-serie">${g.nome}</h3>${tabelaDeClassificacao(g.tabela, { compacta: true, semLegenda: true, classificam: 2, porGrupo: true, caem: l.caem ?? 0 })}`)
+                : tabelaDeClassificacao(l.tabela, { compacta: true, semLegenda: true })}
             <p class="tabela-link"><a href="#/tabela">Tabela completa e critérios</a></p>
           </section>
         </div>

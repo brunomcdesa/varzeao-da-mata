@@ -7,13 +7,13 @@
  * aparecem depois do Apito (o lance a lance) ou do fim do Ao Vivo (placar, tabela, Card).
  * Escalações aparecem assim que existem (a partir do Corte).
  */
-import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2, timesQueCaem, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
+import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2, timesQueCaem, GRUPOS, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
 import { fundadorDe } from './rebalanceamento.js';
 import { comSeloT1 } from './recompensaT1.js';
 import { TEMPORADA_DOS_DESTAQUES, desempenhosDasPartidas } from './destaques.js';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
-import { seriesDaTemporada, type SeriesDaTemporada } from './series.js';
+import { gruposDaTemporada, seriesDaTemporada, type GruposDaTemporada, type SeriesDaTemporada } from './series.js';
 import { classificar } from './tabela.js';
 import { horaDeBrasilia } from './briga.js';
 import { habilidadesDe } from './regras.js';
@@ -89,6 +89,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   const seriesDe = new Map<number, SeriesDaTemporada>();
   for (const t of temporadas) seriesDe.set(t.id, await seriesDaTemporada(banco, t.id));
   const comSeries = (temporadaId: number) => (seriesDe.get(temporadaId)?.B.length ?? 0) > 0;
+  const gruposDe = new Map<number, GruposDaTemporada | null>();
+  for (const t of temporadas) gruposDe.set(t.id, await gruposDaTemporada(banco, t.id));
   const timesDaSerie = (temporadaId: number, serie: Serie) => seriesDe.get(temporadaId)?.[serie] ?? [];
   const linhaParaBriga = (p: LinhaPartida): PartidaParaBriga => {
     const a = new Date(p.apito_inicial);
@@ -483,7 +485,24 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     temporada: temporada ? { numero: temporada.numero, status: temporada.status } : null,
     times,
     tabela: atual?.tabela ?? [],
-    ...(temporada && timesQueCaem(seriesDe.get(temporada.id)!.A.length, comSeries(temporada.id)) ? { caem: timesQueCaem(seriesDe.get(temporada.id)!.A.length, comSeries(temporada.id)) } : {}),
+    // Grupos da T2 (ADR-0064): uma tabela por Grupo; caem os 4 últimos de cada.
+    ...(temporada && gruposDe.get(temporada.id)
+      ? {
+          caem: timesQueCaem({ temSerieB: false, porGrupo: true }),
+          grupos: GRUPOS.map((grupo) => {
+            const times = gruposDe.get(temporada.id)![grupo];
+            const doGrupo = todas.filter((p) => p.temporada_id === temporada.id && times.includes(p.mandante_id) && times.includes(p.visitante_id));
+            return {
+              grupo,
+              nome: NOME_DO_GRUPO[grupo],
+              tabela: classificar(
+                doGrupo.filter((p) => p.fase === 'LIGA' && encerrada(p)).map((p) => ({ mandante: p.mandante_id, visitante: p.visitante_id, gm: p.resultado!.gols.mandante, gv: p.resultado!.gols.visitante })),
+                times,
+              ),
+            };
+          }),
+        }
+      : {}),
     ...(atual?.serieB && temporada ? { tabelaB: atual.serieB.tabela, series: { A: [...seriesDe.get(temporada.id)!.A], B: [...seriesDe.get(temporada.id)!.B] } } : {}),
     calendario,
     rodadas: temporada ? (rodadasPorTemporada.get(temporada.id) ?? []) : [],
@@ -534,7 +553,13 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       ...(() => {
         if (!revelada(p)) return {};
         const daSerie = todas.filter((x) => x.temporada_id === p.temporada_id && x.serie === p.serie).map(linhaParaBriga);
-        const b = brigaDaPartida(linhaParaBriga(p), daSerie, timesDaSerie(p.temporada_id, p.serie), comSeries(p.temporada_id) ? p.serie : null);
+        // Com Grupos (T2, ADR-0064): a Briga é dentro do Grupo, com 2 vagas.
+        const grupos = gruposDe.get(p.temporada_id) ?? null;
+        const grupo = grupoDoTime(grupos, p.mandante_id);
+        const b =
+          grupos && grupo
+            ? brigaDaPartida(linhaParaBriga(p), daSerie.filter((x) => grupos[grupo].includes(x.mandante) && grupos[grupo].includes(x.visitante)), grupos[grupo], null, { grupo, vagas: CLASSIFICAM_POR_GRUPO })
+            : brigaDaPartida(linhaParaBriga(p), daSerie, timesDaSerie(p.temporada_id, p.serie), comSeries(p.temporada_id) ? p.serie : null);
         return b ? { briga: b } : {};
       })(),
       // Arquibancada (T2): só nas Partidas simuladas com as regras da Temporada 2.

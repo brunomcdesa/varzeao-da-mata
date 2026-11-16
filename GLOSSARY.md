@@ -213,15 +213,19 @@ A voz que narra a Partida, no Reels e no Ao Vivo: uma de cinco, sorteada pela se
 _Avoid_: Locutor da Liga, locutor, comentarista, voz
 
 **Série**:
-Cada uma das duas divisões da Liga: a Série A, de cima, e a Série B. A T2 tem só a Série A, com 16 Times; da T3 em diante, cada Série tem 8 (ADR-0062). Cada Série tem a sua Fase de Liga, o seu Mata-mata, o seu Título e os seus Craques.
+Cada uma das duas divisões da Liga: a Série A, de cima, e a Série B. A T2 tem só a Série A, com 16 Times em dois Grupos; da T3 em diante, cada Série tem 8 (ADR-0062 e ADR-0064). Cada Série tem a sua Fase de Liga, o seu Mata-mata, o seu Título e os seus Craques.
 _Avoid_: divisão, grupo, chave
+
+**Grupo**:
+Na T2, cada uma das duas metades da Série A de 16: o Grupo do Chão e o Grupo da Copa, com 8 Times cada e os Clássicos juntos. Cada Time joga contra os outros 7 do seu Grupo; os 2 primeiros vão às Semifinais (1º de um contra o 2º do outro) e os 4 últimos caem para a Série B da T3 (ADR-0064).
+_Avoid_: chave, conferência, divisão
 
 **Acesso**:
 A subida de um Time da Série B para a Série A no fim da Temporada. Ganham o Acesso os dois finalistas do Mata-mata da Série B.
 _Avoid_: promoção, subida
 
 **Rebaixamento**:
-A descida de um Time da Série A para a Série B no fim da Temporada. Os Jogadores descem com o Time. No fim da T2, caem os oito últimos da Fase de Liga e formam a Série B da T3; da T3 em diante, caem os dois últimos (ADR-0062).
+A descida de um Time da Série A para a Série B no fim da Temporada. Os Jogadores descem com o Time. No fim da T2, caem os quatro últimos de cada Grupo e formam a Série B da T3; da T3 em diante, caem os dois últimos (ADR-0062 e ADR-0064).
 _Avoid_: descenso, queda, degola
 
 **Capitão**:

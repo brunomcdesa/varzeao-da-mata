@@ -13,7 +13,7 @@
  *   1. roteiroAoVivo: os textos (âncoras dos lances + enchimento estimado para cada vão);
  *   2. agendarAoVivo: com as durações reais, encaixa tudo sem sobreposição.
  */
-import { FALA_DO_TIME, doTime, type BrigaPeloMataMata, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, NOME_DO_GRUPO, doTime, type BrigaPeloMataMata, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, type Lado } from '@liga/sim';
 import { falaDosGarantidos, falasDaNecessidade, montarNarracao, seAcabarAssim, type EventoSonoro, type OpcoesNarracao, type Tom } from './narracao.js';
 import { instanteDaCobranca } from './penaltis.js';
@@ -288,7 +288,7 @@ function enchimento(
       const g = falaDosGarantidos(b, ts);
       if (g) contexto.push(g);
     }
-    contexto.push(`É a última Rodada, cada gol mexe na tabela!`, `Olho na tabela: os quatro primeiros vão pro Mata-mata!`);
+    contexto.push(`É a última Rodada, cada gol mexe na tabela!`, b.grupo ? `Olho na tabela: os dois primeiros ${NOME_DO_GRUPO[b.grupo].replace(/^Grupo d/, 'do Grupo d')} vão pro Mata-mata!` : `Olho na tabela: os quatro primeiros vão pro Mata-mata!`);
   }
 
   // Mistura: mais frases de posse, uma de contexto de vez em quando. O que ainda não foi dito na

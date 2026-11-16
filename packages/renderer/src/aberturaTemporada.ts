@@ -4,7 +4,7 @@
  * (ADR-0062) só há a Série A de 16: o Reels conta que os 8 piores caem e formam a Série B da T3.
  * Mesmo estilo e mesmos ajudantes do Reels de apresentação da Liga (apresentacao.ts).
  */
-import { FALA_DO_TIME, IDENTIDADE, TIMES_FUNDADORES, TIMES_NOVOS, type Estrelas, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, GRUPOS_DA_A_DE_16, IDENTIDADE, NOME_DO_GRUPO, TIMES_FUNDADORES, TIMES_NOVOS, type Estrelas, type Posicao, type TimeId } from '@liga/shared';
 import { boneco, dataDa, entre, horaFalada, lista, NUMERO_FALADO, POSICAO_ESCRITA, POSICAO_FALADA, uniforme } from './apresentacao.js';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, plaquinha } from './desenho.js';
@@ -35,6 +35,11 @@ export interface DadosDaAberturaDaTemporada {
    * os 8 piores formam a Série B da Temporada seguinte. 0 quando a Temporada já tem Série B.
    */
   caem: number;
+  /**
+   * Grupos da Série A de 16 (T2, ADR-0064): turno único dentro de cada um, os 2 primeiros vão às
+   * Semifinais (cruzadas) e os `caem` últimos de cada Grupo formam a Série B da Temporada seguinte.
+   */
+  grupos: { nome: string; times: readonly TimeId[] }[];
   /** Limite por Posição de cada Time da A (o dobro das vagas): cheia, o novato vai para outro Time. */
   limiteNaA: { goleiros: number; porPosicao: number };
   /** Hora (no mesmo dia do post) do Reels que conta quem vai para a Série B; null se não houver. */
@@ -44,15 +49,17 @@ export interface DadosDaAberturaDaTemporada {
 
 export const DADOS_DA_ABERTURA_T2: Omit<DadosDaAberturaDaTemporada, 'estreia'> = {
   temporada: 2,
-  // T2 só com a Série A de 16 (ADR-0062): um jogo por hora, das 11h às 18h.
+  // T2 só com a Série A de 16, em dois Grupos de 8 (ADR-0062 e ADR-0064): um jogo por hora, das
+  // 11h às 18h, 7 Rodadas.
   horarios: { B: [], A: [11, 12, 13, 14, 15, 16, 17, 18] },
   jogosPorHorarioDaA: 1,
-  rodadas: { A: 15, B: 0 },
+  rodadas: { A: 7, B: 0 },
   horaDoResumo: 19,
   serieA: [...TIMES_FUNDADORES, ...TIMES_NOVOS],
   chegamNaA: TIMES_NOVOS,
   serieB: [],
-  caem: 8,
+  caem: 4,
+  grupos: (['CHAO', 'COPA'] as const).map((g) => ({ nome: NOME_DO_GRUPO[g], times: GRUPOS_DA_A_DE_16[g] })),
   limiteNaA: { goleiros: 2, porPosicao: 4 },
   // O Rebalanceamento sai antes da Abertura, junto com o Agradecimento: sem aviso aqui.
   horaDoRebalanceamento: null,
@@ -123,11 +130,15 @@ export function narracaoDaAbertura(roteiro: RoteiroAberturaDaTemporada): Fala[] 
     const texto: Record<CartelaAbertura, string> = soA
       ? {
           ABERTURA: `Acabou a Temporada ${n - 1}. E já vem aí a Temporada ${n} do Varzeão da Mata!`,
-          SERIES: `A Série A cresce para ${NUMERO_FALADO[d.serieA.length] ?? d.serieA.length} times: os oito da Temporada ${n - 1}, e mais oito que chegam: ${lista(d.chegamNaA.map(curto))}.`,
-          ACESSO: `Todo mundo começa na Série A. Mas no fim desta temporada, os ${NUMERO_FALADO[d.caem] ?? d.caem} piores caem e formam a Série B, que estreia na Temporada ${n + 1}. Daí em diante, dois sobem e dois descem.`,
+          SERIES: d.grupos.length
+            ? `A Série A cresce para ${NUMERO_FALADO[d.serieA.length] ?? d.serieA.length} times, em dois grupos. ${d.grupos.map((g) => `${g.nome.replace(/^Grupo d/, 'No Grupo d')}: ${lista(g.times.map(curto))}.`).join(' ')} Os clássicos ficam juntos.`
+            : `A Série A cresce para ${NUMERO_FALADO[d.serieA.length] ?? d.serieA.length} times: os oito da Temporada ${n - 1}, e mais oito que chegam: ${lista(d.chegamNaA.map(curto))}.`,
+          ACESSO: d.grupos.length
+            ? `Cada time enfrenta os outros sete do seu grupo. Os dois primeiros de cada grupo vão pra semifinal: o primeiro de um contra o segundo do outro. E os ${NUMERO_FALADO[d.caem] ?? d.caem} últimos de cada grupo caem e formam a Série B, que estreia na Temporada ${n + 1}.`
+            : `Todo mundo começa na Série A. Mas no fim desta temporada, os ${NUMERO_FALADO[d.caem] ?? d.caem} piores caem e formam a Série B, que estreia na Temporada ${n + 1}. Daí em diante, dois sobem e dois descem.`,
           NOVIDADES: 'E tem muita novidade: dentro de campo, pro capitão, pro seu jogador e no site. Amanhã sai um Reels explicando cada uma.',
           ENTRAR: `Quer jogar? Comenta ENTRO, o time e a posição. Tipo: ENTRO ${curto(ex.time)} ${POSICAO_FALADA[ex.posicao]}. Cada time recebe até ${limite}. Posição cheia, você vai para outro time. E quem já joga continua com o seu jogador.`,
-          AGENDA: `A estreia é ${semana === 'sábado' || semana === 'domingo' ? 'no' : 'na'} ${semana}, dia ${NUMERO_FALADO[dia] ?? dia}. São oito jogos por dia, um por hora, ${faixa(d.horarios.A)}.`,
+          AGENDA: `A estreia é ${semana === 'sábado' || semana === 'domingo' ? 'no' : 'na'} ${semana}, dia ${NUMERO_FALADO[dia] ?? dia}. São oito jogos por dia, um por hora, ${faixa(d.horarios.A)}. ${NUMERO_FALADO[d.rodadas.A] ?? d.rodadas.A} rodadas, depois semifinal e final.`.replace('. sete', '. Sete'),
           CHAMADA: `As inscrições estão abertas. Comenta aí e garante a sua vaga na Temporada ${n}!`,
         }
       : {
@@ -231,6 +242,32 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
       break;
     }
     case 'SERIES': {
+      if (soA && d.grupos.length) {
+        // Dois Grupos de 8 (ADR-0064): uma tábua por Grupo, com os escudos em duas fileiras de 4.
+        titulo(`${d.serieA.length} Times, 2 Grupos`);
+        d.grupos.forEach((g, n) => {
+          const topo = 76 + n * 160;
+          surge(entre(t, 0.3 + n * 1.6, 0.7 + n * 1.6), () => {
+            pin.tabua(12, topo, 246, 150);
+            pin.texto(g.nome, COLUNAS / 2, topo + 18, 18, display, COR.amarelo, { contorno: COR.contorno });
+          });
+          g.times.forEach((time, k) => {
+            const inicio = 0.6 + n * 1.6 + k * 0.1;
+            surge(entre(t, inicio, inicio + 0.3), () => {
+              const x = 22 + (k % 4) * 58;
+              const y = topo + 32 + Math.floor(k / 4) * 56;
+              desenharEscudo(pin, time, x + 11, y, 1.2);
+              const nome = curto(time);
+              pin.texto(nome, x + 26, y + 44, pin.caber(nome, 56, 8, texto, 700), texto, COR.placa, { peso: 700 });
+            }, 8);
+          });
+        });
+        surge(entre(t, 4.4, 4.8), () => {
+          pin.placa(24, 400, 222, 16, { fundo: '#7FD36B', sombra: COR.contorno, degrau: 1 });
+          pin.texto('Clássicos no mesmo Grupo', COLUNAS / 2, 408, pin.caber('Clássicos no mesmo Grupo', 214, 10, texto, 700), texto, COR.tinta, { peso: 700 });
+        });
+        break;
+      }
       titulo(soA ? `${d.serieA.length} Times na Série A` : `${d.serieA.length + d.serieB.length} Times, 2 Séries`);
       surge(entre(t, 0.3, 0.7), () => {
         pin.tabua(12, 78, 246, 160);
@@ -280,6 +317,45 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
       break;
     }
     case 'ACESSO': {
+      if (soA && d.grupos.length) {
+        titulo('Como funciona');
+        surge(entre(t, 0.2, 0.6), () => {
+          pin.tabua(12, 76, 246, 64);
+          pin.texto('em cada Grupo', COLUNAS / 2, 94, 12, texto, COR.placa, { peso: 700 });
+          pin.texto('todos contra todos', COLUNAS / 2, 118, pin.caber('todos contra todos', 226, 18, display), display, COR.amarelo, { contorno: COR.contorno });
+        });
+        // Semifinais cruzadas: 1º Chão × 2º Copa, 1º Copa × 2º Chão.
+        surge(entre(t, 1.4, 1.8), () => {
+          pin.tabua(12, 150, 246, 118);
+          pin.texto('2 primeiros: semifinal', COLUNAS / 2, 168, pin.caber('2 primeiros: semifinal', 226, 16, display), display, '#7FD36B', { contorno: COR.contorno });
+          // A fonte não tem "º": líder e vice, como se fala no futebol.
+          const [a, b] = d.grupos.map((g) => g.nome.replace(/^Grupo d[oa] /, ''));
+          const placa = (cx: number, y: number, rotulo: string) => {
+            pin.placa(cx - 46, y, 92, 26, { fundo: COR.placa, luz: '#FFF8E6', sombra: COR.placaSombra });
+            pin.texto(rotulo, cx, y + 14, pin.caber(rotulo, 84, 15, display), display, COR.tinta);
+          };
+          [[`Líder ${a}`, `Vice ${b}`], [`Líder ${b}`, `Vice ${a}`]].forEach(([m, v], k) => {
+            const y = 186 + k * 36;
+            placa(70, y, m!);
+            pin.texto('x', COLUNAS / 2, y + 14, 12, display, COR.placa);
+            placa(200, y, v!);
+          });
+        });
+        surge(entre(t, 3.0, 3.4), () => {
+          pin.tabua(12, 278, 246, 108);
+          const cai = `${d.caem} últimos de cada Grupo`;
+          pin.texto(cai, COLUNAS / 2, 296, pin.caber(cai, 226, 14, display), display, COR.placa, { contorno: COR.contorno });
+          pin.texto('caem', COLUNAS / 2, 326, 26, display, '#FF6B5B', { contorno: COR.contorno, espessura: 1.5 });
+          seta(pin, 210, 312 + Math.round(Math.sin(t * 5) * 2), false, '#FF6B5B');
+          seta(pin, 60, 312 + Math.round(Math.sin(t * 5 + 1) * 2), false, '#FF6B5B');
+          const forma = `e formam a Série B da Temporada ${d.temporada + 1}`;
+          pin.texto(forma, COLUNAS / 2, 364, pin.caber(forma, 226, 11, texto, 700), texto, COR.amarelo, { peso: 700 });
+        });
+        surge(entre(t, 4.4, 4.8), () => {
+          pin.texto('o Jogador vai junto com o Time', COLUNAS / 2, 404, pin.caber('o Jogador vai junto com o Time', 230, 11, texto, 700), texto, COR.placa, { peso: 700 });
+        });
+        break;
+      }
       if (soA) {
         titulo('Quem cai?');
         surge(entre(t, 0.1, 0.4), () => {
@@ -477,7 +553,7 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
       });
       surge(entre(t, 4.0, 4.4), () => {
         pin.tabua(22, 386, 226, 52);
-        const formato = soA ? `${d.rodadas.A} rodadas, todos contra todos` : `A: ${d.rodadas.A} rodadas · B: ${d.rodadas.B}, ida e volta`;
+        const formato = soA ? (d.grupos.length ? `${d.rodadas.A} rodadas, todos do Grupo` : `${d.rodadas.A} rodadas, todos contra todos`) : `A: ${d.rodadas.A} rodadas · B: ${d.rodadas.B}, ida e volta`;
         pin.texto(formato, COLUNAS / 2, 406, pin.caber(formato, 206, 14, display), display, COR.amarelo, { contorno: COR.contorno });
         pin.texto('depois, semifinal e final', COLUNAS / 2, 424, 10, texto, COR.placa, { peso: 700 });
       });

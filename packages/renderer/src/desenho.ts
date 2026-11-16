@@ -5,7 +5,7 @@
  * Linguagem visual: várzea em pixel art. Placar de tábua com plaquinhas penduradas,
  * campo com terrão e cal, mata em volta e faixa de torcida no gol.
  */
-import { FALA_DO_TIME, IDENTIDADE, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type Posicao, type SituacaoNaBriga, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type Posicao, type SituacaoNaBriga, type TimeId } from '@liga/shared';
 import type { Lado } from '@liga/sim';
 import { CAMPO, cenario } from './cenario.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
@@ -348,8 +348,8 @@ export function plaquinhasDaBriga(
 export function faixaDaBriga(b: BrigaPeloMataMata, times: Record<Lado, TimeId>): string {
   const antes = situacoesNaBriga(b, times, null);
   const garantidos = [...antes].filter(([, s]) => s === 'GARANTIDO').map(([t]) => FALA_DO_TIME[t].curto);
-  const serie = b.serie ? ` da Série ${b.serie}` : '';
-  return garantidos.length ? `Última Rodada${serie} · Garantidos: ${garantidos.join(', ')}` : `Última Rodada${serie} · 4 primeiros vão pro Mata-mata`;
+  const serie = b.grupo ? ` · ${NOME_DO_GRUPO[b.grupo]}` : b.serie ? ` da Série ${b.serie}` : '';
+  return garantidos.length ? `Última Rodada${serie} · Garantidos: ${garantidos.join(', ')}` : `Última Rodada${serie} · ${b.vagas ?? 4} primeiros vão pro Mata-mata`;
 }
 
 const COR_DA_BRIGA: Record<TipoDaPlaquinhaDaBriga, { fundo: string; sombra: string; tinta: string }> = {

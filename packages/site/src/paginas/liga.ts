@@ -83,6 +83,15 @@ export const paginaTabela: Pagina = async (main) => {
           </section>`,
         )}
         <p class="legenda"><a href="#/jogos">Ver o chaveamento do Mata-mata em Jogos</a></p>`.s
+    : l.grupos?.length
+      ? html`<h1 class="titulo-pagina">Tabela da Fase de Liga</h1>
+        ${l.grupos.map(
+          (g, k) => html`<section aria-labelledby="titulo-grupo-${g.grupo.toLowerCase()}">
+            <h2 id="titulo-grupo-${g.grupo.toLowerCase()}" class="secao">${g.nome}</h2>
+            <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(g.tabela, { forma: formaDosTimes(l), classificam: 2, porGrupo: true, caem: l.caem ?? 0, semLegenda: k < l.grupos!.length - 1 })}</div>
+          </section>`,
+        )}
+        <p class="legenda"><a href="#/jogos">Ver o chaveamento do Mata-mata em Jogos</a></p>`.s
     : html`<h1 class="titulo-pagina">Tabela da Fase de Liga</h1>
     <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(l.tabela, { forma: formaDosTimes(l), ...(l.caem ? { caem: l.caem } : {}) })}</div>
     <p class="legenda"><a href="#/jogos">Ver o chaveamento do Mata-mata em Jogos</a></p>`.s;

@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, PISO_DA_TEMPORADA_1, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, REELS_PROGRAMADOS, RODADAS_DO_BONUS_T1, TIMES_NOVOS, programadosDaVez, type ReelsProgramado, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, PISO_DA_TEMPORADA_1, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, REELS_PROGRAMADOS, RODADAS_DO_BONUS_T1, GRUPOS_DA_A_DE_16, programadosDaVez, type ReelsProgramado, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
 import type { Instagram } from './instagram.js';
@@ -53,7 +53,7 @@ export function legendaDasNovidades(id: string, estreia: string, publicarEm: str
   const data = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`;
   const post = new Date(Date.parse(publicarEm) - 3 * 3600_000);
   const amanha = Date.UTC(a, m - 1, d, 12) - Date.UTC(post.getUTCFullYear(), post.getUTCMonth(), post.getUTCDate(), 12) === 86_400_000;
-  const estreiaTxt = `🏁 Estreia ${amanha ? 'amanhã, ' : ''}${dia}, ${data}. Série A com 16 times, um jogo por hora, das 11h às 18h.`;
+  const estreiaTxt = `🏁 Estreia ${amanha ? 'amanhã, ' : ''}${dia}, ${data}. Série A com 16 times em 2 grupos, um jogo por hora, das 11h às 18h.`;
   const fim = ['', estreiaTxt, 'Tabela, jogadores e o seu painel no link da bio.', '', '#futebol #varzea #jogo #liga'];
   const corpo: Record<string, string[]> = {
     'novidades-campo': [
@@ -125,15 +125,18 @@ export function legendaDaAbertura(temporada: number, estreia: string): string {
   return [
     `⚽ Vem aí a Temporada ${temporada} do Varzeão da Mata!`,
     '',
-    `A Série A cresce para 16 times: os 8 da Temporada ${temporada - 1} e mais ${lista(TIMES_NOVOS)}.`,
-    `Todo mundo começa na Série A. No fim da temporada, os 8 piores caem e formam a Série B, que estreia na Temporada ${temporada + 1}. Depois, 2 sobem e 2 descem.`,
+    `A Série A cresce para 16 times, em dois grupos de 8 (os clássicos juntos):`,
+    `🟫 Grupo do Chão: ${lista(GRUPOS_DA_A_DE_16.CHAO)}`,
+    `🌳 Grupo da Copa: ${lista(GRUPOS_DA_A_DE_16.COPA)}`,
+    'Todos contra todos no grupo. Os 2 primeiros de cada grupo vão pra semifinal (1º de um × 2º do outro).',
+    `Os 4 últimos de cada grupo caem e formam a Série B, que estreia na Temporada ${temporada + 1}.`,
     'Quem entra agora escolhe o time (até 2 goleiros e 4 em cada posição por time). Posição cheia, vai para outro time na mesma posição.',
     '',
     'Pra jogar, comente:',
     '👉 ENTRO + TIME + POSIÇÃO',
     'Ex.: ENTRO JACARÉ ATACANTE',
     '',
-    `🏁 Estreia ${dia}, ${data}. 8 jogos por dia, um por hora, das 11h às 18h.`,
+    `🏁 Estreia ${dia}, ${data}. 8 jogos por dia, um por hora, das 11h às 18h. 7 rodadas, semifinal e final.`,
     'Amanhã sai um Reels pra cada novidade. Tabela e jogadores no link da bio.',
     '',
     '#futebol #varzea #jogo #liga',

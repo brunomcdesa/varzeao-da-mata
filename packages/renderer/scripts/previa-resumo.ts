@@ -6,10 +6,10 @@
  * Com --series, a Rodada tem Série A e Série B (ADR-0017). Com --t2, no formato da T2 (ADR-0058):
  * A com 16 Times (8 jogos, dois por horário) e B com os 8 Times novos. Com --fim, mostra o
  * anúncio do fim da Temporada (campeão e Craque, e os da Série B com --series). Com --so-a, a T2
- * só com a Série A de 16 (ADR-0062): um jogo por hora e os 8 últimos na zona de queda.
+ * só com a Série A de 16 em dois Grupos (ADR-0064): um jogo por hora e uma tabela por Grupo.
  */
 import { resolve } from 'node:path';
-import { TIMES_DA_SERIE_B, TIMES_FUNDADORES as FUNDADORES, TIMES_NOVOS as NOVOS, rotuloDoCandidato, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { GRUPOS_DA_A_DE_16, TIMES_DA_SERIE_B, TIMES_FUNDADORES as FUNDADORES, TIMES_NOVOS as NOVOS, rotuloDoCandidato, type Posicao, type Serie, type TimeId } from '@liga/shared';
 import { RoteiroResumo, type DadosDoResumo } from '../src/resumo.js';
 import { gravarResumo } from './gravacao.js';
 
@@ -47,7 +47,7 @@ const dados: DadosDoResumo = {
   fase: 'LIGA',
   placares: [...placares(TIMES_FUNDADORES, 'A'), ...(comSeries ? placares(TIMES_NOVOS, 'B') : [])],
   tabela: linhas(TIMES_FUNDADORES),
-  ...(soA ? { caem: 8 } : {}),
+  ...(soA ? { caem: 4, grupos: (['CHAO', 'COPA'] as const).map((grupo) => ({ grupo, tabela: linhas(GRUPOS_DA_A_DE_16[grupo]) })) } : {}),
   ...(comSeries ? { tabelaB: linhas(TIMES_NOVOS) } : {}),
   novosContratados: [
     { username: 'fa_do_jacare', time: 'JAC', posicao: 'ATA' },

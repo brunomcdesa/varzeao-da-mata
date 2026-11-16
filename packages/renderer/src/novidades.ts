@@ -216,7 +216,7 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
         ], 'E dá pra reagir: gol, fogo, susto e palmas. A reação sobe na tela de todo mundo que está assistindo, uma por segundo. E não fica no replay: perdeu o jogo, o replay mostra a partida lance a lance.', undefined, 8),
         c('carreira', 9, 'E cada jogador ganha a página de carreira: temporada por temporada, o time e a série, jogos, gols, assistências, nota média, OVR do começo e do fim, cartões e troféus. E quem jogou a temporada um ganha o selo Temporada Um.', { cartela: 'CARREIRA' }),
         c('estrela', 7, 'E o campeão ganha estrela no escudo: dourada pelo título da Série A. E quando tiver Série B, prata pelo título dela. Ela aparece em todo lugar: no site, nos Reels e no ao vivo.', { cartela: 'ESTRELA' }),
-        c('chamada', 5, `A temporada dois começa ${estreia}! São dezesseis times na Série A, um jogo por hora, das onze às seis da tarde. Link na bio!`, { cartela: 'CHAMADA' }, 'animado'),
+        c('chamada', 5, `A temporada dois começa ${estreia}! São dezesseis times na Série A, em dois grupos, um jogo por hora, das onze às seis da tarde. Link na bio!`, { cartela: 'CHAMADA' }, 'animado'),
       ];
       break;
   }
@@ -503,7 +503,8 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
       });
       surge(entre(t, 0.9, 1.3), () => {
         pin.tabua(24, 236, 222, 64);
-        linha('Série A · 16 Times', 256, 14, COR.placa, 196);
+        // T2 em Grupos (ADR-0064).
+        linha('Série A · 16 Times em 2 Grupos', 256, 14, COR.placa, 196);
         linha('Um jogo por hora, das 11h às 18h', 280, 14, COR.placa, 196);
       });
       const proximo = REELS_DE_NOVIDADES[REELS_DE_NOVIDADES.indexOf(d.reels) + 1];

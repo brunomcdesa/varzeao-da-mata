@@ -27,23 +27,40 @@ export const TIMES_DA_SERIE_B: readonly TimeId[] = ['QUA', 'GAM', 'JAB', 'TEI', 
 /** As duas Séries da Liga (GLOSSARY: Série). */
 export const SERIES = ['A', 'B'] as const;
 export type Serie = (typeof SERIES)[number];
-/** Times em cada Série a partir da T3 (ADR-0062): 8 na A e 8 na B. */
+/** Times em cada Série a partir da T3 (ADR-0062 e ADR-0064): 8 na A e 8 na B, em turno único. */
 export const TIMES_POR_SERIE: Readonly<Record<Serie, number>> = { A: 8, B: 8 };
 /** Quantos Times descem da A e sobem da B a cada Temporada (ADR-0017), da T3 em diante. */
 export const TIMES_QUE_TROCAM_DE_SERIE = 2;
 /**
- * Quantos Times caem no fim de uma Temporada só com a Série A de 16 (a T2, ADR-0062): os 8
- * piores da Fase de Liga formam a Série B da Temporada seguinte.
+ * Grupos da Série A de 16 (T2, ADR-0064): dois Grupos de 8, cada um em turno único, com os
+ * Clássicos juntos e cada Time fundador no mesmo Grupo do seu Time Primo.
  */
-export const TIMES_QUE_CAEM_NA_A_DE_16 = 8;
+export const GRUPOS = ['CHAO', 'COPA'] as const;
+export type Grupo = (typeof GRUPOS)[number];
+export const NOME_DO_GRUPO: Readonly<Record<Grupo, string>> = { CHAO: 'Grupo do Chão', COPA: 'Grupo da Copa' };
+/** Nome curto, para placas e tabelas ("Chão", "Copa"). */
+export const NOME_CURTO_DO_GRUPO: Readonly<Record<Grupo, string>> = { CHAO: 'Chão', COPA: 'Copa' };
+export const GRUPOS_DA_A_DE_16: Readonly<Record<Grupo, readonly TimeId[]>> = {
+  CHAO: ['CAP', 'ONC', 'TAT', 'TAM', 'JAC', 'SUC', 'LOB', 'CDM'],
+  COPA: ['PRE', 'SAG', 'TUC', 'ARA', 'COR', 'MOR', 'BOT', 'PIR'],
+};
+/** Quantos de cada Grupo vão para as Semifinais (1º de um contra o 2º do outro). */
+export const CLASSIFICAM_POR_GRUPO = 2;
+/** Quantos de cada Grupo caem no fim da T2: os 4 últimos, 8 ao todo, formam a Série B da T3. */
+export const CAEM_POR_GRUPO = 4;
+
+/** O Grupo de um Time (null se a Temporada não tem Grupos ou o Time não está em nenhum). */
+export function grupoDoTime(grupos: Readonly<Record<Grupo, readonly TimeId[]>> | null | undefined, time: TimeId): Grupo | null {
+  return grupos ? (GRUPOS.find((g) => grupos[g].includes(time)) ?? null) : null;
+}
 
 /**
- * Quantos Times da Série A caem no fim da Temporada: 2 com Série B, 8 com a A de 16 sem B (T2),
- * nenhum com uma Série só de 8 (T1). (ADR-0017 e ADR-0062.)
+ * Quantos Times de uma tabela da Série A caem no fim da Temporada: 2 com Série B (ADR-0017), 4
+ * por Grupo na T2 (ADR-0064), nenhum com uma Série só de 8 (T1).
  */
-export function timesQueCaem(timesNaA: number, temSerieB: boolean): number {
-  if (temSerieB) return TIMES_QUE_TROCAM_DE_SERIE;
-  return timesNaA > TIMES_POR_SERIE.A ? TIMES_QUE_CAEM_NA_A_DE_16 : 0;
+export function timesQueCaem(o: { temSerieB: boolean; porGrupo: boolean }): number {
+  if (o.temSerieB) return TIMES_QUE_TROCAM_DE_SERIE;
+  return o.porGrupo ? CAEM_POR_GRUPO : 0;
 }
 
 /**

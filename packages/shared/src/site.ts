@@ -5,7 +5,7 @@ import type { MomentosDoAoVivo } from './avisos.js';
  */
 import type { Aparencia } from './aparencia.js';
 import type { Estrelas } from './estrelas.js';
-import type { Especializacao, Posicao, Serie, TimeId } from './index.js';
+import type { Especializacao, Grupo, Posicao, Serie, TimeId } from './index.js';
 import type { HabilidadeId, Habilidades } from './habilidades.js';
 
 export interface TimePublico {
@@ -81,8 +81,10 @@ export interface LigaPublica {
   tabela: LinhaTabelaPublica[];
   /** Tabela da Série B, quando a Temporada tem Séries (ADR-0017). */
   tabelaB?: LinhaTabelaPublica[];
-  /** Quantos Times da Série A caem no fim da Temporada atual (2 com Série B; 8 na T2, ADR-0062). */
+  /** Quantos Times caem no fim da Temporada atual: na T2, os 4 últimos de cada Grupo (ADR-0064). */
   caem?: number;
+  /** Na T2, a tabela de cada Grupo da Série A (ADR-0064). */
+  grupos?: { grupo: Grupo; nome: string; tabela: LinhaTabelaPublica[] }[];
   /** Os Times de cada Série na Temporada atual, quando ela tem Séries. */
   series?: Record<Serie, TimeId[]> | null;
   calendario: PartidaNoCalendario[];
