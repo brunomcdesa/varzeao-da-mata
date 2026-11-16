@@ -29,8 +29,11 @@ import { CotaDiariaEsgotada, MODELO_LITE, MODELO_PADRAO, VOZ_PADRAO, falarGemini
 export interface Locutor {
   /** WAV PCM 16 bits 48 kHz mono. */
   falar(texto: string, tom: Tom): Promise<Uint8Array>;
-  /** Todas as falas de um vídeo, na ordem; pode juntar pedidos para economizar cota. */
-  falarTodas(falas: { texto: string; tom: Tom }[], progresso?: (feitas: number) => void): Promise<Uint8Array[]>;
+  /**
+   * Todas as falas de um vídeo, na ordem; pode juntar pedidos para economizar cota.
+   * `porPedido`: no máximo quantas falas novas (fora do cache) vão em cada pedido.
+   */
+  falarTodas(falas: { texto: string; tom: Tom }[], progresso?: (feitas: number) => void, porPedido?: number): Promise<Uint8Array[]>;
   readonly modo: 'gemini' | 'azure' | 'espeak' | 'mudo';
 }
 
@@ -128,17 +131,22 @@ export function criarLocutor(pastaCache: string, modoForcado?: string, vozGemini
     return {
       modo: 'gemini',
       falar,
-      async falarTodas(falas, progresso) {
+      async falarTodas(falas, progresso, porPedido = Infinity) {
         const out: (Uint8Array | null)[] = await Promise.all(falas.map((f) => lerCache(chaveDe(f.texto, f.tom))));
         const faltam = out.flatMap((w, i) => (w ? [] : [i]));
         progresso?.(falas.length - faltam.length);
         if (!faltam.length) return out as Uint8Array[];
         try {
-          // Todas as falas que faltam num pedido só (cada uma com o estilo do seu tom).
-          const wavs = await sintetizarLote(faltam.map((i) => falas[i]!));
-          for (const [k, i] of faltam.entries()) {
-            out[i] = wavs[k]!;
-            await gravarCache(chaveDe(falas[i]!.texto, falas[i]!.tom), wavs[k]!);
+          // Só as falas que faltam, juntas (cada uma com o estilo do seu tom): no Reels, um pedido
+          // só; no Ao Vivo, de `porPedido` em `porPedido`, para o recorte dar certo. Como só vão as
+          // novas, as falas com apelido (ADR-0059) não abrem um pedido por trecho do jogo.
+          for (let k0 = 0; k0 < faltam.length; k0 += porPedido) {
+            const parte = faltam.slice(k0, k0 + porPedido);
+            const wavs = await sintetizarLote(parte.map((i) => falas[i]!));
+            for (const [k, i] of parte.entries()) {
+              out[i] = wavs[k]!;
+              await gravarCache(chaveDe(falas[i]!.texto, falas[i]!.tom), wavs[k]!);
+            }
           }
           progresso?.(falas.length);
           return out as Uint8Array[];
@@ -151,7 +159,7 @@ export function criarLocutor(pastaCache: string, modoForcado?: string, vozGemini
             const anterior = process.env.GEMINI_TTS_MODELO;
             process.env.GEMINI_TTS_MODELO = MODELO_LITE;
             try {
-              return await criarLocutor(pastaCache, 'gemini', voz, jeito).falarTodas(falas, progresso);
+              return await criarLocutor(pastaCache, 'gemini', voz, jeito).falarTodas(falas, progresso, porPedido);
             } catch (e2) {
               if (!(e2 instanceof CotaDiariaEsgotada) && !/recusou/.test((e2 as Error).message)) throw e2;
               console.warn(`  ⚠ O modelo lite também falhou: ${(e2 as Error).message.slice(0, 300)}`);

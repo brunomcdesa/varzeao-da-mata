@@ -197,7 +197,7 @@ A avaliação de 0 a 10 de um Jogador escalado, calculada pelas ações típicas
 _Avoid_: rating, avaliação, desempenho
 
 **Narrador**:
-A voz que narra a Partida, no Reels e no Ao Vivo: uma de cinco, sorteada pela semente da Partida. Cada Narrador tem a sua voz e o seu jeito de narrar (ADR-0032). Fala dos Jogadores pela Posição e pelo Time, nunca pelo @, e só comenta o que aparece na tela.
+A voz que narra a Partida, no Reels e no Ao Vivo: uma de cinco, sorteada pela semente da Partida. Cada Narrador tem a sua voz e o seu jeito de narrar (ADR-0032). Nunca fala o @ e só comenta o que aparece na tela. Na T1, fala dos Jogadores pela Posição e pelo Time e diz o apelido só nos gols; a partir da T2, diz o apelido em toda fala de Jogador (na primeira vez, junto com a Posição e o Time) e fica pela Posição e pelo Time só com quem não tem apelido falável (ADR-0059).
 _Avoid_: Locutor da Liga, locutor, comentarista, voz
 
 **Série**:
