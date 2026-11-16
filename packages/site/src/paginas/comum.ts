@@ -33,8 +33,8 @@ export function linhaDePartida(p: PartidaNoCalendario, o: { comDia?: boolean; de
  * Tabela da Fase de Liga. `serie`: com Série B, a A marca os 2 últimos (Rebaixamento) e a
  * legenda diz a regra de cada Série (ADR-0017).
  */
-export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compacta?: boolean; destaque?: string; semLegenda?: boolean; serie?: Serie; caem?: number; forma?: Map<TimeId, ('V' | 'E' | 'D')[]> } = {}): Html {
-  // Zona de queda: os 2 últimos da A com Série B (ADR-0017); na T2, os 8 últimos (ADR-0062).
+export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compacta?: boolean; destaque?: string; semLegenda?: boolean; serie?: Serie; caem?: number; classificam?: number; porGrupo?: boolean; forma?: Map<TimeId, ('V' | 'E' | 'D')[]> } = {}): Html {
+  // Zona de queda: os 2 últimos da A com Série B (ADR-0017); na T2, os 4 últimos de cada Grupo (ADR-0064).
   const nCaem = o.serie === 'B' ? 0 : (o.caem ?? (o.serie === 'A' ? TIMES_QUE_TROCAM_DE_SERIE : 0));
   const caem = nCaem ? linhas.length - nCaem : Infinity;
   return html`<table class="classificacao ${o.compacta ? 'compacta' : ''}">
@@ -48,7 +48,7 @@ export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compact
       ${o.forma ? html`<th scope="col" class="col-forma" title="Últimos 5 jogos">Forma</th>` : ''}
     </tr></thead>
     <tbody>${linhas.map(
-      (l, i) => html`<tr class="${l.time === o.destaque ? 'destaque' : ''} ${i < 4 ? 'classifica' : ''} ${i >= caem ? 'rebaixamento' : ''}">
+      (l, i) => html`<tr class="${l.time === o.destaque ? 'destaque' : ''} ${i < (o.classificam ?? 4) ? 'classifica' : ''} ${i >= caem ? 'rebaixamento' : ''}">
         <td class="pos">${i + 1}</td>
         <th scope="row" class="time"><a href="#/time/${l.time}">${escudoImg(l.time, 1)}<span>${curto(l.time)}${o.forma ? formaHtml(o.forma.get(l.time) ?? []) : ''}</span></a></th>
         <td class="pontos">${l.pontos}</td>
@@ -61,6 +61,8 @@ export function tabelaDeClassificacao(linhas: LinhaTabelaPublica[], o: { compact
   </table>
   ${o.semLegenda
     ? ''
+    : o.porGrupo
+      ? html`<p class="legenda">Os 2 primeiros de cada Grupo vão para as Semifinais (1º de um Grupo × 2º do outro); empate no Mata-mata vai para os pênaltis. Os ${nCaem} últimos de cada Grupo caem para a Série B, que começa na próxima temporada. Desempate na tabela: vitórias, saldo e gols pró.</p>`
     : html`<p class="legenda">Os 4 primeiros vão para o Mata-mata (1º × 4º e 2º × 3º); empate no Mata-mata vai para os pênaltis.${
         o.serie === 'B' ? ' Os 2 finalistas do Mata-mata sobem para a Série A.' : nCaem ? ` Os ${nCaem} últimos caem para a Série B${o.serie ? '' : ', que começa na próxima temporada'}.` : ''
       } Desempate na tabela: vitórias, saldo e gols pró.</p>`}`;

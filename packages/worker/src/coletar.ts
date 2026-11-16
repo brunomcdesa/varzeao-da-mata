@@ -213,7 +213,7 @@ export async function faixaDoOvrInicial(b: Banco): Promise<FaixaDoOvr> {
 
 /**
  * Limite por Posição de cada Time: o dobro das vagas da Escalação (2 goleiros e 4 em cada
- * Posição de linha). Na T2 (Série A de 16, sem B, ADR-0062), o novato entra no Time pedido
+ * Posição de linha). Na T2 (Série A de 16, sem B, ADR-0063), o novato entra no Time pedido
  * enquanto a Posição dele tem vaga; cheia, vai para o Time da A com menos gente nela.
  */
 export const LIMITE_POR_POSICAO: Readonly<Record<Posicao, number>> = Object.fromEntries(
@@ -241,7 +241,7 @@ function destinoDoNovato(
     const vazios = times.filter((t) => (contagem.get(t) ?? 0) === menor);
     return vazios[desempate % vazios.length]!;
   };
-  // A Série A de 16 (T2, ADR-0058 e ADR-0062): Limite por Posição entre os Times da A.
+  // A Série A de 16 (T2, ADR-0058 e ADR-0063): Limite por Posição entre os Times da A.
   const comAGrande = series.A.length > TIMES_POR_SERIE.A;
   if (comAGrande && series.A.includes(pedido) && naPosicaoDaA) {
     const na = (t: TimeId) => naPosicaoDaA.get(t) ?? 0;
@@ -256,7 +256,7 @@ function destinoDoNovato(
       const empatados = menores.filter((t) => (contagem.get(t) ?? 0) === elenco);
       return { time: empatados[desempate % empatados.length]!, motivo: 'OUTRO_DA_A' };
     }
-    // Sem Série B (T2, ADR-0062): o Time da A com menos gente na Posição.
+    // Sem Série B (T2, ADR-0063): o Time da A com menos gente na Posição.
     if (!series.B.length) {
       const menor = Math.min(...series.A.map(na));
       const menores = series.A.filter((t) => na(t) === menor);

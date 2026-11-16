@@ -1,6 +1,6 @@
 # T2 só com a Série A; os 8 piores formam a Série B da T3
 
-Status: decidido em 16/11/2026. Substitui, na parte das Séries, o ADR-0058.
+Status: decidido em 16/11/2026. Substitui, na parte das Séries, o ADR-0058. O formato da Fase de Liga (Grupos, 7 Rodadas) e a queda de 4 por Grupo vêm do ADR-0064.
 
 Com 117 inscritos, o Rebalanceamento deixava os 8 Times da Série B sem ninguém: os novatos só iriam
 para a B com a Posição cheia nos 16 Times da A. A B jogaria 4 jogos por dia só com a Base. Em vez

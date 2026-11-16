@@ -8,7 +8,7 @@
  * que ainda vai ser jogada, conta como "pode passar na frente". Por isso nunca erra: no pior
  * caso diz "depende" quando a conta exata daria Garantido.
  */
-import { FALA_DO_TIME, type TimeId } from './index.js';
+import { FALA_DO_TIME, type Grupo, type TimeId } from './index.js';
 
 export const VAGAS_NO_MATA_MATA = 4;
 
@@ -38,6 +38,10 @@ export interface BrigaPeloMataMata {
   tabela: LinhaDaBriga[];
   /** Partidas da Série na Fase de Liga que ainda vão ser jogadas depois desta. */
   depois: JogoQueFalta[];
+  /** Com Grupos (T2, ADR-0064): o Grupo da Partida; a tabela e o que falta são só dele. */
+  grupo?: Grupo | null;
+  /** Vagas no Mata-mata: 4 na Série, 2 por Grupo (ADR-0064). */
+  vagas?: number;
 }
 
 export interface PartidaParaBriga {
@@ -60,7 +64,14 @@ export interface PartidaParaBriga {
  * na A e a 14 na B, ADR-0058). Conta só o que foi jogado antes do Apito Inicial desta Partida; o resto da
  * Fase de Liga (inclusive Partida já simulada de horário mais tarde) é o que falta.
  */
-export function brigaDaPartida(alvo: PartidaParaBriga, partidas: readonly PartidaParaBriga[], times: readonly TimeId[], serie: 'A' | 'B' | null): BrigaPeloMataMata | null {
+export function brigaDaPartida(
+  alvo: PartidaParaBriga,
+  partidas: readonly PartidaParaBriga[],
+  times: readonly TimeId[],
+  serie: 'A' | 'B' | null,
+  /** Com Grupos (ADR-0064): `partidas` e `times` já só do Grupo, e as vagas dele. */
+  o: { grupo?: Grupo | null; vagas?: number } = {},
+): BrigaPeloMataMata | null {
   if (alvo.fase !== 'LIGA') return null;
   const ultima = Math.max(alvo.rodada, ...partidas.filter((p) => p.fase === 'LIGA').map((p) => p.rodada));
   if (alvo.rodada !== ultima || !partidas.some((p) => p.fase === 'LIGA' && p.id !== alvo.id)) return null;
@@ -71,7 +82,7 @@ export function brigaDaPartida(alvo: PartidaParaBriga, partidas: readonly Partid
     if (p.gols && p.apito < alvo.apito) somar(linhas, p.mandante, p.visitante, p.gols.mandante, p.gols.visitante);
     else depois.push({ mandante: p.mandante, visitante: p.visitante, hora: p.hora });
   }
-  return { serie, tabela: [...linhas.values()], depois };
+  return { serie, tabela: [...linhas.values()], depois, ...(o.grupo ? { grupo: o.grupo, vagas: o.vagas ?? VAGAS_NO_MATA_MATA } : {}) };
 }
 
 function somar(linhas: Map<TimeId, LinhaDaBriga>, mandante: TimeId, visitante: TimeId, gm: number, gv: number): void {
@@ -101,6 +112,7 @@ export function situacoesNaBriga(
   /** Sem placar: fixa só quem vence esta Partida (o placar exato segue em aberto). */
   resultado?: ResultadoDaPartida,
 ): Map<TimeId, SituacaoNaBriga> {
+  const vagas = b.vagas ?? VAGAS_NO_MATA_MATA;
   const base = new Map(b.tabela.map((l) => [l.time, { ...l }]));
   if (placar) somar(base, times.mandante, times.visitante, placar.mandante, placar.visitante);
   const abertos: { mandante: TimeId; visitante: TimeId; fixo?: number }[] = [
@@ -145,8 +157,8 @@ export function situacoesNaBriga(
           else if ((y.saldo - x.saldo || y.golsPro - x.golsPro || x.time.localeCompare(y.time)) > 0) frente++;
         }
       }
-      if (frente + talvez >= VAGAS_NO_MATA_MATA) garantido.set(x.time, false);
-      if (frente < VAGAS_NO_MATA_MATA) eliminado.set(x.time, false);
+      if (frente + talvez >= vagas) garantido.set(x.time, false);
+      if (frente < vagas) eliminado.set(x.time, false);
     }
   }
   return new Map([...base.keys()].map((t) => [t, garantido.get(t) ? 'GARANTIDO' : eliminado.get(t) ? 'ELIMINADO' : 'DEPENDE']));

@@ -1,28 +1,29 @@
 /**
  * Calendário da Temporada (GLOSSARY: Fase de Liga, Rodada, Apito Inicial, Série).
  * Uma Rodada por dia. Com uma Série só (T1), turno único entre os 8 Times em 7 Rodadas, às 12h,
- * 14h, 16h e 18h. Na T2, só a Série A de 16: turno único em 15 Rodadas, um jogo por hora das
- * 11h às 18h (ADR-0062). Da T3 em diante, as duas Séries de 8 em turno e returno. Com duas Séries, a B joga das 11h às 14h e a A das 15h às 18h (ADR-0050); com
+ * 14h, 16h e 18h. Na T2, só a Série A de 16, em dois Grupos de 8 (ADR-0064): turno único dentro
+ * de cada Grupo em 7 Rodadas, 8 jogos por dia, um por hora das 11h às 18h. Da T3 em diante, as
+ * duas Séries de 8 em turno único. Com duas Séries, a B joga das 11h às 14h e a A das 15h às 18h (ADR-0050); com
  * 16 Times na A (ADR-0058), ela faz turno único em 15 Rodadas com dois jogos por horário, e a B
  * (8 Times) faz turno e returno em 14 Rodadas, para as duas terminarem juntas.
  * O Mata-mata é criado depois, quando a Fase de Liga termina.
  */
-import { TIMES_FUNDADORES, TIMES_POR_SERIE, type Serie, type TimeId } from '@liga/shared';
+import { GRUPOS, TIMES_FUNDADORES, type Serie, type TimeId } from '@liga/shared';
 import { criarRng } from '@liga/sim';
 import type { Banco } from './banco.js';
-import { gravarSeries, seriesDaProximaTemporada, seriesComTimes, type SeriesDaTemporada } from './series.js';
+import { gravarSeries, gruposPara, seriesDaProximaTemporada, seriesComTimes, type GruposDaTemporada, type SeriesDaTemporada } from './series.js';
 import { tabela } from './tabela.js';
 
 export const HORARIOS = [12, 14, 16, 18] as const;
 /** Com duas Séries (ADR-0050): a B joga antes, a A fecha o dia. */
 export const HORARIOS_COM_SERIES: Record<Serie, readonly number[]> = { B: [11, 12, 13, 14], A: [15, 16, 17, 18] };
 
-/** A Série A de 16 sem Série B (T2, ADR-0062): 8 jogos por Rodada, um por hora. */
+/** A Série A de 16 em Grupos (T2, ADR-0063 e ADR-0064): 8 jogos por Rodada, um por hora. */
 export const HORARIOS_DA_A_DE_16 = [11, 12, 13, 14, 15, 16, 17, 18] as const;
 
 /**
  * Horários da Fase de Liga de uma Série, um por jogo da Rodada. Sem Série B e com 8 jogos (a A de
- * 16, ADR-0062), um jogo por hora das 11h às 18h. Com mais jogos que horários, cada horário recebe
+ * 16, ADR-0063), um jogo por hora das 11h às 18h. Com mais jogos que horários, cada horário recebe
  * mais de um jogo ao mesmo tempo (ADR-0058).
  */
 export function horariosDaLiga(serie: Serie, comSeries: boolean, jogos = 4): readonly number[] {
@@ -65,16 +66,25 @@ export function turnoEReturno(seed: number, timesDaSerie: readonly TimeId[]): Co
 }
 
 /**
- * O calendário de cada Série: turno único; a Série menor faz turno e returno quando o turno
- * dela cabe duas vezes no turno da maior (a B, com 8 Times, ao lado da A com 16). Com as duas
- * Séries de 8 (da T3 em diante, ADR-0062), as duas fazem turno e returno.
+ * Turno único dentro de cada Grupo (ADR-0064), as Rodadas dos dois Grupos juntas: em cada Rodada,
+ * os jogos se alternam entre os Grupos (Chão, Copa, Chão, Copa...).
  */
-export function calendariosDasSeries(seed: number, quais: readonly Serie[], timesDe: (s: Serie) => readonly TimeId[]): { serie: Serie; rodadas: Confronto[][] }[] {
+export function faseDeGrupos(seed: number, grupos: GruposDaTemporada): Confronto[][] {
+  const porGrupo = GRUPOS.map((g, k) => faseDeLiga((seed ^ (0x9e3779b9 * (k + 1))) >>> 0, grupos[g]));
+  return porGrupo[0]!.map((_, r) => porGrupo[0]![r]!.flatMap((j, i) => [j, ...porGrupo.slice(1).map((pg) => pg[r]![i]!)]));
+}
+
+/**
+ * O calendário de cada Série: turno único; a Série menor faz turno e returno quando o turno
+ * dela cabe duas vezes no turno da maior (a B, com 8 Times, ao lado da A com 16, ADR-0058). Com
+ * Grupos (T2, ADR-0064), a A joga turno único dentro de cada Grupo.
+ */
+export function calendariosDasSeries(seed: number, quais: readonly Serie[], timesDe: (s: Serie) => readonly TimeId[], grupos: GruposDaTemporada | null = null): { serie: Serie; rodadas: Confronto[][] }[] {
   const maior = Math.max(...quais.map((s) => timesDe(s).length - 1));
-  const duasDeOito = quais.length > 1 && quais.every((s) => timesDe(s).length <= TIMES_POR_SERIE[s]);
   return quais.map((serie) => {
+    if (grupos && serie === 'A') return { serie, rodadas: faseDeGrupos(seed, grupos) };
     const times = timesDe(serie);
-    const duasVezes = duasDeOito || 2 * (times.length - 1) <= maior;
+    const duasVezes = 2 * (times.length - 1) <= maior;
     return { serie, rodadas: duasVezes ? turnoEReturno(seedDaSerie(seed, serie), times) : faseDeLiga(seedDaSerie(seed, serie), times) };
   });
 }
@@ -136,7 +146,7 @@ function seedDaSerie(seed: number, serie: Serie): number {
 }
 
 /**
- * Cria a Temporada com as Rodadas da Fase de Liga (7 na T1, 15 da T2 em diante) a partir de
+ * Cria a Temporada com as Rodadas da Fase de Liga (7: turno único entre 8 Times, ou em cada Grupo) a partir de
  * `primeiraRodada`.
  *
  * As Séries vêm de `o.series` ou, se não vierem, da Temporada anterior (Acesso e
@@ -147,15 +157,16 @@ export async function criarTemporada(banco: Banco, o: { numero: number; primeira
     let series = o.series ?? null;
     if (!series) {
       const anterior = (await b.query<{ id: number }>(`SELECT id FROM temporada WHERE numero = $1`, [o.numero - 1])).rows[0];
-      if (anterior) series = await seriesDaProximaTemporada(b, anterior.id, async (serie) => (await tabela(b, anterior.id, serie)).map((l) => l.time));
+      if (anterior) series = await seriesDaProximaTemporada(b, anterior.id, async (serie, grupo) => (await tabela(b, anterior.id, serie, grupo)).map((l) => l.time));
     }
     const temporadaId = (
       await b.query<{ id: number }>(`INSERT INTO temporada (numero, inicio) VALUES ($1, $2) RETURNING id`, [o.numero, o.primeiraRodada])
     ).rows[0]!.id;
-    if (series) await gravarSeries(b, temporadaId, series);
+    const grupos = series ? gruposPara(series) : null;
+    if (series) await gravarSeries(b, temporadaId, series, grupos);
     const quais = series ? seriesComTimes(series) : (['A'] as Serie[]);
     const comSeries = quais.includes('B');
-    const calendarios = calendariosDasSeries(o.seed, quais, (serie) => (series ? series[serie] : TIMES_FUNDADORES));
+    const calendarios = calendariosDasSeries(o.seed, quais, (serie) => (series ? series[serie] : TIMES_FUNDADORES), grupos);
     const totalDeRodadas = Math.max(...calendarios.map((c) => c.rodadas.length));
     for (let r = 0; r < totalDeRodadas; r++) {
       const dia = somarDias(o.primeiraRodada, r);

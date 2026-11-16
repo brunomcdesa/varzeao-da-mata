@@ -2,9 +2,9 @@
  * Classificação da Fase de Liga: 3 pontos por vitória, 1 por empate. Desempate por
  * vitórias, saldo de gols, gols marcados e, por fim, sigla (para a ordem ser estável).
  */
-import { TIMES_FUNDADORES, type Serie, type TimeId } from '@liga/shared';
+import { TIMES_FUNDADORES, type Grupo, type Serie, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
-import { seriesDaTemporada } from './series.js';
+import { gruposDaTemporada, seriesDaTemporada } from './series.js';
 
 export interface LinhaDaTabela {
   time: TimeId;
@@ -48,8 +48,11 @@ export function classificar(partidas: { mandante: TimeId; visitante: TimeId; gm:
   );
 }
 
-/** Tabela da Fase de Liga de uma Série (por padrão, a A). */
-export async function tabela(banco: Banco, temporadaId: number, serie: Serie = 'A'): Promise<LinhaDaTabela[]> {
+/**
+ * Tabela da Fase de Liga de uma Série (por padrão, a A). Com `grupo` (T2, ADR-0064), só os Times
+ * do Grupo e os jogos entre eles.
+ */
+export async function tabela(banco: Banco, temporadaId: number, serie: Serie = 'A', grupo?: Grupo): Promise<LinhaDaTabela[]> {
   const partidas = (
     await banco.query<{ mandante: TimeId; visitante: TimeId; gm: number; gv: number }>(
       `SELECT p.mandante_id AS mandante, p.visitante_id AS visitante, p.gols_mandante AS gm, p.gols_visitante AS gv
@@ -58,5 +61,9 @@ export async function tabela(banco: Banco, temporadaId: number, serie: Serie = '
       [temporadaId, serie],
     )
   ).rows;
+  if (grupo) {
+    const times = (await gruposDaTemporada(banco, temporadaId))?.[grupo] ?? [];
+    return classificar(partidas.filter((p) => times.includes(p.mandante) && times.includes(p.visitante)), times);
+  }
   return classificar(partidas, (await seriesDaTemporada(banco, temporadaId))[serie]);
 }

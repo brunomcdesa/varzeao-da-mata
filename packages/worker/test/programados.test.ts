@@ -95,9 +95,14 @@ describe('Reels Programados (ADR-0051)', () => {
     expect(() => legendaDasNovidades('novidades-x', '2026-11-19', novidades[0]!.publicarEm)).toThrow();
   });
 
-  it('legenda da Abertura: Série B, Inscrição e estreia', () => {
+  it('legenda da Abertura: Grupos, quem cai, Inscrição e estreia (ADR-0064)', () => {
     const l = legendaDaAbertura(2, '2026-11-19');
     expect(l).toContain('Jacaré');
+    expect(l).toContain('Grupo do Chão: Capivara');
+    expect(l).toContain('Grupo da Copa: Preguiça');
+    expect(l).toContain('Os 4 últimos de cada grupo caem e formam a Série B, que estreia na Temporada 3.');
+    expect(l).toContain('das 11h às 18h');
+    expect(l).not.toMatch(/Quati|15h às 18h/);
     expect(l).toContain('ENTRO + TIME + POSIÇÃO');
     expect(l).toContain('Estreia quinta, 19/11');
   });

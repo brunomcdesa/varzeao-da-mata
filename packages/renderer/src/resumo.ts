@@ -4,7 +4,7 @@
  * narrada pelo Locutor da Liga; cada cartela estica até a sua fala caber inteira.
  */
 import { desenharCompartilhe } from './anuncio.js';
-import { DESTAQUE_DA_POSICAO, FALA_DO_TIME, IDENTIDADE, TIMES_QUE_TROCAM_DE_SERIE, doTime, nomeDaRodada, type Posicao, type Serie, type TimeId, type Aparencia, type Estrelas } from '@liga/shared';
+import { CLASSIFICAM_POR_GRUPO, DESTAQUE_DA_POSICAO, FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, TIMES_QUE_TROCAM_DE_SERIE, type Grupo, doTime, nomeDaRodada, type Posicao, type Serie, type TimeId, type Aparencia, type Estrelas } from '@liga/shared';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, plaquinha } from './desenho.js';
 import { apelidoFalavel, type Fala } from './narracao.js';
@@ -21,8 +21,10 @@ export interface DadosDoResumo {
   placares: { mandante: TimeId; visitante: TimeId; golsMandante: number; golsVisitante: number; penaltis: { mandante: number; visitante: number } | null; hora: number; serie?: Serie }[];
   /** Tabela da Série A (ou da Liga inteira, antes das Séries). */
   tabela: { time: TimeId; jogos: number; pontos: number; vitorias: number; saldo: number }[];
-  /** Quantos Times da Série A caem no fim da Temporada (2 com Série B; 8 na T2, só com a A de 16, ADR-0062). */
+  /** Quantos Times da Série A caem no fim da Temporada (2 com Série B; 8 na T2, só com a A de 16, ADR-0063). */
   caem?: number;
+  /** Com Grupos (T2, ADR-0064): a tabela de cada Grupo; os 2 primeiros vão às Semifinais e os `caem` últimos caem. */
+  grupos?: { grupo: Grupo; tabela: { time: TimeId; jogos: number; pontos: number; vitorias: number; saldo: number }[] }[];
   /** Tabela da Série B, quando existe. */
   tabelaB?: { time: TimeId; jogos: number; pontos: number; vitorias: number; saldo: number }[];
   novosContratados: { username: string; time: TimeId; posicao: Posicao }[];
@@ -258,6 +260,20 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
             .join('. ') + '.';
         break;
       case 'TABELA': {
+        if (!s.serie && d.grupos?.length) {
+          // Com Grupos (ADR-0064): quem lidera cada um.
+          texto = d.grupos
+            .map((g) => {
+              const g1 = g.tabela[0]!;
+              const naPonta = g.tabela.filter((l) => l.pontos === g1.pontos).map((l) => curto(l.time));
+              const no = NOME_DO_GRUPO[g.grupo].replace(/^Grupo d/, 'No Grupo d');
+              if (naPonta.length === g.tabela.length) return `${no}, tudo igual.`;
+              if (naPonta.length > 1) return `${no}, ${naPonta.slice(0, -1).join(', ')} e ${naPonta.at(-1)} dividem a ponta com ${g1.pontos} pontos.`;
+              return `${no}, ${artigo(g1.time)} ${curto(g1.time)} lidera com ${g1.pontos} ${g1.pontos === 1 ? 'ponto' : 'pontos'}.`;
+            })
+            .join(' ');
+          break;
+        }
         const l1 = x.tabela[0]!;
         const ponta = x.tabela.filter((l) => l.pontos === l1.pontos).map((l) => curto(l.time));
         const lista = ponta.length > 1 ? `${ponta.slice(0, -1).join(', ')} e ${ponta[ponta.length - 1]}` : '';
@@ -407,11 +423,44 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       const x = 14;
       const w = 242;
       pin.tabua(x, 84, w, 360);
+      if (!serie && d.grupos?.length) {
+        // Dois Grupos de 8 (ADR-0064): um bloco por Grupo, com o nome e o cabeçalho.
+        const caemNoGrupo = d.caem ?? 0;
+        d.grupos.forEach((g, n) => {
+          const topo = 92 + n * 176;
+          pin.texto(NOME_DO_GRUPO[g.grupo], x + 12, topo + 8, 13, display, COR.amarelo, { alinhar: 'left', contorno: COR.contorno });
+          for (const [rotulo, cx] of [['P', 180], ['J', 204], ['V', 224], ['SG', 244]] as const) pin.texto(rotulo, cx, topo + 8, 9, texto, COR.placaSombra, { peso: 700 });
+          g.tabela.forEach((l, k) => {
+            const a = aparece(n * g.tabela.length + k, 0.09, 0.4);
+            if (a <= 0) return;
+            const y = topo + 26 + k * 19;
+            pin.ctx.globalAlpha = a;
+            const lider = k === 0;
+            const caindo = caemNoGrupo > 0 && k >= g.tabela.length - caemNoGrupo;
+            const classifica = k < CLASSIFICAM_POR_GRUPO;
+            pin.placa(x + 6, y - 6, w - 12, 17, { fundo: lider ? COR.amarelo : caindo ? '#7A2A22' : classifica ? '#3E5A2E' : COR.madeiraEscura, sombra: lider ? '#C99500' : COR.contorno, degrau: 1 });
+            const cor = lider ? COR.tinta : COR.placa;
+            pin.texto(`${k + 1}`, x + 17, y + 3, 10, display, cor);
+            desenharEscudo(pin, l.time, x + 28, y - 4, 0.56);
+            pin.texto(curto(l.time), x + 46, y + 3, pin.caber(curto(l.time), 110, 10, display), display, cor, { alinhar: 'left' });
+            pin.texto(String(l.pontos), 180, y + 3, 11, display, cor);
+            pin.texto(String(l.jogos), 204, y + 3, 9, display, cor);
+            pin.texto(String(l.vitorias), 224, y + 3, 9, display, cor);
+            pin.texto(l.saldo > 0 ? `+${l.saldo}` : String(l.saldo), 244, y + 3, 9, display, cor);
+            pin.ctx.globalAlpha = 1;
+          });
+        });
+        pin.ctx.globalAlpha = aparece(2 * 8, 0.09, 0.4);
+        const regra = `2 primeiros: semifinal · ${caemNoGrupo} últimos: Série B`;
+        pin.texto(regra, COLUNAS / 2, 458, pin.caber(regra, 236, 10, texto, 600), texto, COR.placa, { peso: 600 });
+        pin.ctx.globalAlpha = 1;
+        break;
+      }
       const cab = 100;
       for (const [rotulo, cx] of [['P', 180], ['J', 204], ['V', 224], ['SG', 244]] as const) pin.texto(rotulo, cx, cab, 9, texto, COR.placaSombra, { peso: 700 });
       // Até 8 Times, uma placa de 40 por linha; com 16 (Série A, ADR-0058), linhas de 21.
       const compacta = ds.tabela.length > 8;
-      // Zona de queda: os 2 últimos da A com Série B (ADR-0017); os 8 últimos na T2 (ADR-0062).
+      // Zona de queda: os 2 últimos da A com Série B (ADR-0017).
       const caem = serie === 'B' ? 0 : (d.caem ?? (serie === 'A' ? TIMES_QUE_TROCAM_DE_SERIE : 0));
       const linha = compacta ? 21 : 40;
       ds.tabela.forEach((l, k) => {

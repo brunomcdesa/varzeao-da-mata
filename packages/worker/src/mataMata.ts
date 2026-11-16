@@ -11,7 +11,7 @@ import { estrelasDosTimes, estruturaDaLiga, type Estrelas, type EstruturaDaTempo
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { apitoInicial } from './calendario.js';
-import { SQL_RODADA_DA_FINAL, seriesComTimes, seriesDaTemporada } from './series.js';
+import { SQL_RODADA_DA_FINAL, gruposDaTemporada, seriesComTimes, seriesDaTemporada } from './series.js';
 import { tabela } from './tabela.js';
 
 export const HORARIOS_DAS_SEMIFINAIS = [14, 16] as const;
@@ -93,10 +93,20 @@ export async function avancarMataMata(banco: Banco, temporadaId: number): Promis
       const id = (
         await b.query<{ id: number }>(`INSERT INTO rodada (temporada_id, numero, fase, data) VALUES ($1, $2, 'MATA_MATA', $3) RETURNING id`, [temporadaId, e.rodadaDasSemifinais, dia])
       ).rows[0]!.id;
+      const grupos = await gruposDaTemporada(b, temporadaId);
       for (const serie of series) {
-        const t = await tabela(b, temporadaId, serie);
-        const [p1, p2, p3, p4] = t.map((l) => l.time) as [TimeId, TimeId, TimeId, TimeId];
-        for (const [k, [m, v]] of ([[p1, p4], [p2, p3]] as const).entries()) {
+        let jogos: (readonly [TimeId, TimeId])[];
+        if (grupos && serie === 'A') {
+          // Com Grupos (ADR-0064): 1º do Chão × 2º da Copa e 1º da Copa × 2º do Chão; manda o 1º.
+          const [c1, c2] = (await tabela(b, temporadaId, serie, 'CHAO')).map((l) => l.time) as [TimeId, TimeId];
+          const [k1, k2] = (await tabela(b, temporadaId, serie, 'COPA')).map((l) => l.time) as [TimeId, TimeId];
+          jogos = [[c1, k2], [k1, c2]];
+        } else {
+          const t = await tabela(b, temporadaId, serie);
+          const [p1, p2, p3, p4] = t.map((l) => l.time) as [TimeId, TimeId, TimeId, TimeId];
+          jogos = [[p1, p4], [p2, p3]];
+        }
+        for (const [k, [m, v]] of jogos.entries()) {
           await b.query(`INSERT INTO partida (rodada_id, mandante_id, visitante_id, apito_inicial, serie) VALUES ($1, $2, $3, $4, $5)`, [
             id,
             m,

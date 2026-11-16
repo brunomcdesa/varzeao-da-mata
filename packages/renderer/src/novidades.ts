@@ -142,7 +142,7 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
         c('avisos', 7.5, 'Liga os avisos e escolhe os seus times: escalação, cinco minutos antes do apito inicial, gols e fim de jogo.', { cartela: 'AVISOS' }),
         c('ao-vivo', 7.5, 'No ao vivo, aparece quanta gente está assistindo. E dá pra mandar reação, que sobe na tela de todo mundo.', { cartela: 'AO_VIVO' }),
         c('carreira', 7.5, 'E na página de carreira, a história do seu jogador, temporada por temporada: time, números, OVR e troféus.', { cartela: 'CARREIRA' }),
-        c('chamada', 5, `A temporada dois começa ${estreia}! Série B a partir das onze, Série A a partir das três da tarde. Link na bio!`, { cartela: 'CHAMADA' }, 'animado'),
+        c('chamada', 5, `A temporada dois começa ${estreia}! Oito jogos por dia, um por hora, das onze da manhã às seis da tarde. Link na bio!`, { cartela: 'CHAMADA' }, 'animado'),
       ];
       break;
   }
@@ -422,8 +422,9 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
       });
       surge(entre(t, 0.9, 1.3), () => {
         pin.tabua(24, 236, 222, 64);
-        linha('Série B · das 11h às 14h', 256, 14);
-        linha('Série A · das 15h às 18h', 280, 14);
+        // T2 em Grupos (ADR-0064): 8 jogos por dia, um por hora.
+        linha('8 jogos por dia', 256, 14);
+        linha('um por hora · 11h às 18h', 280, 14);
       });
       const proximo = REELS_DE_NOVIDADES[REELS_DE_NOVIDADES.indexOf(d.reels) + 1];
       surge(entre(t, 1.6, 2.0), () => {
