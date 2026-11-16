@@ -220,22 +220,21 @@ export const LIMITE_POR_POSICAO: Readonly<Record<Posicao, number>> = Object.from
   (['GOL', 'ZAG', 'MEI', 'ATA'] as const).map((p) => [p, 2 * FORMACAO.filter((x) => x === p).length]),
 ) as Record<Posicao, number>;
 
-async function contarNaPosicao(b: Banco, time: TimeId, posicao: Posicao): Promise<number> {
-  return Number((await b.query<{ n: string }>(`SELECT count(*) AS n FROM jogador WHERE time_id = $1 AND posicao = $2 AND NOT banido`, [time, posicao])).rows[0]!.n);
-}
 
 /**
  * O Time onde o novato entra. Sem Séries (T1): o pedido, ou o Time mais vazio se o pedido passou
- * do equilíbrio de Elencos. Com a A de 16 Times (ADR-0058): Time da A com vaga na Posição
- * recebe; Posição cheia manda para o Time Primo na B; na B vale o equilíbrio entre os Times da B.
+ * do equilíbrio de Elencos. Com a A de 16 Times (ADR-0058): o Time pedido, se tem vaga na
+ * Posição; senão, outro Time da A com vaga nela; sem vaga em nenhum, o Time Primo na B. Na B
+ * vale o equilíbrio entre os Times da B.
  */
 function destinoDoNovato(
   pedido: TimeId,
   series: SeriesDaTemporada,
   contagem: ReadonlyMap<string, number>,
   desempate: number,
-  posicaoCheiaNoPedido: boolean,
-): { time: TimeId; motivo: 'PEDIDO' | 'EQUILIBRIO' | 'SERIE_B' } {
+  naPosicaoDaA: ReadonlyMap<string, number> | null,
+  limite: number,
+): { time: TimeId; motivo: Motivo } {
   const maisVazio = (times: readonly TimeId[], ideal?: TimeId): TimeId => {
     const menor = Math.min(...times.map((t) => contagem.get(t) ?? 0));
     if (ideal && (contagem.get(ideal) ?? 0) < menor + FOLGA_DE_ELENCO) return ideal;
@@ -243,14 +242,36 @@ function destinoDoNovato(
     return vazios[desempate % vazios.length]!;
   };
   const comAGrande = series.B.length > 0 && series.A.length > TIMES_POR_SERIE.B;
-  if (comAGrande && series.A.includes(pedido)) {
-    if (!posicaoCheiaNoPedido) return { time: pedido, motivo: 'PEDIDO' };
+  if (comAGrande && series.A.includes(pedido) && naPosicaoDaA) {
+    const na = (t: TimeId) => naPosicaoDaA.get(t) ?? 0;
+    if (na(pedido) < limite) return { time: pedido, motivo: 'PEDIDO' };
+    // Posição cheia no pedido: outro Time da A com vaga nela (o que tem menos gente na Posição,
+    // depois o menor Elenco). Sem vaga em nenhum, a B, no Time Primo.
+    const comVaga = series.A.filter((t) => na(t) < limite);
+    if (comVaga.length) {
+      const menor = Math.min(...comVaga.map(na));
+      const menores = comVaga.filter((t) => na(t) === menor);
+      const elenco = Math.min(...menores.map((t) => contagem.get(t) ?? 0));
+      const empatados = menores.filter((t) => (contagem.get(t) ?? 0) === elenco);
+      return { time: empatados[desempate % empatados.length]!, motivo: 'OUTRO_DA_A' };
+    }
     const primo = PRIMO_NA_B[pedido];
     return { time: maisVazio(series.B, primo && series.B.includes(primo) ? primo : undefined), motivo: 'SERIE_B' };
   }
   const daSerie = comAGrande ? series.B : [...series.A, ...series.B];
   const time = maisVazio(daSerie, pedido);
   return { time, motivo: time === pedido ? 'PEDIDO' : 'EQUILIBRIO' };
+}
+
+type Motivo = 'PEDIDO' | 'EQUILIBRIO' | 'OUTRO_DA_A' | 'SERIE_B';
+
+/** Quantos Jogadores cada Time tem numa Posição. */
+async function naPosicaoPorTime(b: Banco, times: readonly TimeId[], posicao: Posicao): Promise<Map<string, number>> {
+  const r = await b.query<{ time_id: string; n: string }>(
+    `SELECT time_id, count(*) AS n FROM jogador WHERE posicao = $1 AND NOT banido AND time_id = ANY($2) GROUP BY time_id`,
+    [posicao, [...times]],
+  );
+  return new Map(r.rows.map((x) => [x.time_id, Number(x.n)]));
 }
 
 async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posicao | undefined, ctx: Contexto): Promise<Resultado> {
@@ -264,17 +285,18 @@ async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posica
   // na posição pedida, e recebe uma resposta explicando.
   const contagem = await elencos(b, ativos);
   let time = pedido;
-  let motivo: 'PEDIDO' | 'EQUILIBRIO' | 'SERIE_B' = 'PEDIDO';
+  let motivo: Motivo = 'PEDIDO';
   // Posição no Time pedido: a pedida, ou a mais vazia dele (só o Time).
   const noPedido = pedida ?? (await posicaoMaisVazia(b, pedido));
   if (!ctx.forcar) {
-    const cheia = (await contarNaPosicao(b, pedido, noPedido)) >= LIMITE_POR_POSICAO[noPedido];
-    const d = destinoDoNovato(pedido, series, contagem, hashSimples(c.igCommentId), cheia);
+    const naPosicaoDaA = series.A.includes(pedido) ? await naPosicaoPorTime(b, series.A, noPedido) : null;
+    const d = destinoDoNovato(pedido, series, contagem, hashSimples(c.igCommentId), naPosicaoDaA, LIMITE_POR_POSICAO[noPedido]);
     if (d.motivo === 'EQUILIBRIO' && !(ctx.realocar ?? REALOCAR_QUANDO_CHEIO)) return 'TIME_CHEIO';
     ({ time, motivo } = d);
   }
-  // Na B (Posição cheia na A), segue na mesma Posição; realocado por equilíbrio, a pedida ou a mais vazia.
-  const posicao = motivo === 'SERIE_B' ? noPedido : (pedida ?? (time === pedido ? noPedido : await posicaoMaisVazia(b, time)));
+  // Mudou por Posição cheia (outro da A ou a B): segue na mesma Posição; realocado por
+  // equilíbrio, a pedida ou a mais vazia do Time novo.
+  const posicao = motivo === 'SERIE_B' || motivo === 'OUTRO_DA_A' ? noPedido : (pedida ?? (time === pedido ? noPedido : await posicaoMaisVazia(b, time)));
 
   const { ovr, habilidades } = sortearHabilidadesIniciais(c.igCommentId, posicao as Posicao, await faixaDoOvrInicial(b));
   await b.query(
@@ -287,8 +309,10 @@ async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posica
     c.igCommentId,
     motivo === 'PEDIDO'
       ? `@${c.username} você entrou no Varzeão da Mata! Agora é ${vaga}. Seu boneco já está no site (link na bio). ⚽`
-      : motivo === 'SERIE_B'
-        ? `@${c.username} ${pedida ? 'essa posição' : 'o time'} ${doTime(pedido)} já está completa na Série A, então você começa na Série B, no time ${doTime(time)}. Agora é ${vaga}. Dá para subir com o time ou transferir na próxima Janela. Bem-vindo ao Varzeão! ⚽`
+      : motivo === 'OUTRO_DA_A'
+        ? `@${c.username} as vagas de ${NOME_DA_POSICAO_FALADO[posicao]} ${doTime(pedido)} já estão completas, então você entrou no time ${doTime(time)}, também da Série A. Agora é ${vaga}. Bem-vindo ao Varzeão! ⚽`
+        : motivo === 'SERIE_B'
+        ? `@${c.username} as vagas de ${NOME_DA_POSICAO_FALADO[posicao]} estão completas em todos os times da Série A, então você começa na Série B, no time ${doTime(time)}. Agora é ${vaga}. Dá para subir com o time ou transferir na próxima Janela. Bem-vindo ao Varzeão! ⚽`
         : `@${c.username} o time ${doTime(pedido)} encheu, então você entrou no time ${doTime(time)} para equilibrar a Liga. Agora é ${vaga}. Bem-vindo ao Varzeão! ⚽`,
   );
   return time === pedido ? 'INSCRITO' : 'REALOCADO';

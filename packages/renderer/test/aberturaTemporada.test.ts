@@ -14,7 +14,7 @@ describe('Reels de Abertura da Temporada', () => {
     for (const nome of ['Quati', 'Gambá', 'Jabuti', 'Teiú', 'Ariranha', 'Anta', 'Seriema', 'Bugio']) expect(falas).toContain(nome);
     expect(falas).toContain('vinte e quatro times');
     expect(falas).toContain('Ninguém que jogou a Temporada 1 cai');
-    expect(falas).toContain('até dois goleiros e quatro jogadores em cada posição. Posição cheia, você começa na Série B');
+    expect(falas).toContain('até dois goleiros e quatro jogadores em cada posição. Posição cheia, você vai para outro time da Série A. Só se não tiver vaga em nenhum, você começa na Série B');
     expect(falas).toContain('na quinta, dia dezenove');
     expect(falas).toContain('A Série B joga das onze da manhã às duas da tarde, um jogo por hora. E a Série A, das três às seis da tarde, com dois jogos em cada horário');
     expect(falas).toContain('Temporada 2');

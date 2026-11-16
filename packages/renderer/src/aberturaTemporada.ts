@@ -115,7 +115,7 @@ export function narracaoDaAbertura(roteiro: RoteiroAberturaDaTemporada): Fala[] 
       NOVIDADES:
         'E tem muita novidade: dentro de campo, pro capitão, pro seu jogador e no site. Amanhã sai um Reels explicando cada uma.' +
         (d.horaDoRebalanceamento ? ` E hoje, às ${horaFalada(d.horaDoRebalanceamento, true)}: quem vai jogar a Série B.` : ''),
-      ENTRAR: `Quer jogar? Comenta ENTRO, o time e a posição. Tipo: ENTRO ${curto(ex.time)} ${POSICAO_FALADA[ex.posicao]}. Cada time da Série A recebe até ${NUMERO_FALADO[d.limiteNaA.goleiros] ?? d.limiteNaA.goleiros} goleiros e ${NUMERO_FALADO[d.limiteNaA.porPosicao] ?? d.limiteNaA.porPosicao} jogadores em cada posição. Posição cheia, você começa na Série B. E quem já joga continua com o seu jogador.`,
+      ENTRAR: `Quer jogar? Comenta ENTRO, o time e a posição. Tipo: ENTRO ${curto(ex.time)} ${POSICAO_FALADA[ex.posicao]}. Cada time da Série A recebe até ${NUMERO_FALADO[d.limiteNaA.goleiros] ?? d.limiteNaA.goleiros} goleiros e ${NUMERO_FALADO[d.limiteNaA.porPosicao] ?? d.limiteNaA.porPosicao} jogadores em cada posição. Posição cheia, você vai para outro time da Série A. Só se não tiver vaga em nenhum, você começa na Série B. E quem já joga continua com o seu jogador.`,
       AGENDA: `A estreia é ${semana === 'sábado' || semana === 'domingo' ? 'no' : 'na'} ${semana}, dia ${NUMERO_FALADO[dia] ?? dia}. A Série B joga ${faixa(d.horarios.B)}, um jogo por hora. E a Série A, ${faixa(d.horarios.A)}, com ${NUMERO_FALADO[d.jogosPorHorarioDaA] ?? d.jogosPorHorarioDaA} jogos em cada horário.`,
       CHAMADA: `As inscrições estão abertas. Comenta aí e garante a sua vaga na Temporada ${n}!`,
     };
@@ -350,7 +350,7 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
         pin.tabua(14, 156, 242, 96);
         const limite = `Série A: ${d.limiteNaA.goleiros} goleiros, ${d.limiteNaA.porPosicao} por posição`;
         pin.texto(limite, COLUNAS / 2, 174, pin.caber(limite, 226, 15, display), display, COR.amarelo, { contorno: COR.contorno });
-        // Time da A cheio -> Time Primo na B: escudo da A, seta para a direita, escudo da B.
+        // Posição cheia no Time pedido -> outro Time da A com vaga: escudo, seta, escudo.
         desenharEscudo(pin, d.serieA[0]!, 56, 186, 1.2);
         pin.texto('cheia', 69, 222, 8, texto, '#FF6B5B', { peso: 700 });
         pin.r(98, 197, 58, 8, COR.contorno);
@@ -358,9 +358,9 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
         // Ponta: triângulo cheio, contorno primeiro e o miolo por cima.
         for (let k = 0; k <= 12; k++) pin.r(152 + k, 189 + k, 1, 24 - 2 * k, COR.contorno);
         for (let k = 0; k <= 10; k++) pin.r(153 + k, 191 + k, 1, 20 - 2 * k, '#FFB84D');
-        desenharEscudo(pin, d.serieB[0]!, 186, 186, 1.2);
-        pin.texto('Série B', 199, 222, 8, texto, COR.placa, { peso: 700 });
-        pin.texto('posição cheia? você começa na Série B', COLUNAS / 2, 238, pin.caber('posição cheia? você começa na Série B', 226, 11, texto, 700), texto, COR.placa, { peso: 700 });
+        desenharEscudo(pin, d.serieA[1]!, 186, 186, 1.2);
+        pin.texto('outro da A', 199, 222, 8, texto, COR.placa, { peso: 700 });
+        pin.texto('sem vaga em nenhum? aí, Série B', COLUNAS / 2, 238, pin.caber('sem vaga em nenhum? aí, Série B', 226, 11, texto, 700), texto, COR.placa, { peso: 700 });
       });
       surge(entre(t, 5.0, 5.4), () => {
         pin.tabua(14, 266, 242, 140);

@@ -59,7 +59,7 @@ export function legendaDaAbertura(temporada: number, estreia: string): string {
     `Agora são 24 times em duas séries. A Série A cresce para 16, com a chegada de ${lista(TIMES_NOVOS)}.`,
     `E estreia a Série B, com ${lista(TIMES_DA_SERIE_B)}.`,
     'Ninguém que jogou a Temporada 1 cai: todo mundo segue na Série A.',
-    'Quem entra agora vai para a A enquanto a sua posição tiver vaga no time (até 2 goleiros e 4 em cada posição); posição cheia, começa na B.',
+    'Quem entra agora vai para a Série A (até 2 goleiros e 4 em cada posição por time). Posição cheia no time pedido, vai para outro time da A; só sem vaga em nenhum, começa na B.',
     'No fim da temporada, os 2 últimos da A caem e os 2 finalistas da B sobem.',
     '',
     'Pra jogar, comente:',

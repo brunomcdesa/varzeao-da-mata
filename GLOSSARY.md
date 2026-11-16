@@ -285,7 +285,7 @@ A redistribuição dos Elencos quando a T2 nasce, para que todos os inscritos jo
 _Avoid_: rebaixamento, corte, remoção
 
 **Time Primo**:
-O Time que forma par fixo com outro. No Rebalanceamento, cada fundador tem como Primo um dos Times que chegaram na T2 (exemplo: Onça → Jacaré). Da T2 em diante, cada Time da Série A também tem um Primo na Série B, para onde vai o novato que pede uma Posição já cheia no Time da A (exemplo: Jacaré → Teiú) (ADR-0058).
+O Time que forma par fixo com outro. No Rebalanceamento, cada fundador tem como Primo um dos Times que chegaram na T2 (exemplo: Onça → Jacaré). Da T2 em diante, cada Time da Série A também tem um Primo na Série B, para onde vai o novato quando a Posição dele está cheia em todos os Times da A (exemplo: Jacaré → Teiú) (ADR-0058).
 _Avoid_: time irmão, time filial
 
 **Fundador**:

@@ -14,10 +14,11 @@ Primo da B). Descer para a B logo na estreia soava como punição para quem jogo
 - **Rebalanceamento dentro da A:** cada Time fundador fica com os 7 primeiros inscritos, e os
   mais recentes vão para o Time Primo (um dos 8 Times que chegaram na A), na mesma Posição.
   Ninguém vai para a B. Quem foi movido vira Fundador do Time novo.
-- **Novatos:** entram na A enquanto a Posição pedida tiver vaga no Time, pelo Limite por
-  Posição (o dobro das vagas: 2 goleiros e 4 em cada Posição de linha). Posição cheia: o
-  novato começa na B, no Time Primo do pedido (cada Clássico da B é Primo de dois Clássicos
-  da A), na mesma Posição, com resposta explicando. Na B vale o equilíbrio de Elencos.
+- **Novatos:** entram na A pelo Limite por Posição (o dobro das vagas: 2 goleiros e 4 em cada
+  Posição de linha). Posição cheia no Time pedido: vai para outro Time da A com vaga nela (o
+  que tem menos gente na Posição). Só sem vaga em nenhum Time da A o novato começa na B, no
+  Time Primo do pedido (cada Clássico da B é Primo de dois Clássicos da A), na mesma Posição.
+  Nos dois casos, a resposta no comentário explica. Na B vale o equilíbrio de Elencos.
   Transferência compara o equilíbrio só com os Times da Série do destino.
 - **Calendário:** uma Rodada por dia. A A tem 15 Rodadas em turno único, com 2 jogos em cada
   horário das 15h às 18h. A B joga turno e returno (14 Rodadas), das 11h às 14h, e folga no

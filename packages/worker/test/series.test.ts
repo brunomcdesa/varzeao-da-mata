@@ -166,29 +166,48 @@ describe('Inscrição e voto com duas Séries', () => {
     expect(j.time_id).toBe('JAC');
   }, 60_000);
 
-  it('na T2, o novato entra na A até a Posição encher no Time (2 GOL, 4 nas outras); cheia, começa na B no Time Primo (ADR-0058)', async () => {
+  it('na T2, Posição cheia no Time da A (2 GOL, 4 nas outras) manda para outro Time da A com vaga; sem vaga em nenhum, para a B no Time Primo (ADR-0058)', async () => {
     const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
     await jogarTemporada(t1);
-    await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-12-08', seed: 8 });
+    const t2 = await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-12-08', seed: 8 });
+    const s = await seriesDaTemporada(banco, t2);
     const respostas: string[] = [];
     const ctx = { rodadaEmVotacao: null, responder: async (_id: string, texto: string) => void respostas.push(texto) };
-    const timeDe = async (u: string) => (await banco.query<{ time_id: string; posicao: string }>(`SELECT time_id, posicao FROM jogador WHERE username = $1`, [u])).rows[0];
+    const timeDe = async (u: string) => (await banco.query<{ time_id: TimeId; posicao: string }>(`SELECT time_id, posicao FROM jogador WHERE username = $1`, [u])).rows[0]!;
 
     // Dois goleiros cabem no Jacaré (agora na Série A).
     for (const u of ['gol_1', 'gol_2']) expect(await processarComentario(banco, comentario(u, u, 'ENTRO Jacaré goleiro', '2026-12-01T12:00:00Z'), ctx)).toBe('INSCRITO');
     expect(await timeDe('gol_2')).toEqual({ time_id: 'JAC', posicao: 'GOL' });
-    // O terceiro goleiro começa na B, no Time Primo do Jacaré (Teiú), como goleiro.
+    // O terceiro goleiro vai para outro Time da A com vaga de goleiro, como goleiro.
     expect(await processarComentario(banco, comentario('gol_3', 'gol_3', 'ENTRO Jacaré goleiro', '2026-12-01T12:05:00Z'), ctx)).toBe('REALOCADO');
-    expect(await timeDe('gol_3')).toEqual({ time_id: 'TEI', posicao: 'GOL' });
-    expect(respostas.at(-1)).toContain('começa na Série B');
+    const g3 = await timeDe('gol_3');
+    expect(g3.posicao).toBe('GOL');
+    expect(s.A).toContain(g3.time_id);
+    expect(g3.time_id).not.toBe('JAC');
+    expect(respostas.at(-1)).toContain('também da Série A');
+
+    // Todos os Times da A com 2 goleiros: o próximo começa na B, no Time Primo do Jacaré (Teiú).
+    for (const time of s.A) {
+      const n = Number((await banco.query<{ n: string }>(`SELECT count(*) AS n FROM jogador WHERE time_id = $1 AND posicao = 'GOL'`, [time])).rows[0]!.n);
+      for (let k = n; k < 2; k++) {
+        await banco.query(
+          `INSERT INTO jogador (ig_user_id, username, time_id, posicao, ovr, habilidades, inscrito_em) SELECT $1, $1, $2, 'GOL', ovr, habilidades, inscrito_em FROM jogador WHERE username = 'gol_1'`,
+          [`${time}_gol_${k}`.toLowerCase(), time],
+        );
+      }
+    }
+    expect(await processarComentario(banco, comentario('gol_x', 'gol_x', 'ENTRO Jacaré goleiro', '2026-12-01T12:10:00Z'), ctx)).toBe('REALOCADO');
+    expect(await timeDe('gol_x')).toEqual({ time_id: 'TEI', posicao: 'GOL' });
+    expect(respostas.at(-1)).toContain('completas em todos os times da Série A');
+
     // Atacante no Jacaré ainda tem vaga: entra na A.
-    expect(await processarComentario(banco, comentario('ata_1', 'ata_1', 'ENTRO Jacaré atacante', '2026-12-01T12:06:00Z'), ctx)).toBe('INSCRITO');
-    expect((await timeDe('ata_1'))!.time_id).toBe('JAC');
+    expect(await processarComentario(banco, comentario('ata_1', 'ata_1', 'ENTRO Jacaré atacante', '2026-12-01T12:12:00Z'), ctx)).toBe('INSCRITO');
+    expect((await timeDe('ata_1')).time_id).toBe('JAC');
     // Pedido direto de um Time da B entra nele.
-    expect(await processarComentario(banco, comentario('qua_1', 'qua_1', 'ENTRO Quati meia', '2026-12-01T12:07:00Z'), ctx)).toBe('INSCRITO');
+    expect(await processarComentario(banco, comentario('qua_1', 'qua_1', 'ENTRO Quati meia', '2026-12-01T12:13:00Z'), ctx)).toBe('INSCRITO');
     expect(await timeDe('qua_1')).toEqual({ time_id: 'QUA', posicao: 'MEI' });
     // "SERIEMA" é a Seriema; "SER" sozinho continua sendo palavra de ligação.
-    expect(await processarComentario(banco, comentario('ser_1', 'ser_1', 'quero ser goleiro da seriema', '2026-12-01T12:08:00Z'), ctx)).toBe('INSCRITO');
+    expect(await processarComentario(banco, comentario('ser_1', 'ser_1', 'quero ser goleiro da seriema', '2026-12-01T12:14:00Z'), ctx)).toBe('INSCRITO');
     expect(await timeDe('ser_1')).toEqual({ time_id: 'SER', posicao: 'GOL' });
   }, 120_000);
 
