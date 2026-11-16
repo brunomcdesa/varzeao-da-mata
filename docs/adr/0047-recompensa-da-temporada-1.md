@@ -5,7 +5,7 @@ Quem acreditou na Liga desde a primeira Temporada ganha um reconhecimento e uma 
 ## Regras
 
 1. **Quem recebe.** Todo Jogador (não banido) que se inscreveu até o Apito Inicial do último jogo da Temporada 1.
-2. **Selo da Temporada 1.** Aparece na página de Carreira, no cabeçalho ("na Liga desde o começo") e no cartão da Temporada 1. É igual para todos os Times: madeira com borda dourada e uma estrela. O título de **Fundador** continua só de quem começa a T2 num Time da Série B (ADR-0036), porque é a compensação de quem desceu.
+2. **Selo da Temporada 1.** Aparece na página de Carreira, no cabeçalho ("na Liga desde o começo") e no cartão da Temporada 1. É igual para todos os Times: madeira com borda dourada e uma estrela. O título de **Fundador** continua só de quem começa a T2 num dos 8 Times que chegaram na Série A (ADR-0036 e ADR-0058).
 3. **Piso da Temporada 1 (OVR 63).** Quem tem OVR abaixo de 63 sobe só a Habilidade principal da Posição (FIN, PAS, DEF ou GOL) até o OVR chegar a 63. Quem já tem 63 ou mais não muda. **Mudado para 65 em 14/11/2026 (ADR-0056)**: pedido do dono, junto com o Ganho maior da T2.
 4. **Bônus da Temporada 1.** Nas 3 primeiras Rodadas da Fase de Liga da T2, os ganhos de Habilidade de quem tem o Selo são multiplicados por 1,5, como na Resenha (ADR-0034). Os dois somam (1,5 e 1,5 viram 2), e o teto por Partida continua o mesmo (+2, ou +4 no Clássico). As perdas não mudam.
 5. **Uma vez só.** O Selo e o Piso são aplicados uma vez, na Pré-temporada da T2. Ninguém ganha o Selo depois.
@@ -38,10 +38,10 @@ Sozinha: quando o Craque da Temporada 1 sai e a T2 nasce na Pré-temporada, o jo
 É separado do Resumo da Temporada, que já mostra o campeão, o Craque e a Seleção. É um Reels Programado (ADR-0051, `ref` 2002) e sai na terça 17/11 às 20h, na ordem combinada para essa terça:
 
 1. 19h: Resumo da Temporada.
-2. 20h: Agradecimento com o Rebalanceamento.
+2. 20h: Agradecimento (sem o Rebalanceamento, ADR-0058).
 3. 21h: Abertura da T2.
 
-É narrado pelo Seu Dito e não tem campeão nem @. As cartelas são: abertura, números da T1, obrigado, Selo, Piso, Bônus, Rebalanceamento (Séries, os Times Primos e quantos foram para a B), Fundador (título, prioridade na camisa, volta grátis na Janela) e chamada. Na chamada, se a Abertura da T2 sai no mesmo dia e depois, o Reels chama para ela ("hoje, às 21h"). As cartelas do Rebalanceamento só aparecem se ele já foi feito e moveu alguém.
+É narrado pelo Seu Dito e não tem campeão nem @. As cartelas são: abertura, números da T1, obrigado, Selo, Piso, Bônus e chamada. As cartelas de Rebalanceamento e Fundador foram removidas (ADR-0058). Na chamada, se a Abertura da T2 sai no mesmo dia e depois, o Reels chama para ela ("hoje, às 21h").
 
 Os números são lidos do banco na hora de gravar:
 - inscritos, com o mesmo critério do Selo;
