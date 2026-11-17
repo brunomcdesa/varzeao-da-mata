@@ -6,6 +6,9 @@
  *   USUARIO=fulano TIME=onca POSICAO=zagueiro pnpm liga mover   muda o Time à mão (ADR-0029)
  *   pnpm liga rebalancear [--gravar]                Rebalanceamento da T2 (ADR-0036); sem --gravar só mostra o plano
  *   pnpm liga recompensa-t1 [--gravar]              Selo e Piso da Temporada 1 (ADR-0047); sem --gravar só mostra quem sobe
+ *   USUARIO=fulano pnpm liga capitao [--gravar]     Capitão à mão do Time do Jogador (ADR-0078)
+ *   TIME=onca pnpm liga capitao [--gravar]          tira o Capitão à mão: a faixa volta à regra de mais Partidas
+ *   USUARIO=fulano OVR=72 pnpm liga ovr [--gravar]  OVR à mão (ADR-0078): todas as Habilidades na mesma proporção
  *   USUARIO=fulano pnpm liga vincular-conta        liga o Jogador da DM (id provisório) à conta do Instagram
  *   pnpm liga corrigir-trocas-de-posicao            devolve o OVR de quem trocou de posição pela regra antiga (ADR-0030)
  *   pnpm liga comentarios                          os comentários lidos e o resultado de cada um
@@ -40,6 +43,10 @@ import {
   moverJogador,
   rebalancear,
   recompensarT1,
+  forcarCapitao,
+  tirarCapitao,
+  forcarOvr,
+  habilidadesNoLog,
   avisoDoRemanejado,
   vincularConta,
   corrigirTrocasDePosicao,
@@ -312,6 +319,36 @@ async function main(): Promise<void> {
         console.log(`Selo da Temporada 1 para ${r.recompensados.length} Jogador(es); ${sobem.length} sobem pelo Piso.${r.gravado ? '' : ' SIMULAÇÃO: nada foi gravado.'}`);
         for (const x of sobem) console.log(`  @${x.username} (${x.posicao}): OVR ${x.ovrAntes} → ${x.ovrDepois}`);
         if (r.gravado) console.log('Gravado.');
+        break;
+      }
+
+      case 'capitao': {
+        // Capitão à mão (ADR-0078). Com USUARIO, ele leva a faixa do Time dele; só com TIME, tira.
+        const usuario = (process.env.USUARIO ?? '').replace(/^@/, '').trim();
+        const timeTexto = (process.env.TIME ?? '').trim();
+        let r;
+        if (usuario) {
+          r = await forcarCapitao(banco, usuario, { gravar: args.gravar, ...(process.env.ID ? { id: process.env.ID } : {}) });
+        } else if (timeTexto) {
+          const pedido = interpretar(`ENTRO ${timeTexto} ATA`);
+          if (pedido.tipo !== 'INSCRICAO') throw new Error(`Time "${timeTexto}" não reconhecido.`);
+          r = await tirarCapitao(banco, pedido.time, { gravar: args.gravar });
+        } else {
+          throw new Error('Use: USUARIO=fulano pnpm liga capitao (põe a faixa) ou TIME=onca pnpm liga capitao (tira)');
+        }
+        console.log(`${nomeCurto(r.time)}: faixa com @${r.antes ?? '—'} → @${r.depois ?? '—'}.${r.gravado ? ' Gravado.' : ' SIMULAÇÃO: nada foi gravado.'}`);
+        console.log('Suspenso ou sem Vínculo num jogo, a faixa segue a regra de sempre naquele jogo.');
+        break;
+      }
+
+      case 'ovr': {
+        // OVR à mão (ADR-0078): todas as Habilidades na mesma proporção até o OVR pedido.
+        const usuario = (process.env.USUARIO ?? '').replace(/^@/, '').trim();
+        const alvo = Number(process.env.OVR);
+        if (!usuario || !process.env.OVR) throw new Error('Use: USUARIO=fulano OVR=72 pnpm liga ovr');
+        const r = await forcarOvr(banco, usuario, alvo, { gravar: args.gravar, ...(process.env.ID ? { id: process.env.ID } : {}) });
+        console.log(`@${r.username} (${r.posicao}): OVR ${r.ovrAntes} → ${r.ovrDepois}.${r.gravado ? ' Gravado.' : ' SIMULAÇÃO: nada foi gravado.'}`);
+        console.log(`  ${habilidadesNoLog(r.habilidadesAntes, r.habilidadesDepois)}`);
         break;
       }
 

@@ -1,0 +1,56 @@
+# Capitão à mão (ADR-0078). Só à mão: Actions → capitao → Run workflow.
+# Com o @, ele leva a faixa do Time dele (no lugar de quem tem mais Partidas) até você tirar
+# ou ele mudar de Time. Sem o @ e só com o Time, tira o Capitão à mão desse Time.
+# Primeiro rode sem "gravar" (simulação: o log mostra quem tinha e quem fica com a faixa).
+name: capitao
+on:
+  workflow_dispatch:
+    inputs:
+      usuario:
+        description: '@ do novo Capitão (sem o @); vazio para tirar o Capitão à mão do Time'
+        required: false
+      time:
+        description: 'Só para tirar: o Time (ex.: onca)'
+        required: false
+      id:
+        description: 'Opcional: id do Jogador, quando há dois com o mesmo @'
+        required: false
+      gravar:
+        description: 'Gravar (desmarcado = só simulação)'
+        type: boolean
+        default: false
+jobs:
+  capitao:
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      IG_APP_ID: ${{ vars.IG_APP_ID }}
+      IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET_PUBLICO: ${{ vars.R2_BUCKET_PUBLICO }}
+      R2_BUCKET_PRIVADO: ${{ vars.R2_BUCKET_PRIVADO }}
+      R2_URL_PUBLICA: ${{ vars.R2_URL_PUBLICA }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_TTS_VOZ: ${{ vars.GEMINI_TTS_VOZ || 'Lumi' }}
+      GEMINI_TTS_RPM: ${{ vars.GEMINI_TTS_RPM || '10' }}
+      USUARIO: ${{ inputs.usuario }}
+      TIME: ${{ inputs.time }}
+      ID: ${{ inputs.id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+      - if: ${{ !inputs.gravar }}
+        run: pnpm liga capitao
+      - if: ${{ inputs.gravar }}
+        run: pnpm liga capitao --gravar
+      # A coleta republica os dados do site (o painel do Capitão).
+      - if: ${{ inputs.gravar }}
+        run: pnpm job coletar

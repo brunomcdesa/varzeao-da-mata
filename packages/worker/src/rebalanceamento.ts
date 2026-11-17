@@ -12,6 +12,7 @@
  */
 import { FALA_DO_TIME, POSICOES, temRegrasT2, type Posicao, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
+import { soltarFaixa } from './aMao.js';
 import { FORMACAO } from './regras.js';
 import { seriesDaTemporada, type SeriesDaTemporada } from './series.js';
 
@@ -155,7 +156,10 @@ export async function rebalancear(banco: Banco, opcoes: { gravar: boolean; agora
   await banco.transacao(async (b) => {
     // A camisa: libera de todos os que mudam e devolve, por ordem de Inscrição, se estiver livre.
     const movidos = [...plano.remanejados].sort((x, y) => ordemDeInscricao(x.jogador, y.jogador));
-    for (const r of movidos) await b.query(`UPDATE jogador SET time_id = $2, numero = NULL WHERE id = $1`, [r.jogador.id, r.para]);
+    for (const r of movidos) {
+      await b.query(`UPDATE jogador SET time_id = $2, numero = NULL WHERE id = $1`, [r.jogador.id, r.para]);
+      await soltarFaixa(b, r.jogador.id);
+    }
     for (const r of movidos) {
       if (r.jogador.numero === null) continue;
       const ocupada = (await b.query(`SELECT 1 FROM jogador WHERE time_id = $1 AND numero = $2 AND NOT banido`, [r.para, r.jogador.numero])).rows.length > 0;

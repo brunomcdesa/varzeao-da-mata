@@ -71,3 +71,33 @@ export function habilidadesDoPerfil(posicao: Posicao, ovr: number, ruido?: Parti
   }
   return h;
 }
+
+/**
+ * OVR à mão (ADR-0078): as Habilidades na mesma proporção, para o OVR (arredondado) dar `alvo`.
+ * Mantém o perfil do Jogador; o ajuste fino do arredondamento fica na principal da Posição.
+ * Habilidades entre 1 e 99; um alvo que não cabe nesses limites é recusado.
+ */
+export function habilidadesComOvr(posicao: Posicao, h: Habilidades, alvo: number): Habilidades {
+  if (!Number.isInteger(alvo) || alvo < HABILIDADE_MIN || alvo > HABILIDADE_MAX) throw new Error(`OVR ${alvo} inválido: use um número inteiro de ${HABILIDADE_MIN} a ${HABILIDADE_MAX}.`);
+  const atual = ovrExato(posicao, h);
+  const fator = atual > 0 ? alvo / atual : 1;
+  const depois = {} as Habilidades;
+  for (const hab of HABILIDADES) depois[hab] = limitar(umaCasa(h[hab] * fator));
+  const principal = PRINCIPAL[posicao];
+  const peso = PESOS_OVR[posicao][principal]!;
+  for (let i = 0; i < 6 && ovrDasHabilidades(posicao, depois) !== alvo; i++) {
+    depois[principal] = limitar(umaCasa(depois[principal] + (alvo - ovrExato(posicao, depois)) / peso));
+  }
+  // Teto ou piso da principal: as que pesam no OVR e ainda têm espaço completam, por igual.
+  for (let i = 0; i < 30 && ovrDasHabilidades(posicao, depois) !== alvo; i++) {
+    const falta = alvo - ovrExato(posicao, depois);
+    const livres = (Object.entries(PESOS_OVR[posicao]) as [HabilidadeId, number][]).filter(([hab]) =>
+      falta > 0 ? depois[hab] < HABILIDADE_MAX : depois[hab] > HABILIDADE_MIN,
+    );
+    const pesoLivre = livres.reduce((s, [, p]) => s + p, 0);
+    if (!pesoLivre) break;
+    for (const [hab] of livres) depois[hab] = limitar(umaCasa(depois[hab] + falta / pesoLivre + Math.sign(falta) * 0.05));
+  }
+  if (ovrDasHabilidades(posicao, depois) !== alvo) throw new Error(`Não dá para chegar no OVR ${alvo} com Habilidades entre ${HABILIDADE_MIN} e ${HABILIDADE_MAX}.`);
+  return depois;
+}

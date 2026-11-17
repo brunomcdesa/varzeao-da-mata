@@ -6,6 +6,7 @@
 import type { Habilidades, Posicao, TimeId } from '@liga/shared';
 import { CANDIDATOS_POR_SERIE, TIMES_POR_SERIE, doTime, numeroDoCandidato, ovrDasHabilidades, temRegrasT2, type Serie } from '@liga/shared';
 import type { Banco } from './banco.js';
+import { soltarFaixa } from './aMao.js';
 import { CONTA_DA_LIGA, citacoes, interpretar, type Comando } from './comandos.js';
 import { PREFIXO_SEM_ID } from './instagram.js';
 import { PRIMO_NA_B, seriesAtivas, timesAtivos, type SeriesDaTemporada } from './series.js';
@@ -429,6 +430,7 @@ export async function transferirJogador(
   const camisa = destino === j.time_id ? null : (await b.query<{ numero: number | null }>(`SELECT numero FROM jogador WHERE id = $1`, [jogadorId])).rows[0]?.numero ?? null;
   const perdeCamisa = camisa !== null && (await b.query(`SELECT 1 FROM jogador WHERE time_id = $1 AND numero = $2 AND id <> $3 AND NOT banido`, [destino, camisa, jogadorId])).rows.length > 0;
   await b.query(`UPDATE jogador SET time_id = $2, posicao = $3, ovr = $4, habilidades = $5${perdeCamisa ? ', numero = NULL' : ''} WHERE id = $1`, [jogadorId, destino, posicao, ovr, JSON.stringify(habilidades)]);
+  if (destino !== j.time_id) await soltarFaixa(b, jogadorId);
   await b.query(
     `INSERT INTO transferencia (jogador_id, temporada_id, de_time, para_time, de_posicao, para_posicao, ig_comment_id, feita_em, janela) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, ${janela ? 'true' : 'false'})`,
     [jogadorId, temporada, j.time_id, destino, j.posicao, posicao, o.ref, o.quando.toISOString()],
@@ -540,6 +542,7 @@ export async function moverJogador(
   await b.query(`UPDATE jogador SET time_id = $2, posicao = $3, ovr = $4, habilidades = $5${perdeuCamisa ? ', numero = NULL' : ''} WHERE id = $1`, [
     j.id, destino, posicao, ovr, JSON.stringify(habilidades),
   ]);
+  if (destino !== j.time_id) await soltarFaixa(b, j.id);
   return { de: j.time_id, para: destino, posicao, ovr, perdeuCamisa };
 }
 

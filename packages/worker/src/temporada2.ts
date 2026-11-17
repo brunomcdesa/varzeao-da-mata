@@ -88,14 +88,18 @@ export async function suspensos(b: Banco, time: TimeId, partidaId: number): Prom
   return fora;
 }
 
-/** Ordem da faixa de Capitão (ADR-0020): mais Partidas pelo Time; empate, quem chegou antes. */
+/**
+ * Ordem da faixa de Capitão (ADR-0020): mais Partidas pelo Time; empate, quem chegou antes.
+ * O Capitão à mão (ADR-0078), se ainda está no Time, vem na frente de todos.
+ */
 export async function ordemDoCapitao(b: Banco, time: TimeId): Promise<string[]> {
   return (
     await b.query<{ id: string }>(
       `SELECT j.id::text AS id FROM jogador j
        LEFT JOIN escalacao e ON e.jogador_id = j.id AND e.time_id = j.time_id AND (NOT e.reserva OR e.entrou)
+       LEFT JOIN capitao_a_mao m ON m.time_id = j.time_id AND m.jogador_id = j.id
        WHERE j.time_id = $1 AND NOT j.banido
-       GROUP BY j.id ORDER BY count(e.partida_id) DESC, j.inscrito_em, j.id`,
+       GROUP BY j.id, m.jogador_id ORDER BY (m.jogador_id IS NOT NULL) DESC, count(e.partida_id) DESC, j.inscrito_em, j.id`,
       [time],
     )
   ).rows.map((r) => r.id);
