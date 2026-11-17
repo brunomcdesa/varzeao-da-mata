@@ -344,6 +344,20 @@ export class Timeline {
     return { tipo: 'PARADA', lado: faixa.toque.posse, bola };
   }
 
+  /**
+   * Trecho de jogo que o lance `i` pode mostrar sem aparecer outro lance: depois do fim do
+   * anterior (e do letreiro dele) e antes do começo do seguinte. É o que o Reels usa para
+   * mostrar mais da jogada, em vez de câmera lenta, quando a fala é longa (ADR-0071).
+   */
+  trechoLivre(i: number): { de: number; ate: number } {
+    const antes = this.janelas[i - 1];
+    const depois = this.janelas[i + 1];
+    return {
+      de: antes ? Math.max(antes.fim, antes.resolucao + DURACAO_DESTAQUE[antes.lance.tipo]) : 0,
+      ate: depois ? depois.inicio : DURACAO_JOGO,
+    };
+  }
+
   /** A troca que está na tela em t, se houver (a placa do juiz). */
   trocaEm(t: number): Troca | null {
     return this.trocas.find((x) => t >= x.t && t < x.t + DURACAO_TROCA) ?? null;

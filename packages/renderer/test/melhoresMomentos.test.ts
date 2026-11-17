@@ -38,4 +38,12 @@ describe('Reels como melhores momentos (ADR-0052)', () => {
       expect(f.aoVivo.fim).toContain('Curtiu? Compartilha com a galera!');
     }
   });
+
+  it('não diz "Comemora…!" depois do gol: a comemoração já acabou na tela quando a fala sai (ADR-0071)', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const p = partidaDeTeste(seed, 'CAP', 'ONC', undefined, 'LIGA', seed % 2 === 0);
+      const tl = new Timeline(p.resultado, p.escalacoes);
+      for (const f of montarNarracao(new Roteiro(tl), p.apelidos)) expect(f.texto, `seed ${seed}`).not.toMatch(/Comemora/);
+    }
+  });
 });

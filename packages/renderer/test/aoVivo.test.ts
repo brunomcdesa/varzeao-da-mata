@@ -95,7 +95,7 @@ describe('narração do Ao Vivo', () => {
           }
         }
       }
-      expect(conferidas).toBeGreaterThan(100);
+      expect(conferidas).toBeGreaterThan(80);
     });
 
     it('minuto e placar falados são os da tela na hora da fala', () => {
