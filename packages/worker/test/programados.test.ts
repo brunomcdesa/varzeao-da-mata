@@ -6,6 +6,7 @@ import { criarTemporada } from '../src/calendario.js';
 import { AgendaNaMemoria, PastaLocal, type ItemDaAgenda } from '../src/nuvem.js';
 import { jobProgramados, legendaDaAbertura, legendaDasNovidades } from '../src/programados.js';
 import { REELS_PROGRAMADOS } from '@liga/shared';
+import { legendaDoRebalanceamentoT2 } from '../src/programados.js';
 import type { Instagram } from '../src/instagram.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 import { mkdtemp } from 'node:fs/promises';
@@ -105,5 +106,16 @@ describe('Reels Programados (ADR-0051)', () => {
     expect(l).not.toMatch(/Quati|15h às 18h/);
     expect(l).toContain('ENTRO + TIME + POSIÇÃO');
     expect(l).toContain('Estreia quinta, 19/11');
+  });
+
+  it('Rebalanceamento da T2 (ADR-0066): quarta 18/11 às 10h, antes das Novidades; legenda sem @', async () => {
+    const p = REELS_PROGRAMADOS.find((x) => x.id === 'rebalanceamento-t2')!;
+    expect(p.publicarEm).toBe('2026-11-18T13:00:00Z');
+    const primeiraNovidade = REELS_PROGRAMADOS.filter((x) => x.id.startsWith('novidades-')).map((x) => Date.parse(x.publicarEm)).sort()[0]!;
+    expect(Date.parse(p.publicarEm)).toBeLessThan(primeiraNovidade);
+    const l = legendaDoRebalanceamentoT2({ movidos: 61, ficaram: 56, primos: [], estreia: '2026-11-19', primeiroJogoAs: 11 });
+    expect(l).toContain('61 mudaram de Time e 56 ficaram');
+    expect(l).toContain('Estreia quinta, 19/11, primeiro jogo às 11h');
+    expect(l).not.toContain('@');
   });
 });

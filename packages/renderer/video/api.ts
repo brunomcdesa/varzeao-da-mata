@@ -10,6 +10,7 @@ import type { PartidaParaVideo } from '../src/video.js';
 import type { DadosDaExplicacao } from '../src/explicacaoEscalacao.js';
 import type { DadosDaExplicacaoOvr } from '../src/explicacaoOvr.js';
 import type { DadosDoAgradecimentoT1 } from '../src/agradecimentoT1.js';
+import type { DadosDoRebalanceamentoT2 } from '../src/rebalanceamentoT2.js';
 import type { DadosDasNovidades } from '../src/novidades.js';
 
 export interface VarzeaApi {
@@ -21,6 +22,7 @@ export interface VarzeaApi {
   prepararExplicacao(dados: DadosDaExplicacao, minimos?: Record<number, { antes?: number }>, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
   prepararExplicacaoOvr(dados: DadosDaExplicacaoOvr, minimos?: Record<number, { antes?: number }>, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
   prepararAgradecimentoT1(dados: DadosDoAgradecimentoT1, minimos?: Record<number, { antes?: number }>, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
+  prepararRebalanceamentoT2(dados: DadosDoRebalanceamentoT2, minimos?: Record<number, { antes?: number }>, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
   prepararNovidades(dados: DadosDasNovidades, minimos?: Record<number, { antes?: number }>, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
   desenhar(n: number): void;
   /** Desenha `quantos` quadros a partir de `inicio` e devolve cada um como JPEG em base64. */

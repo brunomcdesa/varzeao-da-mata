@@ -11,7 +11,8 @@ import { FALA_DO_TIME, PISO_DA_TEMPORADA_1, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, RE
 import type { Banco } from './banco.js';
 import { gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
 import type { Instagram } from './instagram.js';
-import type { DadosDoAgradecimentoT1 } from '@liga/renderer';
+import type { DadosDoAgradecimentoT1, DadosDoRebalanceamentoT2 } from '@liga/renderer';
+import { TIME_PRIMO } from './rebalanceamento.js';
 import { PARAMETROS_T2 } from '@liga/sim';
 import { numerosDaTemporada1 } from './recompensaT1.js';
 
@@ -37,12 +38,14 @@ const ESTREIA_PREVISTA: Record<string, { temporada: number; estreia: string }> =
   'novidades-capitao': { temporada: 2, estreia: '2026-11-19' },
   'novidades-jogador': { temporada: 2, estreia: '2026-11-19' },
   'novidades-site': { temporada: 2, estreia: '2026-11-19' },
+  'rebalanceamento-t2': { temporada: 2, estreia: '2026-11-19' },
 };
 
 /** Legenda de cada Programado. */
 async function legendaDe(banco: Banco, p: ReelsProgramado, temporada: number, estreia: string): Promise<string> {
   if (p.id === 'agradecimento-t1') return legendaDoAgradecimentoT1(await dadosDoAgradecimentoT1(banco, { publicarEm: p.publicarEm }));
   if (p.id.startsWith('novidades-')) return legendaDasNovidades(p.id, estreia, p.publicarEm);
+  if (p.id === 'rebalanceamento-t2') return legendaDoRebalanceamentoT2(await dadosDoRebalanceamentoT2(banco, estreia));
   return legendaDaAbertura(temporada, estreia);
 }
 
@@ -224,5 +227,59 @@ export function legendaDoAgradecimentoT1(d?: Pick<DadosDoAgradecimentoT1, 'abert
     d?.aberturaAs !== undefined ? `👀 Hoje, às ${d.aberturaAs}h, sai a Abertura da Temporada 2. Ativa as notificações!` : '👀 A Temporada 2 vem aí, com muita novidade. Ativa as notificações!',
     '',
     '#varzeaodamata #futebol #varzea',
+  ].join('\n');
+}
+
+/**
+ * Dados do Reels do Rebalanceamento (ADR-0066), lidos na hora de gravar: quantos mudaram de Time
+ * e quantos ficaram nos fundadores no momento do Rebalanceamento. Sem o Rebalanceamento feito, não
+ * grava (o job tenta de novo na próxima chamada).
+ */
+export async function dadosDoRebalanceamentoT2(banco: Banco, estreia: string): Promise<DadosDoRebalanceamentoT2> {
+  const r = (
+    await banco.query<{ temporada_id: number; feito_em: Date | string; movidos: number }>(
+      `SELECT r.temporada_id, r.feito_em, r.movidos FROM rebalanceamento r JOIN temporada t ON t.id = r.temporada_id WHERE t.numero = 2`,
+    )
+  ).rows[0];
+  if (!r) throw new Error('O Rebalanceamento da T2 ainda não rodou: o Reels dele espera.');
+  const fundadores = Object.keys(TIME_PRIMO);
+  const ficaram = Number(
+    (
+      await banco.query<{ n: string }>(`SELECT count(*) AS n FROM jogador WHERE NOT banido AND time_id = ANY($1) AND inscrito_em <= $2`, [fundadores, new Date(r.feito_em).toISOString()])
+    ).rows[0]!.n,
+  );
+  const primeiro = (
+    await banco.query<{ apito_inicial: Date | string }>(
+      `SELECT p.apito_inicial FROM partida p JOIN rodada x ON x.id = p.rodada_id WHERE x.temporada_id = $1 ORDER BY p.apito_inicial LIMIT 1`,
+      [r.temporada_id],
+    )
+  ).rows[0];
+  const primeiroJogoAs = primeiro ? (new Date(primeiro.apito_inicial).getUTCHours() + 21) % 24 : 11;
+  return {
+    movidos: Number(r.movidos),
+    ficaram,
+    primos: Object.entries(TIME_PRIMO).map(([de, para]) => [de as TimeId, para!] as const),
+    estreia,
+    primeiroJogoAs,
+  };
+}
+
+/** Legenda do Reels do Rebalanceamento (ADR-0066). */
+export function legendaDoRebalanceamentoT2(d: DadosDoRebalanceamentoT2): string {
+  const [a, m, dia] = d.estreia.split('-').map(Number) as [number, number, number];
+  const semana = DIAS[new Date(Date.UTC(a, m - 1, dia, 12)).getUTCDay()]!;
+  const data = `${String(dia).padStart(2, '0')}/${String(m).padStart(2, '0')}`;
+  return [
+    '🔄 Rebalanceamento da Temporada 2: como ficaram os Times!',
+    '',
+    'Cada Time da T1 fica com uma Escalação inteira (1 goleiro, 2 zagueiros, 2 meias e 2 atacantes): ficam os mais antigos de cada posição.',
+    'Quem saiu foi para o Time Primo, um dos Times que chegaram. Primo cheio na posição? Outro Time novo, na mesma posição.',
+    `📊 ${d.movidos} mudaram de Time e ${d.ficaram} ficaram.`,
+    '⭐ Quem joga nos Times que chegaram vira Fundador: Selo na Carreira e escolhe a camisa primeiro.',
+    '🔁 Até a estreia, trocar de Time não gasta a Transferência.',
+    '',
+    `🏁 Estreia ${semana}, ${data}, primeiro jogo às ${d.primeiroJogoAs}h. Confere o seu Time no link da bio.`,
+    '',
+    '#futebol #varzea #jogo #liga',
   ].join('\n');
 }
