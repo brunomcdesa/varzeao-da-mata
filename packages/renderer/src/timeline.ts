@@ -358,6 +358,12 @@ export class Timeline {
     };
   }
 
+  /** Onde a bola está em t (s de jogo, só os 90 minutos) e a altura dela. Usado pela câmera e pelo rastro do Reels. */
+  bolaNoInstante(t: number): { pos: Ponto; altura: number } {
+    const tt = limitar(t, 0, DURACAO_JOGO);
+    return this.bolaEm(tt, this.faixaEm(tt));
+  }
+
   /** A troca que está na tela em t, se houver (a placa do juiz). */
   trocaEm(t: number): Troca | null {
     return this.trocas.find((x) => t >= x.t && t < x.t + DURACAO_TROCA) ?? null;

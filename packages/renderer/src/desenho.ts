@@ -6,9 +6,9 @@
  * campo com terrão e cal, mata em volta e faixa de torcida no gol.
  */
 import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type Posicao, type SituacaoNaBriga, type TimeId } from '@liga/shared';
-import type { Lado } from '@liga/sim';
+import type { Lado, SlotRef } from '@liga/sim';
 import { CAMPO, cenario } from './cenario.js';
-import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
+import { COLUNAS, COR, LINHAS, Pincel, contraste, ruido } from './pixel.js';
 import { ALTURA_DAS_ESTRELAS, ALTURA_ESCUDO, LARGURA_ESCUDO, escudo, estrelasDoEscudo } from './escudos.js';
 import { ALTURA_SPRITE, LARGURA_SPRITE, MAO_DO_APITO, aparencia, escolherPose, sprite, type Pose, type Visual } from './sprites.js';
 import type { EstadoQuadro, JogadorNoQuadro, Ponto } from './timeline.js';
@@ -28,6 +28,24 @@ export interface OpcoesDesenho {
   fonteTexto?: string;
   /** Última Rodada da Fase de Liga (ADR-0053): faixa "Última Rodada" e situação de cada Time. */
   briga?: BrigaPeloMataMata | null;
+  /** Reels (ADR-0072): câmera que segue a jogada. Sem ela, o campo inteiro (site). */
+  camera?: Camera;
+  /** Reels (ADR-0072): só estes Jogadores mostram o @, sem um nome em cima do outro. Sem a lista, todos. */
+  rotulos?: SlotRef[];
+  /** Reels (ADR-0072): posições anteriores da bola (da mais antiga à mais nova), para o rastro. */
+  rastro?: { pos: Ponto; altura: number }[];
+}
+
+/**
+ * Câmera do Reels (ADR-0072): centro (grade lógica) e zoom. `tremor` desloca a imagem no gol
+ * (grade lógica) e `flash` (0 a 1) clareia a tela no instante do gol.
+ */
+export interface Camera {
+  cx: number;
+  cy: number;
+  zoom: number;
+  tremor?: Ponto;
+  flash?: number;
 }
 
 /** Tamanho do pixel do boneco em pixels lógicos. */
@@ -45,7 +63,19 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
   const texto = o.fonteTexto ?? FONTE_TEXTO;
 
   ctx.imageSmoothingEnabled = false;
+  // Câmera (Reels, ADR-0072): o campo e tudo que está nele passam pela câmera; placar e letreiros não.
+  const cam = o.camera;
+  const naTela = (p: Ponto): Ponto => (cam ? { x: (p.x - cam.cx) * cam.zoom + COLUNAS / 2 + (cam.tremor?.x ?? 0), y: (p.y - cam.cy) * cam.zoom + LINHAS / 2 + (cam.tremor?.y ?? 0) } : p);
+  ctx.save();
+  if (cam) {
+    // Fundo da mata atrás de tudo, para o tremor não mostrar borda vazia.
+    pin.r(0, 0, COLUNAS, LINHAS, COR.mata);
+    const origem = naTela({ x: 0, y: 0 });
+    ctx.translate(Math.round(origem.x * pin.px), Math.round(origem.y * pin.px));
+    ctx.scale(cam.zoom, cam.zoom);
+  }
   ctx.drawImage(cenario(), 0, 0, COLUNAS * pin.px, LINHAS * pin.px);
+  if (cam) desenharRedeBalancando(pin, estado);
   // Temporada 2 (ADR-0019): Arquibancada nas laterais e lama ou poças no gramado.
   if (estado.t2) {
     desenharArquibancada(pin, estado, o.times);
@@ -62,6 +92,8 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
   }
   const bolaChao = noCampo(estado.bola);
   pin.r(bolaChao.x - 3, bolaChao.y, 6, 2, 'rgba(0,0,0,0.35)');
+  if (cam) for (const j of ordem) if (j.acao === 'CARRINHO') desenharPoeira(pin, j, estado.t);
+  if (o.rastro) desenharRastro(pin, o.rastro);
 
   const bolaAlta = estado.bolaAltura > 0.08;
   if (!bolaAlta) desenharBola(pin, bolaChao, 0);
@@ -74,14 +106,18 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
     desenharJogador(pin, j, o, fase, estado);
   }
   if (!juizDesenhado) desenharJuiz(pin, juiz!, o, fase, estado);
-  // Na disputa de pênaltis, só o nome de quem está na área (cobrador e goleiro): a roda fica limpa.
-  for (const j of ordem) if (!estado.penaltis || j.pos.y < 0.3) desenharNome(pin, j, o, texto);
+  if (!o.rotulos) {
+    // Na disputa de pênaltis, só o nome de quem está na área (cobrador e goleiro): a roda fica limpa.
+    for (const j of ordem) if (!estado.penaltis || j.pos.y < 0.3) desenharNome(pin, j, o, texto);
+  }
   if (bolaAlta) desenharBola(pin, bolaChao, estado.bolaAltura);
   if (juiz) desenharCartaoDoJuiz(pin, juiz);
-  if (estado.t2) {
-    desenharCartao(pin, estado, noCampo);
-    desenharClimaNoAr(pin, estado);
-  }
+  if (estado.t2) desenharCartao(pin, estado, noCampo);
+  ctx.restore();
+  // Reels: o @ de quem está no lance, fora da câmera (tamanho fixo) e sem sobrepor.
+  if (o.rotulos) desenharRotulos(pin, ordem, o.rotulos, o, texto, (p) => naTela(noCampo(p)));
+  if (estado.t2) desenharClimaNoAr(pin, estado);
+  if (cam?.flash) pin.r(0, 0, COLUNAS, LINHAS, `rgba(255,250,235,${(0.45 * cam.flash).toFixed(3)})`);
 
   desenharPlacar(pin, estado, o, display, texto);
   if (estado.penaltis) desenharFaixaDosPenaltis(pin, estado, o, display, texto);
@@ -205,6 +241,79 @@ function desenharNome(pin: Pincel, j: JogadorNoQuadro, o: OpcoesDesenho, fonte: 
   const p = noCampo(j.pos);
   const nome = rotulo(o, j.slot.lado, j.ocupante ?? j.slot.indice) ?? 'Base';
   pin.texto(nome, p.x, p.y + 6, 6.5, fonte, '#FFFFFF', { contorno: 'rgba(20,14,8,0.9)', peso: 600, espessura: 0.5 });
+}
+
+/**
+ * Reels (ADR-0072): o @ só de quem está no lance, na ordem de importância. Se um nome cairia
+ * em cima de outro, tenta em cima da cabeça; se ainda bater, não aparece.
+ */
+function desenharRotulos(pin: Pincel, ordem: JogadorNoQuadro[], quem: SlotRef[], o: OpcoesDesenho, fonte: string, naTela: (p: Ponto) => Ponto): void {
+  const ocupadas: { x0: number; x1: number; y0: number; y1: number }[] = [];
+  const TAM = 7;
+  for (const s of quem) {
+    const j = ordem.find((x) => x.slot.lado === s.lado && x.slot.indice === s.indice && !x.saindo);
+    if (!j) continue;
+    const nome = rotulo(o, j.slot.lado, j.ocupante ?? j.slot.indice) ?? 'Base';
+    const p = naTela(j.pos);
+    const meia = (nome.length * TAM * 0.56) / 2 + 1;
+    const zoom = o.camera?.zoom ?? 1;
+    for (const y of [p.y + 4 + 2 * zoom, p.y - ALTURA_SPRITE * ESCALA_BONECO * zoom - 6]) {
+      const caixa = { x0: p.x - meia, x1: p.x + meia, y0: y - TAM / 2, y1: y + TAM / 2 };
+      if (caixa.x0 < 2 || caixa.x1 > COLUNAS - 2 || caixa.y0 < 0 || caixa.y1 > LINHAS) continue;
+      if (ocupadas.some((c) => caixa.x0 < c.x1 && caixa.x1 > c.x0 && caixa.y0 < c.y1 && caixa.y1 > c.y0)) continue;
+      ocupadas.push(caixa);
+      pin.texto(nome, p.x, y, TAM, fonte, '#FFFFFF', { contorno: 'rgba(20,14,8,0.9)', peso: 600, espessura: 0.5 });
+      break;
+    }
+  }
+}
+
+/** Reels (ADR-0072): rastro curto da bola quando ela anda rápido (passe longo, chute). */
+function desenharRastro(pin: Pincel, rastro: { pos: Ponto; altura: number }[]): void {
+  for (let k = 1; k < rastro.length; k++) {
+    const a = noCampo(rastro[k - 1]!.pos);
+    const b = noCampo(rastro[k]!.pos);
+    if (Math.hypot(b.x - a.x, b.y - a.y) < 2.5) continue;
+    const alpha = 0.12 + (0.3 * k) / rastro.length;
+    const h = rastro[k]!.altura * 34;
+    pin.r(b.x - 1.5, b.y - 4.5 - h, 3, 3, `rgba(255,255,255,${alpha.toFixed(2)})`);
+  }
+}
+
+/** Reels (ADR-0072): poeira de terra no carrinho, saindo de trás de quem desliza. */
+function desenharPoeira(pin: Pincel, j: JogadorNoQuadro, t: number): void {
+  const p = noCampo(j.pos);
+  const v = Math.hypot(j.vel.x, j.vel.y) || 1;
+  const tras = { x: -j.vel.x / v, y: -j.vel.y / v };
+  for (let k = 0; k < 7; k++) {
+    const n = ruido(k, Math.floor(t * 2), j.slot.indice + (j.slot.lado === 'mandante' ? 0 : 7));
+    const d = 3 + k * 1.6 + n * 2;
+    const lado = (ruido(k, 3, Math.floor(t)) - 0.5) * 6;
+    pin.r(p.x + tras.x * d - tras.y * lado, p.y - 1 + tras.y * d + tras.x * lado * 0.5, 2, 2, k % 2 ? 'rgba(168,93,55,0.55)' : 'rgba(214,170,120,0.5)');
+  }
+}
+
+/** Reels (ADR-0072): a rede estufa e balança logo depois do gol. */
+function desenharRedeBalancando(pin: Pincel, e: EstadoQuadro): void {
+  const d = e.destaque;
+  if (!d || d.tipo !== 'GOL' || d.progresso > 0.2) return;
+  const f = 1 - d.progresso / 0.2;
+  const estufa = Math.round(4 * f * (0.6 + 0.4 * Math.abs(Math.sin(d.progresso * 90))));
+  if (estufa <= 0) return;
+  const topo = e.bola.y < 0.5;
+  const gw = Math.round(CAMPO.w * 0.24);
+  const gx = CAMPO.x + Math.round((CAMPO.w - gw) / 2);
+  // A rede estufa mais no meio que nos cantos (onde está presa na trave).
+  for (let x = 0; x < gw; x++) {
+    const meio = Math.sin((x / gw) * Math.PI);
+    const extra = Math.round(estufa * meio);
+    for (let y = 0; y < 6 + extra; y++) {
+      const yy = topo ? CAMPO.y - 1 - y : CAMPO.y + CAMPO.h + y;
+      pin.r(gx + x, yy, 1, 1, (x + y) % 2 === 0 ? '#DDE5D8' : COR.mataMedia);
+    }
+  }
+  pin.r(gx - 1, topo ? CAMPO.y - 6 : CAMPO.y + CAMPO.h, 1, 6, '#FFFFFF');
+  pin.r(gx + gw, topo ? CAMPO.y - 6 : CAMPO.y + CAMPO.h, 1, 6, '#FFFFFF');
 }
 
 const BOLA = [' WW ', 'WKWW', 'WWKW', ' WW '];
