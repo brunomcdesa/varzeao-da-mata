@@ -201,6 +201,8 @@ export interface JogadorPublico {
   fundador?: { time: TimeId; temporada: number };
   /** Selo da Temporada 1 (ADR-0047): se inscreveu na T1. Só aparece no site a partir da T2. */
   seloT1?: true;
+  /** Piso da Temporada 1 (ADR-0047): o OVR antes e depois, só para quem subiu. Marca o degrau no gráfico do OVR (ADR-0078). */
+  pisoT1?: { antes: number; depois: number };
   /** Números da carreira (todas as Temporadas); `nestaTemporada` só a atual. */
   jogos: number;
   gols: number;

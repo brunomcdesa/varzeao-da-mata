@@ -103,6 +103,16 @@ export async function comSeloT1(banco: Banco): Promise<Set<string>> {
   return new Set((await banco.query<{ jogador_id: string }>(`SELECT jogador_id::text AS jogador_id FROM selo_temporada1`)).rows.map((r) => r.jogador_id));
 }
 
+/** Quem subiu pelo Piso da Temporada 1, com o OVR antes e depois (ADR-0078). */
+export async function subiramPeloPiso(banco: Banco): Promise<Map<string, { antes: number; depois: number }>> {
+  const linhas = (
+    await banco.query<{ jogador_id: string; ovr_antes: number; ovr_depois: number }>(
+      `SELECT jogador_id::text AS jogador_id, ovr_antes, ovr_depois FROM selo_temporada1 WHERE ovr_depois > ovr_antes`,
+    )
+  ).rows;
+  return new Map(linhas.map((r) => [r.jogador_id, { antes: r.ovr_antes, depois: r.ovr_depois }]));
+}
+
 /**
  * Números do Reels de agradecimento da T1 (ADR-0047): quem se inscreveu (o mesmo critério do
  * Selo), Partidas jogadas e gols (sem os pênaltis da disputa).

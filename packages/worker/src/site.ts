@@ -9,7 +9,7 @@
  */
 import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Grupo, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2, timesQueCaem, GRUPOS, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
 import { fundadorDe } from './rebalanceamento.js';
-import { comSeloT1 } from './recompensaT1.js';
+import { comSeloT1, subiramPeloPiso } from './recompensaT1.js';
 import { TEMPORADA_DOS_DESTAQUES, desempenhosDasPartidas } from './destaques.js';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
@@ -263,6 +263,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   const fundadores = comRegrasT2 ? await fundadorDe(banco) : new Map<string, { time: TimeId; temporada: number }>();
   // Selo da Temporada 1 (ADR-0047): também só no site da T2.
   const seloT1 = comRegrasT2 ? await comSeloT1(banco) : new Set<string>();
+  const pisoT1 = comRegrasT2 ? await subiramPeloPiso(banco) : new Map<string, { antes: number; depois: number }>();
   const porJogador = new Map<string, JogadorPublico>();
   const resumido = (id: string): JogadorResumido | null => {
     const j = porJogador.get(id);
@@ -291,6 +292,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       ...(comRegrasT2 ? { especializacao: j.especializacao ?? null, treino: j.treino ?? null } : {}),
       ...(fundadores.has(j.id) ? { fundador: fundadores.get(j.id)! } : {}),
       ...(seloT1.has(j.id) ? { seloT1: true as const } : {}),
+      ...(pisoT1.has(j.id) ? { pisoT1: pisoT1.get(j.id)! } : {}),
       ...estatisticasVazias(),
       vezesCandidato: 0,
       craqueDaRodada: 0,

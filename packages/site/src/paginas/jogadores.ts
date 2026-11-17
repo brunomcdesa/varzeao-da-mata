@@ -4,6 +4,7 @@ import { jogadores, liga, timesAtivos } from '../dados.js';
 import { bonecoImg, comCamisa, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html, faixaC } from '../ui.js';
 import type { Pagina } from './tipos.js';
 import { blocoDoDono, ligarMeuPersonagem } from '../meuPersonagem.js';
+import { pontosDoOvr, type PontoDoOvr } from '../pontosDoOvr.js';
 
 type Criterio = 'ovr' | 'gols' | 'assistencias' | 'notaMedia' | 'jogos' | 'desarmes' | 'defesas' | 'dribles' | 'bloqueios' | 'titulos' | 'craqueDaRodada' | 'craqueDaTemporada';
 const CRITERIOS: Record<Criterio, string> = {
@@ -195,23 +196,36 @@ export function card(j: JogadorPublico, o: { pequeno?: boolean } = {}): Html {
 function graficoOvr(series: { j: JogadorPublico; cor: string; tracejado?: boolean }[]): Html {
   const w = 560;
   const h = 160;
-  const m = { e: 28, d: 12, t: 12, b: 22 };
-  const pontos = series.map((s) => [s.j.ovrInicial, ...s.j.historico.map((x) => x.ovr)]);
+  const m = { e: 28, d: 12, t: 16, b: 22 };
+  const pontos = series.map((s) => pontosDoOvr(s.j));
   const n = Math.max(2, ...pontos.map((p) => p.length));
-  const todos = pontos.flat();
+  const jogos = Math.max(1, ...series.map((s) => s.j.historico.length));
+  const todos = pontos.flat().map((p) => p.v);
   const min = Math.min(...todos) - 2;
   const max = Math.max(...todos) + 2;
   const x = (i: number) => m.e + (i / (n - 1)) * (w - m.e - m.d);
   const y = (v: number) => m.t + (1 - (v - min) / (max - min || 1)) * (h - m.t - m.b);
   const marcas = [...new Set([min + 2, Math.round((min + max) / 2), max - 2])];
-  return html`<svg class="grafico" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(series.map((s) => `@${s.j.username}: OVR de ${s.j.ovrInicial} para ${s.j.ovr} em ${s.j.historico.length} jogos`).join('; '))}">
+  const rotulo = (p: PontoDoOvr) => (p.tipo === 'ESTREIA' ? ' na estreia' : p.tipo === 'PISO' ? ' com o Piso da Temporada 1' : ` depois do ${p.jogo}º jogo`);
+  const descricao = (j: JogadorPublico) =>
+    `@${j.username}: OVR de ${j.ovrInicial} para ${j.ovr} em ${j.historico.length} jogos${j.pisoT1 ? `, com o Piso da Temporada 1 (de ${j.pisoT1.antes} para ${j.pisoT1.depois})` : ''}`;
+  return html`<svg class="grafico" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(series.map((s) => descricao(s.j)).join('; '))}">
     ${marcas.map((v) => html`<line x1="${m.e}" x2="${w - m.d}" y1="${y(v)}" y2="${y(v)}" class="grade" /><text x="${m.e - 6}" y="${y(v) + 4}" text-anchor="end" class="eixo">${v}</text>`)}
-    <text x="${m.e}" y="${h - 4}" class="eixo">estreia</text><text x="${w - m.d}" y="${h - 4}" text-anchor="end" class="eixo">${n - 1}º jogo</text>
+    <text x="${m.e}" y="${h - 4}" class="eixo">estreia</text><text x="${w - m.d}" y="${h - 4}" text-anchor="end" class="eixo">${jogos}º jogo</text>
     ${series.map((s, k) => {
       const p = pontos[k]!;
-      const d = p.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-      return html`<path d="${d}" fill="none" stroke="${s.cor}" stroke-width="2.5" ${s.tracejado ? 'stroke-dasharray="5 4"' : ''} stroke-linejoin="round" />
-        ${p.map((v, i) => html`<circle cx="${x(i)}" cy="${y(v)}" r="3.5" fill="${s.cor}"><title>@${s.j.username}: OVR ${v}${i ? ` depois do ${i}º jogo` : ' na estreia'}</title></circle>`)}`;
+      // O degrau do Piso é tracejado: não foi um jogo.
+      const trechos = p.slice(1).map((b, i) => {
+        const a = p[i]!;
+        const tracejado = b.tipo === 'PISO' || s.tracejado;
+        return html`<line x1="${x(i).toFixed(1)}" y1="${y(a.v).toFixed(1)}" x2="${x(i + 1).toFixed(1)}" y2="${y(b.v).toFixed(1)}" stroke="${s.cor}" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="${tracejado ? '5 4' : 'none'}" />`;
+      });
+      return html`${trechos}
+        ${p.map((v, i) =>
+          v.tipo === 'PISO'
+            ? html`<circle cx="${x(i)}" cy="${y(v.v)}" r="5" fill="var(--mata)" stroke="${s.cor}" stroke-width="2.5"><title>@${s.j.username}: OVR ${v.v}${rotulo(v)}</title></circle><text x="${x(i)}" y="${y(v.v) - 9}" text-anchor="middle" class="eixo">Piso</text>`
+            : html`<circle cx="${x(i)}" cy="${y(v.v)}" r="3.5" fill="${s.cor}"><title>@${s.j.username}: OVR ${v.v}${rotulo(v)}</title></circle>`,
+        )}`;
     })}
   </svg>`;
 }

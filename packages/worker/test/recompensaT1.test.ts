@@ -117,6 +117,9 @@ describe('recompensarT1 no banco', () => {
     const doSite = (jid: string) => site.find((j) => j.id === jid)!;
     expect(doSite(baixo).seloT1).toBe(true);
     expect(doSite(novato).seloT1).toBeUndefined();
+    // O degrau do Piso no gráfico do OVR (ADR-0078): só para quem subiu.
+    expect(doSite(baixo).pisoT1).toEqual({ antes: 59, depois: 65 });
+    expect(doSite(alto).pisoT1).toBeUndefined();
 
     // Escalação: Bônus nas 3 primeiras Rodadas da T2, não na 4ª.
     const partidaDaRodada = async (rodada: number, time: TimeId) =>
