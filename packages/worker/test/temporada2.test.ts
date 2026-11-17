@@ -271,6 +271,33 @@ describe('Temporada 2 no worker', () => {
     expect((await transferirJogador(banco, id, { times: ['CAP'] }, { quando, ref: 'j3' })).resultado).toBe('TRANSFERIDO');
   });
 
+  it('Transferência respeita o Limite por Posição: 4 atacantes no destino, a troca não acontece (ADR-0079)', async () => {
+    await novaT2();
+    // Inscrição direta (sem a regra da coleta): JAC já com 4 atacantes, CAP com 4 meias.
+    const direto = async (time: TimeId, posicao: string, quem: string) =>
+      (
+        await banco.query<{ id: string }>(
+          `INSERT INTO jogador (ig_user_id, username, time_id, posicao, ovr, habilidades, inscrito_em) VALUES ($1, $1, $2, $3, 60, NULL, '2026-11-17T12:00:00Z') RETURNING id::text AS id`,
+          [quem, time, posicao],
+        )
+      ).rows[0]!.id;
+    for (let k = 0; k < 4; k++) await direto('JAC', 'ATA', `jac_ata_${k}`);
+    for (let k = 0; k < 4; k++) await direto('CAP', 'MEI', `cap_mei_${k}`);
+    const atacante = await direto('CAP', 'ATA', 'cap_ata');
+    const quando = new Date('2026-11-17T13:00:00Z');
+    const cheia = await transferirJogador(banco, atacante, { times: ['JAC'] }, { quando, ref: 't1' });
+    expect(cheia.resultado).toBe('DESTINO_CHEIO');
+    expect(cheia.mensagem).toContain('já estão completas');
+    // Mudar de Posição no mesmo Time também respeita: o Capivara já tem 4 meias.
+    expect((await transferirJogador(banco, atacante, { times: [], posicao: 'MEI' }, { quando, ref: 't2' })).resultado).toBe('DESTINO_CHEIO');
+    const n = async (time: TimeId) => Number((await banco.query<{ n: string }>(`SELECT count(*) AS n FROM jogador WHERE time_id = $1 AND posicao = 'ATA' AND NOT banido`, [time])).rows[0]!.n);
+    expect(await n('JAC')).toBe(4);
+    // Com vaga (um atacante do Jacaré sai), a mesma troca passa e não estoura o limite.
+    await banco.query(`UPDATE jogador SET banido = true WHERE username = 'jac_ata_0'`);
+    expect((await transferirJogador(banco, atacante, { times: ['JAC'] }, { quando, ref: 't3' })).resultado).toBe('TRANSFERIDO');
+    expect(await n('JAC')).toBe(4);
+  });
+
   it('a Escalação da T2 guarda a Especialização, o Treino e o Canto da hora', async () => {
     const t2 = await novaT2();
     const id = await inscrever('ARA', 'GOL');
