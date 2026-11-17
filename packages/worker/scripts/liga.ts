@@ -5,6 +5,7 @@
  *   USUARIO=fulano pnpm liga remover               remove um Jogador que ainda não jogou
  *   USUARIO=fulano TIME=onca POSICAO=zagueiro pnpm liga mover   muda o Time à mão (ADR-0029)
  *   pnpm liga rebalancear [--gravar]                Rebalanceamento da T2 (ADR-0036); sem --gravar só mostra o plano
+ *   pnpm liga limite-por-posicao [--gravar]         Move o excedente do Limite por Posição (ADR-0079); sem --gravar só mostra
  *   pnpm liga recompensa-t1 [--gravar]              Selo e Piso da Temporada 1 (ADR-0047); sem --gravar só mostra quem sobe
  *   USUARIO=fulano pnpm liga vincular-conta        liga o Jogador da DM (id provisório) à conta do Instagram
  *   pnpm liga corrigir-trocas-de-posicao            devolve o OVR de quem trocou de posição pela regra antiga (ADR-0030)
@@ -41,6 +42,8 @@ import {
   rebalancear,
   recompensarT1,
   avisoDoRemanejado,
+  corrigirLimitePorPosicao,
+  avisoDaCorrecao,
   vincularConta,
   corrigirTrocasDePosicao,
   jogadorPeloUsername,
@@ -302,6 +305,16 @@ async function main(): Promise<void> {
         console.log('Rascunhos dos avisos (só saem com aprovação):');
         for (const x of r.plano.remanejados) console.log(`  ${avisoDoRemanejado(x)}`);
         if (r.gravado) console.log(`Gravado. ${r.fundadores} Fundador(es) marcados.`);
+        break;
+      }
+
+      case 'limite-por-posicao': {
+        // Correção do Limite por Posição (ADR-0079). Sem --gravar é a simulação.
+        const r = await corrigirLimitePorPosicao(banco, { gravar: args.gravar });
+        console.log(`${r.correcoes.length} Jogador(es) acima do Limite por Posição.${r.gravado ? '' : ' SIMULAÇÃO: nada foi gravado.'}`);
+        for (const c of r.correcoes) console.log(`  @${c.jogador.username} (id ${c.jogador.id}, inscrito em ${c.jogador.inscritoEm}): ${c.jogador.posicao} ${nomeCurto(c.jogador.time)} → ${nomeCurto(c.para)}`);
+        console.log('Rascunhos dos avisos (só saem com aprovação):');
+        for (const c of r.correcoes) console.log(`  ${avisoDaCorrecao(c)}`);
         break;
       }
 
