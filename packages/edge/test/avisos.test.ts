@@ -201,10 +201,10 @@ describe('rodarAvisos', () => {
 });
 
 describe('só a partir da Temporada 2', () => {
-  const env = (numero: number) =>
+  const env = (numero: number, ativa?: number) =>
     ({
       AGENDA: kv(),
-      PUBLICO: r2({ 'dados/liga.json': { temporada: { numero }, calendario: [partida()] } }),
+      PUBLICO: r2({ 'dados/liga.json': { temporada: { numero }, ...(ativa ? { ativa: { numero: ativa, times: [] } } : {}), calendario: [partida()] } }),
       PRIVADO: r2({ 'partidas/7.json': { momentos } }),
       DATABASE_URL: 'postgres://x',
       VAPID_PUBLICA: 'pub',
@@ -225,5 +225,16 @@ describe('só a partir da Temporada 2', () => {
     const req = new Request('https://borda/avisos', { method: 'POST', body: JSON.stringify({ assinatura: { endpoint: 'https://push.exemplo.com/1', keys: { p256dh: 'B', auth: 'A' } }, times: ['ONC'] }) });
     const r = await rotaDosAvisos(req, env(1), async () => undefined as never, {});
     expect(r!.status).toBe(409);
+  });
+
+  it('na Pré-temporada da T2 (atual ainda a 1, Inscrição já na 2), a ativação passa (ADR-0068)', async () => {
+    const req = new Request('https://borda/avisos', { method: 'POST', body: JSON.stringify({ assinatura: { endpoint: 'https://push.exemplo.com/1', keys: { p256dh: 'B', auth: 'A' } }, times: ['ONC'] }) });
+    let abriu = false;
+    const r = await rotaDosAvisos(req, env(1, 2), async () => {
+      abriu = true;
+      return undefined as never;
+    }, {});
+    expect(r!.status).not.toBe(409);
+    expect(abriu).toBe(true);
   });
 });

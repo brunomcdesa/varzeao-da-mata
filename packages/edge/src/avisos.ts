@@ -15,6 +15,7 @@ import { generateRequestDetails } from 'web-push-neo';
 import {
   FALA_DO_TIME,
   appLiberado,
+  temporadaDoApp,
   TIMES,
   timesValidos,
   type AvisoNoCelular,
@@ -217,9 +218,9 @@ async function avisosNovos(env: AmbienteDosAvisos, agora: Date): Promise<AvisoPa
   if (!pertoDeUmJogo(agora)) return [];
   const obj = await env.PUBLICO.get('dados/liga.json');
   if (!obj) return [];
-  const liga = (await obj.json()) as { calendario?: PartidaNoCalendario[]; temporada?: { numero: number } | null };
+  const liga = (await obj.json()) as { calendario?: PartidaNoCalendario[]; temporada?: { numero: number } | null; ativa?: { numero: number } | null };
   // Os Avisos só valem a partir da Temporada 2 (ADR-0042), mesmo com as chaves já ligadas.
-  if (!appLiberado(liga.temporada?.numero)) return [];
+  if (!appLiberado(temporadaDoApp(liga))) return [];
   const calendario = liga.calendario ?? [];
   const perto = partidasPerto(calendario, agora);
   if (!perto.length) return [];
@@ -284,8 +285,9 @@ export async function rotaDosAvisos(req: Request, env: AmbienteDosAvisos, comBan
   if (!env.DATABASE_URL || !env.VAPID_PRIVADA || !env.VAPID_PUBLICA) return resposta({ erro: 'Os Avisos ainda não estão ligados.' }, 503, cors);
   if (pathname === '/avisos') {
     const obj = await env.PUBLICO.get('dados/liga.json');
-    const temporada = obj ? ((await obj.json()) as { temporada?: { numero: number } | null }).temporada : null;
-    if (!appLiberado(temporada?.numero)) return resposta({ erro: 'Os Avisos chegam na Temporada 2.' }, 409, cors);
+    const l = obj ? ((await obj.json()) as { temporada?: { numero: number } | null; ativa?: { numero: number } | null }) : null;
+    // Na Pré-temporada da T2 o App já vale (ADR-0068).
+    if (!appLiberado(temporadaDoApp(l))) return resposta({ erro: 'Os Avisos chegam na Temporada 2.' }, 409, cors);
   }
   let corpo: unknown;
   try {

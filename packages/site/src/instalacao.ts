@@ -44,4 +44,4 @@ export function comoInstalar(a: Aparelho): ComoInstalar {
 
 
 /** O App estreia na Temporada 2: antes disso, nem manifesto, nem service worker, nem placa. */
-export { TEMPORADA_DO_APP, appLiberado } from '@liga/shared';
+export { TEMPORADA_DO_APP, appLiberado, temporadaDoApp } from '@liga/shared';

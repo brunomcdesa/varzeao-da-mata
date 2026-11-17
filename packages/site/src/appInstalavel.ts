@@ -4,7 +4,7 @@
  * Some quando o site já está aberto como App ou quando a pessoa dispensa (volta em 7 dias).
  */
 import { liga } from './dados.js';
-import { appLiberado, comoInstalar, type ComoInstalar } from './instalacao.js';
+import { appLiberado, temporadaDoApp, comoInstalar, type ComoInstalar } from './instalacao.js';
 import { suporteAosAvisos, timesComAviso } from './avisosApp.js';
 import { html, type Html } from './ui.js';
 
@@ -115,7 +115,7 @@ function desenhar(): void {
 
 export async function prepararApp(): Promise<void> {
   const l = await liga().catch(() => null);
-  if (!appLiberado(l?.temporada?.numero)) return;
+  if (!appLiberado(temporadaDoApp(l))) return;
   if (!document.querySelector('link[rel="manifest"]')) {
     const link = document.createElement('link');
     link.rel = 'manifest';

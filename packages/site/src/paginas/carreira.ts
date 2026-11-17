@@ -4,7 +4,7 @@
  * Só existe a partir da Temporada 2: na T1 a Carreira é uma Temporada só, e a página do
  * Jogador já mostra tudo.
  */
-import { FALA_DO_TIME, IDENTIDADE, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, nomeVisivel, temRegrasT2, type JogadorPublico, type TipoTrofeu } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, nomeVisivel, temRegrasT2, temporadaDoApp, type JogadorPublico, type TipoTrofeu } from '@liga/shared';
 import { jogadores, liga } from '../dados.js';
 import { bonecoImg, curto, escudoImg, html, nota, NOME_DA_POSICAO, type Html } from '../ui.js';
 import type { Pagina } from './tipos.js';
@@ -62,7 +62,7 @@ export const paginaCarreira: Pagina = async (main, [id]) => {
   const [todos, l] = await Promise.all([jogadores(), liga()]);
   const j = todos.find((x) => x.id === id);
   // Na Temporada 1 a página não existe (o site da T1 não mostra nada da T2).
-  if (!j || !temRegrasT2(l.temporada?.numero ?? 0)) {
+  if (!j || !temRegrasT2(temporadaDoApp(l) ?? 0)) {
     main.innerHTML = html`<p class="placa vazio">Página não encontrada. <a href="#/jogadores">Buscar Jogadores</a>.</p>`.s;
     return;
   }

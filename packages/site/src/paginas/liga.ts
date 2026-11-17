@@ -1,6 +1,6 @@
 /** Jogos (calendário), Tabela, Times e a página de cada Time. */
-import { FALA_DO_TIME, IDENTIDADE, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, foraDoMataMata, forcaProvavel, inscritosAteNoProximoJogo, nomeDaRodada, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
-import { diaLongo, jogadores, liga, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos , formaDosTimes } from '../dados.js';
+import { FALA_DO_TIME, GRUPOS, IDENTIDADE, NOME_DO_GRUPO, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, foraDoMataMata, forcaProvavel, inscritosAteNoProximoJogo, nomeDaRodada, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
+import { diaLongo, jogadores, liga, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos, gruposAtivos, formaDosTimes } from '../dados.js';
 import { bonecoImg, campinho, curto, escudoImg, forcaHtml, formaHtml, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa } from '../ui.js';
 import { chaveamento } from './chave.js';
 import { linhaDePartida, tabelaDeClassificacao } from './comum.js';
@@ -113,10 +113,14 @@ export const paginaTimes: Pagina = async (main) => {
         <span class="numeros"><span>${pos ? `${pos}º` : 'estreante'}</span><span>${elenco.length} ${elenco.length === 1 ? 'jogador' : 'jogadores'}</span></span>
       </a></li>`;
     })}</ul>`;
+  // Na T2, um bloco por Grupo (ADR-0068), na ordem da Abertura.
+  const grupos = gruposAtivos(l);
   main.innerHTML = html`<h1 class="titulo-pagina">Os ${ativos.length} Times</h1>
     ${temSeries(l)
       ? seriesDaLiga(l).map((s: Serie) => html`<h2 class="secao"><span class="selo-serie serie-${s.toLowerCase()}">Série ${s}</span></h2>${grade(l.series![s])}`)
-      : grade(ativos)}`.s;
+      : grupos
+        ? GRUPOS.map((g) => html`<h2 class="secao">${NOME_DO_GRUPO[g]}</h2>${grade(grupos[g])}`)
+        : grade(ativos)}`.s;
 };
 
 function linhaDoElenco(j: JogadorPublico, inscritosAte: string | null = null, proxima = 'próxima Temporada'): ReturnType<typeof html> {
