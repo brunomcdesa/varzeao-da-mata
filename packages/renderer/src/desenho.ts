@@ -6,7 +6,7 @@
  * campo com terrão e cal, mata em volta e faixa de torcida no gol.
  */
 import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type Posicao, type SituacaoNaBriga, type TimeId } from '@liga/shared';
-import type { Lado, SlotRef } from '@liga/sim';
+import type { Lado } from '@liga/sim';
 import { CAMPO, cenario } from './cenario.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste, ruido } from './pixel.js';
 import { ALTURA_DAS_ESTRELAS, ALTURA_ESCUDO, LARGURA_ESCUDO, escudo, estrelasDoEscudo } from './escudos.js';
@@ -30,8 +30,6 @@ export interface OpcoesDesenho {
   briga?: BrigaPeloMataMata | null;
   /** Reels (ADR-0072): câmera que segue a jogada. Sem ela, o campo inteiro (site). */
   camera?: Camera;
-  /** Reels (ADR-0072): só estes Jogadores mostram o @, sem um nome em cima do outro. Sem a lista, todos. */
-  rotulos?: SlotRef[];
   /** Reels (ADR-0072): posições anteriores da bola (da mais antiga à mais nova), para o rastro. */
   rastro?: { pos: Ponto; altura: number }[];
 }
@@ -106,16 +104,16 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
     desenharJogador(pin, j, o, fase, estado);
   }
   if (!juizDesenhado) desenharJuiz(pin, juiz!, o, fase, estado);
-  if (!o.rotulos) {
-    // Na disputa de pênaltis, só o nome de quem está na área (cobrador e goleiro): a roda fica limpa.
-    for (const j of ordem) if (!estado.penaltis || j.pos.y < 0.3) desenharNome(pin, j, o, texto);
-  }
+  // Sem câmera, os @ vão junto com o campo. Com câmera (Reels), saem depois, no tamanho de sempre.
+  // Na disputa de pênaltis, só o nome de quem está na área (cobrador e goleiro): a roda fica limpa.
+  const comNome = ordem.filter((j) => !estado.penaltis || j.pos.y < 0.3);
+  if (!cam) for (const j of comNome) desenharNome(pin, j, o, texto, noCampo(j.pos), 6);
   if (bolaAlta) desenharBola(pin, bolaChao, estado.bolaAltura);
   if (juiz) desenharCartaoDoJuiz(pin, juiz);
   if (estado.t2) desenharCartao(pin, estado, noCampo);
   ctx.restore();
-  // Reels: o @ de quem está no lance, fora da câmera (tamanho fixo) e sem sobrepor.
-  if (o.rotulos) desenharRotulos(pin, ordem, o.rotulos, o, texto, (p) => naTela(noCampo(p)));
+  // Reels (ADR-0073): o @ de todos, no tamanho de sempre, logo abaixo do boneco já com zoom.
+  if (cam) for (const j of comNome) desenharNome(pin, j, o, texto, naTela(noCampo(j.pos)), 4 + 2 * cam.zoom);
   if (estado.t2) desenharClimaNoAr(pin, estado);
   if (cam?.flash) pin.r(0, 0, COLUNAS, LINHAS, `rgba(255,250,235,${(0.45 * cam.flash).toFixed(3)})`);
 
@@ -237,35 +235,10 @@ export function rotulo(o: Pick<OpcoesDesenho, 'nomes' | 'apelidos'>, lado: Lado,
   return o.apelidos?.[lado]?.[indice] || o.nomes[lado][indice] || null;
 }
 
-function desenharNome(pin: Pincel, j: JogadorNoQuadro, o: OpcoesDesenho, fonte: string): void {
-  const p = noCampo(j.pos);
+/** O @ embaixo do boneco: `p` é o pé na tela (grade lógica) e `abaixo`, a distância até o texto. */
+function desenharNome(pin: Pincel, j: JogadorNoQuadro, o: OpcoesDesenho, fonte: string, p: Ponto, abaixo: number): void {
   const nome = rotulo(o, j.slot.lado, j.ocupante ?? j.slot.indice) ?? 'Base';
-  pin.texto(nome, p.x, p.y + 6, 6.5, fonte, '#FFFFFF', { contorno: 'rgba(20,14,8,0.9)', peso: 600, espessura: 0.5 });
-}
-
-/**
- * Reels (ADR-0072): o @ só de quem está no lance, na ordem de importância. Se um nome cairia
- * em cima de outro, tenta em cima da cabeça; se ainda bater, não aparece.
- */
-function desenharRotulos(pin: Pincel, ordem: JogadorNoQuadro[], quem: SlotRef[], o: OpcoesDesenho, fonte: string, naTela: (p: Ponto) => Ponto): void {
-  const ocupadas: { x0: number; x1: number; y0: number; y1: number }[] = [];
-  const TAM = 7;
-  for (const s of quem) {
-    const j = ordem.find((x) => x.slot.lado === s.lado && x.slot.indice === s.indice && !x.saindo);
-    if (!j) continue;
-    const nome = rotulo(o, j.slot.lado, j.ocupante ?? j.slot.indice) ?? 'Base';
-    const p = naTela(j.pos);
-    const meia = (nome.length * TAM * 0.56) / 2 + 1;
-    const zoom = o.camera?.zoom ?? 1;
-    for (const y of [p.y + 4 + 2 * zoom, p.y - ALTURA_SPRITE * ESCALA_BONECO * zoom - 6]) {
-      const caixa = { x0: p.x - meia, x1: p.x + meia, y0: y - TAM / 2, y1: y + TAM / 2 };
-      if (caixa.x0 < 2 || caixa.x1 > COLUNAS - 2 || caixa.y0 < 0 || caixa.y1 > LINHAS) continue;
-      if (ocupadas.some((c) => caixa.x0 < c.x1 && caixa.x1 > c.x0 && caixa.y0 < c.y1 && caixa.y1 > c.y0)) continue;
-      ocupadas.push(caixa);
-      pin.texto(nome, p.x, y, TAM, fonte, '#FFFFFF', { contorno: 'rgba(20,14,8,0.9)', peso: 600, espessura: 0.5 });
-      break;
-    }
-  }
+  pin.texto(nome, p.x, p.y + abaixo, 6.5, fonte, '#FFFFFF', { contorno: 'rgba(20,14,8,0.9)', peso: 600, espessura: 0.5 });
 }
 
 /** Reels (ADR-0072): rastro curto da bola quando ela anda rápido (passe longo, chute). */

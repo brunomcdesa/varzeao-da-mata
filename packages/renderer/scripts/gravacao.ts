@@ -17,6 +17,8 @@ import { IDENTIDADE, TIMES, habilidadesDoPerfil, type Escalacao, type Posicao, t
 import { criarRng, simularPartida } from '@liga/sim';
 import type { PartidaParaVideo } from '../src/video.js';
 import { Roteiro, type OpcoesRoteiro } from '../src/roteiro.js';
+import { tetoDoReels } from '../src/tetoDoReels.js';
+
 import { Timeline } from '../src/timeline.js';
 import { exigenciasDaNarracao, montarEventos, montarNarracao } from '../src/narracao.js';
 import { TAXA, agendarFalas, codificarWav, lerWavMono, mixar, mixarAoVivo, type VozNaMixagem } from '../src/audio.js';
@@ -34,6 +36,9 @@ import { NARRADOR_DO_AGRADECIMENTO, RoteiroAgradecimentoT1, narracaoDoAgradecime
 import { NARRADOR_DO_REBALANCEAMENTO, RoteiroRebalanceamentoT2, narracaoDoRebalanceamentoT2, type DadosDoRebalanceamentoT2 } from '../src/rebalanceamentoT2.js';
 import type { Fala } from '../src/narracao.js';
 import { RoteiroNovidades, narracaoDasNovidades, type DadosDasNovidades } from '../src/novidades.js';
+
+/** Acima disso o Instagram para de recomendar o Reels para quem não segue (3 min), com folga. */
+const LIMITE_DO_INSTAGRAM = 178;
 export { dadosDasNovidades } from './partidasDasNovidades.js';
 
 const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -115,15 +120,32 @@ async function montarPagina(dir: string): Promise<string> {
  */
 async function montarAudio(partida: PartidaParaVideo, dir: string): Promise<{ arquivo: string; roteiro: OpcoesRoteiro }> {
   const timeline = new Timeline(partida.resultado, partida.escalacoes, partida.torcida ? { torcida: partida.torcida } : {});
-  const base = new Roteiro(timeline, partida.roteiro);
-  const falasBase = montarNarracao(base, partida.apelidos, { mataMata: partida.mataMata ?? null, briga: partida.briga ?? null });
+  const opcoesNarracao = { mataMata: partida.mataMata ?? null, briga: partida.briga ?? null };
   const narrador = narradorDa(partida.resultado.seed);
   console.log(`  Narrador: ${narrador.nome}`);
-  const vozes = await sintetizar(falasBase, narrador.voz, narrador.jeito);
-  const duracao = (id: string) => vozes.get(id)!.length / TAXA;
-  const opcoes: OpcoesRoteiro = { ...partida.roteiro, minimos: exigenciasDaNarracao(base, falasBase, duracao) };
-  const roteiro = new Roteiro(timeline, opcoes);
-  const falas = montarNarracao(roteiro, partida.apelidos, { mataMata: partida.mataMata ?? null, briga: partida.briga ?? null });
+  // Teto pelo vídeo final (ADR-0073): entram lances até o Reels, já com a narração, chegar a
+  // DURACAO_MAXIMA_DO_REELS. Primeiro pela estimativa da voz; se a voz real passar do limite
+  // do Instagram, tira mais um pouco (o cache evita sintetizar de novo o que já foi).
+  let teto = partida.roteiro?.duracaoMaxima ?? tetoDoReels(timeline, partida.roteiro, partida.apelidos, opcoesNarracao);
+  let base: Roteiro;
+  let falasBase: Fala[];
+  let vozes: Map<string, Float32Array>;
+  let opcoes: OpcoesRoteiro;
+  let roteiro: Roteiro;
+  for (;;) {
+    base = new Roteiro(timeline, { ...partida.roteiro, duracaoMaxima: teto });
+    falasBase = montarNarracao(base, partida.apelidos, opcoesNarracao);
+    vozes = await sintetizar(falasBase, narrador.voz, narrador.jeito);
+    const v = vozes;
+    opcoes = { ...partida.roteiro, duracaoMaxima: teto, minimos: exigenciasDaNarracao(base, falasBase, (id) => v.get(id)!.length / TAXA) };
+    roteiro = new Roteiro(timeline, opcoes);
+    if (roteiro.duracao <= LIMITE_DO_INSTAGRAM || teto <= 30 || partida.roteiro?.duracaoMaxima !== undefined) break;
+    console.log(`  Reels com ${roteiro.duracao.toFixed(1)} s passa de ${LIMITE_DO_INSTAGRAM} s: tirando lances.`);
+    teto -= 5;
+  }
+  const v = vozes;
+  const duracao = (id: string) => v.get(id)!.length / TAXA;
+  const falas = montarNarracao(roteiro, partida.apelidos, opcoesNarracao);
 
   const naMixagem: VozNaMixagem[] = [];
   for (const a of agendarFalas(falas, duracao)) {
