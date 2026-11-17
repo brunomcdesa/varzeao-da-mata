@@ -112,7 +112,10 @@ export const IDENTIDADE: Readonly<Record<TimeId, { nome: string; sigla: string; 
   BUG: { nome: 'Bugio Futebol Clube', sigla: 'BUG', bicho: 'bugio', primaria: '#B9471E', secundaria: '#1B1B1B' },
 };
 
-/** Pares de rivais fixos (docs/times.md). */
+/**
+ * Pares de rivais fixos (docs/times.md). Desde a T2, cada Time da Série A de 16 tem dois
+ * Clássicos, os dois dentro do seu Grupo: o original e um entre fundador e Time novo (ADR-0066).
+ */
 export const CLASSICOS: ReadonlyArray<readonly [TimeId, TimeId]> = [
   ['CAP', 'ONC'],
   ['TAT', 'TAM'],
@@ -122,6 +125,15 @@ export const CLASSICOS: ReadonlyArray<readonly [TimeId, TimeId]> = [
   ['LOB', 'LEA'],
   ['BOT', 'TAR'],
   ['COR', 'BES'],
+  // Segundo Clássico (ADR-0066): um fundador contra um Time novo do mesmo Grupo.
+  ['ONC', 'LEA'],
+  ['CAP', 'SUC'],
+  ['TAT', 'JAC'],
+  ['TAM', 'LOB'],
+  ['PRE', 'TAR'],
+  ['ARA', 'BOT'],
+  ['SAG', 'BES'],
+  ['TUC', 'COR'],
   ['QUA', 'GAM'],
   ['JAB', 'TEI'],
   ['ARI', 'ANT'],
@@ -149,6 +161,14 @@ const NOMES_CLASSICOS: Readonly<Record<string, string>> = {
   'LEA-LOB': 'Clássico da Juba',
   'BOT-TAR': 'Clássico do Rio',
   'BES-COR': 'Clássico da Madrugada',
+  'LEA-ONC': 'Clássico dos Felinos',
+  'CAP-SUC': 'Clássico do Pantanal',
+  'JAC-TAT': 'Clássico da Couraça',
+  'LOB-TAM': 'Clássico do Cerrado',
+  'PRE-TAR': 'Clássico do Devagar',
+  'ARA-BOT': 'Clássico das Cores',
+  'BES-SAG': 'Clássico do Tronco',
+  'COR-TUC': 'Clássico do Poleiro',
   'GAM-QUA': 'Clássico do Quintal',
   'JAB-TEI': 'Clássico do Sol',
   'ANT-ARI': 'Clássico da Lagoa',
