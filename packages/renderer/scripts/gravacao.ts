@@ -21,7 +21,7 @@ import { Timeline } from '../src/timeline.js';
 import { exigenciasDaNarracao, montarEventos, montarNarracao } from '../src/narracao.js';
 import { TAXA, agendarFalas, codificarWav, lerWavMono, mixar, mixarAoVivo, type VozNaMixagem } from '../src/audio.js';
 import { NARRADORES, narradorDa } from '../src/narradores.js';
-import { agendarAoVivo, duracaoAoVivo, eventosAoVivo, roteiroAoVivo } from '../src/aoVivo.js';
+import { agendarAoVivo, ancorasAoVivo, duracaoAoVivo, eventosAoVivo, roteiroAoVivo, type FalaAoVivo } from '../src/aoVivo.js';
 import { criarLocutor } from './locutor.js';
 import type { VarzeaApi } from '../video/api.js';
 import { RoteiroResumo, narracaoDoResumo, type DadosDoResumo } from '../src/resumo.js';
@@ -735,16 +735,16 @@ export async function gravarReels(partidaOriginal: PartidaParaVideo, o: OpcoesGr
 export async function gravarNarracaoAoVivo(partida: PartidaParaVideo, saida: string): Promise<{ duracao: number; falas: number }> {
   const inicio = performance.now();
   const timeline = new Timeline(partida.resultado, partida.escalacoes, partida.torcida ? { torcida: partida.torcida } : {});
-  const falas = roteiroAoVivo(timeline, partida.apelidos, { mataMata: partida.mataMata ?? null, briga: partida.briga ?? null });
+  const opcoes = { mataMata: partida.mataMata ?? null, briga: partida.briga ?? null };
   const narrador = narradorDa(partida.resultado.seed);
   // Pedidos de até 20 falas novas: um pedido só com o jogo inteiro ficaria longo demais para
   // recortar. Só as que não estão no cache vão (ADR-0059).
-  const vozes = await sintetizar(
-    falas.map((f) => ({ id: f.id, texto: f.texto, tom: f.tom }) as Fala),
-    narrador.voz,
-    narrador.jeito,
-    20,
-  );
+  const falar = (lista: FalaAoVivo[]) => sintetizar(lista.map((f) => ({ id: f.id, texto: f.texto, tom: f.tom }) as Fala), narrador.voz, narrador.jeito, 20);
+  // Primeiro as âncoras: com a duração real delas, o enchimento é escrito para a hora em que
+  // vai ser dito, olhando o que a tela mostra ali (ADR-0070). Depois, o enchimento.
+  const vozes = await falar(ancorasAoVivo(timeline, partida.apelidos, opcoes));
+  const falas = roteiroAoVivo(timeline, partida.apelidos, opcoes, (id) => vozes.get(id)!.length / TAXA);
+  for (const [id, v] of await falar(falas.filter((f) => f.tipo === 'enchimento'))) vozes.set(id, v);
   const duracaoFala = (id: string) => vozes.get(id)!.length / TAXA;
   const agenda = agendarAoVivo(falas, duracaoFala);
   const fimFala = (a: { id: string; inicio: number; fim?: number }) => a.fim ?? a.inicio + duracaoFala(a.id);

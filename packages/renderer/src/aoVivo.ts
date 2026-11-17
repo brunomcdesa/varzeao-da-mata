@@ -3,22 +3,24 @@
  *
  * O Ao Vivo mostra 90 minutos em 4 min 30 s (VELOCIDADE_AO_VIVO). Os lances usam as mesmas falas do
  * Reels (montarNarracao num Roteiro com todos os lances); entre um lance e outro entram
- * falas de "jogo corrido" (posse, construção, minuto, placar, torcida), sempre do Time que
- * vai atacar no próximo lance, para não contradizer o que está na tela.
+ * falas de "jogo corrido" (posse, minuto, placar, torcida). A frase de posse só entra se a
+ * tela mostrar aquilo enquanto ela é dita (ADR-0070).
  *
  * Tempo aqui é sempre "s de Ao Vivo" (s de jogo ÷ VELOCIDADE_AO_VIVO), que é também o
  * tempo do arquivo de áudio: o site toca o áudio em `tempoAoVivo / VELOCIDADE_AO_VIVO`.
  *
- * Duas etapas, porque só se sabe quanto cada fala dura depois de sintetizar:
- *   1. roteiroAoVivo: os textos (âncoras dos lances + enchimento estimado para cada vão);
- *   2. agendarAoVivo: com as durações reais, encaixa tudo sem sobreposição.
+ * Três etapas, porque só se sabe quanto cada fala dura depois de sintetizar:
+ *   1. ancorasAoVivo: as falas dos lances, que são sintetizadas primeiro;
+ *   2. roteiroAoVivo: com a duração real das âncoras, escreve o enchimento de cada vão para
+ *      a hora em que ele vai ser dito;
+ *   3. agendarAoVivo: com as durações reais de tudo, encaixa sem sobreposição.
  */
 import { FALA_DO_TIME, NOME_DO_GRUPO, doTime, type BrigaPeloMataMata, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, type Lado } from '@liga/sim';
 import { falaDosGarantidos, falasDaNecessidade, montarNarracao, seAcabarAssim, type EventoSonoro, type OpcoesNarracao, type Tom } from './narracao.js';
 import { instanteDaCobranca } from './penaltis.js';
 import { Roteiro } from './roteiro.js';
-import { DURACAO_JOGO, VELOCIDADE_AO_VIVO, type Timeline } from './timeline.js';
+import { DURACAO_JOGO, VELOCIDADE_AO_VIVO, type BolaNoToque, type Timeline } from './timeline.js';
 
 export interface FalaAoVivo {
   id: string;
@@ -26,7 +28,7 @@ export interface FalaAoVivo {
   tom: Tom;
   /** Âncora: fala de lance (tem hora certa). Enchimento: vai no vão entre âncoras, se couber. */
   tipo: 'ancora' | 'enchimento';
-  /** Âncora: s de Ao Vivo em que a fala deve terminar ('ate') ou começar ('de'). */
+  /** Âncora: s de Ao Vivo em que a fala deve terminar ('ate') ou começar ('de'). Enchimento: a hora para que foi escrita. */
   em?: number;
   modo?: 'ate' | 'de';
   /** Âncora: não começar antes disto (o lance ainda não apareceu na tela). */
@@ -52,6 +54,8 @@ const CORTE = 0.08;
 const SOBRA_MINIMA = 0.9;
 /** Comentário pós-lance pode esperar no máximo isso (s); depois perde o sentido. */
 const ATRASO_MAXIMO_POS = 1.5;
+/** Enchimento pode entrar no máximo isso depois da hora para que foi escrito (s). */
+const ATRASO_MAXIMO_ENCHIMENTO = 1.0;
 export const estimarDuracao = (texto: string) => texto.length / LETRAS_POR_S + 0.35;
 
 const aoVivo = (tJogo: number) => tJogo / VELOCIDADE_AO_VIVO;
@@ -78,7 +82,41 @@ function embaralhar<T>(rng: ReturnType<typeof criarRng>, lista: readonly T[]): T
 /** Duração do Ao Vivo (s), igual ao fim do relógio do site. */
 export const duracaoAoVivo = (tl: Timeline) => aoVivo(tl.duracao);
 
-export function roteiroAoVivo(tl: Timeline, apelidos?: Record<Lado, (string | null)[]>, opcoes: OpcoesNarracao = {}): FalaAoVivo[] {
+/**
+ * Falas do Ao Vivo: as âncoras dos lances e, nos vãos entre elas, o enchimento.
+ *
+ * O enchimento é escrito para o instante em que vai ser dito: os vãos saem do encaixe das
+ * âncoras com `duracaoAncora` (a duração real, quando a voz delas já foi sintetizada), e cada
+ * frase é conferida com o que a tela mostra durante ela (com quem está a bola, onde, se teve
+ * passe). Minuto e placar também são os daquele instante.
+ */
+export function roteiroAoVivo(
+  tl: Timeline,
+  apelidos?: Record<Lado, (string | null)[]>,
+  opcoes: OpcoesNarracao = {},
+  duracaoAncora?: (id: string) => number,
+): FalaAoVivo[] {
+  const falas = ancorasAoVivo(tl, apelidos, opcoes);
+  const durA = duracaoAncora ?? ((id: string) => estimarDuracao(falas.find((x) => x.id === id)!.texto));
+  const agenda = agendarAoVivo(falas, durA);
+  const fim = aoVivo(tl.duracao);
+  /** Memória da Partida (ADR-0045): uma frase dita não volta até as outras se esgotarem. */
+  const ditas = new Set<string>();
+  let vao = 0;
+  for (let i = 0; i <= agenda.length; i++) {
+    const antes = agenda[i - 1];
+    const de = antes ? (antes.fim ?? antes.inicio + durA(antes.id)) + RESPIRO : 0;
+    const ate = (agenda[i]?.inicio ?? fim) - RESPIRO;
+    if (ate - de < 1.6) continue;
+    const textos = enchimento(tl, { vao, de, ate, ditas, mataMata: opcoes.mataMata ?? null, briga: opcoes.briga ?? null });
+    textos.forEach(({ texto, em }, k) => falas.push({ id: `enche-${vao}-${k}`, texto, tom: 'normal', tipo: 'enchimento', em, vao }));
+    vao++;
+  }
+  return falas;
+}
+
+/** Só as âncoras: falas dos lances, do intervalo, dos pênaltis e do fim, cada uma com a sua hora. */
+export function ancorasAoVivo(tl: Timeline, apelidos?: Record<Lado, (string | null)[]>, opcoes: OpcoesNarracao = {}): FalaAoVivo[] {
   // Roteiro com todos os lances (inclusive desarmes), sem teto: uma fala por lance como no Reels.
   const roteiro = new Roteiro(tl, { duracaoLance: { DESARME: 4 }, duracaoMaxima: 1e9, bolasParadas: true });
   const segs = roteiro.segmentos;
@@ -106,36 +144,6 @@ export function roteiroAoVivo(tl: Timeline, apelidos?: Record<Lado, (string | nu
   const meio = aoVivo(DURACAO_JOGO / 2);
   const p45 = tl.placarEm(DURACAO_JOGO / 2);
   falas.push({ id: 'meio', texto: `Quarenta e cinco minutos! ${placarFalado(tl, p45)}`, tom: 'normal', tipo: 'ancora', em: meio, modo: 'de' });
-
-  // Vãos entre âncoras, com a duração estimada das âncoras, para escolher o enchimento.
-  const estimadas = agendarAoVivo(falas, (id) => estimarDuracao(falas.find((x) => x.id === id)!.texto));
-  const fim = aoVivo(tl.duracao);
-  let vao = 0;
-  /** Memória da Partida (ADR-0045): uma frase dita não volta até as outras se esgotarem. */
-  const ditas = new Set<string>();
-  for (let i = 0; i <= estimadas.length; i++) {
-    const antes = estimadas[i - 1];
-    const de = antes ? (antes.fim ?? antes.inicio + estimarDuracao(antes.texto)) + RESPIRO : 0;
-    const ate = (estimadas[i]?.inicio ?? fim) - RESPIRO;
-    if (ate - de < 1.6) continue;
-    // Quem ataca no próximo lance tem a bola agora.
-    const tMeio = (de + ate) / 2;
-    const proximo = tl.janelas.find((j) => aoVivo(j.resolucao) > tMeio);
-    const anterior = [...tl.janelas].reverse().find((j) => aoVivo(j.resolucao) <= tMeio);
-    const textos = enchimento(tl, {
-      vao,
-      tJogo: tMeio * VELOCIDADE_AO_VIVO,
-      posse: proximo?.lance.ataque ?? (anterior ? (anterior.lance.ataque === 'mandante' ? 'visitante' : 'mandante') : 'mandante'),
-      depoisDeGol: anterior?.lance.tipo === 'GOL' && de - aoVivo(anterior.resolucao) < 12 ? anterior.lance.ataque : null,
-      segundos: ate - de,
-      penaltis: tMeio * VELOCIDADE_AO_VIVO > DURACAO_JOGO,
-      ditas,
-      mataMata: opcoes.mataMata ?? null,
-      briga: opcoes.briga ?? null,
-    });
-    textos.forEach((texto, k) => falas.push({ id: `enche-${vao}-${k}`, texto, tom: 'normal', tipo: 'enchimento', vao }));
-    vao++;
-  }
   return falas;
 }
 
@@ -145,65 +153,171 @@ function placarFalado(tl: Timeline, p: Record<Lado, number>): string {
   return `${FALA_DO_TIME[t.mandante].curto} ${p.mandante}, ${FALA_DO_TIME[t.visitante].curto} ${p.visitante}.`;
 }
 
+/** Folga na duração estimada ao conferir a tela: a voz real costuma sair mais lenta. */
+const FOLGA_DA_TELA = 1.3;
+/** Quantos instantes da fala são conferidos na tela. */
+const AMOSTRAS = 5;
+
+/** O que a tela mostra durante uma fala: a bola no toque de bola, em alguns instantes. */
+interface Tela {
+  /** Todos os instantes no toque de bola (sem jogada no meio) e com o mesmo Time na bola. */
+  lado: Lado | null;
+  amostras: (BolaNoToque | null)[];
+}
+
+function telaEntre(tl: Timeline, de: number, ate: number): Tela {
+  const amostras = Array.from({ length: AMOSTRAS }, (_, k) => tl.bolaNoToque((de + ((ate - de) * k) / (AMOSTRAS - 1)) * VELOCIDADE_AO_VIVO));
+  const lado = amostras.every((a) => a && a.lado === amostras[0]!.lado) ? amostras[0]!.lado : null;
+  return { lado, amostras };
+}
+
+/** Uma frase de jogo corrido e o que precisa estar na tela para ela valer. */
+type Frase = [texto: string, vale: (tela: Tela) => boolean];
+
 /**
- * Frases de jogo corrido para um vão, até encher a duração estimada (um pouco além, para
- * sobrar escolha; o agendamento tira o que não couber). Determinístico pelo seed + vão.
+ * Frases sobre o toque de bola de quem está com ela (`l`) e de quem marca. Cada uma só vale
+ * se a tela mostrar aquilo enquanto ela é dita (ADR-0070).
+ */
+function frasesDaTela(tl: Timeline, l: Lado): Frase[] {
+  const r = tl.resultado;
+  const o: Lado = l === 'mandante' ? 'visitante' : 'mandante';
+  const de = (x: Lado) => doTime(r.times[x]);
+  const curto = (x: Lado) => FALA_DO_TIME[r.times[x]].curto;
+  const artigo = (x: Lado) => cap(FALA_DO_TIME[r.times[x]].artigo);
+  const jog = (x: Lado, p: Posicao) => `o ${POSICAO[p]} ${de(x)}`;
+  const bolas = (t: Tela) => t.amostras.filter((a): a is BolaNoToque => !!a);
+  /** 0 perto do gol que defende, 1 perto do gol que ataca. */
+  const avanco = (t: Tela) => bolas(t).map((a) => (l === 'mandante' ? 1 - a.bola.y : a.bola.y));
+  const xs = (t: Tela) => bolas(t).map((a) => a.bola.x);
+  const passes = (t: Tela) => bolas(t).flatMap((a) => (a.tipo === 'PASSE' ? [a] : []));
+  const com = (t: Tela, k: number, ...p: Posicao[]) => {
+    const a = t.amostras[k];
+    return a?.tipo === 'POSSE' && p.includes(a.com.posicao);
+  };
+  const comAlguem = (t: Tela, p: Posicao) => bolas(t).some((a) => a.tipo === 'POSSE' && a.com.posicao === p);
+  const todos = (v: number[], f: (n: number) => boolean) => v.length > 0 && v.every(f);
+  const abertura = (t: Tela) => Math.max(...xs(t)) - Math.min(...xs(t));
+  const teve = (t: Tela) => passes(t).length > 0;
+  const meioCampo = (t: Tela) => todos(avanco(t), (a) => a > 0.33 && a < 0.67);
+  const defesa = (t: Tela) => todos(avanco(t), (a) => a < 0.5);
+  const ataque = (t: Tela) => todos(avanco(t), (a) => a > 0.5);
+  return [
+    [`Bola com ${artigo(l).toLowerCase()} ${curto(l)}.`, () => true],
+    [`Toca de lado ${de(l)}, com paciência.`, teve],
+    [`${curto(l)} roda a bola, procurando espaço.`, teve],
+    [`${curto(l)} troca passes no meio-campo.`, (t) => teve(t) && meioCampo(t)],
+    [`Troca de passes no campo de defesa ${de(l)}.`, (t) => teve(t) && defesa(t)],
+    [`${cap(jog(l, 'ZAG'))} sai jogando.`, (t) => com(t, 0, 'ZAG') && teve(t)],
+    [`${cap(jog(l, 'ZAG'))} recua pro goleiro.`, (t) => passes(t).some((p) => p.de?.posicao === 'ZAG' && p.para?.posicao === 'GOL')],
+    [`${cap(jog(l, 'GOL'))} repõe a bola.`, (t) => comAlguem(t, 'GOL') && passes(t).some((p) => p.de?.posicao === 'GOL')],
+    [`${cap(jog(l, 'GOL'))} segura e distribui.`, (t) => com(t, 0, 'GOL') && com(t, 1, 'GOL')],
+    [`${cap(jog(l, 'MEI'))} pede a bola.`, (t) => passes(t).some((p) => p.para?.posicao === 'MEI')],
+    [`Passe curto, ${jog(l, 'MEI')} domina.`, (t) => passes(t).some((p) => p.para?.posicao === 'MEI') && com(t, AMOSTRAS - 1, 'MEI')],
+    [`${cap(jog(l, 'MEI'))} gira o jogo.`, (t) => comAlguem(t, 'MEI') && abertura(t) > 0.3],
+    [`${cap(jog(l, 'MEI'))} olha, procura alguém livre...`, (t) => com(t, 0, 'MEI') && com(t, 1, 'MEI')],
+    [`${cap(jog(l, 'ATA'))} se movimenta, pede profundidade.`, (t) => todos(avanco(t), (a) => a > 0.4)],
+    [`${curto(l)} vai ganhando terreno.`, (t) => avanco(t)[avanco(t).length - 1]! - avanco(t)[0]! > 0.12],
+    [`${curto(l)} chega pela direita.`, (t) => ataque(t) && todos(xs(t), (x) => x > 0.62)],
+    [`${curto(l)} tenta pela esquerda.`, (t) => ataque(t) && todos(xs(t), (x) => x < 0.38)],
+    [`${artigo(l)} ${curto(l)} tem paciência, gira de um lado pro outro.`, (t) => abertura(t) > 0.35],
+    [`${artigo(l)} ${curto(l)} tenta furar o bloqueio.`, (t) => todos(avanco(t), (a) => a > 0.62)],
+    [`${cap(jog(o, 'ATA'))} pressiona a saída.`, (t) => com(t, 0, 'ZAG', 'GOL')],
+    [`${curto(o)} recua e fecha os espaços.`, ataque],
+    [`Marcação forte ${de(o)} no meio.`, meioCampo],
+    [`${artigo(o)} ${curto(o)} aperta a marcação, não deixa respirar.`, () => true],
+    [`${cap(jog(o, 'ATA'))} volta pra ajudar na marcação.`, ataque],
+  ];
+}
+
+/**
+ * Frases de jogo corrido para um vão [de, ate] (s de Ao Vivo), uma depois da outra, cada uma
+ * com a hora (`em`) para que foi escrita. A frase de posse só entra se a tela mostrar aquilo
+ * durante ela; minuto, placar e o que é do momento são os do instante da fala.
  */
 function enchimento(
   tl: Timeline,
-  o: { vao: number; tJogo: number; posse: Lado; depoisDeGol: Lado | null; segundos: number; penaltis: boolean; ditas?: Set<string>; mataMata?: MataMataDaPartida | null; briga?: BrigaPeloMataMata | null },
-): string[] {
-  const ditas = o.ditas ?? new Set<string>();
+  o: { vao: number; de: number; ate: number; ditas: Set<string>; mataMata: MataMataDaPartida | null; briga: BrigaPeloMataMata | null },
+): { texto: string; em: number }[] {
+  const { ditas } = o;
   const r = tl.resultado;
   const rng = criarRng(((r.seed >>> 0) ^ ((o.vao + 1) * 0x85ebca6b)) >>> 0);
+  const saida: { texto: string; em: number }[] = [];
+  const naoDitasPrimeiro = (lista: string[]) => [...lista.filter((t) => !ditas.has(t)), ...lista.filter((t) => ditas.has(t))];
+  // Ordem fixa por vão (sorteio pelo seed), conferida a cada frase na tela daquele instante.
+  const ordemDaTela = embaralhar(rng, Array.from({ length: 24 }, (_, k) => k));
+  const curtas = embaralhar(rng, [`Segue o jogo.`, `Bola rolando.`, `Vamos lá!`, `Que partida!`]);
+  let cursor = o.de;
+  for (let guarda = 0; guarda < 40; guarda++) {
+    const tJogo = Math.min(cursor * VELOCIDADE_AO_VIVO, tl.duracao);
+    const cabe = (t: string) => cursor + estimarDuracao(t) <= o.ate;
+    // Confere a tela até o fim mais tarde possível da fala: voz mais lenta e entrada atrasada.
+    const tela = (t: string) => telaEntre(tl, cursor, cursor + estimarDuracao(t) * FOLGA_DA_TELA + ATRASO_MAXIMO_ENCHIMENTO);
+    const m = momento(tl, { tJogo, emPenaltis: cursor * VELOCIDADE_AO_VIVO > DURACAO_JOGO, ditas, mataMata: o.mataMata, briga: o.briga, inicioDoVao: saida.length === 0 });
+    const contexto = naoDitasPrimeiro([...embaralhar(rng, m.doMomento), ...embaralhar(rng, m.contexto)]);
+    // Posse: só as que a tela mostra durante a fala.
+    const daTela = (): string[] => {
+      const lado = telaEntre(tl, cursor, cursor + 1).lado;
+      if (!lado) return [];
+      const frases = frasesDaTela(tl, lado);
+      const lista = ordemDaTela.filter((k) => k < frases.length).map((k) => frases[k]!);
+      // A fala inteira no toque de bola, com o mesmo Time na bola, e mostrando o que ela diz.
+      return naoDitasPrimeiro(lista.filter(([t, vale]) => {
+        if (!cabe(t)) return false;
+        const naTela = tela(t);
+        return naTela.lado === lado && vale(naTela);
+      }).map(([t]) => t));
+    };
+    let escolhida: string | undefined;
+    // O que é da última Rodada vem antes de tudo, no começo do jogo; depois, o que é do momento.
+    escolhida = m.primeiro.find((t) => !ditas.has(t) && cabe(t)) ?? m.doMomento.find((t) => !ditas.has(t) && cabe(t));
+    if (!escolhida) {
+      const posse = daTela();
+      const ctx = contexto.filter(cabe);
+      const nova = (l: string[]) => l.find((t) => !ditas.has(t));
+      // Mais frases de posse, uma de contexto de vez em quando. Frase nova antes de repetida,
+      // mesmo que seja do outro tipo: a tela às vezes só deixa poucas frases de posse.
+      escolhida = saida.length % 3 === 1 ? (nova(ctx) ?? nova(posse)) : (nova(posse) ?? nova(ctx));
+      escolhida ??= saida.length % 3 === 1 ? (ctx[0] ?? posse[0]) : (posse[0] ?? ctx[0]);
+    }
+    escolhida ??= curtas.find((t) => cabe(t) && !saida.some((s) => s.texto === t));
+    if (!escolhida) break;
+    saida.push({ texto: escolhida, em: cursor });
+    ditas.add(escolhida);
+    cursor += estimarDuracao(escolhida) + RESPIRO;
+  }
+  return saida;
+}
+
+/**
+ * Frases que não dependem da bola: minuto, placar, torcida, clima, Mata-mata, última Rodada.
+ * `doMomento` são as que só fazem sentido agora (virada, reta final...) e vêm na frente.
+ */
+function momento(
+  tl: Timeline,
+  o: { tJogo: number; emPenaltis: boolean; ditas: Set<string>; mataMata: MataMataDaPartida | null; briga: BrigaPeloMataMata | null; inicioDoVao: boolean },
+): { primeiro: string[]; doMomento: string[]; contexto: string[] } {
+  const { ditas } = o;
+  const r = tl.resultado;
   const time = (l: Lado): TimeId => r.times[l];
-  const outro: Lado = o.posse === 'mandante' ? 'visitante' : 'mandante';
   const de = (l: Lado) => doTime(time(l));
   const curto = (l: Lado) => FALA_DO_TIME[time(l)].curto;
   const artigo = (l: Lado) => cap(FALA_DO_TIME[time(l)].artigo);
-  const jog = (l: Lado, p: Posicao) => `o ${POSICAO[p]} ${de(l)}`;
+  const mm = o.mataMata;
+  if (o.emPenaltis) {
+    const vale = mm ? [mm.etapa === 'FINAL' ? `O título vai ser decidido nos pênaltis!` : `A vaga na Final vai ser decidida nos pênaltis!`] : [];
+    return { primeiro: [], doMomento: [], contexto: [`Tensão total na marca do pênalti.`, `A torcida não respira!`, `Quem vai bater agora?`, `Goleiro se ajeita na linha.`, `Silêncio na Mata...`, ...vale] };
+  }
   const minuto = Math.min(90, Math.max(1, Math.round(o.tJogo / 60)));
   const placar = tl.placarEm(o.tJogo);
-  const diff = placar[o.posse] - placar[outro];
+  // Quem está com a bola agora (no toque de bola) ou quem ataca no próximo lance.
+  const naTela = tl.bolaNoToque(o.tJogo);
+  const proximo = tl.janelas.find((j) => j.resolucao > o.tJogo);
+  const anterior = [...tl.janelas].reverse().find((j) => j.resolucao <= o.tJogo);
+  const posse: Lado = naTela?.lado ?? proximo?.lance.ataque ?? 'mandante';
+  const outro: Lado = posse === 'mandante' ? 'visitante' : 'mandante';
+  const diff = placar[posse] - placar[outro];
+  const depoisDeGol = anterior?.lance.tipo === 'GOL' && (o.tJogo - anterior.resolucao) / VELOCIDADE_AO_VIVO < 12 ? anterior.lance.ataque : null;
 
-  const mm = o.mataMata ?? null;
-  if (o.penaltis) {
-    const vale = mm ? [mm.etapa === 'FINAL' ? `O título vai ser decidido nos pênaltis!` : `A vaga na Final vai ser decidida nos pênaltis!`] : [];
-    return embaralhar(rng, [`Tensão total na marca do pênalti.`, `A torcida não respira!`, `Quem vai bater agora?`, `Goleiro se ajeita na linha.`, `Silêncio na Mata...`, ...vale]);
-  }
-
-  // Só o que aparece na tela: nada de lateral, falta ou bola parada (o jogo não mostra).
-  const posse = [
-    `Bola com ${artigo(o.posse).toLowerCase()} ${curto(o.posse)}.`,
-    `${cap(jog(o.posse, 'ZAG'))} sai jogando.`,
-    `${cap(jog(o.posse, 'GOL'))} repõe a bola.`,
-    `${curto(o.posse)} troca passes no meio-campo.`,
-    `${cap(jog(o.posse, 'MEI'))} pede a bola.`,
-    `Toca de lado ${de(o.posse)}, com paciência.`,
-    `${cap(jog(o.posse, 'MEI'))} gira o jogo.`,
-    `${curto(o.posse)} vai ganhando terreno.`,
-    `Passe curto, ${jog(o.posse, 'MEI')} domina.`,
-    `${cap(jog(o.posse, 'ATA'))} se movimenta, pede profundidade.`,
-    `${curto(o.posse)} roda a bola, procurando espaço.`,
-    `${cap(jog(outro, 'ATA'))} pressiona a saída.`,
-    `${curto(outro)} recua e fecha os espaços.`,
-    `Marcação forte ${de(outro)} no meio.`,
-    `Dividida no meio! A bola fica com ${artigo(o.posse).toLowerCase()} ${curto(o.posse)}.`,
-    `${cap(jog(o.posse, 'ZAG'))} tenta o lançamento... a zaga ${de(outro)} afasta.`,
-    `Recupera ${de(o.posse)}, e começa tudo de novo.`,
-    `${curto(o.posse)} chega pela direita.`,
-    `${curto(o.posse)} tenta pela esquerda.`,
-    // Frases aprovadas em 11/11 (ADR-0045): acompanham o toque de bola da tela.
-    `${cap(jog(o.posse, 'ZAG'))} recua pro goleiro.`,
-    `${cap(jog(o.posse, 'GOL'))} segura e distribui.`,
-    `${artigo(o.posse)} ${curto(o.posse)} tem paciência, gira de um lado pro outro.`,
-    `${cap(jog(o.posse, 'MEI'))} olha, procura alguém livre...`,
-    `Passe errado! Mas ${artigo(o.posse).toLowerCase()} ${curto(o.posse)} recupera logo.`,
-    `${artigo(outro)} ${curto(outro)} aperta a marcação, não deixa respirar.`,
-    `${cap(jog(outro, 'ATA'))} volta pra ajudar na marcação.`,
-    `${artigo(o.posse)} ${curto(o.posse)} tenta furar o bloqueio.`,
-    `Troca de passes no campo de defesa ${de(o.posse)}.`,
-  ];
   const contexto = [
     `${minuto} minutos de jogo. ${placarFalado(tl, placar)}`,
     placarFalado(tl, placar),
@@ -228,15 +342,16 @@ function enchimento(
     `Futebol bonito no Varzeão hoje.`,
     // Na T2 o Clima e a Arquibancada aparecem na tela (ADR-0019); a fala acompanha o que se vê.
     ...(tl.t2
-      ? [FALA_DO_CLIMA_AO_VIVO[tl.t2.clima], `A arquibancada de madeira treme!`, `A torcida ${de(o.posse)} empurra o time!`]
+      ? [FALA_DO_CLIMA_AO_VIVO[tl.t2.clima], `A arquibancada de madeira treme!`, `A torcida ${de(posse)} empurra o time!`]
       : [`Sol forte no campinho hoje.`, `A arquibancada de madeira treme!`]),
   ];
-  /** Frases que só fazem sentido agora: entram na frente da fila de contexto. */
   const doMomento: string[] = [];
-  if (o.depoisDeGol) {
-    const marcou = o.depoisDeGol;
+  if (depoisDeGol) {
+    const marcou = depoisDeGol;
     const sofreu: Lado = marcou === 'mandante' ? 'visitante' : 'mandante';
-    contexto.push(`A torcida ${de(marcou)} faz a festa!`, `${curto(sofreu)} precisa reagir.`, `Saída de bola ${de(sofreu)}, depois do gol.`);
+    contexto.push(`A torcida ${de(marcou)} faz a festa!`, `${curto(sofreu)} precisa reagir.`);
+    // A saída de bola só é falada enquanto a bola está parada no meio, esperando o toque.
+    if (naTela?.tipo === 'PARADA' && Math.hypot(naTela.bola.x - 0.5, naTela.bola.y - 0.5) < 0.05) doMomento.push(`Saída de bola ${de(sofreu)}, depois do gol.`);
     // O gol empatou, ou virou o jogo (quem marcou já esteve atrás).
     if (placar[marcou] === placar[sofreu]) doMomento.push(`Tudo igual de novo no Varzeão!`);
     else if (placar[marcou] === placar[sofreu] + 1) {
@@ -248,8 +363,10 @@ function enchimento(
       if (esteveAtras) doMomento.push(`Virou o jogo! ${artigo(marcou)} ${curto(marcou)} agora está na frente!`);
     }
   }
-  if (diff < 0) contexto.push(`${curto(o.posse)} está atrás no placar e vai pra cima.`, `${curto(outro)} administra a vantagem.`);
-  if (diff > 0) contexto.push(`${curto(o.posse)} na frente, controla o jogo.`, `${curto(outro)} precisa do gol.`);
+  // Logo depois de um desarme ou defesa, quem defendeu recupera e recomeça.
+  if (o.inicioDoVao && anterior && anterior.lance.tipo !== 'GOL' && naTela && naTela.lado !== anterior.lance.ataque) contexto.push(`Recupera ${de(naTela.lado)}, e começa tudo de novo.`);
+  if (diff < 0) contexto.push(`${curto(posse)} está atrás no placar e vai pra cima.`, `${curto(outro)} administra a vantagem.`);
+  if (diff > 0) contexto.push(`${curto(posse)} na frente, controla o jogo.`, `${curto(outro)} precisa do gol.`);
   if (minuto >= 80) contexto.push(`Reta final de jogo!`, `O tempo está acabando!`, `Últimos minutos no Varzeão!`);
   if (minuto <= 8) contexto.push(`Começo de jogo, as equipes ainda se estudando.`);
   // Contexto do jogo (frases aprovadas em 11/11, ADR-0045).
@@ -258,7 +375,7 @@ function enchimento(
   if (minuto >= 20 && ataques >= 24) contexto.push(`Jogo lá e cá, ninguém se segura!`, `Que jogo aberto! Chance pra todo lado.`);
   if (minuto >= 80 && placar.mandante === placar.visitante) doMomento.push(`Tudo igual e o tempo acabando!`, `Quem vai ter coragem de decidir?`);
   if (minuto >= 80 && Math.abs(diff) === 1) {
-    const frente: Lado = diff > 0 ? o.posse : outro;
+    const frente: Lado = diff > 0 ? posse : outro;
     const atras: Lado = frente === 'mandante' ? 'visitante' : 'mandante';
     doMomento.push(`${artigo(frente)} ${curto(frente)} segura o resultado, faltam poucos minutos.`, `${artigo(atras)} ${curto(atras)} tem pouco tempo pra buscar o empate!`);
   }
@@ -272,7 +389,7 @@ function enchimento(
   }
 
   // Última Rodada (ADR-0053): a viga no topo e as plaquinhas embaixo do placar mostram o mesmo.
-  const b = o.briga ?? null;
+  const b = o.briga;
   /** Começo de jogo na última Rodada: o que está em jogo vem antes de tudo, uma vez só. */
   const primeiro: string[] = [];
   if (b) {
@@ -283,34 +400,14 @@ function enchimento(
       for (const t of [g, ...falasDaNecessidade(b, ts)]) if (t && !ditas.has(t)) primeiro.push(t);
     } else {
       const assim = seAcabarAssim(b, ts, placar);
-      if (assim && (o.depoisDeGol || minuto >= 75)) doMomento.push(assim);
+      if (assim && (depoisDeGol || minuto >= 75)) doMomento.push(assim);
       else if (assim) contexto.push(assim);
       const g = falaDosGarantidos(b, ts);
       if (g) contexto.push(g);
     }
     contexto.push(`É a última Rodada, cada gol mexe na tabela!`, b.grupo ? `Olho na tabela: os dois primeiros ${NOME_DO_GRUPO[b.grupo].replace(/^Grupo d/, 'do Grupo d')} vão pro Mata-mata!` : `Olho na tabela: os quatro primeiros vão pro Mata-mata!`);
   }
-
-  // Mistura: mais frases de posse, uma de contexto de vez em quando. O que ainda não foi dito na
-  // Partida vem primeiro; o que é do momento (virada, reta final...) vem antes de tudo.
-  const naoDitasPrimeiro = (lista: string[]) => [...lista.filter((t) => !ditas.has(t)), ...lista.filter((t) => ditas.has(t))];
-  const p = naoDitasPrimeiro(embaralhar(rng, posse));
-  const c = naoDitasPrimeiro([...embaralhar(rng, doMomento), ...embaralhar(rng, contexto)]);
-  const saida: string[] = [...primeiro];
-  primeiro.forEach((t) => ditas.add(t));
-  let usado = primeiro.reduce((s, t) => s + estimarDuracao(t) + RESPIRO, 0);
-  let ip = 0;
-  let ic = 0;
-  while (usado < o.segundos + 2.5 && (ip < p.length || ic < c.length)) {
-    const daContexto = saida.length % 3 === 1 && ic < c.length;
-    const t = daContexto ? c[ic++]! : (p[ip++] ?? c[ic++]!);
-    saida.push(t);
-    ditas.add(t);
-    usado += estimarDuracao(t) + RESPIRO;
-  }
-  // Frases curtas no fim, para tapar o que sobrar quando as durações reais forem menores.
-  saida.push(...embaralhar(rng, [`Segue o jogo.`, `Bola rolando.`, `Vamos lá!`, `Que partida!`]).slice(0, 2));
-  return saida;
+  return { primeiro, doMomento, contexto };
 }
 
 /**
@@ -354,37 +451,19 @@ export function agendarAoVivo(falas: FalaAoVivo[], duracao: (id: string) => numb
       else a.fim = b.inicio - CORTE;
     }
   }
-  const enche = falas.filter((f) => f.tipo === 'enchimento');
-  if (!enche.length) return agenda;
-
-  // Vãos reais entre as âncoras já agendadas; cada vão estimado cai no vão real em que estava.
+  // Enchimento: cada frase foi escrita para a hora `em` (o que a tela mostra ali). Entra nessa
+  // hora ou logo depois, sem passar da próxima âncora; se atrasar demais, sai (ADR-0070).
   const fixas = [...agenda].sort((a, b) => a.inicio - b.inicio);
-  const vaosReais: [number, number][] = [];
-  for (let i = 0; i <= fixas.length; i++) {
-    const a = fixas[i - 1];
-    const de = a ? fimDe(a) + RESPIRO : 0;
-    const ate = (fixas[i]?.inicio ?? Infinity) - RESPIRO;
-    if (ate - de >= 0.8) vaosReais.push([de, ate]);
-  }
-  const porVao = new Map<number, FalaAoVivo[]>();
-  for (const f of enche) porVao.set(f.vao!, [...(porVao.get(f.vao!) ?? []), f]);
-  const usados = new Set<number>();
-  // Associa cada grupo de enchimento ao maior vão real ainda livre na ordem.
-  const grupos = [...porVao.keys()].sort((a, b) => a - b);
-  let k = 0;
-  for (const g of grupos) {
-    while (k < vaosReais.length && (vaosReais[k]![1] - vaosReais[k]![0] < 1.2 || usados.has(k))) k++;
-    if (k >= vaosReais.length) break;
-    usados.add(k);
-    let [cursor, ate] = vaosReais[k]!;
-    if (!Number.isFinite(ate)) continue; // depois do apito final não tem enchimento
-    for (const f of porVao.get(g)!) {
-      const d = duracao(f.id);
-      if (cursor + d > ate) continue;
-      agenda.push({ id: f.id, texto: f.texto, inicio: cursor });
-      cursor += d + RESPIRO;
-    }
-    k++;
+  let livre = -Infinity;
+  for (const f of falas.filter((x) => x.tipo === 'enchimento').sort((x, y) => x.em! - y.em!)) {
+    const d = duracao(f.id);
+    const antes = [...fixas].reverse().find((a) => a.inicio <= f.em!);
+    const depois = fixas.find((a) => a.inicio > f.em!);
+    const inicio = Math.max(f.em!, antes ? fimDe(antes) + RESPIRO : -Infinity, livre);
+    const ate = depois ? depois.inicio - RESPIRO : Infinity;
+    if (inicio - f.em! > ATRASO_MAXIMO_ENCHIMENTO || inicio + d > ate) continue;
+    agenda.push({ id: f.id, texto: f.texto, inicio });
+    livre = inicio + d + RESPIRO;
   }
   return agenda.sort((a, b) => a.inicio - b.inicio);
 }

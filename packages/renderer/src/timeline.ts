@@ -115,6 +115,21 @@ export interface EstadoQuadro {
   trocas?: { lista: Troca[]; progresso: number } | null;
 }
 
+/** Um Jogador na tela, com a Posição da vaga dele. */
+export interface JogadorNoToque {
+  slot: SlotRef;
+  posicao: Posicao;
+}
+
+/**
+ * A bola no toque de bola entre os lances (ADR-0045): com quem está, o passe em andamento ou
+ * parada (saída de bola). `lado` é o Time com a bola; `bola`, a posição dela no campo.
+ */
+export type BolaNoToque =
+  | { tipo: 'POSSE'; lado: Lado; com: JogadorNoToque; bola: Ponto }
+  | { tipo: 'PASSE'; lado: Lado; de: JogadorNoToque | null; para: JogadorNoToque | null; bola: Ponto }
+  | { tipo: 'PARADA'; lado: Lado; bola: Ponto };
+
 /** Temporada 2 (ADR-0019): o que só aparece nas Partidas com as regras da T2. */
 export interface InfoT2 {
   clima: Clima;
@@ -302,6 +317,31 @@ export class Timeline {
   ocupanteEm(slot: SlotRef, t: number): number {
     const troca = this.trocas.find((x) => x.lado === slot.lado && x.lugar === slot.indice && t >= x.t);
     return troca ? troca.ocupante : slot.indice;
+  }
+
+  /**
+   * O que a bola está fazendo no toque de bola (ADR-0045) em t: com quem está, de quem para quem
+   * vai o passe, ou parada (saída de bola). null durante uma jogada e nas Partidas antigas, que
+   * não têm toque de bola. A narração do Ao Vivo usa isto para só falar do que está na tela.
+   */
+  bolaNoToque(t: number): BolaNoToque | null {
+    if (t < 0 || t > DURACAO_JOGO) return null;
+    const k = this.faixaEm(t);
+    const faixa = k >= 0 ? this.faixas[k]! : null;
+    if (!faixa?.toque) return null;
+    const f = this.fracao(k, t);
+    const bolas = faixa.plano.bola;
+    const trecho = bolas.find((b) => f >= b.de && f < b.ate) ?? bolas[bolas.length - 1]!;
+    const bola = this.bolaEm(t, k).pos;
+    const posicao = (s: SlotRef) => this.escalacoes[s.lado].jogadores[s.indice]!.posicao;
+    const jogador = (s: SlotRef) => ({ slot: s, posicao: posicao(s) });
+    if (trecho.tipo === 'POSSE') return { tipo: 'POSSE', lado: trecho.ator.lado, com: jogador(trecho.ator), bola };
+    if (trecho.tipo === 'VOO') {
+      const de = 'ator' in trecho.origem ? jogador(trecho.origem.ator) : null;
+      const para = 'ator' in trecho.destino ? jogador(trecho.destino.ator) : null;
+      return { tipo: 'PASSE', lado: de?.slot.lado ?? para?.slot.lado ?? faixa.toque.posse, de, para, bola };
+    }
+    return { tipo: 'PARADA', lado: faixa.toque.posse, bola };
   }
 
   /** A troca que está na tela em t, se houver (a placa do juiz). */
