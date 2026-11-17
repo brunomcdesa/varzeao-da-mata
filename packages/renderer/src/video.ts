@@ -31,6 +31,8 @@ export interface PartidaParaVideo {
   nomes: Record<Lado, (string | null)[]>;
   /** Apelidos (ADR-0014); o que aparece escrito. Sem ele, o @. */
   apelidos?: Record<Lado, (string | null)[]>;
+  /** Número da camisa de cada lugar (null = camisa lisa). Partidas antigas não têm. */
+  numeros?: Record<Lado, (number | null)[]>;
   subtitulo?: string;
   roteiro?: OpcoesRoteiro;
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */

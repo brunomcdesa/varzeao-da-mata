@@ -8,6 +8,7 @@
  */
 import { CABELOS, PELES, type Aparencia, type Penteado } from '@liga/shared';
 import type { AcaoJogador } from './jogada.js';
+import { contraste } from './pixel.js';
 
 export type Direcao = 'FRENTE' | 'COSTAS' | 'LADO';
 export type Pose =
@@ -161,6 +162,8 @@ export interface Visual {
   pele: string;
   cabelo: string;
   penteado?: Penteado;
+  /** Número da camisa escolhido pelo dono (1 a 99): só aparece de costas. Sem ele, camisa lisa. */
+  numero?: number | null;
 }
 
 
@@ -215,12 +218,75 @@ function novoCanvas(w: number, h: number): HTMLCanvasElement | OffscreenCanvas {
   return c;
 }
 
-export function sprite(pose: Pose, v: Visual): HTMLCanvasElement | OffscreenCanvas {
-  const k = `${pose}|${v.camisa}|${v.detalhe}|${v.calcao}|${v.meiao}|${v.pele}|${v.cabelo}|${v.penteado ?? ''}`;
+/** Algarismos 3×5 do número da camisa (1 = ponto aceso), em meio pixel do boneco. */
+export const ALGARISMOS: Readonly<Record<string, readonly string[]>> = {
+  '0': ['111', '101', '101', '101', '111'],
+  '1': ['010', '110', '010', '010', '111'],
+  '2': ['111', '001', '111', '100', '111'],
+  '3': ['111', '001', '111', '001', '111'],
+  '4': ['101', '101', '111', '001', '001'],
+  '5': ['111', '100', '111', '001', '111'],
+  '6': ['111', '100', '111', '101', '111'],
+  '7': ['111', '001', '010', '010', '010'],
+  '8': ['111', '101', '111', '101', '111'],
+  '9': ['111', '101', '111', '001', '111'],
+};
+
+/** Abaixo disso a segunda cor some em cima da camisa, e o número sai em branco ou escuro. */
+const CONTRASTE_MINIMO_DO_NUMERO = 90;
+const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+
+/** Cor do número: a segunda cor do uniforme, ou branco/escuro se ela se confunde com a camisa. */
+export function corDoNumero(camisa: string, detalhe: string): string {
+  const d = Math.hypot(...rgb(camisa).map((v, i) => v - rgb(detalhe)[i]!));
+  return d >= CONTRASTE_MINIMO_DO_NUMERO ? detalhe : contraste(camisa);
+}
+
+/** O número só vai nas costas, e só se o dono escolheu um válido (1 a 99). */
+export function numeroNasCostas(pose: Pose, numero: number | null | undefined): number | null {
+  if (!pose.startsWith('COSTAS_') || numero == null) return null;
+  return Number.isInteger(numero) && numero >= 1 && numero <= 99 ? numero : null;
+}
+
+/** Com número nas costas, o boneco vem espelhado do sprite() e o número continua legível. */
+export function espelharNoSprite(pose: Pose, numero: number | null | undefined, espelhar: boolean): boolean {
+  return espelhar && numeroNasCostas(pose, numero) !== null;
+}
+
+/**
+ * Pontos acesos do número, em meio pixel do boneco (grade 24×32): centrado nas costas,
+ * nas linhas 7 a 9 do boneco, onde fica a faixa de detalhe da camisa lisa.
+ */
+export function pontosDoNumero(numero: number): { x: number; y: number }[] {
+  const texto = String(numero);
+  const largura = texto.length * 4 - 1;
+  const x0 = LARGURA_SPRITE - Math.ceil(largura / 2);
+  const y0 = 15;
+  const pontos: { x: number; y: number }[] = [];
+  [...texto].forEach((a, i) =>
+    ALGARISMOS[a]!.forEach((linha, y) => {
+      for (let x = 0; x < 3; x++) if (linha[x] === '1') pontos.push({ x: x0 + i * 4 + x, y: y0 + y });
+    }),
+  );
+  return pontos;
+}
+
+/**
+ * `espelhado` vira o boneco já no desenho, para quem corre para a esquerda sem inverter o
+ * número (quem desenha não espelha o canvas nesse caso; veja precisaEspelharNoDesenho).
+ */
+export function sprite(pose: Pose, v: Visual, espelhado = false): HTMLCanvasElement | OffscreenCanvas {
+  const numero = numeroNasCostas(pose, v.numero);
+  const k = `${pose}|${v.camisa}|${v.detalhe}|${v.calcao}|${v.meiao}|${v.pele}|${v.cabelo}|${v.penteado ?? ''}|${numero ?? ''}|${espelhado ? 'E' : ''}`;
   const pronto = cache.get(k);
   if (pronto) return pronto;
-  const grade = comPenteado(POSES[pose], v.penteado, pose);
-  const c = novoCanvas(LARGURA_SPRITE, ALTURA_SPRITE);
+  let grade = comPenteado(POSES[pose], v.penteado, pose);
+  if (espelhado) grade = grade.map((l) => [...l].reverse().join(''));
+  // Com número, a faixa de detalhe das costas sai e o boneco é pintado em dobro (meio pixel
+  // para o número caber). Quem desenha sempre passa o tamanho final, então nada mais muda.
+  const passo = numero === null ? 1 : 2;
+  if (numero !== null) grade = grade.map((l) => l.replace(/c/g, 'C'));
+  const c = novoCanvas(LARGURA_SPRITE * passo, ALTURA_SPRITE * passo);
   const g = c.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
   const cores: Record<string, string> = {
     K: CONTORNO, H: v.cabelo, S: v.pele, C: v.camisa, c: v.detalhe, B: v.calcao, M: v.meiao, L: v.detalhe,
@@ -230,9 +296,13 @@ export function sprite(pose: Pose, v: Visual): HTMLCanvasElement | OffscreenCanv
       const cor = cores[linha[x]!];
       if (!cor) continue;
       g.fillStyle = cor;
-      g.fillRect(x, y, 1, 1);
+      g.fillRect(x * passo, y * passo, passo, passo);
     }
   });
+  if (numero !== null) {
+    g.fillStyle = corDoNumero(v.camisa, v.detalhe);
+    for (const p of pontosDoNumero(numero)) g.fillRect(p.x, p.y, 1, 1);
+  }
   cache.set(k, c);
   return c;
 }
