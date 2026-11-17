@@ -41,10 +41,20 @@ Vinte e quatro clubes fictícios, todos com bichos brasileiros como tema e em do
 | Clássico da Juba | Lobo-guará × Leão | os dois de juba |
 | Clássico do Rio | Boto × Tartaruga | os do rio |
 | Clássico da Madrugada | Coruja × Besouro | os dois da noite |
+| Clássico dos Felinos | Onça × Leão | os dois grandes gatos |
+| Clássico do Pantanal | Capivara × Sucuri | a sucuri caça capivara |
+| Clássico da Couraça | Tatu × Jacaré | os dois blindados |
+| Clássico do Cerrado | Tamanduá × Lobo-guará | os dois símbolos do Cerrado |
+| Clássico do Devagar | Preguiça × Tartaruga | os mais lentos da Liga |
+| Clássico das Cores | Arara Azul × Boto | o azul da arara contra o rosa do boto |
+| Clássico do Tronco | Sagui × Besouro | os dois vivem no tronco, e o sagui come besouro |
+| Clássico do Poleiro | Tucano × Coruja | a ave do dia contra a ave da noite |
 | Clássico do Quintal | Quati × Gambá | os que reviram tudo atrás de comida |
 | Clássico do Sol | Jabuti × Teiú | os de sangue frio que vivem tomando sol |
 | Clássico da Lagoa | Ariranha × Anta | os dois que vivem na beira d'água |
 | Clássico do Grito | Seriema × Bugio | os mais barulhentos do mato |
+
+Desde a T2, cada Time da Série A de 16 tem dois Clássicos, os dois dentro do seu Grupo: o original e um segundo, entre um fundador e um Time novo (ADR-0066). Os 8 Times guardados para expansão (Quati, Gambá, Jabuti, Teiú, Ariranha, Anta, Seriema e Bugio) seguem com um Clássico só.
 
 Os Clássicos caem por sorteio no calendário, ganham abertura especial no Reels, fazem as ações valerem o dobro para as Habilidades (com limite de ±4 por Habilidade por Partida, em vez de ±2) e dão o título de Rei do Clássico a quem decidiu a Partida.
 
