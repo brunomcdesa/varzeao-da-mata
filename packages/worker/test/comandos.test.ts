@@ -88,6 +88,11 @@ describe('Voto', () => {
       expect(interpretar(texto)).toEqual({ tipo: 'VOTO', numero, solto: true });
     }
     expect(interpretar('B 4 🔥')).toEqual({ tipo: 'VOTO', numero: 4, serie: 'B', solto: true });
+    // Comentários reais da votação da T1.
+    for (const [texto, numero] of [['1 o cara é fodaaa', 1], ['3 meu craque', 3], ['4 fechou a zaga 👏', 4], ['3 e não tem jeito', 3], ['2 bora arara', 2]] as const) {
+      expect(interpretar(texto)).toEqual({ tipo: 'VOTO', numero, solto: true });
+    }
+    expect(interpretar('Meu voto de craque na rodada é pro 1 Alisson o mano decidiu o jogo com 4 gols kkk')).toEqual({ tipo: 'VOTO', numero: 1 });
     // Dois números, placar ou número grande: não é voto.
     expect(interpretar('3 e 4')).toEqual({ tipo: 'IGNORADO' });
     expect(interpretar('3x1 foi pouco')).toEqual({ tipo: 'IGNORADO' });

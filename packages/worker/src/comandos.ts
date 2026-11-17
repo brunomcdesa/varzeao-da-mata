@@ -231,12 +231,15 @@ const VOTO_EXPLICITO = new Set(['CRAQUE', 'CRAQUES', 'VOTO', 'VOTOS', 'VOTE', 'V
 export function lerVoto(texto: string): Comando | null {
   const palavras = normalizar(texto.replace(/@[\p{L}\p{N}._]+/gu, ' ')).split(' ').filter(Boolean);
   const comNumero = palavras.map((p, i) => [p, i] as const).filter(([p]) => /\d/.test(p));
-  if (comNumero.length !== 1) return null;
+  if (!comNumero.length) return null;
   const [token, i] = comNumero[0]!;
   const m = /^([AB])?#?([1-9])$/.exec(token);
   if (!m) return null;
   const antes = palavras.slice(0, i);
-  if (antes.length > 6 || !antes.every((p) => ANTES_DO_VOTO.has(p))) return null;
+  if (antes.length > 8 || !antes.every((p) => ANTES_DO_VOTO.has(p))) return null;
+  // Outro número depois só vale quando a pessoa disse que é voto antes do primeiro ("meu voto
+  // é pro 1, decidiu com 4 gols"); sem isso, "3 e 4" não diz em quem votou.
+  if (comNumero.length > 1 && !antes.some((p) => VOTO_EXPLICITO.has(p))) return null;
   // "B 3" / "série B 3": a letra logo antes do número é a Série.
   const letra = m[1] ?? (['A', 'B'].includes(antes.at(-1) ?? '') && (antes.length === 1 || antes.at(-2) === 'SERIE') ? antes.at(-1) : undefined);
   const explicito = antes.some((p) => VOTO_EXPLICITO.has(p));

@@ -4,7 +4,7 @@ Na votação do Craque da Temporada 1, vários comentários com número no post 
 
 ## Regras
 
-- **Voto é um único número de 1 a 9** (com a letra da Série, se houver: "B3", "série B 3"). Antes do número só podem vir palavras de voto (CRAQUE, VOTO, MEU, VOU, DE, O, NÚMERO, DA TEMPORADA etc.). Depois do número vale qualquer comentário, desde que não tenha outro número ("3 e 4", "3x1" e "05" não são voto). Os @ marcados não contam.
+- **Voto é um único número de 1 a 9** (com a letra da Série, se houver: "B3", "série B 3"). Antes do número só podem vir palavras de voto (CRAQUE, VOTO, MEU, VOU, DE, O, NÚMERO, DA TEMPORADA etc.). Depois do número vale qualquer comentário ("3 meu craque", "4 fechou a zaga"), desde que não tenha outro número ("3 e 4", "3x1" e "05" não são voto). A exceção é quem diz que é voto antes do primeiro número ("Meu voto de craque é pro 1, decidiu com 4 gols"): vale o primeiro. Os @ marcados não contam.
 - **Com CRAQUE ou VOTO antes do número**, o voto vale em qualquer post, como antes. **Sem**, é voto solto e só vale no post da votação (o Resumo).
 - **Releitura de voto.** Comentário que tinha sido ignorado (ou lido como CRAQUE sem candidato) e que hoje é voto volta a ser lido, mas só se estiver no post da votação aberta. Assim um voto antigo de outra Rodada não entra na votação atual. Vale o último voto de cada @, como sempre.
 - **Comentário sem o id da conta.** Quando a API não traz o `from` do comentário, o @ identifica a pessoa (id provisório `sem-id:<@>`). Isso vale só para voto; Inscrição e o resto continuam exigindo a conta.
