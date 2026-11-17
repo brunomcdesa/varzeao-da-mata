@@ -285,10 +285,10 @@ function destinoDoNovato(
 type Motivo = 'PEDIDO' | 'EQUILIBRIO' | 'OUTRO_DA_A' | 'SERIE_B';
 
 /** Quantos Jogadores cada Time tem numa Posição. */
-async function naPosicaoPorTime(b: Banco, times: readonly TimeId[], posicao: Posicao): Promise<Map<string, number>> {
+async function naPosicaoPorTime(b: Banco, times: readonly TimeId[], posicao: Posicao, menos?: string): Promise<Map<string, number>> {
   const r = await b.query<{ time_id: string; n: string }>(
-    `SELECT time_id, count(*) AS n FROM jogador WHERE posicao = $1 AND NOT banido AND time_id = ANY($2) GROUP BY time_id`,
-    [posicao, [...times]],
+    `SELECT time_id, count(*) AS n FROM jogador WHERE posicao = $1 AND NOT banido AND time_id = ANY($2) AND id <> $3 GROUP BY time_id`,
+    [posicao, [...times], menos ?? '-1'],
   );
   return new Map(r.rows.map((x) => [x.time_id, Number(x.n)]));
 }
@@ -421,6 +421,27 @@ export async function transferirJogador(
     if (contagem.get(destino)! >= menor + FOLGA_DE_ELENCO) {
       const vazios = ativos.filter((t) => contagem.get(t) === menor && t !== j.time_id).map((t) => doTime(t).replace(/^d[oa] /, ''));
       return { resultado: 'DESTINO_CHEIO', mensagem: `o time ${doTime(destino)} está cheio agora, então a transferência não deu. Times com vaga: ${vazios.join(', ')}. ⚽` };
+    }
+  }
+
+  // Limite por Posição (ADR-0079): a Transferência (e a troca de Posição no mesmo Time) segue a
+  // mesma regra da Inscrição. Conta o destino sem ele; cheia, a troca não acontece.
+  if (destino !== j.time_id || posicao !== j.posicao) {
+    const { series } = await seriesAtivas(b);
+    const todos = [...series.A, ...series.B];
+    const mesmaSerie = series.B.includes(destino) ? series.B : series.A.includes(destino) ? series.A : todos;
+    const na = await naPosicaoPorTime(b, mesmaSerie, posicao, jogadorId);
+    const limite = LIMITE_POR_POSICAO[posicao];
+    if ((na.get(destino) ?? 0) >= limite) {
+      const comVaga = mesmaSerie
+        .filter((t) => t !== destino && t !== j.time_id && (na.get(t) ?? 0) < limite)
+        .sort((x, y) => (na.get(x) ?? 0) - (na.get(y) ?? 0) || x.localeCompare(y))
+        .slice(0, 4)
+        .map((t) => doTime(t).replace(/^d[oa] /, ''));
+      return {
+        resultado: 'DESTINO_CHEIO',
+        mensagem: `as vagas de ${NOME_DA_POSICAO_FALADO[posicao]} ${doTime(destino)} já estão completas, então a ${destino === j.time_id ? 'mudança de posição' : 'transferência'} não deu.${comVaga.length ? ` Times com vaga nessa posição: ${comVaga.join(', ')}.` : ''} ⚽`,
+      };
     }
   }
 
