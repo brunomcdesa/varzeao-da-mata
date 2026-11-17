@@ -90,7 +90,7 @@ export async function suspensos(b: Banco, time: TimeId, partidaId: number): Prom
 
 /**
  * Ordem da faixa de Capitão (ADR-0020): mais Partidas pelo Time; empate, quem chegou antes.
- * O Capitão à mão (ADR-0078), se ainda está no Time, vem na frente de todos.
+ * O Capitão à mão (ADR-0079), se ainda está no Time, vem na frente de todos.
  */
 export async function ordemDoCapitao(b: Banco, time: TimeId): Promise<string[]> {
   return (

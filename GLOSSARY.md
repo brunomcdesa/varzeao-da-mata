@@ -31,7 +31,7 @@ A função do Jogador em campo, informada na Inscrição: GOL, ZAG, MEI ou ATA.
 _Avoid_: função, papel
 
 **OVR**:
-O resumo da força do Jogador: a média das suas Habilidades com pesos da Posição (ATA 55% Finalização, 25% Drible, 15% Passe, 5% Defesa; MEI 45% Passe, 20% Drible, 20% Defesa, 15% Finalização; ZAG 75% Defesa, 15% Passe, 5% Drible, 5% Finalização; GOL 90% Goleiro, 10% Passe). Não muda por si: muda quando as Habilidades mudam. Na Inscrição, o OVR é sorteado entre 60 e 70 durante a T1 e entre 60 e 65 depois dela (ADR-0056). O dono pode acertar o OVR à mão: todas as Habilidades mudam na mesma proporção (ADR-0078).
+O resumo da força do Jogador: a média das suas Habilidades com pesos da Posição (ATA 55% Finalização, 25% Drible, 15% Passe, 5% Defesa; MEI 45% Passe, 20% Drible, 20% Defesa, 15% Finalização; ZAG 75% Defesa, 15% Passe, 5% Drible, 5% Finalização; GOL 90% Goleiro, 10% Passe). Não muda por si: muda quando as Habilidades mudam. Na Inscrição, o OVR é sorteado entre 60 e 70 durante a T1 e entre 60 e 65 depois dela (ADR-0056). O dono pode acertar o OVR à mão: todas as Habilidades mudam na mesma proporção (ADR-0079).
 _Avoid_: overall, nível, rating, força
 
 **Habilidade**:
@@ -233,7 +233,7 @@ A descida de um Time da Série A para a Série B no fim da Temporada. Os Jogador
 _Avoid_: descenso, queda, degola
 
 **Capitão**:
-O Jogador com mais Partidas por um Time, que escolhe a Postura e a Formação antes de cada Partida. Se não tiver Vínculo ou estiver suspenso, a faixa passa para o próximo com Vínculo. O dono pode pôr a faixa à mão num Jogador, que fica na frente da ordem até o dono tirar ou ele mudar de Time (ADR-0078).
+O Jogador com mais Partidas por um Time, que escolhe a Postura e a Formação antes de cada Partida. Se não tiver Vínculo ou estiver suspenso, a faixa passa para o próximo com Vínculo. O dono pode pôr a faixa à mão num Jogador, que fica na frente da ordem até o dono tirar ou ele mudar de Time (ADR-0079).
 _Avoid_: líder, técnico, dono do time
 
 **Postura**:

@@ -1,4 +1,4 @@
-# 0078 — Capitão à mão e OVR à mão
+# 0079 — Capitão à mão e OVR à mão
 
 - Status: proposto (aguarda aprovação do dono)
 - Data: 2026-11-17

@@ -1,4 +1,4 @@
--- Capitão à mão (ADR-0078): um Jogador escolhido pelo dono leva a faixa do Time, na frente da
+-- Capitão à mão (ADR-0079): um Jogador escolhido pelo dono leva a faixa do Time, na frente da
 -- ordem de mais Partidas, até o dono tirar ou o Jogador mudar de Time. Um por Time.
 CREATE TABLE IF NOT EXISTS capitao_a_mao (
   time_id       text PRIMARY KEY REFERENCES time (id),
@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS capitao_a_mao (
   escolhido_em  timestamptz NOT NULL
 );
 
--- OVR à mão (ADR-0078): histórico de cada ajuste, com o antes e o depois.
+-- OVR à mão (ADR-0079): histórico de cada ajuste, com o antes e o depois.
 CREATE TABLE IF NOT EXISTS ovr_a_mao (
   id                  bigserial PRIMARY KEY,
   jogador_id          bigint NOT NULL REFERENCES jogador (id),

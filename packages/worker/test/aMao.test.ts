@@ -29,7 +29,7 @@ const primeiraPartida = async (temporadaId: number, time: TimeId) =>
     )
   ).rows[0]!;
 
-describe('Capitão à mão (ADR-0078)', () => {
+describe('Capitão à mão (ADR-0079)', () => {
   it('sem gravar é só simulação; gravado, vai para a frente da ordem da faixa', async () => {
     await novaT2();
     const veterano = await inscrever('ONC', 'MEI', 'veterano', '2026-11-10T12:00:00Z');
@@ -83,7 +83,7 @@ describe('Capitão à mão (ADR-0078)', () => {
   });
 });
 
-describe('OVR à mão (ADR-0078)', () => {
+describe('OVR à mão (ADR-0079)', () => {
   it('escala todas as Habilidades juntas e bate o OVR pedido, para cima e para baixo', () => {
     for (const posicao of ['ATA', 'MEI', 'ZAG', 'GOL'] as const) {
       const antes = habilidadesDoPerfil(posicao, 64, { FIN: 0.3, PAS: -0.5, DRI: 0.8, DEF: -0.2, GOL: 0.1 });

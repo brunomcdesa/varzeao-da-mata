@@ -1,4 +1,4 @@
-# OVR à mão (ADR-0078). Só à mão: Actions → ovr → Run workflow.
+# OVR à mão (ADR-0079). Só à mão: Actions → ovr → Run workflow.
 # Sobe ou desce todas as Habilidades do Jogador na mesma proporção até o OVR pedido. Depois ele
 # evolui normalmente. Vale a partir da próxima Escalação; Partidas já jogadas não mudam.
 # Primeiro rode sem "gravar" (simulação: o log mostra o OVR e as Habilidades antes e depois).

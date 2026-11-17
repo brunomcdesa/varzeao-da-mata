@@ -1,4 +1,4 @@
-# Capitão à mão (ADR-0078). Só à mão: Actions → capitao → Run workflow.
+# Capitão à mão (ADR-0079). Só à mão: Actions → capitao → Run workflow.
 # Com o @, ele leva a faixa do Time dele (no lugar de quem tem mais Partidas) até você tirar
 # ou ele mudar de Time. Sem o @ e só com o Time, tira o Capitão à mão desse Time.
 # Primeiro rode sem "gravar" (simulação: o log mostra quem tinha e quem fica com a faixa).

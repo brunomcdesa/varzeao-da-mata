@@ -1,5 +1,5 @@
 /**
- * Ajustes à mão do dono (ADR-0078): Capitão à mão e OVR à mão. Rodam pelos workflows
+ * Ajustes à mão do dono (ADR-0079): Capitão à mão e OVR à mão. Rodam pelos workflows
  * `capitao` e `ovr` (ou `pnpm liga capitao` / `pnpm liga ovr`). Sem `gravar`, é a simulação:
  * mostra o antes e o depois e não muda nada.
  */

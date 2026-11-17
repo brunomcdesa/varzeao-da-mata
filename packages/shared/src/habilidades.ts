@@ -73,7 +73,7 @@ export function habilidadesDoPerfil(posicao: Posicao, ovr: number, ruido?: Parti
 }
 
 /**
- * OVR à mão (ADR-0078): as Habilidades na mesma proporção, para o OVR (arredondado) dar `alvo`.
+ * OVR à mão (ADR-0079): as Habilidades na mesma proporção, para o OVR (arredondado) dar `alvo`.
  * Mantém o perfil do Jogador; o ajuste fino do arredondamento fica na principal da Posição.
  * Habilidades entre 1 e 99; um alvo que não cabe nesses limites é recusado.
  */
