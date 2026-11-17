@@ -76,6 +76,26 @@ describe('Voto', () => {
     expect(interpretar('ENTRO Coruja atacante')).toEqual({ tipo: 'INSCRICAO', time: 'COR', posicao: 'ATA' });
   });
 
+  it('voto do jeito que a torcida escreve (ADR-0076)', () => {
+    // Com CRAQUE ou VOTO: vale em qualquer post.
+    expect(interpretar('Craque da Temporada 1')).toEqual({ tipo: 'VOTO', numero: 1 });
+    expect(interpretar('Craque número 2')).toEqual({ tipo: 'VOTO', numero: 2 });
+    expect(interpretar('craque é o 2')).toEqual({ tipo: 'VOTO', numero: 2 });
+    expect(interpretar('Meu voto é 3')).toEqual({ tipo: 'VOTO', numero: 3 });
+    expect(interpretar('vote 4 🔥')).toEqual({ tipo: 'VOTO', numero: 4 });
+    // Sem: voto solto, só no post da votação.
+    for (const [texto, numero] of [['Vou de 3', 3], ['O 3', 3], ['Número 5', 5], ['3 sem dúvidas', 3], ['O 5 merece', 5], ['2 (goleiro)', 2], ['3️⃣', 3], ['4 @fulano', 4], ['@fulano 4', 4], ['nº 2 🏆', 2]] as const) {
+      expect(interpretar(texto)).toEqual({ tipo: 'VOTO', numero, solto: true });
+    }
+    expect(interpretar('B 4 🔥')).toEqual({ tipo: 'VOTO', numero: 4, serie: 'B', solto: true });
+    // Dois números, placar ou número grande: não é voto.
+    expect(interpretar('3 e 4')).toEqual({ tipo: 'IGNORADO' });
+    expect(interpretar('3x1 foi pouco')).toEqual({ tipo: 'IGNORADO' });
+    expect(interpretar('05')).toEqual({ tipo: 'IGNORADO' });
+    // Inscrição com número continua Inscrição, não voto.
+    expect(interpretar('ENTRO onça atacante 9')).toMatchObject({ tipo: 'INSCRICAO', time: 'ONC' });
+  });
+
   it('com @ e sem número é inválido: o voto agora é por número', () => {
     expect(interpretar('CRAQUE @rafa')).toEqual({ tipo: 'INVALIDO', prefixo: 'CRAQUE', motivo: 'SEM_CANDIDATO' });
     expect(interpretar('CRAQUE 12')).toEqual({ tipo: 'INVALIDO', prefixo: 'CRAQUE', motivo: 'SEM_CANDIDATO' });

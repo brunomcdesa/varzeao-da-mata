@@ -262,6 +262,37 @@ describe('Voto para Craque da Rodada', () => {
     expect(await processarComentario(banco, comentario('fã', '2', { igMediaId: 'RESUMO' }), ctx)).toBe('VOTO_REGISTRADO');
   });
 
+  it('voto ignorado pelo leitor antigo é relido no post da votação (ADR-0076)', async () => {
+    const rodada = await prepararCandidatos();
+    const ctx = { rodadaEmVotacao: rodada, postDaVotacao: 'RESUMO' };
+    const gravarIgnorado = async (c: Comentario, resultado = 'IGNORADO', tipo = 'IGNORADO') =>
+      banco.query(
+        `INSERT INTO comando (ig_comment_id, ig_media_id, ig_user_id, username, texto, comentado_em, tipo, resultado) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [c.igCommentId, c.igMediaId, c.igUserId, c.username, c.texto, c.comentadoEm.toISOString(), tipo, resultado],
+      );
+    const noResumo = comentario('fã', 'Vou de 2', { igMediaId: 'RESUMO' });
+    const craque = comentario('fã2', 'Craque da Temporada 1', { igMediaId: 'RESUMO' });
+    const foraDoResumo = comentario('fã3', 'Craque da Temporada 1', { igMediaId: 'OUTRO' });
+    await gravarIgnorado(noResumo);
+    await gravarIgnorado(craque, 'SEM_CANDIDATO', 'INVALIDO');
+    await gravarIgnorado(foraDoResumo, 'SEM_CANDIDATO', 'INVALIDO');
+    expect(await processarComentario(banco, noResumo, ctx)).toBe('VOTO_REGISTRADO');
+    expect(await processarComentario(banco, craque, ctx)).toBe('VOTO_REGISTRADO');
+    // Fora do post da votação não relê: podia ser voto de outra Rodada.
+    expect(await processarComentario(banco, foraDoResumo, ctx)).toBe('REPETIDO');
+    // Relido uma vez, não conta de novo.
+    expect(await processarComentario(banco, noResumo, ctx)).toBe('REPETIDO');
+    expect(Number((await banco.query<{ n: string }>(`SELECT count(*) AS n FROM voto`)).rows[0]!.n)).toBe(2);
+  });
+
+  it('comentário sem o id da conta vale como voto, mas não como Inscrição (ADR-0076)', async () => {
+    const rodada = await prepararCandidatos();
+    const ctx = { rodadaEmVotacao: rodada, postDaVotacao: 'RESUMO' };
+    expect(await processarComentario(banco, comentario('sem-id:maria', '1', { igMediaId: 'RESUMO', username: 'maria' }), ctx)).toBe('VOTO_REGISTRADO');
+    expect(await processarComentario(banco, comentario('sem-id:joao', 'ENTRO ONÇA ATACANTE', { username: 'joao' }), ctx)).toBe('IGNORADO');
+    expect((await banco.query(`SELECT 1 FROM jogador WHERE username = 'joao'`)).rows).toHaveLength(0);
+  });
+
   it('votos do site somam com os do Instagram, um por aparelho', async () => {
     const rodada = await prepararCandidatos();
     await processarComentario(banco, comentario('fã', 'CRAQUE 1'), { rodadaEmVotacao: rodada });

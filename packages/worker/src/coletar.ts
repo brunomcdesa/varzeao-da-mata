@@ -7,6 +7,7 @@ import type { Habilidades, Posicao, TimeId } from '@liga/shared';
 import { CANDIDATOS_POR_SERIE, TIMES_POR_SERIE, doTime, numeroDoCandidato, ovrDasHabilidades, temRegrasT2, type Serie } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { CONTA_DA_LIGA, citacoes, interpretar, type Comando } from './comandos.js';
+import { PREFIXO_SEM_ID } from './instagram.js';
 import { PRIMO_NA_B, seriesAtivas, timesAtivos, type SeriesDaTemporada } from './series.js';
 import { aplicarEscolha } from './temporada2.js';
 import { FOLGA_DE_ELENCO, FORMACAO, OVR_INICIAL, OVR_INICIAL_DEPOIS_DA_T1, REALOCAR_QUANDO_CHEIO, habilidadesDe, perfilNaPosicao, sortearHabilidadesIniciais, type FaixaDoOvr } from './regras.js';
@@ -84,8 +85,12 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
       const antes = (await b.query<{ tipo: string | null; resultado: string | null }>(`SELECT tipo, resultado FROM comando WHERE ig_comment_id = $1`, [c.igCommentId])).rows[0];
       // TIME_CHEIO também: quando outros Times recebem gente, abre vaga e a pessoa entra sozinha.
       // TIME_ESTREANTE também: quando a Temporada do Time novo começa, a pessoa entra nele.
-      const releitura = antes?.tipo === 'IGNORADO' || ['SEM_POSICAO', 'SEM_TIME', 'TIME_CHEIO', 'TIME_ESTREANTE'].includes(antes?.resultado ?? '');
+      const releitura = antes?.tipo === 'IGNORADO' || ['SEM_POSICAO', 'SEM_TIME', 'TIME_CHEIO', 'TIME_ESTREANTE', 'SEM_CANDIDATO'].includes(antes?.resultado ?? '');
       if (!releitura || `@${c.username}`.toUpperCase() === CONTA_DA_LIGA) return 'REPETIDO';
+      // Voto que o leitor antigo não entendeu ("Craque da Temporada 1", "vou de 3"): volta a ser
+      // lido, mas só no post da votação aberta, para não puxar voto de outra Rodada (ADR-0076).
+      const votoRelido = interpretar(c.texto).tipo === 'VOTO' && !!ctx.postDaVotacao && c.igMediaId === ctx.postDaVotacao;
+      if (votoRelido) return lerComando(b, c, ctx, false);
       const inscrito = (await b.query<{ inscrito_em: Date | string }>(`SELECT inscrito_em FROM jogador WHERE ig_user_id = $1`, [c.igUserId])).rows[0];
       const agoraLe = interpretar(c.texto).tipo;
       // Inscrito: só volta a ler pedido de Transferência feito depois de entrar (o leitor
@@ -94,60 +99,67 @@ export async function processarComentario(banco: Banco, c: Comentario, ctx: Cont
         if (antes?.tipo !== 'IGNORADO' || agoraLe !== 'TRANSFERENCIA' || c.comentadoEm.getTime() < new Date(inscrito.inscrito_em).getTime()) return 'REPETIDO';
       } else if (agoraLe !== 'INSCRICAO' && agoraLe !== 'TRANSFERENCIA' && !(await juntarComOutroComentario(b, c))) return 'REPETIDO';
     }
-
-    // Inscrito à mão pela DM sem o id da conta (id provisório "dm-<@>"): o primeiro comentário
-    // do mesmo @ assume o Jogador.
-    if (!c.igUserId.startsWith('dm-')) {
-      await b.query(`UPDATE jogador SET ig_user_id = $1 WHERE ig_user_id = 'dm-' || lower($2) AND NOT EXISTS (SELECT 1 FROM jogador WHERE ig_user_id = $1)`, [c.igUserId, c.username]);
-    }
-    // O @ pode mudar; o Jogador é da conta (ig_user_id), então o username só é atualizado.
-    const jogador = (
-      await b.query<{ id: string; banido: boolean }>(
-        `UPDATE jogador SET username = $2 WHERE ig_user_id = $1 RETURNING id, banido`,
-        [c.igUserId, c.username],
-      )
-    ).rows[0];
-
-    // A própria Liga comenta (respostas, instruções): nunca é Inscrição nem voto.
-    const daLiga = `@${c.username}`.toUpperCase() === CONTA_DA_LIGA || c.igUserId === process.env.IG_USER_ID;
-    let comando: Comando = daLiga ? { tipo: 'IGNORADO' } : interpretar(c.texto);
-    // Pedido em dois comentários ("Arara" e "Entro como meia"): junta o Time de um com a
-    // posição do outro.
-    if (!daLiga && !jogador && comando.tipo !== 'INSCRICAO' && comando.tipo !== 'VOTO') {
-      const junto = await juntarComOutroComentario(b, c);
-      if (junto) comando = junto;
-    }
-    let resultado: Resultado;
-    if (comando.tipo === 'IGNORADO' || (comando.tipo === 'VOTO' && comando.solto && (!ctx.postDaVotacao || c.igMediaId !== ctx.postDaVotacao))) resultado = 'IGNORADO';
-    else if (jogador?.banido) resultado = 'BANIDO';
-    else if (comando.tipo === 'INVALIDO') {
-      resultado = comando.motivo;
-      // "Tem transferência?": explica como pedir (só na primeira leitura, para não repetir).
-      if (comando.prefixo === 'TRANSFERIR' && novo.rows.length) {
-        await ctx.responder?.(c.igCommentId, `@${c.username} tem sim! Comente TRANSFERIR e o time (e a posição, se quiser), por exemplo: TRANSFERIR Preguiça zagueiro. Vale uma vez por temporada, na Fase de Liga, para um time que não fique desequilibrado. ⚽`);
-      }
-    }
-    else if (comando.tipo === 'INSCRICAO') resultado = jogador ? await jaInscrito(b, c, comando, ctx) : await inscrever(b, c, comando.time, comando.posicao, ctx);
-    else if (comando.tipo === 'TRANSFERENCIA') {
-      // Quem ainda não joga e pede para "ir pra Preguiça" quer entrar: vira Inscrição.
-      if (jogador) resultado = await transferir(b, c, jogador.id, comando, ctx);
-      else if (comando.times.length === 1) {
-        resultado = await inscrever(b, c, comando.times[0]!, comando.posicao, ctx);
-        comando = { tipo: 'INSCRICAO', time: comando.times[0]!, ...(comando.posicao ? { posicao: comando.posicao } : {}) };
-      } else resultado = 'IGNORADO';
-    } else if (comando.tipo === 'PRESENCA') {
-      // Só vale na Temporada 2, para quem já joga (a regra é a mesma do botão do site).
-      if (!jogador) resultado = 'NAO_INSCRITO';
-      else {
-        const r = await aplicarEscolha(b, jogador.id, { tipo: 'PRESENCA' }, c.comentadoEm, async () => new Set());
-        resultado = r.ok ? 'PRESENCA_CONFIRMADA' : 'PRESENCA_RECUSADA';
-      }
-    } else resultado = await votar(b, c, comando, ctx);
-
-    const tipo = resultado === 'IGNORADO' || comando.tipo === 'IGNORADO' ? 'IGNORADO' : comando.tipo === 'INVALIDO' ? 'INVALIDO' : comando.tipo;
-    await b.query(`UPDATE comando SET tipo = $2, resultado = $3 WHERE ig_comment_id = $1`, [c.igCommentId, tipo, resultado]);
-    return resultado;
+    return lerComando(b, c, ctx, novo.rows.length > 0);
   });
+}
+
+/** Lê o Comando de um comentário já gravado em `comando` e aplica. `primeira`: primeira leitura. */
+async function lerComando(b: Banco, c: Comentario, ctx: Contexto, primeira: boolean): Promise<Resultado> {
+  // Inscrito à mão pela DM sem o id da conta (id provisório "dm-<@>"): o primeiro comentário
+  // do mesmo @ assume o Jogador.
+  const semId = c.igUserId.startsWith(PREFIXO_SEM_ID);
+  if (!c.igUserId.startsWith('dm-') && !semId) {
+    await b.query(`UPDATE jogador SET ig_user_id = $1 WHERE ig_user_id = 'dm-' || lower($2) AND NOT EXISTS (SELECT 1 FROM jogador WHERE ig_user_id = $1)`, [c.igUserId, c.username]);
+  }
+  // O @ pode mudar; o Jogador é da conta (ig_user_id), então o username só é atualizado.
+  const jogador = (
+    await b.query<{ id: string; banido: boolean }>(
+      `UPDATE jogador SET username = $2 WHERE ig_user_id = $1 RETURNING id, banido`,
+      [c.igUserId, c.username],
+    )
+  ).rows[0];
+
+  // A própria Liga comenta (respostas, instruções): nunca é Inscrição nem voto.
+  const daLiga = `@${c.username}`.toUpperCase() === CONTA_DA_LIGA || c.igUserId === process.env.IG_USER_ID;
+  let comando: Comando = daLiga ? { tipo: 'IGNORADO' } : interpretar(c.texto);
+  // Sem o id da conta, só o voto vale (Inscrição e o resto precisam da conta).
+  if (semId && comando.tipo !== 'VOTO') comando = { tipo: 'IGNORADO' };
+  // Pedido em dois comentários ("Arara" e "Entro como meia"): junta o Time de um com a
+  // posição do outro.
+  if (!daLiga && !semId && !jogador && comando.tipo !== 'INSCRICAO' && comando.tipo !== 'VOTO') {
+    const junto = await juntarComOutroComentario(b, c);
+    if (junto) comando = junto;
+  }
+  let resultado: Resultado;
+  if (comando.tipo === 'IGNORADO' || (comando.tipo === 'VOTO' && comando.solto && (!ctx.postDaVotacao || c.igMediaId !== ctx.postDaVotacao))) resultado = 'IGNORADO';
+  else if (jogador?.banido) resultado = 'BANIDO';
+  else if (comando.tipo === 'INVALIDO') {
+    resultado = comando.motivo;
+    // "Tem transferência?": explica como pedir (só na primeira leitura, para não repetir).
+    if (comando.prefixo === 'TRANSFERIR' && primeira) {
+      await ctx.responder?.(c.igCommentId, `@${c.username} tem sim! Comente TRANSFERIR e o time (e a posição, se quiser), por exemplo: TRANSFERIR Preguiça zagueiro. Vale uma vez por temporada, na Fase de Liga, para um time que não fique desequilibrado. ⚽`);
+    }
+  }
+  else if (comando.tipo === 'INSCRICAO') resultado = jogador ? await jaInscrito(b, c, comando, ctx) : await inscrever(b, c, comando.time, comando.posicao, ctx);
+  else if (comando.tipo === 'TRANSFERENCIA') {
+    // Quem ainda não joga e pede para "ir pra Preguiça" quer entrar: vira Inscrição.
+    if (jogador) resultado = await transferir(b, c, jogador.id, comando, ctx);
+    else if (comando.times.length === 1) {
+      resultado = await inscrever(b, c, comando.times[0]!, comando.posicao, ctx);
+      comando = { tipo: 'INSCRICAO', time: comando.times[0]!, ...(comando.posicao ? { posicao: comando.posicao } : {}) };
+    } else resultado = 'IGNORADO';
+  } else if (comando.tipo === 'PRESENCA') {
+    // Só vale na Temporada 2, para quem já joga (a regra é a mesma do botão do site).
+    if (!jogador) resultado = 'NAO_INSCRITO';
+    else {
+      const r = await aplicarEscolha(b, jogador.id, { tipo: 'PRESENCA' }, c.comentadoEm, async () => new Set());
+      resultado = r.ok ? 'PRESENCA_CONFIRMADA' : 'PRESENCA_RECUSADA';
+    }
+  } else resultado = await votar(b, c, comando, ctx);
+
+  const tipo = resultado === 'IGNORADO' || comando.tipo === 'IGNORADO' ? 'IGNORADO' : comando.tipo === 'INVALIDO' ? 'INVALIDO' : comando.tipo;
+  await b.query(`UPDATE comando SET tipo = $2, resultado = $3 WHERE ig_comment_id = $1`, [c.igCommentId, tipo, resultado]);
+  return resultado;
 }
 
 /**

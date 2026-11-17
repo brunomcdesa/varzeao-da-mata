@@ -19,6 +19,9 @@
 import type { Comentario } from './coletar.js';
 
 /** Versão da Graph API (cada uma vale ~2 anos). Troque por IG_API_VERSAO sem mexer no código. */
+/** Id provisório de quem comentou sem o `from` na API: só vota (ADR-0076). */
+export const PREFIXO_SEM_ID = 'sem-id:';
+
 export const VERSAO_API = process.env.IG_API_VERSAO ?? 'v25.0';
 
 export type LoginDoToken = 'INSTAGRAM' | 'UNIFICADO';
@@ -202,8 +205,11 @@ export class Instagram {
       const quando = new Date(Date.parse(c.timestamp));
       if (desde && quando.getTime() < desde.getTime()) return;
       const username = c.from?.username ?? c.username;
-      if (!c.from?.id || !username) return; // sem autor identificável não dá para inscrever ninguém
-      lista.push({ igCommentId: c.id, igMediaId: mediaId, igUserId: c.from.id, username, texto: c.text ?? '', comentadoEm: quando });
+      if (!username) return; // sem autor identificável não dá para inscrever ninguém
+      // Sem o id da conta (a API às vezes não traz o `from`): o @ ainda identifica a pessoa, e
+      // isso basta para o voto, mas não para Inscrição (ADR-0076).
+      const igUserId = c.from?.id ?? `${PREFIXO_SEM_ID}${username.toLowerCase()}`;
+      lista.push({ igCommentId: c.id, igMediaId: mediaId, igUserId, username, texto: c.text ?? '', comentadoEm: quando });
     };
     for (;;) {
       for (const c of pagina.data) {

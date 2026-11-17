@@ -20,6 +20,7 @@ import { recompensarT1 } from './recompensaT1.js';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA, criarTemporada, somarDias } from './calendario.js';
 import { processarComentario, type Comentario, type Resultado } from './coletar.js';
+import { interpretar } from './comandos.js';
 import { CORTE_MINUTOS } from './escalacao.js';
 import { Instagram, ErroInstagram } from './instagram.js';
 import { CHAVE_TOKEN, gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
@@ -549,6 +550,8 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
   const fechaEm = Date.UTC(a, m - 1, d + 1, 18 - FUSO_BRASILIA);
   if (agora.getTime() < fechaEm) return null;
 
+  // Os votos comentados desde a última coleta (ela roda de hora em hora) entram antes de contar.
+  await lerVotosAteOFechamento(c, t.final_id, fechaEm);
   // A próxima Temporada já nasce aqui: Rodada 1 dois dias depois deste anúncio.
   const proxima = await garantirProximaTemporada(c.banco, t.numero, somarDias(dia, 3));
   // Ao abrir a Pré-temporada da T2, sozinhos: Rebalanceamento dentro da Série A (ADR-0058:
@@ -721,6 +724,27 @@ async function recompensaAutomatica(c: ContextoDoJob): Promise<void> {
     for (const x of sobem) log(`  @${x.username} (${x.posicao}): OVR ${x.ovrAntes} → ${x.ovrDepois}`);
   } catch (e) {
     log(`Recompensa da Temporada 1 não aplicada: ${(e as Error).message}`);
+  }
+}
+
+/**
+ * Última leitura dos votos antes de fechar a votação (ADR-0076): só os comentários de voto feitos
+ * até o fechamento; o resto fica para a coleta normal. Um erro do Instagram só vira log.
+ */
+export async function lerVotosAteOFechamento(c: ContextoDoJob, rodadaId: number, fechaEm: number): Promise<number> {
+  try {
+    const ctx = await contextoDaVotacao(c.banco);
+    if (ctx.rodadaEmVotacao !== rodadaId) return 0;
+    let registrados = 0;
+    for (const com of await coletarComentarios(c)) {
+      if (com.comentadoEm.getTime() > fechaEm || interpretar(com.texto).tipo !== 'VOTO') continue;
+      if ((await processarComentario(c.banco, com, ctx)) === 'VOTO_REGISTRADO') registrados++;
+    }
+    logDe(c)(`Última leitura dos votos: ${registrados} voto(s) registrado(s).`);
+    return registrados;
+  } catch (e) {
+    logDe(c)(`Última leitura dos votos falhou: ${(e as Error).message}`);
+    return 0;
   }
 }
 

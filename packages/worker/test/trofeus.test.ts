@@ -77,6 +77,30 @@ describe('Craque da Temporada e troféus', () => {
   }, 60_000);
 });
 
+describe('Última leitura dos votos (ADR-0076)', () => {
+  it('antes de contar, lê os votos comentados até as 18h; depois disso não vale', async () => {
+    for (let n = 1; n <= 8; n++) await jogarRodada(n);
+    const final = await jogarRodada(9);
+    await banco.query(`UPDATE rodada SET resumo_status = 'PUBLICADO', resumo_ig_media_id = 'RESUMO_FINAL' WHERE id = $1`, [final]);
+    const comentarios = [
+      { igCommentId: 'v1', igMediaId: 'RESUMO_FINAL', igUserId: 'fa1', username: 'fa1', texto: 'Craque da Temporada 2', comentadoEm: new Date('2026-11-16T20:40:00Z') },
+      { igCommentId: 'v2', igMediaId: 'RESUMO_FINAL', igUserId: 'fa2', username: 'fa2', texto: 'vou de 2', comentadoEm: new Date('2026-11-16T20:59:00Z') },
+      { igCommentId: 'v3', igMediaId: 'RESUMO_FINAL', igUserId: 'fa3', username: 'fa3', texto: '1', comentadoEm: new Date('2026-11-16T21:05:00Z') },
+    ];
+    const ig = { midiasDesde: async () => [{ id: 'RESUMO_FINAL', timestamp: '2026-11-15T21:10:00Z' }], comentarios: async (id: string) => (id === 'RESUMO_FINAL' ? comentarios : []) };
+    const ctx = { banco, armazenamento: new PastaLocal('/tmp/varzea-ultima-leitura'), agenda: new AgendaNaMemoria(), ig, log: () => {} } as unknown as ContextoDoJob;
+    expect(await jobCraqueDaTemporada({ ...ctx, agora: () => new Date('2026-11-16T21:10:00Z') })).toBe(temporada);
+    const votos = (await banco.query<{ ig_user_id: string; numero: number }>(
+      `SELECT v.ig_user_id, c.numero FROM voto v JOIN candidato c ON c.rodada_id = v.rodada_id AND c.jogador_id = v.jogador_id ORDER BY v.ig_user_id`,
+    )).rows;
+    // O de 18h05 ficou de fora; os dois votos no 2 decidem o Craque.
+    expect(votos).toEqual([{ ig_user_id: 'fa1', numero: 2 }, { ig_user_id: 'fa2', numero: 2 }]);
+    const craque = (await banco.query<{ id: string }>(`SELECT craque_jogador_id::text AS id FROM temporada WHERE id = $1`, [temporada])).rows[0]!.id;
+    const dois = (await banco.query<{ id: string }>(`SELECT jogador_id::text AS id FROM candidato WHERE rodada_id = $1 AND numero = 2`, [final])).rows[0]!.id;
+    expect(craque).toBe(dois);
+  }, 60_000);
+});
+
 describe('Seleção da Rodada no site (ADR-0041)', () => {
   it('na T1 não há Seleção da Rodada', async () => {
     await jogarRodada(1);

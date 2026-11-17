@@ -8,6 +8,8 @@
  *   "CRAQUE 3" (ou "VOTO 3")                    → voto no Candidato número 3 (da Série A)
  *   "CRAQUE B3" / "CRAQUE A3"                   → voto no Candidato 3 da Série B / A (ADR-0017)
  *   "3", "A3" ou "B3" sozinho                   → o mesmo, mas só vale no post do Resumo
+ *   "Craque da Temporada 1", "vou de 3", "o 3"  → voto também (ADR-0076): um número só, com
+ *                                                 palavras de voto antes; sem CRAQUE/VOTO é solto
  *   "TRANSFERIR PREGUIÇA [posição]"             → Transferência (ADR-0012); também "quero ir pra
  *                                                 Preguiça", "posso ir pro time da Preguiça",
  *                                                 "quero virar zagueiro" (só a posição)
@@ -71,8 +73,8 @@ export function interpretar(texto: string): Comando {
   const prefixo = palavras[0];
 
   // Voto por número (ADR-0011): não marca ninguém nos comentários.
-  const solto = /^\s*(?:([AB])\s*)?(?:N[ºO°]?\s*)?#?\s*([1-9])[^\p{L}\p{N}]*$/iu.exec(texto);
-  if (solto) return { tipo: 'VOTO', numero: Number(solto[2]), ...serieDoVoto(solto[1]), solto: true };
+  const voto = lerVoto(texto);
+  if (voto) return voto;
   if (prefixo === 'CRAQUE' || prefixo === 'VOTO') {
     const m = /^\s*\S+\s*(?:(?:DA\s+)?(?:S[EÉ]RIE\s+)?([AB])\s*)?(?:N[ºO°]?\s*)?#?\s*([1-9])(?!\d)/iu.exec(texto);
     if (!m) return { tipo: 'INVALIDO', prefixo: 'CRAQUE', motivo: 'SEM_CANDIDATO' };
@@ -206,4 +208,37 @@ function casar<T>(palavras: string[], i: number, lista: [string[], T][]): [numbe
     if (expressao.every((p, k) => palavras[i + k] === p)) return [expressao.length, valor];
   }
   return null;
+}
+
+/**
+ * Palavras que podem vir antes do número num voto ("Craque da Temporada 1", "meu voto é o 3",
+ * "vou de 2", "número 4"). Nenhum Time nem posição: esses são Inscrição (ADR-0076).
+ */
+const ANTES_DO_VOTO = new Set([
+  'O', 'A', 'B', 'NO', 'NA', 'NUM', 'DE', 'DO', 'DA', 'EM', 'E', 'EH', 'PRO', 'PRA', 'PARA', 'PELO', 'PELA', 'COM', 'SO', 'EU', 'TO',
+  'VOTO', 'VOTOS', 'VOTE', 'VOTA', 'VOTEI', 'VOTANDO', 'VOTAR', 'VOTAMOS', 'MEU', 'MINHA', 'VOU', 'VAI', 'VAMOS', 'FICO', 'FECHO',
+  'CRAQUE', 'CRAQUES', 'TEMPORADA', 'RODADA', 'FINAL', 'SERIE', 'NUMERO', 'N', 'NR', 'NRO', 'CANDIDATO', 'OPCAO', 'ESCOLHO', 'ESCOLHA',
+]);
+/** Quem escreve uma destas antes do número votou de propósito: vale em qualquer post. */
+const VOTO_EXPLICITO = new Set(['CRAQUE', 'CRAQUES', 'VOTO', 'VOTOS', 'VOTE', 'VOTA', 'VOTEI', 'VOTANDO', 'VOTAR', 'VOTAMOS']);
+
+/**
+ * Voto em linguagem do dia a dia (ADR-0076): um único número de 1 a 9 (com a letra da Série, se
+ * houver), antes dele só palavras de voto e depois qualquer comentário sem outro número
+ * ("3 sem dúvidas", "o 5 merece", "4 @fulano"). Os @ marcados não contam. Com CRAQUE ou VOTO
+ * antes, vale em qualquer post; sem, é voto solto (só no post da votação).
+ */
+export function lerVoto(texto: string): Comando | null {
+  const palavras = normalizar(texto.replace(/@[\p{L}\p{N}._]+/gu, ' ')).split(' ').filter(Boolean);
+  const comNumero = palavras.map((p, i) => [p, i] as const).filter(([p]) => /\d/.test(p));
+  if (comNumero.length !== 1) return null;
+  const [token, i] = comNumero[0]!;
+  const m = /^([AB])?#?([1-9])$/.exec(token);
+  if (!m) return null;
+  const antes = palavras.slice(0, i);
+  if (antes.length > 6 || !antes.every((p) => ANTES_DO_VOTO.has(p))) return null;
+  // "B 3" / "série B 3": a letra logo antes do número é a Série.
+  const letra = m[1] ?? (['A', 'B'].includes(antes.at(-1) ?? '') && (antes.length === 1 || antes.at(-2) === 'SERIE') ? antes.at(-1) : undefined);
+  const explicito = antes.some((p) => VOTO_EXPLICITO.has(p));
+  return { tipo: 'VOTO', numero: Number(m[2]), ...serieDoVoto(letra), ...(explicito ? {} : { solto: true as const }) };
 }
