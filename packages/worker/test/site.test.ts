@@ -96,3 +96,20 @@ describe('dados públicos do site', () => {
     expect(jogadores.reduce((s, j) => s + j.vezesCandidato, 0)).toBe(5);
   });
 });
+
+describe('Time da época na História (ADR-0077)', () => {
+  it('quem muda de Time depois continua no Time em que jogou nos Candidatos e na História', async () => {
+    const depois = new Date(partidas[partidas.length - 1]!.apito.getTime() + DURACAO_AO_VIVO_MS + minuto);
+    const antes = await exportar(depois);
+    const candidatos = antes.liga.rodadas[0]!.candidatos.map((c) => [c.jogadorId, c.time]);
+    const artilheiro = antes.liga.temporadas.find((t) => t.numero === 1)!.artilheiro!;
+    expect(candidatos.length).toBeGreaterThan(0);
+    // Rebalanceamento ou Janela: todo mundo vai para um Time que não existia na T1.
+    await banco.query(`UPDATE jogador SET time_id = 'JAC'`);
+    const agora = await exportar(depois);
+    expect(agora.jogadores.every((j) => j.time === 'JAC')).toBe(true);
+    expect(agora.liga.rodadas[0]!.candidatos.map((c) => [c.jogadorId, c.time])).toEqual(candidatos);
+    expect(agora.liga.temporadas.find((t) => t.numero === 1)!.artilheiro!.time).toBe(artilheiro.time);
+    expect(artilheiro.time).not.toBe('JAC');
+  });
+});

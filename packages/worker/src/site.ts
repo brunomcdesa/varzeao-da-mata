@@ -146,6 +146,22 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   ).rows;
   const escalacoesDe = new Map<number, LinhaEscalacao[]>();
   for (const e of escalacoes) escalacoesDe.set(e.partida_id, [...(escalacoesDe.get(e.partida_id) ?? []), e]);
+  // Time pelo qual cada Jogador jogou em cada Rodada e em cada Temporada (o último da Temporada).
+  // A História e os troféus mostram esse Time, não o atual: quem foi remanejado no Rebalanceamento
+  // ou trocou na Janela continua no Time em que jogou (ADR-0077).
+  const timeNaRodada = new Map<string, TimeId>(); // `${rodadaId}:${jogadorId}`
+  const timeNaTemporada = new Map<string, TimeId>(); // `${temporadaId}:${jogadorId}`
+  {
+    const partidaPorId = new Map(todas.map((p) => [p.id, p]));
+    const emOrdem = escalacoes
+      .filter((e) => e.jogador_id && partidaPorId.has(e.partida_id))
+      .sort((x, y) => new Date(partidaPorId.get(x.partida_id)!.apito_inicial).getTime() - new Date(partidaPorId.get(y.partida_id)!.apito_inicial).getTime());
+    for (const e of emOrdem) {
+      const p = partidaPorId.get(e.partida_id)!;
+      timeNaRodada.set(`${p.rodada_id}:${e.jogador_id}`, e.time_id);
+      timeNaTemporada.set(`${p.temporada_id}:${e.jogador_id}`, e.time_id);
+    }
+  }
   const apitoDaPartida = new Map<number, Date>();
   const encerradaPorId = new Map<number, boolean>();
   for (const p of todas) {
@@ -209,6 +225,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     };
     const vencedor = vencedorDa('A');
     const vencedorB = vencedorDa('B');
+    const timeDoCandidato = (c: { jogador_id: string; time_id: TimeId }) => timeNaRodada.get(`${base.rodada_id}:${c.jogador_id}`) ?? c.time_id;
     const series = comSeries(base.temporada_id);
     const lista = rodadasPorTemporada.get(base.temporada_id) ?? [];
     lista.push({
@@ -221,9 +238,9 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       candidatos: candidatos.map((c, i) => ({
         numero: c.numero ?? i + 1,
         ...(series ? { rotulo: rotuloDoCandidato(c.numero ?? i + 1, true), serie: c.serie } : {}),
-        jogadorId: c.jogador_id, username: c.username, apelido: c.apelido ?? null, time: c.time_id, posicao: c.posicao, nota: Number(c.nota) })),
-      craque: vencedor ? { jogadorId: vencedor.jogador_id, username: vencedor.username, apelido: vencedor.apelido ?? null, time: vencedor.time_id } : null,
-      ...(series ? { craqueB: vencedorB ? { jogadorId: vencedorB.jogador_id, username: vencedorB.username, apelido: vencedorB.apelido ?? null, time: vencedorB.time_id } : null } : {}),
+        jogadorId: c.jogador_id, username: c.username, apelido: c.apelido ?? null, time: timeDoCandidato(c), posicao: c.posicao, nota: Number(c.nota) })),
+      craque: vencedor ? { jogadorId: vencedor.jogador_id, username: vencedor.username, apelido: vencedor.apelido ?? null, time: timeDoCandidato(vencedor) } : null,
+      ...(series ? { craqueB: vencedorB ? { jogadorId: vencedorB.jogador_id, username: vencedorB.username, apelido: vencedorB.apelido ?? null, time: timeDoCandidato(vencedorB) } : null } : {}),
     });
     rodadasPorTemporada.set(base.temporada_id, lista);
   }
@@ -406,6 +423,10 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   // ---- história das Temporadas: campeão (Final encerrada), vice, Craque (depois do anúncio), artilheiro
   const historia: TemporadaNaHistoria[] = [];
   for (const t of temporadas) {
+    const resumidoNa = (id: string): JogadorResumido | null => {
+      const r = resumido(id);
+      return r ? { ...r, time: timeNaTemporada.get(`${t.id}:${id}`) ?? r.time } : null;
+    };
     const ps = todas.filter((p) => p.temporada_id === t.id);
     // A Final de cada Série (com duas Séries, as duas no mesmo dia: B às 16h, A às 18h).
     const desfecho = (serie: Serie) => {
@@ -425,7 +446,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     };
     const craqueDa = (serie: Serie, id: string | null) => {
       const revelado = id && t.craque_revelado_em && new Date(t.craque_revelado_em).getTime() <= agora.getTime() ? id : null;
-      const craque = revelado ? resumido(revelado) : null;
+      const craque = revelado ? resumidoNa(revelado) : null;
       if (craque) {
         const j = porJogador.get(craque.jogadorId)!;
         j.craqueDaTemporada++;
@@ -449,7 +470,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       }
     }
     const [topo] = [...gols.entries()].filter(([, g]) => g.gols > 0).sort((a, b) => b[1].gols - a[1].gols || a[1].jogos - b[1].jogos || Number(a[0]) - Number(b[0]));
-    const artilheiro = topo && resumido(topo[0]) ? { ...resumido(topo[0])!, gols: topo[1].gols } : null;
+    const artilheiro = topo && resumidoNa(topo[0]) ? { ...resumidoNa(topo[0])!, gols: topo[1].gols } : null;
     // Melhor goleiro: maior nota média com pelo menos 3 jogos no gol.
     const goleiros = new Map<string, { notas: number[]; defesas: number; sofridos: number }>();
     for (const p of ps.filter(encerrada)) {
@@ -467,8 +488,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       .filter(([, g]) => g.notas.length >= 3)
       .sort((a, b) => mediaDe(b[1].notas) - mediaDe(a[1].notas) || a[1].sofridos / a[1].notas.length - b[1].sofridos / b[1].notas.length || Number(a[0]) - Number(b[0]));
     const goleiro =
-      melhorGoleiro && resumido(melhorGoleiro[0])
-        ? { ...resumido(melhorGoleiro[0])!, notaMedia: Math.round(mediaDe(melhorGoleiro[1].notas) * 100) / 100, jogos: melhorGoleiro[1].notas.length, defesas: melhorGoleiro[1].defesas, golsSofridos: melhorGoleiro[1].sofridos }
+      melhorGoleiro && resumidoNa(melhorGoleiro[0])
+        ? { ...resumidoNa(melhorGoleiro[0])!, notaMedia: Math.round(mediaDe(melhorGoleiro[1].notas) * 100) / 100, jogos: melhorGoleiro[1].notas.length, defesas: melhorGoleiro[1].defesas, golsSofridos: melhorGoleiro[1].sofridos }
         : null;
     historia.push({
       numero: t.numero,
