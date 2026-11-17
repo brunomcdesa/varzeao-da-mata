@@ -49,16 +49,6 @@ describe('câmera do Reels (ADR-0072)', () => {
       }
   });
 
-  it('o @ aparece em quem está no lance, e o finalizador vem primeiro', () => {
-    for (const { tl, s, cam } of quadros()) {
-      const l = tl.resultado.lances[s.lance!]!;
-      const quem = cam.rotulos!;
-      expect(quem.length).toBeLessThanOrEqual(9);
-      const ref = l.finalizador ?? l.criador;
-      expect(quem.some((x) => x.lado === ref.lado && x.indice === ref.indice)).toBe(true);
-    }
-  });
-
   it('só o gol treme e clareia, e só logo depois da resolução', () => {
     let gols = 0;
     for (const { tl, s, t, cam } of quadros()) {

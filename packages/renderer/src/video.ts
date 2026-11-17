@@ -75,14 +75,13 @@ export function desenharQuadroVideo(ctx: CanvasRenderingContext2D, roteiro: Rote
 export const ZOOM_DO_REELS = 1.5;
 
 /**
- * Câmera, @ e rastro de um quadro de LANCE no Reels (ADR-0072). Tudo sai do tempo de vídeo,
+ * Câmera e rastro de um quadro de LANCE no Reels (ADR-0072). Tudo sai do tempo de vídeo,
  * então o quadro N continua igual em qualquer ordem de gravação.
  *
  * - A câmera segue a média da bola em ±1,2 s de vídeo (dentro do mesmo trecho), sem sair do cenário.
  * - No gol, a imagem treme e clareia por um instante.
- * - O @ aparece só em quem está no lance (e em quem está com a bola).
  */
-export function daCamera(roteiro: Roteiro, q: QuadroRoteiro, tVideo: number, estado: EstadoQuadro): Pick<OpcoesDesenho, 'camera' | 'rotulos' | 'rastro'> {
+export function daCamera(roteiro: Roteiro, q: QuadroRoteiro, tVideo: number, estado: EstadoQuadro): Pick<OpcoesDesenho, 'camera' | 'rastro'> {
   const tl = roteiro.timeline;
   const s = q.segmento;
   const jogoEm = (tv: number) => roteiro.quadroEm(Math.min(s.fim - 1e-6, Math.max(s.inicio, tv))).tJogo;
@@ -111,17 +110,9 @@ export function daCamera(roteiro: Roteiro, q: QuadroRoteiro, tVideo: number, est
     if (dt >= 0 && dt < 0.5) camera.tremor = { x: Math.sin(dt * 70) * 2.5 * (1 - dt / 0.5), y: Math.cos(dt * 55) * 1.5 * (1 - dt / 0.5) };
     if (dt >= 0 && dt < 0.3) camera.flash = 1 - dt / 0.3;
   }
-  // @ de quem está no lance, do mais importante ao menos; e de quem está com a bola agora.
-  const quem: SlotRef[] = [];
-  const add = (x?: SlotRef) => {
-    if (x && !quem.some((y) => y.lado === x.lado && y.indice === x.indice)) quem.push(x);
-  };
-  const perto = [...estado.jogadores].sort((a, b) => Math.hypot(a.pos.x - estado.bola.x, a.pos.y - estado.bola.y) - Math.hypot(b.pos.x - estado.bola.x, b.pos.y - estado.bola.y))[0];
-  if (perto && Math.hypot(perto.pos.x - estado.bola.x, perto.pos.y - estado.bola.y) < 0.035) add(perto.slot);
-  [lance.finalizador, lance.criador, lance.defensor, lance.cobrador, lance.apoio, lance.marcador, lance.dobra?.zagueiro, lance.cobertura].forEach(add);
   // Rastro: a bola nos últimos 0,2 s de vídeo.
   const rastro = [0.2, 0.15, 0.1, 0.05, 0].map((d) => tl.bolaNoInstante(jogoEm(tVideo - d)));
-  return { camera, rotulos: quem, rastro };
+  return { camera, rastro };
 }
 
 const suave = (f: number) => f * f * (3 - 2 * f);

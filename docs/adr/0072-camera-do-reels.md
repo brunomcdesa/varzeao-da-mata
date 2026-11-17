@@ -5,7 +5,7 @@ O Reels mostrava o campo inteiro o tempo todo. No celular, os bonecos e a bola f
 ## Regras
 
 - **Câmera que segue a jogada (só no Reels).** Nos lances, a imagem fica com zoom de 1,5×. Um pixel lógico vira 6 px no vídeo de 1080, então o pixel continua nítido. A câmera segue a média da posição da bola em ±1,2 s de vídeo, um pouco acima dela por causa do placar, sem sair do cenário. Cartelas, Substituição e pênaltis continuam com o campo inteiro. A troca de zoom acontece no escurecimento do corte.
-- **@ sem bagunça (só no Reels).** O @ aparece só em quem está no lance, nesta ordem: quem está com a bola, finalizador, criador, defensor, cobrador, apoio, marcador, zagueiro da dobra e cobertura. Ele fica fora da câmera, em tamanho fixo. Se um nome cairia em cima de outro, vai para cima da cabeça. Se ainda bater, não aparece.
+- **@ sem bagunça (só no Reels; substituída pelo ADR-0073, que voltou o @ de todos).** O @ aparecia só em quem está no lance, nesta ordem: quem está com a bola, finalizador, criador, defensor, cobrador, apoio, marcador, zagueiro da dobra e cobertura. Ele fica fora da câmera, em tamanho fixo. Se um nome cairia em cima de outro, vai para cima da cabeça. Se ainda bater, não aparece.
 - **Bola mais legível.** A sombra no chão já mostra a altura. Agora a bola também deixa um rastro curto (0,2 s) quando anda rápido: passe longo, cruzamento ou chute.
 - **Efeitos de momento (só no Reels):**
   - no gol, a imagem treme por 0,5 s e clareia por 0,3 s;
