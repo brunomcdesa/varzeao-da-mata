@@ -84,8 +84,18 @@ describe('pertoDeUmJogo', () => {
   it('só perto dos horários de jogo (Brasília)', () => {
     expect(pertoDeUmJogo(em(-30))).toBe(true);
     expect(pertoDeUmJogo(em(8))).toBe(true);
-    expect(pertoDeUmJogo(em(60))).toBe(false);
     expect(pertoDeUmJogo(new Date('2026-11-21T06:00:00.000Z'))).toBe(false);
+  });
+
+  it('na T2 há jogo de hora em hora, das 11h às 18h: os ímpares também têm Avisos', () => {
+    // 11h, 13h, 15h e 17h de Brasília (14h, 16h, 18h e 20h UTC), na Escalação e logo depois do Apito.
+    for (const h of [14, 16, 18, 20]) {
+      expect(pertoDeUmJogo(new Date(`2026-11-21T${String(h - 1)}:40:00.000Z`))).toBe(true);
+      expect(pertoDeUmJogo(new Date(`2026-11-21T${h}:05:00.000Z`))).toBe(true);
+    }
+    // Antes das 10h30 e depois das 18h10 de Brasília, nada.
+    expect(pertoDeUmJogo(new Date('2026-11-21T13:00:00.000Z'))).toBe(false);
+    expect(pertoDeUmJogo(new Date('2026-11-21T21:30:00.000Z'))).toBe(false);
   });
 });
 

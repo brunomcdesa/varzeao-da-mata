@@ -188,8 +188,11 @@ export async function enviar(f: typeof fetch, vapid: ChavesVapid, e: EnvioPenden
 
 // ------------------------------------------------------------------ na borda
 
-/** Horários dos jogos (Brasília): 12h, 14h, 16h e 18h. Fora da janela, o cron nem olha o R2. */
-const HORAS_DE_JOGO = [12, 14, 16, 18];
+/**
+ * Horários dos jogos (Brasília): um por hora, das 11h às 18h (T2, ADR-0062; a T1 usava 12h, 14h,
+ * 16h e 18h, que estão dentro). Fora da janela, o cron nem olha o R2.
+ */
+const HORAS_DE_JOGO = [11, 12, 13, 14, 15, 16, 17, 18];
 
 export function pertoDeUmJogo(agora: Date): boolean {
   const local = new Date(agora.getTime() - 3 * 3600_000);
