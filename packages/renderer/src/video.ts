@@ -4,9 +4,10 @@
  */
 import { ocupanteDoDesempenho } from './substituicao.js';
 import { FALA_DO_TIME, IDENTIDADE, TAMANHO_ESCALACAO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type MataMataDaPartida, type TimeId } from '@liga/shared';
-import type { Lado, ResultadoPartida } from '@liga/sim';
+import type { Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { cenario } from './cenario.js';
-import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, faixaDeTorcida, plaquinha, rotulo, type OpcoesDesenho } from './desenho.js';
+import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, faixaDeTorcida, noCampo, plaquinha, rotulo, type Camera, type OpcoesDesenho } from './desenho.js';
+import type { EstadoQuadro } from './timeline.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
 import { LARGURA_ESCUDO } from './escudos.js';
 import type { OpcoesRoteiro, QuadroRoteiro, Roteiro } from './roteiro.js';
@@ -49,7 +50,10 @@ export function desenharQuadroVideo(ctx: CanvasRenderingContext2D, roteiro: Rote
   const pin = new Pincel(ctx);
   const tipo = q.segmento.tipo;
   // Nas cartelas o fundo é o cenário vazio; no jogo, o quadro completo.
-  if (tipo === 'LANCE' || tipo === 'TROCA' || tipo === 'PENALTIS') desenharQuadro(ctx, roteiro.timeline.estado(q.tJogo), o);
+  if (tipo === 'LANCE') {
+    const estado = roteiro.timeline.estado(q.tJogo);
+    desenharQuadro(ctx, estado, { ...o, ...daCamera(roteiro, q, tVideo, estado) });
+  } else if (tipo === 'TROCA' || tipo === 'PENALTIS') desenharQuadro(ctx, roteiro.timeline.estado(q.tJogo), o);
   else {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(cenario(), 0, 0, COLUNAS * pin.px, LINHAS * pin.px);
@@ -65,6 +69,59 @@ export function desenharQuadroVideo(ctx: CanvasRenderingContext2D, roteiro: Rote
     ctx.restore();
   }
   return q;
+}
+
+/** Zoom da câmera do Reels: 1 pixel lógico vira 1,5 (6 px no vídeo de 1080, sem borrar o pixel). */
+export const ZOOM_DO_REELS = 1.5;
+
+/**
+ * Câmera, @ e rastro de um quadro de LANCE no Reels (ADR-0072). Tudo sai do tempo de vídeo,
+ * então o quadro N continua igual em qualquer ordem de gravação.
+ *
+ * - A câmera segue a média da bola em ±1,2 s de vídeo (dentro do mesmo trecho), sem sair do cenário.
+ * - No gol, a imagem treme e clareia por um instante.
+ * - O @ aparece só em quem está no lance (e em quem está com a bola).
+ */
+export function daCamera(roteiro: Roteiro, q: QuadroRoteiro, tVideo: number, estado: EstadoQuadro): Pick<OpcoesDesenho, 'camera' | 'rotulos' | 'rastro'> {
+  const tl = roteiro.timeline;
+  const s = q.segmento;
+  const jogoEm = (tv: number) => roteiro.quadroEm(Math.min(s.fim - 1e-6, Math.max(s.inicio, tv))).tJogo;
+  let sx = 0;
+  let sy = 0;
+  let peso = 0;
+  for (let k = -12; k <= 12; k++) {
+    const w = 13 - Math.abs(k);
+    const b = noCampo(tl.bolaNoInstante(jogoEm(tVideo + k * 0.1)).pos);
+    sx += b.x * w;
+    sy += b.y * w;
+    peso += w;
+  }
+  const z = ZOOM_DO_REELS;
+  const meiaL = COLUNAS / 2 / z;
+  const meiaA = LINHAS / 2 / z;
+  // Um pouco acima da bola: o placar ocupa o topo da tela.
+  const camera: Camera = {
+    cx: Math.min(COLUNAS - meiaL, Math.max(meiaL, sx / peso)),
+    cy: Math.min(LINHAS - meiaA, Math.max(meiaA, sy / peso - 12)),
+    zoom: z,
+  };
+  const lance = tl.resultado.lances[s.lance!]!;
+  if (lance.tipo === 'GOL' && s.resolucao !== undefined) {
+    const dt = tVideo - s.resolucao;
+    if (dt >= 0 && dt < 0.5) camera.tremor = { x: Math.sin(dt * 70) * 2.5 * (1 - dt / 0.5), y: Math.cos(dt * 55) * 1.5 * (1 - dt / 0.5) };
+    if (dt >= 0 && dt < 0.3) camera.flash = 1 - dt / 0.3;
+  }
+  // @ de quem está no lance, do mais importante ao menos; e de quem está com a bola agora.
+  const quem: SlotRef[] = [];
+  const add = (x?: SlotRef) => {
+    if (x && !quem.some((y) => y.lado === x.lado && y.indice === x.indice)) quem.push(x);
+  };
+  const perto = [...estado.jogadores].sort((a, b) => Math.hypot(a.pos.x - estado.bola.x, a.pos.y - estado.bola.y) - Math.hypot(b.pos.x - estado.bola.x, b.pos.y - estado.bola.y))[0];
+  if (perto && Math.hypot(perto.pos.x - estado.bola.x, perto.pos.y - estado.bola.y) < 0.035) add(perto.slot);
+  [lance.finalizador, lance.criador, lance.defensor, lance.cobrador, lance.apoio, lance.marcador, lance.dobra?.zagueiro, lance.cobertura].forEach(add);
+  // Rastro: a bola nos últimos 0,2 s de vídeo.
+  const rastro = [0.2, 0.15, 0.1, 0.05, 0].map((d) => tl.bolaNoInstante(jogoEm(tVideo - d)));
+  return { camera, rotulos: quem, rastro };
 }
 
 const suave = (f: number) => f * f * (3 - 2 * f);
