@@ -7,7 +7,7 @@ import { FALA_DO_TIME, IDENTIDADE, TAMANHO_ESCALACAO, necessidadeNaBriga, situac
 import type { Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, faixaDeTorcida, noCampo, plaquinha, rotulo, type Camera, type OpcoesDesenho } from './desenho.js';
-import type { EstadoQuadro } from './timeline.js';
+import type { EstadoQuadro, Timeline } from './timeline.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
 import { LARGURA_ESCUDO } from './escudos.js';
 import type { OpcoesRoteiro, QuadroRoteiro, Roteiro, Segmento } from './roteiro.js';
@@ -93,7 +93,7 @@ export interface MomentoDoCartao {
 }
 
 /** Duração do cartão gigante (s de vídeo). */
-const DURACAO_DO_CARTAO = 1.4;
+export const DURACAO_DO_CARTAO = 1.4;
 /** Velocidade do lance durante a pausa do cartão, em relação à de antes. */
 const LENTO_NO_CARTAO = 0.1;
 
@@ -135,7 +135,7 @@ export function tempoComPausa(s: Segmento, m: MomentoDoCartao, tVideo: number, t
 /** Zoom do close no juiz com o cartão: 1 pixel lógico vira 2 (8 px no vídeo de 1080). */
 export const ZOOM_DO_CARTAO = 2;
 
-function closeNoJuiz(e: EstadoQuadro, normal: Camera): Camera {
+export function closeNoJuiz(e: EstadoQuadro, normal: Camera): Camera {
   const alvo = e.juiz ? noCampo(e.juiz.pos) : { x: normal.cx, y: normal.cy };
   const z = ZOOM_DO_CARTAO;
   const meiaL = COLUNAS / 2 / z;
@@ -147,7 +147,7 @@ function closeNoJuiz(e: EstadoQuadro, normal: Camera): Camera {
  * Cartão gigante (ADR-0074): entra como um carimbo (grande e inclinado, assenta no lugar), fica
  * no meio da tela com o @ de quem levou embaixo e some no fim.
  */
-function desenharCartaoGigante(pin: Pincel, m: MomentoDoCartao, f: number, o: OpcoesVideo): void {
+export function desenharCartaoGigante(pin: Pincel, m: MomentoDoCartao, f: number, o: OpcoesDesenho): void {
   const ctx = pin.ctx;
   const entra = Math.min(1, f / 0.12);
   const sai = f > 0.85 ? (f - 0.85) / 0.15 : 0;
@@ -197,25 +197,7 @@ export function daCamera(roteiro: Roteiro, q: QuadroRoteiro, tVideo: number, est
   const tl = roteiro.timeline;
   const s = q.segmento;
   const jogoEm = (tv: number) => roteiro.quadroEm(Math.min(s.fim - 1e-6, Math.max(s.inicio, tv))).tJogo;
-  let sx = 0;
-  let sy = 0;
-  let peso = 0;
-  for (let k = -12; k <= 12; k++) {
-    const w = 13 - Math.abs(k);
-    const b = noCampo(tl.bolaNoInstante(jogoEm(tVideo + k * 0.1)).pos);
-    sx += b.x * w;
-    sy += b.y * w;
-    peso += w;
-  }
-  const z = ZOOM_DO_REELS;
-  const meiaL = COLUNAS / 2 / z;
-  const meiaA = LINHAS / 2 / z;
-  // Um pouco acima da bola: o placar ocupa o topo da tela.
-  const camera: Camera = {
-    cx: Math.min(COLUNAS - meiaL, Math.max(meiaL, sx / peso)),
-    cy: Math.min(LINHAS - meiaA, Math.max(meiaA, sy / peso - 12)),
-    zoom: z,
-  };
+  const camera = cameraQueSegue(tl, (d) => jogoEm(tVideo + d));
   const lance = tl.resultado.lances[s.lance!]!;
   if (lance.tipo === 'GOL' && s.resolucao !== undefined) {
     const dt = tVideo - s.resolucao;
@@ -225,6 +207,32 @@ export function daCamera(roteiro: Roteiro, q: QuadroRoteiro, tVideo: number, est
   // Rastro: a bola nos últimos 0,2 s de vídeo.
   const rastro = [0.2, 0.15, 0.1, 0.05, 0].map((d) => tl.bolaNoInstante(jogoEm(tVideo - d)));
   return { camera, rastro };
+}
+
+/**
+ * Câmera do Reels que segue a bola (ADR-0072): média da posição dela em ±1,2 s de vídeo, um
+ * pouco acima por causa do placar, sem sair do cenário. `jogoEm(d)` dá o s de jogo d s de
+ * vídeo à frente (ou atrás) do quadro atual. Também usada nos trechos dos Reels de novidades.
+ */
+export function cameraQueSegue(tl: Timeline, jogoEm: (d: number) => number): Camera {
+  let sx = 0;
+  let sy = 0;
+  let peso = 0;
+  for (let k = -12; k <= 12; k++) {
+    const w = 13 - Math.abs(k);
+    const b = noCampo(tl.bolaNoInstante(jogoEm(k * 0.1)).pos);
+    sx += b.x * w;
+    sy += b.y * w;
+    peso += w;
+  }
+  const z = ZOOM_DO_REELS;
+  const meiaL = COLUNAS / 2 / z;
+  const meiaA = LINHAS / 2 / z;
+  return {
+    cx: Math.min(COLUNAS - meiaL, Math.max(meiaL, sx / peso)),
+    cy: Math.min(LINHAS - meiaA, Math.max(meiaA, sy / peso - 12)),
+    zoom: z,
+  };
 }
 
 const suave = (f: number) => f * f * (3 - 2 * f);

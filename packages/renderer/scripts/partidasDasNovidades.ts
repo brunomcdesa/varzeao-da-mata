@@ -51,11 +51,25 @@ export function partidaT2(seed: number, mandante: TimeId, visitante: TimeId, o: 
     fase: 'LIGA',
     t2: { postura: o.postura ?? { mandante: 'OFENSIVA', visitante: 'EQUILIBRADA' }, formacao },
   });
+  // Número da camisa de exemplo (ADR-0075), com sorteio próprio, que não mexe na Partida: um em
+  // cada quatro fica de camisa lisa, como quem ainda não escolheu.
+  const numeros = (nomes: string[], semente: number) => {
+    const rng = criarRng(semente);
+    const usados = new Set<number>();
+    return nomes.map(() => {
+      if (rng.int(4) === 0) return null;
+      let n = 1 + rng.int(99);
+      while (usados.has(n)) n = 1 + rng.int(99);
+      usados.add(n);
+      return n;
+    });
+  };
   return {
     resultado,
     escalacoes: { mandante: a.esc, visitante: b.esc },
     nomes: { mandante: a.nomes, visitante: b.nomes },
     apelidos: { mandante: a.apelidos, visitante: b.apelidos },
+    numeros: { mandante: numeros(a.nomes, seed * 7 + 3), visitante: numeros(b.nomes, seed * 7 + 4) },
   };
 }
 

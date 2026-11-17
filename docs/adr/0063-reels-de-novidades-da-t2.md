@@ -37,3 +37,9 @@ sozinhos no horário, sem passo manual (ADR-0051).
 - A reserva do GitHub (cron) cobre os quatro horários, 90 e 60 minutos antes. Com 2 h entre um
   e outro, a janela de gravação do seguinte já abre no disparo do anterior; a marca de
   "já agendado" evita gravar duas vezes.
+
+## Atualização de 17/11 (antes da publicação)
+
+- **Dentro de campo:** os trechos de lance (Falta e cartão, pênalti, Barreira, escanteio, contra-ataque e marcação dupla) usam a câmera do Reels de Partida (ADR-0072). Na falta com cartão, aparecem o close no juiz, o cartão gigante e as marcas no placar e no @ (ADR-0074). Arquibancada, Clima e Substituição continuam com o campo inteiro, como no Reels, porque a torcida e o banco ficam nas laterais.
+- **Seu Jogador:** cena nova "Número da camisa", logo depois do Apelido. O boneco aparece de costas com o 10, e a fala diz "de 1 a 99, sem repetir no seu Time, nas costas do seu Jogador, no Reels, no Ao Vivo e no Replay" (ADR-0075). A legenda do post ganhou a linha do número.
+- As Partidas de exemplo ganham número da camisa (um em cada quatro de camisa lisa), com sorteio próprio, que não mexe nos lances, e os trechos continuam os mesmos.
