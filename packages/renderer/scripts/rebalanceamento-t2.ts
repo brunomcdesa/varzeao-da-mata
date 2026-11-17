@@ -1,5 +1,5 @@
 /**
- * Grava o Reels do Rebalanceamento da T2 (ADR-0066) com números de exemplo, para a prévia:
+ * Grava o Reels do Rebalanceamento da T2 (ADR-0067) com números de exemplo, para a prévia:
  *
  *   pnpm rebalanceamento-t2 --previa ./previa
  *

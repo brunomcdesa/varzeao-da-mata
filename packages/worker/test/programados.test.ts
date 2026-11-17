@@ -108,7 +108,7 @@ describe('Reels Programados (ADR-0051)', () => {
     expect(l).toContain('Estreia quinta, 19/11');
   });
 
-  it('Rebalanceamento da T2 (ADR-0066): quarta 18/11 às 10h, antes das Novidades; legenda sem @', async () => {
+  it('Rebalanceamento da T2 (ADR-0067): quarta 18/11 às 10h, antes das Novidades; legenda sem @', async () => {
     const p = REELS_PROGRAMADOS.find((x) => x.id === 'rebalanceamento-t2')!;
     expect(p.publicarEm).toBe('2026-11-18T13:00:00Z');
     const primeiraNovidade = REELS_PROGRAMADOS.filter((x) => x.id.startsWith('novidades-')).map((x) => Date.parse(x.publicarEm)).sort()[0]!;

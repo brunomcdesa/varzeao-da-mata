@@ -1,5 +1,5 @@
 /**
- * Reels do Rebalanceamento da T2 (ADR-0066): conta a regra (cada Time fundador fica com uma
+ * Reels do Rebalanceamento da T2 (ADR-0067): conta a regra (cada Time fundador fica com uma
  * Escalação, os mais antigos de cada Posição; quem sai vai para o Time Primo), os números do
  * Rebalanceamento que já rodou e o título de Fundador. Sem nomes de Jogadores (decisão do dono).
  * Reels Programado: quarta 18/11 às 10h, antes das Novidades. Narrado pelo Seu Dito, no mesmo

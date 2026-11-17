@@ -231,7 +231,7 @@ export function legendaDoAgradecimentoT1(d?: Pick<DadosDoAgradecimentoT1, 'abert
 }
 
 /**
- * Dados do Reels do Rebalanceamento (ADR-0066), lidos na hora de gravar: quantos mudaram de Time
+ * Dados do Reels do Rebalanceamento (ADR-0067), lidos na hora de gravar: quantos mudaram de Time
  * e quantos ficaram nos fundadores no momento do Rebalanceamento. Sem o Rebalanceamento feito, não
  * grava (o job tenta de novo na próxima chamada).
  */
@@ -264,7 +264,7 @@ export async function dadosDoRebalanceamentoT2(banco: Banco, estreia: string): P
   };
 }
 
-/** Legenda do Reels do Rebalanceamento (ADR-0066). */
+/** Legenda do Reels do Rebalanceamento (ADR-0067). */
 export function legendaDoRebalanceamentoT2(d: DadosDoRebalanceamentoT2): string {
   const [a, m, dia] = d.estreia.split('-').map(Number) as [number, number, number];
   const semana = DIAS[new Date(Date.UTC(a, m - 1, dia, 12)).getUTCDay()]!;

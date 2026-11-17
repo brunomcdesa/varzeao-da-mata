@@ -575,7 +575,7 @@ export async function gravarAgradecimentoT1(dados: DadosDoAgradecimentoT1, o: Op
   }
 }
 
-/** Reels do Rebalanceamento da T2 (ADR-0066), narrado pelo Seu Dito. */
+/** Reels do Rebalanceamento da T2 (ADR-0067), narrado pelo Seu Dito. */
 export async function gravarRebalanceamentoT2(dados: DadosDoRebalanceamentoT2, o: OpcoesGravacao): Promise<{ duracao: number }> {
   const inicio = performance.now();
   const fps = o.fps ?? 30;

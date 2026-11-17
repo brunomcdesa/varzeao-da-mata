@@ -146,7 +146,7 @@ describe('rebalancear no banco', () => {
     expect(f).toEqual(expect.arrayContaining([{ jogador_id: voluntario, remanejado: false }, { jogador_id: ids[7], remanejado: true }, { jogador_id: ids[8], remanejado: true }]));
     expect(f).toHaveLength(3);
     await expect(rebalancear(banco, { gravar: true })).rejects.toThrow('já foi rebalanceada');
-    // Os números do Reels do Rebalanceamento (ADR-0066): os 2 movidos e os 7 que ficaram na Onça;
+    // Os números do Reels do Rebalanceamento (ADR-0067): os 2 movidos e os 7 que ficaram na Onça;
     // quem se inscreve depois não conta.
     await jogador('ONC', 'ATA', '2026-12-01T09:00:00Z');
     const d = await dadosDoRebalanceamentoT2(banco, '2026-12-01');

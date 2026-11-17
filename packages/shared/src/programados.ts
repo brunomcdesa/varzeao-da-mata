@@ -19,7 +19,7 @@ export const REELS_PROGRAMADOS: readonly ReelsProgramado[] = [
   // Abertura da Temporada 2: terça 17/11, 21h de Brasília, depois do Resumo da Temporada (19h)
   // e do Agradecimento (20h).
   { id: 'abertura-t2', ref: 2001, publicarEm: '2026-11-18T00:00:00Z' },
-  // Rebalanceamento da T2 (ADR-0066): quarta 18/11, 10h de Brasília, antes das Novidades. O
+  // Rebalanceamento da T2 (ADR-0067): quarta 18/11, 10h de Brasília, antes das Novidades. O
   // Rebalanceamento roda na terça, quando a T2 nasce.
   { id: 'rebalanceamento-t2', ref: 2007, publicarEm: '2026-11-18T13:00:00Z' },
   // Novidades da T2 (ADR-0063): quarta 18/11, um Reels por tema, nos horários dos jogos da T1

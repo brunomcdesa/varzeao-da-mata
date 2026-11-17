@@ -9,7 +9,7 @@ const dados: DadosDoRebalanceamentoT2 = {
   primeiroJogoAs: 11,
 };
 
-describe('Reels do Rebalanceamento da T2 (ADR-0066)', () => {
+describe('Reels do Rebalanceamento da T2 (ADR-0067)', () => {
   it('conta a regra, os Primos, os números, o Fundador e chama para o site e a estreia', () => {
     const roteiro = new RoteiroRebalanceamentoT2(dados);
     expect(roteiro.segmentos.map((s) => s.cartela)).toEqual(['ABERTURA', 'REGRA', 'PRIMOS', 'NUMEROS', 'FUNDADOR', 'CHAMADA']);
