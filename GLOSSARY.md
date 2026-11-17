@@ -101,7 +101,7 @@ A competição inteira, disputada entre 24 Times, divididos em Série A (16) e S
 _Avoid_: campeonato, torneio
 
 **Time**:
-Um dos 24 clubes fictícios, com identidade própria do projeto, que disputam a Liga. Cada Time está numa Série e tem um rival fixo, com quem faz o Clássico.
+Um dos 24 clubes fictícios, com identidade própria do projeto, que disputam a Liga. Cada Time está numa Série e tem rivais fixos, com quem faz o Clássico (dois rivais para cada Time da Série A de 16, desde a T2).
 _Avoid_: equipe, clube, lado, seleção
 
 **Elenco**:
@@ -161,7 +161,7 @@ Os 2 a 3 dias antes da primeira Rodada de uma Temporada, dedicados a apresentar 
 _Avoid_: aquecimento, lançamento
 
 **Clássico**:
-Partida entre os dois Times de um par de rivais fixos. Cai no calendário por sorteio, como qualquer Partida, mas ganha abertura especial no Reels e as ações valem o dobro para as Habilidades (e o limite por Partida também dobra).
+Partida entre os dois Times de um par de rivais fixos. Desde a T2, cada Time da Série A de 16 tem dois Clássicos, os dois no seu Grupo (ADR-0066). Cai no calendário por sorteio, como qualquer Partida, mas ganha abertura especial no Reels e as ações valem o dobro para as Habilidades (e o limite por Partida também dobra).
 _Avoid_: derby, rivalidade, jogo grande
 
 **Goleada**:
