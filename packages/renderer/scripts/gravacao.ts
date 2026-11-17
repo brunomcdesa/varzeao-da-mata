@@ -91,10 +91,23 @@ export function partidaDeTeste(seed: number, mandante: TimeId, visitante: TimeId
   const a = montar(mandante, seed * 7 + 1);
   const b = montar(visitante, seed * 7 + 2);
   const resultado = simularPartida({ mandante: a.esc, visitante: b.esc, seed, fase, ...(t2 ? { t2: { postura: { mandante: 'OFENSIVA', visitante: 'EQUILIBRADA' } } } : {}) });
+  // Números da camisa de exemplo (sorteio próprio, não mexe na Partida): um em cada quatro sem número.
+  const numeros = (nomes: string[], s: number) => {
+    const rng = criarRng(s);
+    const usados = new Set<number>();
+    return nomes.map(() => {
+      if (rng.int(4) === 0) return null;
+      let n = 1 + rng.int(99);
+      while (usados.has(n)) n = 1 + rng.int(99);
+      usados.add(n);
+      return n;
+    });
+  };
   return {
     resultado,
     escalacoes: { mandante: a.esc, visitante: b.esc },
     nomes: { mandante: a.nomes, visitante: b.nomes },
+    numeros: { mandante: numeros(a.nomes, seed * 7 + 3), visitante: numeros(b.nomes, seed * 7 + 4) },
     ...(subtitulo ? { subtitulo } : {}),
   };
 }

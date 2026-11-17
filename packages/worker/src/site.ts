@@ -50,6 +50,8 @@ interface LinhaEscalacao {
   username: string | null;
   /** Apelido na hora da Escalação (ADR-0014). */
   apelido: string | null;
+  /** Número da camisa na hora da Escalação (ADR-0075). */
+  numero: number | null;
   /** Capitão em campo (T2, ADR-0020). */
   capitao: boolean;
   /** Banco (ADR-0061). */
@@ -138,7 +140,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
 
   const escalacoes = (
     await banco.query<LinhaEscalacao>(
-      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.capitao, e.reserva
+      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.numero, e.capitao, e.reserva
        FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id ORDER BY e.partida_id, e.lugar`,
     )
   ).rows;
@@ -538,12 +540,12 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     const linhas = escalacoesDe.get(p.id);
     const de = (time: TimeId): EscalacaoPublica => {
       const doTime = (linhas ?? []).filter((e) => e.time_id === time);
-      const banco = doTime.filter((e) => e.reserva).map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes) }));
+      const banco = doTime.filter((e) => e.reserva).map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes) }));
       return {
         time,
         jogadores: doTime
           .filter((e) => !e.reserva)
-          .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes), ...(e.capitao ? { capitao: true as const } : {}) })),
+          .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes), ...(e.capitao ? { capitao: true as const } : {}) })),
         ...(banco.length ? { banco } : {}),
       };
     };

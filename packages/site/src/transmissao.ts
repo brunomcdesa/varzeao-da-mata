@@ -15,6 +15,7 @@ export interface Transmissao {
 const todos = (e: EscalacaoPublica) => [...[...e.jogadores].sort((a, b) => a.lugar - b.lugar), ...[...(e.banco ?? [])].sort((a, b) => a.lugar - b.lugar)];
 const nomesDe = (e: EscalacaoPublica) => todos(e).map((j) => (j.username ? `@${j.username}` : null));
 const apelidosDe = (e: EscalacaoPublica) => todos(e).map((j) => j.apelido ?? null);
+const numerosDe = (e: EscalacaoPublica) => todos(e).map((j) => j.numero ?? null);
 
 export const montarTimeline = (p: PartidaPublica): Timeline | null => timelineDaPartida(p);
 
@@ -35,6 +36,8 @@ export function transmitir(
   const nomes: Record<Lado, (string | null)[]> = { mandante: nomesDe(p.escalacoes!.mandante), visitante: nomesDe(p.escalacoes!.visitante) };
   // O apelido da época do jogo (ADR-0014) aparece escrito; o boneco segue pelo @.
   const apelidos: Record<Lado, (string | null)[]> = { mandante: apelidosDe(p.escalacoes!.mandante), visitante: apelidosDe(p.escalacoes!.visitante) };
+  // O número da camisa da época do jogo (ADR-0075), nas costas do boneco.
+  const numeros: Record<Lado, (number | null)[]> = { mandante: numerosDe(p.escalacoes!.mandante), visitante: numerosDe(p.escalacoes!.visitante) };
   const reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const FIM = timeline.duracao;
@@ -59,7 +62,7 @@ export function transmitir(
       tocando = false;
       marcar();
     }
-    desenharQuadro(ctx, timeline.estado(t), { times: timeline.resultado.times, nomes, apelidos, ...(p.briga ? { briga: p.briga } : {}) });
+    desenharQuadro(ctx, timeline.estado(t), { times: timeline.resultado.times, nomes, apelidos, numeros, ...(p.briga ? { briga: p.briga } : {}) });
     if (barra) barra.value = String(Math.round(t));
     o.aoMudar?.(t);
     if (t >= FIM && !acabou) {

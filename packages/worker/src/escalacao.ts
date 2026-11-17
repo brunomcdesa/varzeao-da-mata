@@ -47,9 +47,12 @@ export interface EscalacaoMontada {
   nomes: (string | null)[];
   /** Apelido de cada lugar na hora da Escalação (ADR-0014); null = sem apelido. */
   apelidos: (string | null)[];
+  /** Número da camisa de cada lugar na hora da Escalação (ADR-0075); null = camisa lisa. */
+  numeros: (number | null)[];
   /** Banco (T2, ADR-0061): @ e apelido de cada reserva, na ordem do Banco. */
   nomesDoBanco?: (string | null)[];
   apelidosDoBanco?: (string | null)[];
+  numerosDoBanco?: (number | null)[];
 }
 
 /** Joga: titular, ou reserva que entrou (ADR-0061). Para contar jogos na tabela `escalacao e`. */
@@ -59,6 +62,7 @@ interface Disponivel {
   id: string;
   username: string;
   apelido?: string | null;
+  numero?: number | null;
   posicao: Posicao;
   ovr: number;
   habilidades: Habilidades;
@@ -136,9 +140,9 @@ export async function montarEscalacao(
 ): Promise<EscalacaoMontada> {
   const inscritosAte = o.inscritosAte && o.inscritosAte < o.corte ? o.inscritosAte : o.corte;
   const disponiveis = (
-    await banco.query<{ id: string; username: string; apelido: string | null; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; jogos: string; ultimo: string | Date | null; inscrito_em: string | Date; fora: string; especializacao: Especializacao | null; treino: HabilidadeId | null; canto: Canto | null }>(
+    await banco.query<{ id: string; username: string; apelido: string | null; numero: number | null; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; jogos: string; ultimo: string | Date | null; inscrito_em: string | Date; fora: string; especializacao: Especializacao | null; treino: HabilidadeId | null; canto: Canto | null }>(
       `WITH base AS (
-         SELECT j.id, j.username, j.apelido, j.posicao, j.ovr, j.habilidades, j.inscrito_em, j.especializacao, j.treino, j.canto,
+         SELECT j.id, j.username, j.apelido, j.numero, j.posicao, j.ovr, j.habilidades, j.inscrito_em, j.especializacao, j.treino, j.canto,
                 count(p.id) AS jogos, max(p.apito_inicial) AS ultimo
          FROM jogador j
          LEFT JOIN escalacao e ON e.jogador_id = j.id AND ${JOGOU}
@@ -146,7 +150,7 @@ export async function montarEscalacao(
            AND p.rodada_id IN (SELECT id FROM rodada WHERE temporada_id = $2)
          WHERE j.time_id = $1 AND NOT j.banido AND j.inscrito_em <= $4
          GROUP BY j.id)
-       SELECT b.id::text AS id, b.username, b.apelido, b.posicao, b.ovr, b.habilidades, b.inscrito_em, b.especializacao, b.treino, b.canto,
+       SELECT b.id::text AS id, b.username, b.apelido, b.numero, b.posicao, b.ovr, b.habilidades, b.inscrito_em, b.especializacao, b.treino, b.canto,
               b.jogos, b.ultimo,
               (SELECT count(*) FROM partida q JOIN rodada r ON r.id = q.rodada_id
                WHERE r.temporada_id = $2 AND (q.mandante_id = $1 OR q.visitante_id = $1)
@@ -161,6 +165,7 @@ export async function montarEscalacao(
       id: r.id,
       username: r.username,
       apelido: r.apelido,
+      numero: r.numero,
       posicao: r.posicao,
       ovr: r.ovr,
       habilidades: habilidadesDe(r.posicao, r.ovr, r.habilidades),
@@ -213,6 +218,7 @@ export async function montarEscalacao(
   const jogadores: Escalacao['jogadores'][number][] = [];
   const nomes: (string | null)[] = [];
   const apelidos: (string | null)[] = [];
+  const numeros: (number | null)[] = [];
   vagas.forEach((posicao, lugar) => {
     const proximo = escolhidos[lugar];
     const fora = foraDePosicao.has(lugar);
@@ -235,6 +241,7 @@ export async function montarEscalacao(
     );
     nomes.push(proximo ? `@${proximo.username}` : null);
     apelidos.push(proximo?.apelido ?? null);
+    numeros.push(proximo?.numero ?? null);
   });
   const emCampo = new Set(escolhidos.flatMap((d) => (d ? [d.id] : [])));
   const cortados = formacao ? [...noPadrao].filter((id) => !emCampo.has(id)) : [];
@@ -257,8 +264,9 @@ export async function montarEscalacao(
     escalacao: { time: o.time, jogadores, ...(doBanco.length ? { banco: doBanco } : {}) },
     nomes,
     apelidos,
+    numeros,
     ...(formacao ? { cortados } : {}),
-    ...(doBanco.length ? { nomesDoBanco: reservas.map((r) => `@${r.username}`), apelidosDoBanco: reservas.map((r) => r.apelido ?? null) } : {}),
+    ...(doBanco.length ? { nomesDoBanco: reservas.map((r) => `@${r.username}`), apelidosDoBanco: reservas.map((r) => r.apelido ?? null), numerosDoBanco: reservas.map((r) => r.numero ?? null) } : {}),
   };
 }
 
@@ -306,13 +314,21 @@ export async function comResenha(b: Banco, time: TimeId, apito: Date, corte: Dat
   return new Set(linhas.map((l) => l.id));
 }
 
+export interface ReservaEscalada {
+  nome: string | null;
+  apelido: string | null;
+  numero: number | null;
+}
+
 export interface PartidaEscalada {
   partidaId: number;
   escalacoes: { mandante: Escalacao; visitante: Escalacao };
   nomes: { mandante: (string | null)[]; visitante: (string | null)[] };
   apelidos: { mandante: (string | null)[]; visitante: (string | null)[] };
-  /** Banco (T2, ADR-0061): @ e apelido de cada reserva, na ordem do Banco. */
-  banco?: { mandante: { nome: string | null; apelido: string | null }[]; visitante: { nome: string | null; apelido: string | null }[] };
+  /** Número da camisa de cada lugar na hora da Escalação (ADR-0075); null = camisa lisa. */
+  numeros: { mandante: (number | null)[]; visitante: (number | null)[] };
+  /** Banco (T2, ADR-0061): @, apelido e número de cada reserva, na ordem do Banco. */
+  banco?: { mandante: ReservaEscalada[]; visitante: ReservaEscalada[] };
 }
 
 /**
@@ -379,16 +395,16 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
     for (const m of [mandante, visitante]) {
       for (const [lugar, j] of m.escalacao.jogadores.entries()) {
         await b.query(
-          `INSERT INTO escalacao (partida_id, time_id, lugar, jogador_id, posicao, ovr_antes, habilidades_antes, apelido, especializacao, treino, canto, resenha, posicao_de_origem, bonus_t1) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-          [partidaId, m.escalacao.time, lugar, j.jogadorId, j.posicao, j.ovr, JSON.stringify(j.habilidades), m.apelidos[lugar] ?? null, j.especializacao ?? null, j.treino ?? null, j.canto ?? null, j.resenha ?? false, j.posicaoDeOrigem ?? null, j.bonusT1 ?? false],
+          `INSERT INTO escalacao (partida_id, time_id, lugar, jogador_id, posicao, ovr_antes, habilidades_antes, apelido, especializacao, treino, canto, resenha, posicao_de_origem, bonus_t1, numero) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+          [partidaId, m.escalacao.time, lugar, j.jogadorId, j.posicao, j.ovr, JSON.stringify(j.habilidades), m.apelidos[lugar] ?? null, j.especializacao ?? null, j.treino ?? null, j.canto ?? null, j.resenha ?? false, j.posicaoDeOrigem ?? null, j.bonusT1 ?? false, m.numeros[lugar] ?? null],
         );
       }
       // Banco (ADR-0061): nos lugares depois dos titulares, marcados como reserva.
       for (const [k, j] of (m.escalacao.banco ?? []).entries()) {
         const lugar = m.escalacao.jogadores.length + k;
         await b.query(
-          `INSERT INTO escalacao (partida_id, time_id, lugar, jogador_id, posicao, ovr_antes, habilidades_antes, apelido, especializacao, treino, canto, resenha, bonus_t1, reserva) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true)`,
-          [partidaId, m.escalacao.time, lugar, j.jogadorId, j.posicao, j.ovr, JSON.stringify(j.habilidades), m.apelidosDoBanco?.[k] ?? null, j.especializacao ?? null, j.treino ?? null, j.canto ?? null, j.resenha ?? false, j.bonusT1 ?? false],
+          `INSERT INTO escalacao (partida_id, time_id, lugar, jogador_id, posicao, ovr_antes, habilidades_antes, apelido, especializacao, treino, canto, resenha, bonus_t1, reserva, numero) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true, $14)`,
+          [partidaId, m.escalacao.time, lugar, j.jogadorId, j.posicao, j.ovr, JSON.stringify(j.habilidades), m.apelidosDoBanco?.[k] ?? null, j.especializacao ?? null, j.treino ?? null, j.canto ?? null, j.resenha ?? false, j.bonusT1 ?? false, m.numerosDoBanco?.[k] ?? null],
         );
       }
       for (const id of m.cortados ?? []) {
@@ -405,12 +421,13 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
       }
     }
     await b.query(`UPDATE partida SET status = 'ESCALADA' WHERE id = $1`, [partidaId]);
-    const doBanco = (m: EscalacaoMontada) => (m.nomesDoBanco ?? []).map((nome, k) => ({ nome, apelido: m.apelidosDoBanco?.[k] ?? null }));
+    const doBanco = (m: EscalacaoMontada) => (m.nomesDoBanco ?? []).map((nome, k) => ({ nome, apelido: m.apelidosDoBanco?.[k] ?? null, numero: m.numerosDoBanco?.[k] ?? null }));
     return {
       partidaId,
       escalacoes: { mandante: mandante.escalacao, visitante: visitante.escalacao },
       nomes: { mandante: mandante.nomes, visitante: visitante.nomes },
       apelidos: { mandante: mandante.apelidos, visitante: visitante.apelidos },
+      numeros: { mandante: mandante.numeros, visitante: visitante.numeros },
       ...(mandante.nomesDoBanco || visitante.nomesDoBanco ? { banco: { mandante: doBanco(mandante), visitante: doBanco(visitante) } } : {}),
     };
   });
@@ -418,8 +435,8 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
 
 async function lerEscalacao(b: Banco, partidaId: number, mandante: TimeId, visitante: TimeId): Promise<PartidaEscalada> {
   const linhas = (
-    await b.query<{ time_id: TimeId; jogador_id: string | null; posicao: Posicao; ovr_antes: number; habilidades_antes: Habilidades | string | null; username: string | null; apelido: string | null; especializacao: Especializacao | null; treino: HabilidadeId | null; canto: Canto | null; resenha: boolean; posicao_de_origem: Posicao | null; bonus_t1: boolean; reserva: boolean }>(
-      `SELECT e.time_id, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.especializacao, e.treino, e.canto, e.resenha, e.posicao_de_origem, e.bonus_t1, e.reserva
+    await b.query<{ time_id: TimeId; jogador_id: string | null; posicao: Posicao; ovr_antes: number; habilidades_antes: Habilidades | string | null; username: string | null; apelido: string | null; numero: number | null; especializacao: Especializacao | null; treino: HabilidadeId | null; canto: Canto | null; resenha: boolean; posicao_de_origem: Posicao | null; bonus_t1: boolean; reserva: boolean }>(
+      `SELECT e.time_id, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.numero, e.especializacao, e.treino, e.canto, e.resenha, e.posicao_de_origem, e.bonus_t1, e.reserva
        FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id
        WHERE e.partida_id = $1 ORDER BY e.lugar`,
       [partidaId],
@@ -460,17 +477,19 @@ async function lerEscalacao(b: Banco, partidaId: number, mandante: TimeId, visit
       } as Escalacao,
       nomes: minhas.map((l) => (l.username ? `@${l.username}` : null)),
       apelidos: minhas.map((l) => l.apelido ?? null),
+      numeros: minhas.map((l) => l.numero ?? null),
     };
   };
   const m = de(mandante);
   const v = de(visitante);
-  const nomesDoBanco = (time: TimeId) => reservasDe(time).map((l) => ({ nome: l.username ? `@${l.username}` : null, apelido: l.apelido ?? null }));
+  const nomesDoBanco = (time: TimeId) => reservasDe(time).map((l) => ({ nome: l.username ? `@${l.username}` : null, apelido: l.apelido ?? null, numero: l.numero ?? null }));
   const comBanco = reservasDe(mandante).length || reservasDe(visitante).length;
   return {
     partidaId,
     escalacoes: { mandante: m.escalacao, visitante: v.escalacao },
     nomes: { mandante: m.nomes, visitante: v.nomes },
     apelidos: { mandante: m.apelidos, visitante: v.apelidos },
+    numeros: { mandante: m.numeros, visitante: v.numeros },
     ...(comBanco ? { banco: { mandante: nomesDoBanco(mandante), visitante: nomesDoBanco(visitante) } } : {}),
   };
 }

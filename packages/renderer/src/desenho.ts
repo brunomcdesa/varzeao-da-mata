@@ -10,7 +10,7 @@ import type { Lado } from '@liga/sim';
 import { CAMPO, cenario } from './cenario.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste, ruido } from './pixel.js';
 import { ALTURA_DAS_ESTRELAS, ALTURA_ESCUDO, LARGURA_ESCUDO, escudo, estrelasDoEscudo } from './escudos.js';
-import { ALTURA_SPRITE, LARGURA_SPRITE, MAO_DO_APITO, aparencia, escolherPose, sprite, type Pose, type Visual } from './sprites.js';
+import { ALTURA_SPRITE, LARGURA_SPRITE, MAO_DO_APITO, aparencia, escolherPose, espelharNoSprite, sprite, type Pose, type Visual } from './sprites.js';
 import type { CartaoNoJogo, EstadoQuadro, JogadorNoQuadro, Ponto } from './timeline.js';
 import { visualDoJuiz, type JuizNoQuadro } from './juiz.js';
 import { desenharArquibancada, desenharCartao, desenharClimaNoAr, desenharClimaNoChao, desenharCloseDaTorcida } from './arquibancada.js';
@@ -22,6 +22,8 @@ export interface OpcoesDesenho {
   nomes: Record<Lado, (string | null)[]>;
   /** Apelido de cada lugar (ADR-0014): o que aparece escrito. Sem ele, o @. O boneco segue pelo @. */
   apelidos?: Record<Lado, (string | null)[]>;
+  /** Número da camisa de cada lugar, escolhido pelo dono (null = camisa lisa). Só aparece de costas. */
+  numeros?: Record<Lado, (number | null)[]>;
   /** Fonte dos números e letreiros (precisa estar carregada na página). Padrão: Jersey 10. */
   fonteDisplay?: string;
   /** Fonte dos nomes. Padrão: Pixelify Sans. */
@@ -129,7 +131,7 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
 function visualDe(j: JogadorNoQuadro, o: OpcoesDesenho, e?: EstadoQuadro): Visual {
   const quem = j.ocupante ?? j.slot.indice;
   const nome = o.nomes[j.slot.lado][quem] ?? `base-${j.slot.lado}-${quem}`;
-  const v = visualDoJogador(o.times[j.slot.lado], j.posicao, nome);
+  const v = { ...visualDoJogador(o.times[j.slot.lado], j.posicao, nome), numero: o.numeros?.[j.slot.lado][quem] ?? null };
   // T2: o visitante usa o segundo uniforme quando as camisas se confundem (o goleiro não muda).
   if (e?.t2?.segundoUniforme === j.slot.lado && j.posicao !== 'GOL') {
     const rival = o.times[j.slot.lado === 'mandante' ? 'visitante' : 'mandante'];
@@ -154,8 +156,13 @@ export function visualDoJogador(time: TimeId, posicao: Posicao, nome: string): V
 function desenharJogador(pin: Pincel, j: JogadorNoQuadro, o: OpcoesDesenho, fase: number, e?: EstadoQuadro): void {
   const p = noCampo(j.pos);
   const olhar = { x: j.olhar.x - j.pos.x, y: j.olhar.y - j.pos.y };
-  const { pose, espelhar, pulo } = escolherPose(j.acao, j.vel, olhar, fase + j.slot.indice);
-  const img = sprite(pose, visualDe(j, o, e));
+  const escolha = escolherPose(j.acao, j.vel, olhar, fase + j.slot.indice);
+  const { pose, pulo } = escolha;
+  const visual = visualDe(j, o, e);
+  // De costas, com número, o sprite já vem virado: espelhar o canvas inverteria o número.
+  const noSprite = espelharNoSprite(pose, visual.numero, escolha.espelhar);
+  const espelhar = escolha.espelhar && !noSprite;
+  const img = sprite(pose, visual, noSprite);
   // 1 pixel do boneco = 1,5 pixel lógico (6 px no vídeo de 1080).
   const s = pin.px * ESCALA_BONECO;
   const x = Math.round(p.x * pin.px - (LARGURA_SPRITE / 2) * s);

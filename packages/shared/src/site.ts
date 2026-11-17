@@ -244,9 +244,10 @@ export interface JogadorPublico {
 export interface EscalacaoPublica {
   time: TimeId;
   /** `capitao`: faixa de Capitão nesta Partida (só na T2, ADR-0020). */
-  jogadores: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; ovr: number; habilidades: Habilidades; capitao?: true }[];
+  /** `numero`: número da camisa na hora da Escalação (ADR-0075); sem ele, camisa lisa. */
+  jogadores: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; numero?: number | null; ovr: number; habilidades: Habilidades; capitao?: true }[];
   /** Banco (T2, ADR-0061): os reservas, nos lugares depois dos titulares (7 e 8). */
-  banco?: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; ovr: number; habilidades: Habilidades }[];
+  banco?: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; numero?: number | null; ovr: number; habilidades: Habilidades }[];
 }
 
 export interface PartidaPublica {
