@@ -113,7 +113,21 @@ export interface EstadoQuadro {
   juiz: JuizNoQuadro | null;
   /** Substituição na tela (ADR-0061): as trocas em andamento e 0 → 1 do letreiro. */
   trocas?: { lista: Troca[]; progresso: number } | null;
+  /** T2 (ADR-0074): os cartões que o juiz já mostrou até aqui, para o placar e o @. */
+  cartoes?: CartaoNoJogo[];
 }
+
+/** Um cartão mostrado na Partida (ADR-0074): de que Time, quem levou (ocupante da vaga) e a cor. */
+export interface CartaoNoJogo {
+  lado: Lado;
+  ocupante: number;
+  cartao: 'AMARELO' | 'VERMELHO';
+  /** s de jogo em que o juiz levanta o cartão. */
+  t: number;
+}
+
+/** Fração do letreiro da falta em que o cartão já está no ar (o juiz levanta entre 0,06 e 0,2). */
+export const CARTAO_NO_AR = 0.2;
 
 /** Um Jogador na tela, com a Posição da vaga dele. */
 export interface JogadorNoToque {
@@ -224,6 +238,8 @@ export class Timeline {
   readonly t2: InfoT2 | null;
   /** Temporada 2: instante (s de jogo) em que cada expulso deixa o campo. */
   private readonly saidas: Map<string, number>;
+  /** Os cartões da Partida, na ordem (ADR-0074). */
+  readonly cartoes: CartaoNoJogo[];
   /** Temporada 2: corrida do juiz (x, y intercalados a cada FISICA.dt); null na T1. */
   private readonly corridaDoJuiz: Float32Array | null;
   /** Substituições do intervalo (ADR-0061), com o instante em que aparecem. */
@@ -247,7 +263,7 @@ export class Timeline {
     this.saidas = new Map(
       this.janelas.flatMap((j) => (j.lance.falta?.cartao === 'VERMELHO' ? [[chave(j.lance.falta.autor), j.resolucao + DURACAO_DESTAQUE.FALTA * 0.7] as [string, number]] : [])),
     );
-    /** Antes destes lances há toque de bola (ritmo novo): a jogada começa com a bola no criador. */
+        /** Antes destes lances há toque de bola (ritmo novo): a jogada começa com a bola no criador. */
     const comToqueAntes = new Set(encaixe.intervalos.map((x) => x.antes));
     // Jogo contínuo: a bola só volta ao meio depois de gol. Nos outros lances ela termina
     // com quem começa o próximo ataque (passe ou chutão recuperado) e o próximo sai dali.
@@ -311,6 +327,12 @@ export class Timeline {
       : null;
     this.corridaDoJuiz = this.t2 ? this.simularJuiz() : null;
     this.trocas = trocasDaPartida(resultado, escalacoes, this.janelas);
+    // Cartões (ADR-0074): contam no placar e no @ a partir de quando o juiz levanta.
+    this.cartoes = this.janelas.flatMap((j) => {
+      const f = j.lance.falta;
+      if (!f?.cartao) return [];
+      return [{ lado: f.autor.lado, ocupante: this.ocupanteEm(f.autor, j.resolucao), cartao: f.cartao, t: j.resolucao + DURACAO_DESTAQUE.FALTA * CARTAO_NO_AR }];
+    });
   }
 
   /** Quem ocupa o lugar em t (índice em titulares + Banco). */
@@ -581,6 +603,7 @@ export class Timeline {
       penaltis: null,
       t2: this.t2,
       juiz: this.juizNoQuadro(t, bola, destaque, jogadores),
+      ...(this.cartoes?.length ? { cartoes: this.cartoes.filter((c) => c.t <= t) } : {}),
       ...(() => {
         const troca = this.trocaEm(t);
         return troca ? { trocas: { lista: this.trocas.filter((x) => x.t === troca.t), progresso: (t - troca.t) / DURACAO_TROCA } } : {};
@@ -629,6 +652,7 @@ export class Timeline {
       t2: this.t2,
       // Na disputa de pênaltis, o juiz fica parado ao lado da área, olhando a cobrança.
       juiz: this.t2 ? { pos: JUIZ_NOS_PENALTIS, vel: { x: 0, y: 0 }, seed, olhar: agora.bola, acao: 'PARADO' } : null,
+      ...(this.cartoes?.length ? { cartoes: this.cartoes } : {}),
     };
   }
 

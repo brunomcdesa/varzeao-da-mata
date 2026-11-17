@@ -10,7 +10,7 @@ import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTab
 import type { EstadoQuadro } from './timeline.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
 import { LARGURA_ESCUDO } from './escudos.js';
-import type { OpcoesRoteiro, QuadroRoteiro, Roteiro } from './roteiro.js';
+import type { OpcoesRoteiro, QuadroRoteiro, Roteiro, Segmento } from './roteiro.js';
 import { aparencia, sprite } from './sprites.js';
 import { narradorDa } from './narradores.js';
 
@@ -51,8 +51,16 @@ export function desenharQuadroVideo(ctx: CanvasRenderingContext2D, roteiro: Rote
   const tipo = q.segmento.tipo;
   // Nas cartelas o fundo é o cenário vazio; no jogo, o quadro completo.
   if (tipo === 'LANCE') {
-    const estado = roteiro.timeline.estado(q.tJogo);
-    desenharQuadro(ctx, estado, { ...o, ...daCamera(roteiro, q, tVideo, estado) });
+    // Cartão (ADR-0074): o lance quase para, a câmera fecha no juiz e o cartão gigante aparece.
+    const cartao = momentoDoCartao(roteiro, q.segmento);
+    const tJogo = cartao ? tempoComPausa(q.segmento, cartao, tVideo, q.tJogo) : q.tJogo;
+    const estado = roteiro.timeline.estado(tJogo);
+    const camera = daCamera(roteiro, q, tVideo, estado);
+    const noClose = cartao && tVideo >= cartao.inicio - 0.1 && tVideo < cartao.fim + 0.15;
+    // Durante o cartão gigante, o letreiro de sempre ("Amarelo!") sai da tela: o gigante já diz isso.
+    const gigante = cartao && tVideo >= cartao.inicio && tVideo < cartao.fim;
+    desenharQuadro(ctx, estado, { ...o, ...camera, ...(noClose ? { camera: closeNoJuiz(estado, camera.camera!), rastro: [] } : {}), ...(gigante ? { semLetreiro: true } : {}) });
+    if (gigante) desenharCartaoGigante(pin, cartao, (tVideo - cartao.inicio) / (cartao.fim - cartao.inicio), o);
   } else if (tipo === 'TROCA' || tipo === 'PENALTIS') desenharQuadro(ctx, roteiro.timeline.estado(q.tJogo), o);
   else {
     ctx.imageSmoothingEnabled = false;
@@ -69,6 +77,108 @@ export function desenharQuadroVideo(ctx: CanvasRenderingContext2D, roteiro: Rote
     ctx.restore();
   }
   return q;
+}
+
+/** O momento do cartão no Reels (ADR-0074): s de vídeo em que o lance quase para e o cartão gigante aparece. */
+export interface MomentoDoCartao {
+  inicio: number;
+  fim: number;
+  /** s de jogo em que o juiz já está com o cartão no ar: o lance fica perto daqui durante a pausa. */
+  tJogo: number;
+  cartao: 'AMARELO' | 'VERMELHO';
+  lado: Lado;
+  ocupante: number;
+}
+
+/** Duração do cartão gigante (s de vídeo). */
+const DURACAO_DO_CARTAO = 1.4;
+/** Velocidade do lance durante a pausa do cartão, em relação à de antes. */
+const LENTO_NO_CARTAO = 0.1;
+
+/**
+ * Quando o cartão aparece no trecho de uma falta com cartão (ADR-0074): no instante em que o
+ * juiz já levantou o cartão, se ainda couber a pausa inteira antes do fim do trecho. null nos
+ * outros lances.
+ */
+export function momentoDoCartao(roteiro: Roteiro, s: Segmento): MomentoDoCartao | null {
+  if (s.tipo !== 'LANCE' || s.resolucao === undefined) return null;
+  const tl = roteiro.timeline;
+  const j = tl.janelas[s.lance!]!;
+  if (!j.lance.falta?.cartao) return null;
+  // O cartão desta falta: o primeiro mostrado depois da resolução dela.
+  const c = tl.cartoes.find((x) => x.t >= j.resolucao);
+  if (!c) return null;
+  const k = (s.jogoFim! - s.jogoResolucao!) / (s.fim - s.resolucao);
+  const inicio = s.resolucao + (c.t - s.jogoResolucao!) / k;
+  const fim = inicio + DURACAO_DO_CARTAO;
+  // Precisa sobrar trecho depois da pausa para o lance seguir até o fim no tempo certo.
+  if (inicio < s.resolucao || fim > s.fim - 0.4) return null;
+  return { inicio, fim, tJogo: c.t, cartao: c.cartao, lado: c.lado, ocupante: c.ocupante };
+}
+
+/**
+ * Tempo de jogo com a pausa do cartão: igual até o cartão, quase parado durante ele e um pouco
+ * mais rápido depois, para chegar ao fim do trecho no mesmo instante de sempre.
+ */
+export function tempoComPausa(s: Segmento, m: MomentoDoCartao, tVideo: number, tJogo: number): number {
+  if (tVideo < m.inicio) return tJogo;
+  const k = (s.jogoFim! - s.jogoResolucao!) / (s.fim - s.resolucao!);
+  const durante = Math.min(tVideo, m.fim) - m.inicio;
+  const naPausa = m.tJogo + durante * k * LENTO_NO_CARTAO;
+  if (tVideo < m.fim) return naPausa;
+  const depois = (tVideo - m.fim) / (s.fim - m.fim);
+  return naPausa + depois * (s.jogoFim! - naPausa);
+}
+
+/** Zoom do close no juiz com o cartão: 1 pixel lógico vira 2 (8 px no vídeo de 1080). */
+export const ZOOM_DO_CARTAO = 2;
+
+function closeNoJuiz(e: EstadoQuadro, normal: Camera): Camera {
+  const alvo = e.juiz ? noCampo(e.juiz.pos) : { x: normal.cx, y: normal.cy };
+  const z = ZOOM_DO_CARTAO;
+  const meiaL = COLUNAS / 2 / z;
+  const meiaA = LINHAS / 2 / z;
+  return { cx: Math.min(COLUNAS - meiaL, Math.max(meiaL, alvo.x)), cy: Math.min(LINHAS - meiaA, Math.max(meiaA, alvo.y - 55)), zoom: z };
+}
+
+/**
+ * Cartão gigante (ADR-0074): entra como um carimbo (grande e inclinado, assenta no lugar), fica
+ * no meio da tela com o @ de quem levou embaixo e some no fim.
+ */
+function desenharCartaoGigante(pin: Pincel, m: MomentoDoCartao, f: number, o: OpcoesVideo): void {
+  const ctx = pin.ctx;
+  const entra = Math.min(1, f / 0.12);
+  const sai = f > 0.85 ? (f - 0.85) / 0.15 : 0;
+  const escala = 1 + 0.7 * (1 - suave(entra));
+  const giro = (-12 + 6 * suave(entra)) * (Math.PI / 180);
+  const w = 44;
+  const h = 62;
+  const cx = COLUNAS / 2;
+  // Na parte de cima da tela: o close deixa o juiz e quem levou o cartão embaixo.
+  const cy = 152;
+  ctx.save();
+  ctx.globalAlpha = 1 - sai;
+  ctx.translate(cx * pin.px, cy * pin.px);
+  ctx.rotate(giro);
+  ctx.scale(escala, escala);
+  ctx.translate(-cx * pin.px, -cy * pin.px);
+  pin.r(cx - w / 2 + 3, cy - h / 2 + 4, w, h, 'rgba(0,0,0,0.35)');
+  pin.r(cx - w / 2 - 2, cy - h / 2 - 2, w + 4, h + 4, COR.contorno);
+  pin.r(cx - w / 2, cy - h / 2, w, h, m.cartao === 'VERMELHO' ? '#D7263D' : '#F6D02F');
+  pin.r(cx - w / 2, cy - h / 2, w, 4, 'rgba(255,255,255,0.45)');
+  pin.r(cx - w / 2, cy + h / 2 - 4, w, 4, 'rgba(0,0,0,0.18)');
+  ctx.restore();
+  if (f < 0.1) return;
+  ctx.save();
+  ctx.globalAlpha = 1 - sai;
+  const titulo = m.cartao === 'VERMELHO' ? 'Expulso!' : 'Amarelo!';
+  const nome = rotulo(o, m.lado, m.ocupante) ?? 'Base';
+  pin.texto(titulo, cx, cy + h / 2 + 18, 24, FONTE_DISPLAY, m.cartao === 'VERMELHO' ? '#FF5A6B' : COR.amarelo, { contorno: COR.contorno });
+  pin.ctx.font = `700 ${11 * pin.px}px ${FONTE_TEXTO}`;
+  const largura = Math.min(200, pin.ctx.measureText(nome).width / pin.px + 24);
+  pin.tabua(cx - largura / 2, cy + h / 2 + 32, largura, 20);
+  pin.texto(nome, cx, cy + h / 2 + 42, pin.caber(nome, largura - 12, 11, FONTE_TEXTO, 700), FONTE_TEXTO, COR.placa, { peso: 700 });
+  ctx.restore();
 }
 
 /** Zoom da câmera do Reels: 1 pixel lógico vira 1,5 (6 px no vídeo de 1080, sem borrar o pixel). */
