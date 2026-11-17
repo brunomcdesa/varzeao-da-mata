@@ -15,7 +15,7 @@ import { COLUNAS, COR, LINHAS, Pincel } from './pixel.js';
 import type { Segmento } from './roteiro.js';
 import type { Pose } from './sprites.js';
 import { Timeline } from './timeline.js';
-import { desenharEscudoDaLiga, veu, type PartidaParaVideo } from './video.js';
+import { DURACAO_DO_CARTAO, cameraQueSegue, closeNoJuiz, desenharCartaoGigante, desenharEscudoDaLiga, tempoComPausa, veu, type MomentoDoCartao, type PartidaParaVideo } from './video.js';
 import { desenharEstrelaSolta } from './escudos.js';
 
 export type ReelsDeNovidades = 'CAMPO' | 'CAPITAO' | 'JOGADOR' | 'SITE';
@@ -55,7 +55,7 @@ export interface DadosDasNovidades {
 type CartelaId =
   | 'ABERTURA' | 'NARRADORES' | 'NARRADOR' | 'CHAMADA'
   | 'CAPITAO' | 'POSTURA' | 'FORMACAO'
-  | 'VINCULO' | 'APELIDO' | 'ESPECIALIZACAO' | 'TREINO' | 'PRESENCA' | 'RESENHA' | 'SELECAO'
+  | 'VINCULO' | 'APELIDO' | 'CAMISA' | 'ESPECIALIZACAO' | 'TREINO' | 'PRESENCA' | 'RESENHA' | 'SELECAO'
   | 'APP' | 'AVISOS' | 'AO_VIVO' | 'CARREIRA' | 'ESTRELA';
 
 export interface CenaNovidade {
@@ -174,6 +174,7 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
         c('abertura', 4.5, 'Novidades da temporada dois, parte três: o seu jogador!', { cartela: 'ABERTURA' }, 'animado'),
         c('vinculo', 7, 'Quase tudo do seu jogador se faz pelo site, com o vínculo: no site, você acha o seu jogador, pega o código e manda na DM da liga. Pronto: o jogador fica ligado ao seu celular.', { cartela: 'VINCULO' }),
         c('apelido', 8, 'Escolhe um apelido: de duas a catorze letras, sem palavrão, e que ninguém mais da liga tenha. Ele aparece em cima do seu jogador, nos Reels, no ao vivo e no site, e o narrador fala o apelido nos lances. Dá pra trocar uma vez por dia.', { cartela: 'APELIDO' }),
+        c('camisa', 7, 'E agora tem número na camisa! No site, você escolhe de um a noventa e nove, sem repetir no seu time. Ele aparece nas costas do seu jogador, nos Reels, no ao vivo e no replay.', { cartela: 'CAMISA' }),
         c('especializacao', 10, 'A especialização é o seu jeito de jogar: três por posição. No ataque, artilheiro, driblador ou oportunista. No meio, armador, volante ou meia-atacante. Na zaga, xerife, bloqueador ou antecipação. E no gol, paredão, gato ou pegador de pênalti.', { cartela: 'ESPECIALIZACAO' }),
         lista('especializacao-regras', 'Especialização', [
           ['Melhora e piora', 'Ganha num Duelo e perde um pouco\nem outro: o OVR continua valendo.'],
@@ -333,11 +334,34 @@ function timelinesDe(r: RoteiroNovidades): Timeline[] {
   return t;
 }
 
+/**
+ * Trechos com a câmera do Reels de Partida. A Arquibancada, o Clima e a Substituição ficam com o
+ * campo inteiro, como no Reels: a torcida e o banco ficam nas laterais.
+ */
+const COM_CAMERA: ReadonlySet<ClipeId> = new Set<ClipeId>(['FALTA_CARTAO', 'PENALTI', 'BARREIRA', 'ESCANTEIO', 'CONTRA_ATAQUE', 'MARCACAO_DUPLA']);
+
+/**
+ * O cartão num trecho de jogo das novidades (ADR-0074), no tempo da cena: o trecho depois do
+ * momento principal faz o papel do "depois da resolução" do Reels de Partida.
+ */
+function momentoNoClipe(tl: Timeline, c: ClipeDeJogo, dur: number): { trecho: Segmento; momento: MomentoDoCartao } | null {
+  const card = tl.cartoes.find((x) => x.t > c.chave && x.t < c.ate);
+  if (!card) return null;
+  const PIVO = 0.55;
+  const trecho = { tipo: 'LANCE', inicio: 0, fim: dur, resolucao: dur * PIVO, jogoInicio: c.de, jogoResolucao: c.chave, jogoFim: c.ate } as Segmento;
+  const k = (c.ate - c.chave) / (dur * (1 - PIVO));
+  const inicio = trecho.resolucao! + (card.t - c.chave) / k;
+  const fim = inicio + DURACAO_DO_CARTAO;
+  if (fim > dur - 0.4) return null;
+  return { trecho, momento: { inicio, fim, tJogo: card.t, cartao: card.cartao, lado: card.lado, ocupante: card.ocupante } };
+}
+
 function opcoesDoJogo(p: PartidaParaVideo, o: OpcoesNovidades) {
   return {
     times: p.resultado.times,
     nomes: p.nomes,
     ...(p.apelidos ? { apelidos: p.apelidos } : {}),
+    ...(p.numeros ? { numeros: p.numeros } : {}),
     ...(o.fonteDisplay ? { fonteDisplay: o.fonteDisplay } : {}),
     ...(o.fonteTexto ? { fonteTexto: o.fonteTexto } : {}),
   };
@@ -410,7 +434,22 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
   if ('clipe' in cena.visual) {
     const c = d.clipes[cena.visual.clipe]!;
     const tl = timelinesDe(roteiro)[c.partida]!;
-    desenharQuadro(ctx, tl.estado(RoteiroNovidades.tJogo(c, q.progresso)), opcoesDoJogo(d.partidas[c.partida]!, o));
+    const opcoes = opcoesDoJogo(d.partidas[c.partida]!, o);
+    if (!COM_CAMERA.has(cena.visual.clipe)) desenharQuadro(ctx, tl.estado(RoteiroNovidades.tJogo(c, q.progresso)), opcoes);
+    else {
+      // Como no Reels de Partida (ADR-0072, ADR-0074): câmera seguindo a bola e, na falta com
+      // cartão, o lance quase parado com o close no juiz e o cartão gigante.
+      const dur = q.segmento.fim - q.segmento.inicio;
+      const jogoEm = (tv: number) => RoteiroNovidades.tJogo(c, Math.min(1, Math.max(0, tv / dur)));
+      const cartao = momentoNoClipe(tl, c, dur);
+      const tJogo = cartao ? tempoComPausa(cartao.trecho, cartao.momento, t, jogoEm(t)) : jogoEm(t);
+      const estado = tl.estado(tJogo);
+      const camera = cameraQueSegue(tl, (dv) => jogoEm(t + dv));
+      const noClose = cartao && t >= cartao.momento.inicio - 0.1 && t < cartao.momento.fim + 0.15;
+      const gigante = cartao && t >= cartao.momento.inicio && t < cartao.momento.fim;
+      desenharQuadro(ctx, estado, { ...opcoes, camera: noClose ? closeNoJuiz(estado, camera) : camera, ...(gigante ? { semLetreiro: true } : {}) });
+      if (gigante) desenharCartaoGigante(pin, cartao.momento, (t - cartao.momento.inicio) / (cartao.momento.fim - cartao.momento.inicio), opcoes);
+    }
     const leg = cena.visual.legenda;
     surge(entre(t, 0.15, 0.5), () => {
       pin.tabua(24, 446, 222, 30);
@@ -702,6 +741,21 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
         linha('arranca pela esquerda!"', 258, 13, COR.placa, 210);
       });
       surge(entre(t, 2.4, 2.8), () => linha('Em cima do boneco e na voz do Narrador', 312, 12, VERDE));
+      break;
+    }
+    case 'CAMISA': {
+      titulo('Número da camisa');
+      // O boneco de costas, como no jogo, e o número escolhido no site.
+      surge(entre(t, 0.3, 0.8), () => {
+        boneco(pin, 'COSTAS_PARADO', { ...uniforme('ONC', 'ATA', 'apelido'), numero: 10 }, COLUNAS / 2 - 36, 72, 6);
+      });
+      surge(entre(t, 1.4, 1.8), () => {
+        pin.tabua(30, 186, 210, 54);
+        linha('De 1 a 99', 205, 16, COR.amarelo, 190);
+        linha('Sem repetir no seu Time', 225, 12, COR.placa, 190);
+      });
+      surge(entre(t, 2.6, 3.0), () => linha('Nas costas do seu Jogador', 268, 13, VERDE));
+      surge(entre(t, 3.2, 3.6), () => linha('No Reels, no Ao Vivo e no Replay', 288, 12, COR.placa));
       break;
     }
     case 'ESPECIALIZACAO': {

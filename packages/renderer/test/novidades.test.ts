@@ -89,4 +89,23 @@ describe('Novidades da T2 (ADR-0063)', () => {
     // 21h de Brasília ainda é o mesmo dia, mesmo já sendo dia seguinte em UTC.
     expect(quandoEstreia({ estreia: '2026-11-19', publicadoEm: '2026-11-19T00:00:00Z' }).falado).toBe('amanhã');
   });
+
+  it('Seu Jogador: o número da camisa vem logo depois do apelido (ADR-0075)', () => {
+    const ids = cenasDasNovidades(dados.JOGADOR).map((c) => c.id);
+    expect(ids.indexOf('camisa')).toBe(ids.indexOf('apelido') + 1);
+    const camisa = cenasDasNovidades(dados.JOGADOR).find((c) => c.id === 'camisa')!;
+    expect(camisa.fala).toMatch(/um a noventa e nove/);
+  });
+
+  it('as Partidas de exemplo têm número da camisa, sem repetir no Time, e alguns de camisa lisa', () => {
+    for (const p of dados.CAMPO.partidas) {
+      for (const lado of ['mandante', 'visitante'] as const) {
+        const ns = p.numeros![lado];
+        expect(ns.length).toBe(p.nomes[lado].length);
+        const usados = ns.filter((n): n is number => n !== null);
+        expect(new Set(usados).size).toBe(usados.length);
+        for (const n of usados) expect(n >= 1 && n <= 99).toBe(true);
+      }
+    }
+  });
 });

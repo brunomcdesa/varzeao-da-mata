@@ -89,6 +89,7 @@ export function legendaDasNovidades(id: string, estreia: string, publicarEm: str
       '',
       'Com o Vínculo (código na DM da Liga), você escolhe pelo site:',
       '🏷️ Apelido: aparece no jogo e o Narrador fala nos lances',
+      '👕 Número da camisa: de 1 a 99, sem repetir no Time, nas costas do seu Jogador',
       '⭐ Especialização: 3 por posição, melhora uma coisa e piora outra',
       '💪 Treino: a habilidade que sobe mais rápido',
       '🥅 Canto do pênalti, de batedor e de goleiro',
