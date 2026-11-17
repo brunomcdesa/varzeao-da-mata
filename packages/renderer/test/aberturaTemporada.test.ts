@@ -12,8 +12,8 @@ describe('Reels de Abertura da Temporada', () => {
     const falas = narracaoDaAbertura(roteiro()).map((f) => f.texto).join(' ');
     for (const nome of ['Jacaré', 'Sucuri', 'Lobo-guará', 'Leão', 'Boto', 'Tartaruga', 'Coruja', 'Besouro', 'Capivara', 'Preguiça']) expect(falas).toContain(nome);
     for (const nome of ['Quati', 'Gambá', 'Jabuti', 'Teiú', 'Ariranha', 'Anta', 'Seriema', 'Bugio']) expect(falas).not.toContain(nome);
-    expect(falas).toContain('A Série A cresce para dezesseis times, em dois grupos. No Grupo do Chão: Capivara');
-    expect(falas).toContain('No Grupo da Copa: Preguiça');
+    expect(falas).toContain('A Série A cresce para dezesseis times, em dois grupos. No Grupo do Barro: Capivara');
+    expect(falas).toContain('No Grupo do Galho: Preguiça');
     expect(falas).toContain('Os dois primeiros de cada grupo vão pra semifinal: o primeiro de um contra o segundo do outro');
     expect(falas).toContain('os quatro últimos de cada grupo caem e formam a Série B, que estreia na Temporada 3');
     expect(falas).toContain('Posição cheia, você vai para outro time.');

@@ -37,9 +37,10 @@ export const TIMES_QUE_TROCAM_DE_SERIE = 2;
  */
 export const GRUPOS = ['CHAO', 'COPA'] as const;
 export type Grupo = (typeof GRUPOS)[number];
-export const NOME_DO_GRUPO: Readonly<Record<Grupo, string>> = { CHAO: 'Grupo do Chão', COPA: 'Grupo da Copa' };
-/** Nome curto, para placas e tabelas ("Chão", "Copa"). */
-export const NOME_CURTO_DO_GRUPO: Readonly<Record<Grupo, string>> = { CHAO: 'Chão', COPA: 'Copa' };
+/** Nomes dos Grupos (ADR-0069; eram Grupo do Chão e Grupo da Copa). Os ids seguem CHAO e COPA. */
+export const NOME_DO_GRUPO: Readonly<Record<Grupo, string>> = { CHAO: 'Grupo do Barro', COPA: 'Grupo do Galho' };
+/** Nome curto, para placas e tabelas ("Barro", "Galho"). */
+export const NOME_CURTO_DO_GRUPO: Readonly<Record<Grupo, string>> = { CHAO: 'Barro', COPA: 'Galho' };
 export const GRUPOS_DA_A_DE_16: Readonly<Record<Grupo, readonly TimeId[]>> = {
   CHAO: ['CAP', 'ONC', 'TAT', 'TAM', 'JAC', 'SUC', 'LOB', 'LEA'],
   COPA: ['PRE', 'SAG', 'TUC', 'ARA', 'COR', 'BES', 'BOT', 'TAR'],

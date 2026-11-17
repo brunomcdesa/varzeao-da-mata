@@ -97,7 +97,7 @@ export async function avancarMataMata(banco: Banco, temporadaId: number): Promis
       for (const serie of series) {
         let jogos: (readonly [TimeId, TimeId])[];
         if (grupos && serie === 'A') {
-          // Com Grupos (ADR-0064): 1º do Chão × 2º da Copa e 1º da Copa × 2º do Chão; manda o 1º.
+          // Com Grupos (ADR-0064): 1º do Barro × 2º do Galho e 1º do Galho × 2º do Barro; manda o 1º.
           const [c1, c2] = (await tabela(b, temporadaId, serie, 'CHAO')).map((l) => l.time) as [TimeId, TimeId];
           const [k1, k2] = (await tabela(b, temporadaId, serie, 'COPA')).map((l) => l.time) as [TimeId, TimeId];
           jogos = [[c1, k2], [k1, c2]];

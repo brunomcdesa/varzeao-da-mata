@@ -217,7 +217,7 @@ Cada uma das duas divisões da Liga: a Série A, de cima, e a Série B. A T2 tem
 _Avoid_: divisão, grupo, chave
 
 **Grupo**:
-Na T2, cada uma das duas metades da Série A de 16: o Grupo do Chão e o Grupo da Copa, com 8 Times cada e os Clássicos juntos. Cada Time joga contra os outros 7 do seu Grupo; os 2 primeiros vão às Semifinais (1º de um contra o 2º do outro) e os 4 últimos caem para a Série B da T3 (ADR-0064).
+Na T2, cada uma das duas metades da Série A de 16: o Grupo do Barro e o Grupo do Galho, com 8 Times cada e os Clássicos juntos. Cada Time joga contra os outros 7 do seu Grupo; os 2 primeiros vão às Semifinais (1º de um contra o 2º do outro) e os 4 últimos caem para a Série B da T3 (ADR-0064).
 _Avoid_: chave, conferência, divisão
 
 **Acesso**:

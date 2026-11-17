@@ -67,7 +67,7 @@ export function turnoEReturno(seed: number, timesDaSerie: readonly TimeId[]): Co
 
 /**
  * Turno único dentro de cada Grupo (ADR-0064), as Rodadas dos dois Grupos juntas: em cada Rodada,
- * os jogos se alternam entre os Grupos (Chão, Copa, Chão, Copa...).
+ * os jogos se alternam entre os Grupos (Barro, Galho, Barro, Galho...).
  */
 export function faseDeGrupos(seed: number, grupos: GruposDaTemporada): Confronto[][] {
   const porGrupo = GRUPOS.map((g, k) => faseDeLiga((seed ^ (0x9e3779b9 * (k + 1))) >>> 0, grupos[g]));

@@ -80,7 +80,7 @@ describe('Série A e Série B (ADR-0017)', () => {
     for (const c of ['CAP-ONC', 'TAM-TAT', 'PRE-SAG', 'ARA-TUC', 'JAC-SUC', 'LEA-LOB', 'BOT-TAR', 'BES-COR']) expect(pares).toContain(c);
     // O site mostra uma tabela por Grupo e a zona de queda (4 por Grupo).
     const liga = (await exportarSite(banco, new Date('2026-11-18T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
-    expect(liga.grupos?.map((g) => [g.nome, g.tabela.length])).toEqual([['Grupo do Chão', 8], ['Grupo da Copa', 8]]);
+    expect(liga.grupos?.map((g) => [g.nome, g.tabela.length])).toEqual([['Grupo do Barro', 8], ['Grupo do Galho', 8]]);
     expect(liga.caem).toBe(4);
     expect(liga.tabelaB).toBeUndefined();
   }, 120_000);
@@ -92,7 +92,7 @@ describe('Série A e Série B (ADR-0017)', () => {
     await jogarTemporada(t0);
     const chao = (await tabela(banco, t0, 'A', 'CHAO')).map((l) => l.time);
     const copa = (await tabela(banco, t0, 'A', 'COPA')).map((l) => l.time);
-    // Semifinais: 1º do Chão × 2º da Copa e 1º da Copa × 2º do Chão.
+    // Semifinais: 1º do Barro × 2º do Galho e 1º do Galho × 2º do Barro.
     const semisT2 = (
       await banco.query<{ mandante_id: TimeId; visitante_id: TimeId }>(
         `SELECT p.mandante_id, p.visitante_id FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND r.numero = 8 ORDER BY p.apito_inicial`,
