@@ -324,7 +324,7 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
           pin.texto('em cada Grupo', COLUNAS / 2, 94, 12, texto, COR.placa, { peso: 700 });
           pin.texto('todos contra todos', COLUNAS / 2, 118, pin.caber('todos contra todos', 226, 18, display), display, COR.amarelo, { contorno: COR.contorno });
         });
-        // Semifinais cruzadas: 1º Chão × 2º Copa, 1º Copa × 2º Chão.
+        // Semifinais cruzadas: 1º Barro × 2º Galho, 1º Galho × 2º Barro.
         surge(entre(t, 1.4, 1.8), () => {
           pin.tabua(12, 150, 246, 118);
           pin.texto('2 primeiros: semifinal', COLUNAS / 2, 168, pin.caber('2 primeiros: semifinal', 226, 16, display), display, '#7FD36B', { contorno: COR.contorno });

@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, PISO_DA_TEMPORADA_1, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, REELS_PROGRAMADOS, RODADAS_DO_BONUS_T1, GRUPOS_DA_A_DE_16, programadosDaVez, type ReelsProgramado, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, PISO_DA_TEMPORADA_1, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, REELS_PROGRAMADOS, RODADAS_DO_BONUS_T1, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, programadosDaVez, type ReelsProgramado, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
 import type { Instagram } from './instagram.js';
@@ -129,8 +129,8 @@ export function legendaDaAbertura(temporada: number, estreia: string): string {
     `⚽ Vem aí a Temporada ${temporada} do Varzeão da Mata!`,
     '',
     `A Série A cresce para 16 times, em dois grupos de 8 (os clássicos juntos):`,
-    `🟫 Grupo do Chão: ${lista(GRUPOS_DA_A_DE_16.CHAO)}`,
-    `🌳 Grupo da Copa: ${lista(GRUPOS_DA_A_DE_16.COPA)}`,
+    `🟫 ${NOME_DO_GRUPO.CHAO}: ${lista(GRUPOS_DA_A_DE_16.CHAO)}`,
+    `🌳 ${NOME_DO_GRUPO.COPA}: ${lista(GRUPOS_DA_A_DE_16.COPA)}`,
     'Todos contra todos no grupo. Os 2 primeiros de cada grupo vão pra semifinal (1º de um × 2º do outro).',
     `Os 4 últimos de cada grupo caem e formam a Série B, que estreia na Temporada ${temporada + 1}.`,
     'Quem entra agora escolhe o time (até 2 goleiros e 4 em cada posição por time). Posição cheia, vai para outro time na mesma posição.',

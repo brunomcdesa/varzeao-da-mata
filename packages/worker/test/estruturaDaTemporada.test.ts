@@ -19,7 +19,7 @@ describe('Estrutura da Temporada (ADR-0064)', () => {
     expect([...GRUPOS_DA_A_DE_16.COPA].sort()).toEqual(['ARA', 'BES', 'BOT', 'COR', 'PRE', 'SAG', 'TAR', 'TUC']);
   });
 
-  it('turno único dentro de cada Grupo: 7 Rodadas de 8 jogos, alternando Chão e Copa', () => {
+  it('turno único dentro de cada Grupo: 7 Rodadas de 8 jogos, alternando Barro e Galho', () => {
     const rodadas = faseDeGrupos(8, GRUPOS_DA_A_DE_16);
     expect(rodadas).toHaveLength(7);
     for (const jogos of rodadas) {
