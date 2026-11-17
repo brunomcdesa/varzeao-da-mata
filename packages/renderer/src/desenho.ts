@@ -11,7 +11,7 @@ import { CAMPO, cenario } from './cenario.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste, ruido } from './pixel.js';
 import { ALTURA_DAS_ESTRELAS, ALTURA_ESCUDO, LARGURA_ESCUDO, escudo, estrelasDoEscudo } from './escudos.js';
 import { ALTURA_SPRITE, LARGURA_SPRITE, MAO_DO_APITO, aparencia, escolherPose, sprite, type Pose, type Visual } from './sprites.js';
-import type { EstadoQuadro, JogadorNoQuadro, Ponto } from './timeline.js';
+import type { CartaoNoJogo, EstadoQuadro, JogadorNoQuadro, Ponto } from './timeline.js';
 import { visualDoJuiz, type JuizNoQuadro } from './juiz.js';
 import { desenharArquibancada, desenharCartao, desenharClimaNoAr, desenharClimaNoChao, desenharCloseDaTorcida } from './arquibancada.js';
 import { segundoUniforme } from './clima.js';
@@ -32,6 +32,8 @@ export interface OpcoesDesenho {
   camera?: Camera;
   /** Reels (ADR-0072): posições anteriores da bola (da mais antiga à mais nova), para o rastro. */
   rastro?: { pos: Ponto; altura: number }[];
+  /** Reels (ADR-0074): sem o letreiro do lance (o cartão gigante já está na tela). */
+  semLetreiro?: boolean;
 }
 
 /**
@@ -107,19 +109,19 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
   // Sem câmera, os @ vão junto com o campo. Com câmera (Reels), saem depois, no tamanho de sempre.
   // Na disputa de pênaltis, só o nome de quem está na área (cobrador e goleiro): a roda fica limpa.
   const comNome = ordem.filter((j) => !estado.penaltis || j.pos.y < 0.3);
-  if (!cam) for (const j of comNome) desenharNome(pin, j, o, texto, noCampo(j.pos), 6);
+  if (!cam) for (const j of comNome) desenharNome(pin, j, o, texto, noCampo(j.pos), 6, estado.cartoes);
   if (bolaAlta) desenharBola(pin, bolaChao, estado.bolaAltura);
   if (juiz) desenharCartaoDoJuiz(pin, juiz);
   if (estado.t2) desenharCartao(pin, estado, noCampo);
   ctx.restore();
   // Reels (ADR-0073): o @ de todos, no tamanho de sempre, logo abaixo do boneco já com zoom.
-  if (cam) for (const j of comNome) desenharNome(pin, j, o, texto, naTela(noCampo(j.pos)), 4 + 2 * cam.zoom);
+  if (cam) for (const j of comNome) desenharNome(pin, j, o, texto, naTela(noCampo(j.pos)), 4 + 2 * cam.zoom, estado.cartoes);
   if (estado.t2) desenharClimaNoAr(pin, estado);
   if (cam?.flash) pin.r(0, 0, COLUNAS, LINHAS, `rgba(255,250,235,${(0.45 * cam.flash).toFixed(3)})`);
 
   desenharPlacar(pin, estado, o, display, texto);
   if (estado.penaltis) desenharFaixaDosPenaltis(pin, estado, o, display, texto);
-  if (estado.destaque) desenharDestaque(pin, estado, o, display, texto);
+  if (estado.destaque && !o.semLetreiro) desenharDestaque(pin, estado, o, display, texto);
   else if (estado.trocas) desenharLetreiroDaTroca(pin, estado, o, display, texto);
   if (estado.t2) desenharCloseDaTorcida(pin, estado, o.times, texto);
 }
@@ -236,9 +238,39 @@ export function rotulo(o: Pick<OpcoesDesenho, 'nomes' | 'apelidos'>, lado: Lado,
 }
 
 /** O @ embaixo do boneco: `p` é o pé na tela (grade lógica) e `abaixo`, a distância até o texto. */
-function desenharNome(pin: Pincel, j: JogadorNoQuadro, o: OpcoesDesenho, fonte: string, p: Ponto, abaixo: number): void {
-  const nome = rotulo(o, j.slot.lado, j.ocupante ?? j.slot.indice) ?? 'Base';
+function desenharNome(pin: Pincel, j: JogadorNoQuadro, o: OpcoesDesenho, fonte: string, p: Ponto, abaixo: number, cartoes?: CartaoNoJogo[]): void {
+  const quem = j.ocupante ?? j.slot.indice;
+  const nome = rotulo(o, j.slot.lado, quem) ?? 'Base';
   pin.texto(nome, p.x, p.y + abaixo, 6.5, fonte, '#FFFFFF', { contorno: 'rgba(20,14,8,0.9)', peso: 600, espessura: 0.5 });
+  // Quem levou cartão carrega um cartãozinho antes do @ até o fim do jogo (ADR-0074).
+  const dele = cartoes?.filter((c) => c.lado === j.slot.lado && c.ocupante === quem);
+  if (!dele?.length) return;
+  const cor = dele.some((c) => c.cartao === 'VERMELHO') ? 'VERMELHO' : 'AMARELO';
+  pin.ctx.font = `600 ${6.5 * pin.px}px ${fonte}`;
+  const meia = pin.ctx.measureText(nome).width / pin.px / 2;
+  desenharCartaozinho(pin, p.x - meia - 6, p.y + abaixo - 3, cor, 1.5);
+}
+
+/** Cartãozinho (3×4 na escala 1) com contorno, para o placar e o @ (ADR-0074). */
+function desenharCartaozinho(pin: Pincel, x: number, y: number, cartao: 'AMARELO' | 'VERMELHO', escala: number): void {
+  const w = 3 * escala;
+  const h = 4 * escala;
+  pin.r(x - 0.5, y - 0.5, w + 1, h + 1, COR.contorno);
+  pin.r(x, y, w, h, cartao === 'VERMELHO' ? '#D7263D' : '#F6D02F');
+  pin.r(x, y, w, Math.max(0.5, escala * 0.5), 'rgba(255,255,255,0.5)');
+}
+
+/** Os cartões de cada Time embaixo do placar, do lado do Time (ADR-0074). */
+function desenharCartoesNoPlacar(pin: Pincel, e: EstadoQuadro): void {
+  if (!e.cartoes?.length) return;
+  for (const lado of ['mandante', 'visitante'] as Lado[]) {
+    const lista = e.cartoes.filter((c) => c.lado === lado).slice(0, 6);
+    if (!lista.length) continue;
+    const centro = COLUNAS / 2 + (lado === 'mandante' ? -73 : 73);
+    const passo = 9;
+    const x0 = centro - ((lista.length - 1) * passo) / 2 - 2;
+    lista.forEach((c, k) => desenharCartaozinho(pin, x0 + k * passo, 46, c.cartao, 2));
+  }
 }
 
 /** Reels (ADR-0072): rastro curto da bola quando ela anda rápido (passe longo, chute). */
@@ -385,6 +417,7 @@ export function desenharTabuaDoPlacar(
 
 function desenharPlacar(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, display: string, texto: string): void {
   desenharTabuaDoPlacar(pin, COLUNAS / 2, 8, 1, o.times, e.placar, display);
+  desenharCartoesNoPlacar(pin, e);
   if (e.penaltis) {
     desenharMarcasDePenalti(pin, e, display, texto);
     return;

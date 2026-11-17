@@ -93,6 +93,12 @@ const RECORTE: Record<TipoLance, { de: number; extraDepois: number }> = {
   FALTA: { de: 0.32, extraDepois: 20 },
 };
 
+/**
+ * Tempo a mais (s de vídeo) depois do apito numa falta com cartão, para o juiz chegar, levantar
+ * o cartão e o lance quase parar com o cartão gigante na tela (ADR-0074).
+ */
+export const TEMPO_DO_CARTAO = 2;
+
 /** Quanto a Substituição dura no Reels (s de vídeo), antes de esticar para a fala caber. */
 const DURACAO_TROCA_NO_VIDEO = 3.5;
 
@@ -157,7 +163,9 @@ export class Roteiro {
       const base = o.duracaoLance[lance.tipo];
       const m = minimo(segmentos.length);
       const antes = Math.max(base * PIVO[lance.tipo], m.antes ?? 0);
-      const depois = Math.max(base * (1 - PIVO[lance.tipo]), m.depois ?? 0);
+      // Falta com cartão (ADR-0074): mais tempo depois do apito para a pausa com o cartão gigante.
+      const doCartao = lance.falta?.cartao ? TEMPO_DO_CARTAO : 0;
+      const depois = Math.max(base * (1 - PIVO[lance.tipo]) + doCartao, m.depois ?? 0);
       // Fala longa (ADR-0071): em vez de câmera lenta, mostra mais da jogada na velocidade de
       // sempre. A construção começa antes e o lance respira mais depois, sem entrar em outro
       // lance. Bola parada começa na cobrança, então ali só o depois cresce.
