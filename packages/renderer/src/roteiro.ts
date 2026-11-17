@@ -152,12 +152,20 @@ export class Roteiro {
       const recorte = RECORTE[lance.tipo];
       // Gol de bola parada: o Reels mostra desde a cobrança (lateral ou escanteio).
       const de = lance.bolaParada === 'LATERAL' ? 0 : lance.bolaParada === 'ESCANTEIO' ? 0.2 : recorte.de;
-      const jogoInicio = janela.inicio + (janela.fim - janela.inicio) * de;
-      const jogoFim = Math.min(DURACAO_JOGO, janela.resolucao + recorte.extraDepois);
+      let jogoInicio = janela.inicio + (janela.fim - janela.inicio) * de;
+      let jogoFim = Math.min(DURACAO_JOGO, janela.resolucao + recorte.extraDepois);
       const base = o.duracaoLance[lance.tipo];
       const m = minimo(segmentos.length);
       const antes = Math.max(base * PIVO[lance.tipo], m.antes ?? 0);
       const depois = Math.max(base * (1 - PIVO[lance.tipo]), m.depois ?? 0);
+      // Fala longa (ADR-0071): em vez de câmera lenta, mostra mais da jogada na velocidade de
+      // sempre. A construção começa antes e o lance respira mais depois, sem entrar em outro
+      // lance. Bola parada começa na cobrança, então ali só o depois cresce.
+      const livre = timeline.trechoLivre(i);
+      const escalaAntes = antes / (base * PIVO[lance.tipo]);
+      if (escalaAntes > 1 && !lance.bolaParada) jogoInicio = Math.max(livre.de, Math.min(jogoInicio, janela.resolucao - (janela.resolucao - jogoInicio) * escalaAntes));
+      const escalaDepois = depois / (base * (1 - PIVO[lance.tipo]));
+      if (escalaDepois > 1) jogoFim = Math.max(jogoFim, Math.min(livre.ate, DURACAO_JOGO, janela.resolucao + (jogoFim - janela.resolucao) * escalaDepois));
       const inicio = cursor;
       const resolucao = inicio + antes;
       const fim = (cursor = resolucao + depois);

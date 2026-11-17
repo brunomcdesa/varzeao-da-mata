@@ -212,6 +212,10 @@ _Avoid_: rating, avaliação, desempenho
 A voz que narra a Partida, no Reels e no Ao Vivo: uma de cinco, sorteada pela semente da Partida. Cada Narrador tem a sua voz e o seu jeito de narrar (ADR-0032). Nunca fala o @ e só comenta o que aparece na tela. Na T1, fala dos Jogadores pela Posição e pelo Time e diz o apelido só nos gols; a partir da T2, diz o apelido em toda fala de Jogador (na primeira vez, junto com a Posição e o Time) e fica pela Posição e pelo Time só com quem não tem apelido falável (ADR-0059).
 _Avoid_: Locutor da Liga, locutor, comentarista, voz
 
+**Toque de bola**:
+O trecho entre um lance e outro, em que o Time que vai atacar troca passes até a jogada começar (ADR-0045). Depois de gol, começa com a saída de bola. No Ao Vivo, o Narrador preenche esse trecho com frases de jogo corrido, e as frases de posse só entram quando o toque de bola mostra aquilo na tela (ADR-0070).
+_Avoid_: enchimento (é o nome das frases, não do trecho), posse de bola, troca de passes
+
 **Série**:
 Cada uma das duas divisões da Liga: a Série A, de cima, e a Série B. A T2 tem só a Série A, com 16 Times em dois Grupos; da T3 em diante, cada Série tem 8 (ADR-0062 e ADR-0064). Cada Série tem a sua Fase de Liga, o seu Mata-mata, o seu Título e os seus Craques.
 _Avoid_: divisão, grupo, chave

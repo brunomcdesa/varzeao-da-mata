@@ -368,7 +368,7 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
         `${cap(f)} não perdoa!`,
         `${curto('mandante')} ${placar.mandante}, ${curto('visitante')} ${placar.visitante}.`,
         `Explode a torcida ${doTime(time(atq))}!`,
-        `Comemora ${f}!`,
+        // Sem "Comemora…!": a comemoração já acabou na tela quando esta fala sai (ADR-0071).
         `Que golaço no Varzeão!`,
       ];
       falas.push({ id: `lance-${s.lance}-c`, texto: escolher(rng, extras), inicio: s.resolucao! + 1.3, limite: s.fim - 0.05, tom: 'animado', segmento: indice, parte: 'depois' });

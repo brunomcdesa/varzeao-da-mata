@@ -85,4 +85,52 @@ describe('Roteiro', () => {
     expect(roteiro.quadroEm(corte).escurecer).toBeCloseTo(1, 5);
     expect(roteiro.quadroEm(corte + 1).escurecer).toBe(0);
   });
+
+  describe('fala longa sem câmera lenta (ADR-0071)', () => {
+    /** Trechos esticados para a fala caber: o dobro do tempo antes e depois da resolução. */
+    const esticado = (tl: Timeline) => {
+      const base = new Roteiro(tl);
+      const minimos: Record<number, { antes: number; depois: number }> = {};
+      base.segmentos.forEach((s, k) => {
+        if (s.tipo === 'LANCE') minimos[k] = { antes: (s.resolucao! - s.inicio) * 2, depois: (s.fim - s.resolucao!) * 2 };
+      });
+      return { base, roteiro: new Roteiro(tl, { minimos }) };
+    };
+    const vel = (de: number, ate: number, v0: number, v1: number) => (ate - de) / (v1 - v0);
+
+    it('mostra mais da jogada na velocidade de sempre, sem entrar em outro lance', () => {
+      let semLentidao = 0;
+      let lances = 0;
+      for (let seed = 1; seed <= 40; seed++) {
+        const tl = timeline(seed);
+        const { base, roteiro } = esticado(tl);
+        roteiro.segmentos.forEach((s, k) => {
+          if (s.tipo !== 'LANCE') return;
+          const b = base.segmentos[k]!;
+          const livre = tl.trechoLivre(s.lance!);
+          // Nunca mostra outro lance nem o letreiro dele.
+          expect(s.jogoInicio!).toBeGreaterThanOrEqual(Math.min(b.jogoInicio!, livre.de) - 1e-9);
+          expect(s.jogoFim!).toBeLessThanOrEqual(Math.max(b.jogoFim!, livre.ate) + 1e-9);
+          if (tl.resultado.lances[s.lance!]!.bolaParada) return;
+          lances++;
+          const antes = vel(s.jogoInicio!, s.jogoResolucao!, s.inicio, s.resolucao!);
+          const antesBase = vel(b.jogoInicio!, b.jogoResolucao!, b.inicio, b.resolucao!);
+          // Só fica mais lento quando esbarra no lance anterior.
+          if (s.jogoInicio! > livre.de + 1e-6) expect(antes).toBeCloseTo(antesBase, 6);
+          if (antes > antesBase * 0.99) semLentidao++;
+        });
+      }
+      // Mesmo dobrando o tempo de todos os lances, quase metade cabe sem nenhuma lentidão.
+      expect(semLentidao / lances).toBeGreaterThan(0.4);
+    });
+
+    it('sem fala longa, o corte é o de sempre', () => {
+      for (let seed = 1; seed <= 20; seed++) {
+        const tl = timeline(seed);
+        const a = new Roteiro(tl);
+        const b = new Roteiro(tl, { minimos: {} });
+        expect(b.segmentos).toEqual(a.segmentos);
+      }
+    });
+  });
 });
