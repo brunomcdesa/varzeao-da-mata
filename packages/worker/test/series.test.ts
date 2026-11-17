@@ -262,6 +262,26 @@ describe('Inscrição e voto com duas Séries', () => {
     expect((await craqueDaRodada(banco, rodada, 'B'))!.id).toBe(await doNumero(7));
   }, 60_000);
 
+  it('na Pré-temporada da T2, o site já lista os 16 Times e os Grupos da T2 (ADR-0068)', async () => {
+    const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
+    await jogarTemporada(t1);
+    const antes = (await exportarSite(banco, new Date('2026-11-17T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
+    expect(antes.ativa?.numero).toBe(1);
+    expect(ordenados(antes.ativa!.times)).toEqual(ordenados(TIMES_FUNDADORES));
+    expect(antes.ativa?.grupos ?? null).toBeNull();
+
+    await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-19', seed: 8 });
+    // Quarta, véspera da estreia: a Temporada atual do site ainda é a 1, mas a Inscrição já é na 2.
+    const pre = (await exportarSite(banco, new Date('2026-11-18T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
+    expect(pre.temporada?.numero).toBe(1);
+    expect(pre.ativa?.numero).toBe(2);
+    expect(ordenados(pre.ativa!.times)).toEqual(ordenados(await timesAtivos(banco)));
+    expect(pre.ativa!.times).toHaveLength(16);
+    // Na ordem da Abertura.
+    expect(pre.ativa?.grupos).toEqual({ CHAO: [...GRUPOS_DA_A_DE_16.CHAO], COPA: [...GRUPOS_DA_A_DE_16.COPA] });
+    expect(pre.ativa!.times.slice(0, 8)).toEqual([...TIMES_FUNDADORES]);
+  }, 120_000);
+
   it('o campeão da Temporada 1 ganha a estrela no escudo só quando a Temporada 2 é criada (ADR-0060)', async () => {
     const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
     await jogarTemporada(t1);

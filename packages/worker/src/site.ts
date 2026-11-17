@@ -7,13 +7,13 @@
  * aparecem depois do Apito (o lance a lance) ou do fim do Ao Vivo (placar, tabela, Card).
  * Escalações aparecem assim que existem (a partir do Corte).
  */
-import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2, timesQueCaem, GRUPOS, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
+import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Grupo, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2, timesQueCaem, GRUPOS, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
 import { fundadorDe } from './rebalanceamento.js';
 import { comSeloT1 } from './recompensaT1.js';
 import { TEMPORADA_DOS_DESTAQUES, desempenhosDasPartidas } from './destaques.js';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
-import { gruposDaTemporada, seriesDaTemporada, type GruposDaTemporada, type SeriesDaTemporada } from './series.js';
+import { gruposDaTemporada, seriesAtivas, seriesDaTemporada, type GruposDaTemporada, type SeriesDaTemporada } from './series.js';
 import { classificar } from './tabela.js';
 import { horaDeBrasilia } from './briga.js';
 import { habilidadesDe } from './regras.js';
@@ -102,6 +102,21 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   const inicioDe = (t: LinhaTemporada) => (t.inicio instanceof Date ? t.inicio.toISOString() : String(t.inicio)).slice(0, 10);
   const temporada = [...temporadas].reverse().find((t) => inicioDe(t) <= hojeBrasilia) ?? temporadas.at(-1);
   const seguinte = temporadas.at(-1) !== temporada ? temporadas.at(-1) : undefined;
+  // A Temporada que aceita Inscrição agora (ADR-0068): na Pré-temporada, já a próxima. O site
+  // lista os Times dela, e não só os da atual.
+  const ativaInscricao = await seriesAtivas(banco);
+  const ativaLinha = temporadas.find((t) => t.numero === ativaInscricao.numero);
+  // Na ordem de sempre (fundadores, depois os novos), como na Abertura, e não na alfabética do banco.
+  const naOrdem = (ts: readonly TimeId[]) => [...ts].sort((x, y) => TIMES.indexOf(x) - TIMES.indexOf(y));
+  const gruposDaAtiva = ativaLinha ? (gruposDe.get(ativaLinha.id) ?? null) : null;
+  const ativa = ativaInscricao.numero === null
+    ? null
+    : {
+        numero: ativaInscricao.numero,
+        times: naOrdem([...ativaInscricao.series.A, ...ativaInscricao.series.B]),
+        // Cada Grupo na ordem da Abertura (GRUPOS_DA_A_DE_16).
+        grupos: gruposDaAtiva ? (Object.fromEntries(GRUPOS.map((g) => [g, [...gruposDaAtiva[g]].sort((x, y) => GRUPOS_DA_A_DE_16[g].indexOf(x) - GRUPOS_DA_A_DE_16[g].indexOf(y))])) as Record<Grupo, TimeId[]>) : null,
+      };
   const numeroDa = new Map(temporadas.map((t) => [t.id, t.numero]));
   const times = TIMES.map((id) => ({ id, nome: IDENTIDADE[id].nome, sigla: IDENTIDADE[id].sigla, primaria: IDENTIDADE[id].primaria, secundaria: IDENTIDADE[id].secundaria }));
 
@@ -512,6 +527,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     temporadas: [...historia].reverse(),
     estrelas: estrelasDosTimes(historia.map((h) => ({ numero: h.numero, campeao: h.campeao, campeaoB: h.serieB?.campeao ?? null }))),
     proximaTemporada: seguinte ? { numero: seguinte.numero, inicio: inicioDe(seguinte) } : null,
+    ativa,
   };
   arquivos.set('liga.json', liga);
   arquivos.set('jogadores.json', [...porJogador.values()]);

@@ -4,7 +4,7 @@
  * porque os arquivos estáticos só são regerados de hora em hora.
  */
 import { definirAparencias, definirEstrelas } from '@liga/renderer';
-import { TIMES_FUNDADORES, duracaoAoVivoMs, type JogadorPublico, type LigaPublica, type LinhaTabelaPublica, type PartidaNoCalendario, type PartidaPublica, type Serie, type SituacaoPartida, type TimeId } from '@liga/shared';
+import { duracaoAoVivoMs, gruposDaLiga, timesDaLiga, type Grupo, type JogadorPublico, type LigaPublica, type LinhaTabelaPublica, type PartidaNoCalendario, type PartidaPublica, type Serie, type SituacaoPartida, type TimeId } from '@liga/shared';
 
 const meta = (nome: string) => document.querySelector<HTMLMetaElement>(`meta[name="${nome}"]`)?.content.trim() ?? '';
 const comBarra = (s: string) => (s && !s.endsWith('/') ? `${s}/` : s);
@@ -110,10 +110,14 @@ export function tabelaDaSerie(l: LigaPublica, s: Serie): LinhaTabelaPublica[] {
   return s === 'B' ? (l.tabelaB ?? []) : l.tabela;
 }
 
-/** Os Times que jogam a Temporada atual: os 16 com Série B; senão, os fundadores. */
-export function timesAtivos(l: LigaPublica): TimeId[] {
-  return l.series ? [...l.series.A, ...l.series.B] : [...TIMES_FUNDADORES];
-}
+/**
+ * Os Times da Temporada que aceita Inscrição (ADR-0068): na Pré-temporada, já os da próxima. Em
+ * dados antigos, os das Séries ou os fundadores.
+ */
+export const timesAtivos = (l: LigaPublica): TimeId[] => timesDaLiga(l);
+
+/** Os Grupos da Temporada que aceita Inscrição (T2, ADR-0064), ou null. */
+export const gruposAtivos = (l: LigaPublica): Record<Grupo, TimeId[]> | null => gruposDaLiga(l);
 
 /** As Séries da Temporada atual, na ordem (só a A antes da Série B). */
 export function seriesDaLiga(l: LigaPublica): Serie[] {

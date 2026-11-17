@@ -2,7 +2,7 @@
 import type { TimeId } from '@liga/shared';
 import { ativarAvisos, desativarAvisos, suporteAosAvisos, timesComAviso, type SuporteAosAvisos } from '../avisosApp.js';
 import { jogadores, liga, timesAtivos } from '../dados.js';
-import { appLiberado } from '../instalacao.js';
+import { appLiberado, temporadaDoApp } from '../instalacao.js';
 import { jogadorVinculado } from '../meuPersonagem.js';
 import { curto, escudoImg, html, type Html } from '../ui.js';
 import type { Pagina } from './tipos.js';
@@ -15,7 +15,7 @@ const AVISO_DO_SUPORTE: Record<Exclude<SuporteAosAvisos, 'ok'>, string> = {
 
 export const paginaAvisos: Pagina = async (main) => {
   const l = await liga();
-  if (!appLiberado(l.temporada?.numero)) {
+  if (!appLiberado(temporadaDoApp(l))) {
     main.innerHTML = html`<section class="placa vazio"><h1>Avisos de jogo</h1><p>Os Avisos chegam com o App, na Temporada 2.</p></section>`.s;
     return;
   }

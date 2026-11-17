@@ -46,3 +46,11 @@ export const TEMPORADA_DO_APP = 2;
 export function appLiberado(numeroDaTemporada: number | null | undefined): boolean {
   return (numeroDaTemporada ?? 0) >= TEMPORADA_DO_APP;
 }
+
+/**
+ * A Temporada que vale para o App, os Avisos e as telas da T2 no site num `liga.json` (ADR-0068): a que aceita Inscrição
+ * (na Pré-temporada, já a próxima) ou, em dados antigos sem esse campo, a atual.
+ */
+export function temporadaDoApp(l: { temporada?: { numero: number } | null; ativa?: { numero: number } | null } | null | undefined): number | null {
+  return Math.max(l?.ativa?.numero ?? 0, l?.temporada?.numero ?? 0) || null;
+}

@@ -6,6 +6,7 @@ import type { MomentosDoAoVivo } from './avisos.js';
 import type { Aparencia } from './aparencia.js';
 import type { Estrelas } from './estrelas.js';
 import type { Especializacao, Grupo, Posicao, Serie, TimeId } from './index.js';
+import { TIMES_FUNDADORES } from './index.js';
 import type { HabilidadeId, Habilidades } from './habilidades.js';
 
 export interface TimePublico {
@@ -87,6 +88,11 @@ export interface LigaPublica {
   grupos?: { grupo: Grupo; nome: string; tabela: LinhaTabelaPublica[] }[];
   /** Os Times de cada Série na Temporada atual, quando ela tem Séries. */
   series?: Record<Serie, TimeId[]> | null;
+  /**
+   * A Temporada que aceita Inscrição agora (ADR-0068): a atual ou, na Pré-temporada, a próxima.
+   * Traz os Times dela (os mesmos da Inscrição) e, na T2, os Grupos. O App libera por ela.
+   */
+  ativa?: { numero: number; times: TimeId[]; grupos?: Record<Grupo, TimeId[]> | null } | null;
   calendario: PartidaNoCalendario[];
   rodadas: RodadaPublica[];
   /** Só depois que o Ao Vivo da Final termina. Com duas Séries, é o campeão da A. */
@@ -266,4 +272,18 @@ export interface PartidaPublica {
   briga?: import('./briga.js').BrigaPeloMataMata;
   /** Só no arquivo privado (job partida): quando cada gol aparece no Ao Vivo, para os Avisos do App (ADR-0042). */
   momentos?: MomentosDoAoVivo;
+}
+
+/**
+ * Os Times da Temporada que aceita Inscrição (ADR-0068): na Pré-temporada, já os da próxima. Em
+ * dados antigos (sem `ativa`), os das Séries ou os fundadores.
+ */
+export function timesDaLiga(l: Pick<LigaPublica, 'ativa' | 'series'>): TimeId[] {
+  if (l.ativa?.times.length) return [...l.ativa.times];
+  return l.series ? [...l.series.A, ...l.series.B] : [...TIMES_FUNDADORES];
+}
+
+/** Os Grupos da Temporada que aceita Inscrição (T2, ADR-0064), ou null. */
+export function gruposDaLiga(l: Pick<LigaPublica, 'ativa'>): Record<Grupo, TimeId[]> | null {
+  return l.ativa?.grupos ?? null;
 }
