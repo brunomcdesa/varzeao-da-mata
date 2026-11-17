@@ -367,3 +367,7 @@ _Avoid_: tempo, condição do campo
 **Segundo uniforme**:
 A camisa alternativa que um Time usa quando as suas cores se confundem com as do adversário.
 _Avoid_: camisa reserva, uniforme dois
+
+**Número da camisa**:
+O número de 1 a 99 que o Jogador escolhe no site, único dentro do Time. Aparece nas costas do boneco, no Reels, no Ao Vivo e no Replay. A Escalação guarda o número da época do jogo; quem não escolheu joga de camisa lisa (ADR-0075).
+_Avoid_: dorsal, número do jogador

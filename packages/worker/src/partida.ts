@@ -23,6 +23,8 @@ export interface DadosDoVideo {
   nomes: Record<Lado, (string | null)[]>;
   /** Apelidos na hora da Escalação (ADR-0014). */
   apelidos?: Record<Lado, (string | null)[]>;
+  /** Número da camisa na hora da Escalação (ADR-0075); null = camisa lisa. */
+  numeros?: Record<Lado, (number | null)[]>;
   subtitulo?: string;
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
@@ -184,6 +186,7 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
     // Banco (ADR-0061): os nomes dos reservas vêm depois dos titulares (o "ocupante" do lugar).
     nomes: { mandante: [...escalada.nomes.mandante, ...(escalada.banco?.mandante.map((x) => x.nome) ?? [])], visitante: [...escalada.nomes.visitante, ...(escalada.banco?.visitante.map((x) => x.nome) ?? [])] },
     apelidos: { mandante: [...escalada.apelidos.mandante, ...(escalada.banco?.mandante.map((x) => x.apelido) ?? [])], visitante: [...escalada.apelidos.visitante, ...(escalada.banco?.visitante.map((x) => x.apelido) ?? [])] },
+    numeros: { mandante: [...escalada.numeros.mandante, ...(escalada.banco?.mandante.map((x) => x.numero) ?? [])], visitante: [...escalada.numeros.visitante, ...(escalada.banco?.visitante.map((x) => x.numero) ?? [])] },
     subtitulo: subtituloDaPartida(p.rodada, p.fase, new Date(p.apito_inicial), briga !== null),
     aparencias: await aparenciasEscolhidas(banco),
     estrelas: await estrelasNoBanco(banco),
