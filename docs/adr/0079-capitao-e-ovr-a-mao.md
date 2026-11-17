@@ -1,6 +1,6 @@
 # 0079 — Capitão à mão e OVR à mão
 
-- Status: proposto (aguarda aprovação do dono)
+- Status: aceito (aprovado pelo dono em 17/11/2026)
 - Data: 2026-11-17
 
 ## Contexto
