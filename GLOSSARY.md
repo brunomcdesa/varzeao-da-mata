@@ -317,7 +317,7 @@ O OVR mínimo (65) dado uma vez, na Pré-temporada da T2, a quem tem o Selo da T
 _Avoid_: nivelamento, bônus de OVR
 
 **Bônus da Temporada 1**:
-Os ganhos de Habilidade 1,5 vez maiores, nas 3 primeiras Rodadas da T2, para quem tem o Selo da Temporada 1. Soma com a Resenha e respeita o teto por Partida (ADR-0047).
+Os ganhos de Habilidade 1,5 vez maiores, nas 2 primeiras Rodadas da T2, para quem tem o Selo da Temporada 1. Soma com a Resenha e respeita o teto por Partida (ADR-0047).
 _Avoid_: buff, boost
 
 **Partida**:

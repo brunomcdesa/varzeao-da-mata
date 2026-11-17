@@ -389,7 +389,7 @@ export function faixaDoOvrInicialDaLiga(l: {
   return depois ? OVR_INICIAL_DEPOIS_DA_T1 : OVR_INICIAL;
 }
 /** Rodadas da Fase de Liga da T2 em que vale o Bônus da Temporada 1 (da 1ª até esta). */
-export const RODADAS_DO_BONUS_T1 = 3;
+export const RODADAS_DO_BONUS_T1 = 2; // 2 de 7 Rodadas com os Grupos (ADR-0064); eram 3 de 15.
 export function temBonusT1(numeroDaTemporada: number, numeroDaRodada: number, fase: 'LIGA' | 'MATA_MATA'): boolean {
   return numeroDaTemporada === PRIMEIRA_TEMPORADA_COM_REGRAS_T2 && fase === 'LIGA' && numeroDaRodada <= RODADAS_DO_BONUS_T1;
 }
