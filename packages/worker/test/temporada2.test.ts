@@ -271,7 +271,7 @@ describe('Temporada 2 no worker', () => {
     expect((await transferirJogador(banco, id, { times: ['CAP'] }, { quando, ref: 'j3' })).resultado).toBe('TRANSFERIDO');
   });
 
-  it('Transferência respeita o Limite por Posição: 4 atacantes no destino, a troca não acontece (ADR-0079)', async () => {
+  it('Transferência respeita o Limite por Posição: 4 atacantes no destino, a troca não acontece (ADR-0080)', async () => {
     await novaT2();
     // Inscrição direta (sem a regra da coleta): JAC já com 4 atacantes, CAP com 4 meias.
     const direto = async (time: TimeId, posicao: string, quem: string) =>

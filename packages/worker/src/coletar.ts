@@ -425,7 +425,7 @@ export async function transferirJogador(
     }
   }
 
-  // Limite por Posição (ADR-0079): a Transferência (e a troca de Posição no mesmo Time) segue a
+  // Limite por Posição (ADR-0080): a Transferência (e a troca de Posição no mesmo Time) segue a
   // mesma regra da Inscrição. Conta o destino sem ele; cheia, a troca não acontece.
   if (destino !== j.time_id || posicao !== j.posicao) {
     const { series } = await seriesAtivas(b);

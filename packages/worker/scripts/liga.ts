@@ -5,7 +5,7 @@
  *   USUARIO=fulano pnpm liga remover               remove um Jogador que ainda não jogou
  *   USUARIO=fulano TIME=onca POSICAO=zagueiro pnpm liga mover   muda o Time à mão (ADR-0029)
  *   pnpm liga rebalancear [--gravar]                Rebalanceamento da T2 (ADR-0036); sem --gravar só mostra o plano
- *   pnpm liga limite-por-posicao [--gravar]         Move o excedente do Limite por Posição (ADR-0079); sem --gravar só mostra
+ *   pnpm liga limite-por-posicao [--gravar]         Move o excedente do Limite por Posição (ADR-0080); sem --gravar só mostra
  *   pnpm liga recompensa-t1 [--gravar]              Selo e Piso da Temporada 1 (ADR-0047); sem --gravar só mostra quem sobe
  *   USUARIO=fulano pnpm liga capitao [--gravar]     Capitão à mão do Time do Jogador (ADR-0079)
  *   TIME=onca pnpm liga capitao [--gravar]          tira o Capitão à mão: a faixa volta à regra de mais Partidas
@@ -316,7 +316,7 @@ async function main(): Promise<void> {
       }
 
       case 'limite-por-posicao': {
-        // Correção do Limite por Posição (ADR-0079). Sem --gravar é a simulação.
+        // Correção do Limite por Posição (ADR-0080). Sem --gravar é a simulação.
         const r = await corrigirLimitePorPosicao(banco, { gravar: args.gravar });
         console.log(`${r.correcoes.length} Jogador(es) acima do Limite por Posição.${r.gravado ? '' : ' SIMULAÇÃO: nada foi gravado.'}`);
         for (const c of r.correcoes) console.log(`  @${c.jogador.username} (id ${c.jogador.id}, inscrito em ${c.jogador.inscritoEm}): ${c.jogador.posicao} ${nomeCurto(c.jogador.time)} → ${nomeCurto(c.para)}`);

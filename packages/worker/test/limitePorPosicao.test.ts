@@ -11,7 +11,7 @@ const j = (time: TimeId, posicao: JogadorNaPosicao['posicao'], dia: number): Jog
   inscritoEm: `2026-11-${String(dia).padStart(2, '0')}T12:00:00.000Z`,
 });
 
-describe('Correção do Limite por Posição (ADR-0079)', () => {
+describe('Correção do Limite por Posição (ADR-0080)', () => {
   it('o atacante mais recente do Time com 5 vai para o Time do Grupo com menos atacantes', () => {
     const lobo = [1, 2, 3, 4, 10].map((d) => j('LOB', 'ATA', d));
     const elenco = [...lobo, ...[1, 2, 3].map((d) => j('TAM', 'ATA', d)), j('LEA', 'ATA', 1), j('ONC', 'ATA', 1)];

@@ -1,5 +1,5 @@
 /**
- * Correção do Limite por Posição (ADR-0079): quem passou do limite antes de a Transferência
+ * Correção do Limite por Posição (ADR-0080): quem passou do limite antes de a Transferência
  * respeitar a regra. Em cada Time acima do limite numa Posição, o inscrito mais recente dela vai
  * para o Time do mesmo Grupo (ou, sem vaga no Grupo, da mesma Série) com menos gente na Posição,
  * na mesma Posição, sem gastar a Transferência (mudança do dono, ADR-0029).

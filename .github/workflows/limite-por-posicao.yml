@@ -1,4 +1,4 @@
-# Correção do Limite por Posição (ADR-0079). Só à mão: Actions → limite-por-posicao → Run workflow.
+# Correção do Limite por Posição (ADR-0080). Só à mão: Actions → limite-por-posicao → Run workflow.
 # Primeiro rode sem "gravar" (simulação: quem sai, para onde e os rascunhos dos avisos ficam no log).
 # Com "gravar", move (sem gastar a Transferência) e republica o site. Os avisos NÃO são enviados por aqui.
 name: limite-por-posicao
