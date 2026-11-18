@@ -4,6 +4,9 @@ import type { Banco } from '../src/banco.js';
 import { forcarCapitao, forcarOvr, tirarCapitao } from '../src/aMao.js';
 import { criarTemporada } from '../src/calendario.js';
 import { moverJogador, processarComentario } from '../src/coletar.js';
+import { escalarPartida } from '../src/escalacao.js';
+import { rodarPartida } from '../src/partida.js';
+import { exportarSite } from '../src/site.js';
 import { capitaoDaPartida, ordemDoCapitao } from '../src/temporada2.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 
@@ -128,5 +131,34 @@ describe('OVR à mão (ADR-0079)', () => {
     expect((await banco.query<{ ovr_antes: number; ovr_depois: number }>(`SELECT ovr_antes, ovr_depois FROM ovr_a_mao WHERE jogador_id = $1`, [id])).rows).toEqual([
       { ovr_antes: ovrAntes, ovr_depois: 80 },
     ]);
+  });
+
+  it('vira a base do Jogador no site e um degrau no gráfico, sem marca de ajuste', async () => {
+    await novaT2();
+    const id = await inscrever('ONC', 'ATA', 'artilheiro', '2026-11-10T12:00:00Z');
+    const agora = new Date('2026-11-17T20:00:00Z');
+    await forcarOvr(banco, 'artilheiro', 80, { gravar: true, agora });
+    const site = await exportarSite(banco, new Date('2026-11-17T21:00:00Z'));
+    const j = (site.arquivos.get('jogadores.json') as { id: string; ovr: number; base?: { ovr: number }; degraus?: { jogo: number; ovr: number }[] }[]).find((x) => x.id === id)!;
+    expect(j.ovr).toBe(80);
+    expect(j.base?.ovr).toBe(80);
+    expect(j.degraus).toEqual([{ jogo: 0, ovr: 80 }]);
+    // Antes do ajuste, nada disso aparece.
+    const antes = await exportarSite(banco, new Date('2026-11-17T19:00:00Z'));
+    const j0 = (antes.arquivos.get('jogadores.json') as { id: string; base?: unknown; degraus?: unknown }[]).find((x) => x.id === id)!;
+    expect(j0.base).toBeUndefined();
+    expect(j0.degraus).toBeUndefined();
+  });
+
+  it('escalado num jogo que ainda não terminou, recusa (o resultado gravaria o OVR antigo por cima)', async () => {
+    const t2 = await novaT2();
+    await inscrever('ONC', 'ATA', 'artilheiro', '2026-11-10T12:00:00Z');
+    const p = await primeiraPartida(t2, 'ONC');
+    await escalarPartida(banco, p.id);
+    await expect(forcarOvr(banco, 'artilheiro', 80, { gravar: true })).rejects.toThrow('ainda não terminou');
+    await rodarPartida(banco, p.id, { seed: 3 });
+    const apito = (await banco.query<{ a: Date }>(`SELECT apito_inicial AS a FROM partida WHERE id = $1`, [p.id])).rows[0]!.a;
+    await expect(forcarOvr(banco, 'artilheiro', 80, { gravar: true, agora: new Date(apito) })).rejects.toThrow('ainda não terminou');
+    expect((await forcarOvr(banco, 'artilheiro', 80, { gravar: true, agora: new Date(new Date(apito).getTime() + 6 * 3600_000) })).ovrDepois).toBe(80);
   });
 });

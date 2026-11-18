@@ -203,6 +203,10 @@ export interface JogadorPublico {
   seloT1?: true;
   /** Piso da Temporada 1 (ADR-0047): o OVR antes e depois, só para quem subiu. Marca o degrau no gráfico do OVR (ADR-0078). */
   pisoT1?: { antes: number; depois: number };
+  /** Base do OVR (ADR-0079): o último ajuste do dono. O '+N' e as barras do card partem daqui. */
+  base?: { ovr: number; habilidades: Habilidades };
+  /** Degraus do gráfico do OVR (ADR-0079): o OVR novo logo depois do jogo `jogo` (0 = antes da estreia). */
+  degraus?: { jogo: number; ovr: number }[];
   /** Números da carreira (todas as Temporadas); `nestaTemporada` só a atual. */
   jogos: number;
   gols: number;

@@ -24,6 +24,8 @@ Dois workflows manuais (Actions → Run workflow), no molde do `mover-jogador` e
 2. Habilidades ficam entre 1 e 99. OVR fora de 1 a 99, ou que não cabe nesses limites, é recusado.
 3. Depois disso, o Jogador evolui normalmente nas Partidas: o OVR não fica travado.
 4. Vale a partir da próxima Escalação. Partidas já jogadas não mudam.
+5. Escalado num jogo que ainda não terminou, o ajuste é recusado: o resultado desse jogo gravaria o OVR antigo por cima. Roda-se de novo depois do fim do jogo.
+6. **O ajuste vira a base do Jogador no site** (pedido do dono em 17/11/2026). O "▲/▼ N" do card e as setas das barras de Habilidade passam a contar a partir do último ajuste, não da estreia. O gráfico "OVR jogo a jogo" continua com todos os jogos e ganha um degrau no ponto do ajuste, logo depois do último jogo que ele tinha jogado. Sem marca de "ajuste": o degrau aparece como mais um ponto da linha, e o público não vê que houve ajuste à mão.
 
 ## Considered Options
 
@@ -37,4 +39,5 @@ Dois workflows manuais (Actions → Run workflow), no molde do `mover-jogador` e
 - Migração 024: tabelas `capitao_a_mao` (um por Time) e `ovr_a_mao` (histórico de cada ajuste, com Habilidades antes e depois).
 - `ordemDoCapitao` põe o Capitão à mão na frente; o resto da regra (suspensão, Vínculo, Capitão em campo) não muda.
 - Com "gravar", os workflows rodam a coleta para republicar o site.
+- `jogadores.json` ganha `base` (OVR e Habilidades do último ajuste) e `degraus` (onde cada ajuste entra no gráfico), só para quem teve ajuste.
 - Não muda a simulação: a VERSAO_SIM continua a mesma.

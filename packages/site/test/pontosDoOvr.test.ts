@@ -17,3 +17,15 @@ describe('gráfico do OVR jogo a jogo (ADR-0078)', () => {
     expect(pontosDoOvr({ ovrInicial: 66, historico: [jogo(1, 67)] }).map((p) => p.tipo)).toEqual(['ESTREIA', 'JOGO']);
   });
 });
+
+describe('OVR à mão no gráfico (ADR-0079)', () => {
+  it('o ajuste entra como degrau depois do jogo em que foi feito, e o gráfico continua inteiro', () => {
+    const j = { ovrInicial: 60, historico: [jogo(2, 61), jogo(2, 62), jogo(2, 81)], degraus: [{ jogo: 2, ovr: 80 }] };
+    expect(pontosDoOvr(j).map((p) => [p.tipo, p.v])).toEqual([['ESTREIA', 60], ['JOGO', 61], ['JOGO', 62], ['DEGRAU', 80], ['JOGO', 81]]);
+  });
+  it('ajuste antes da estreia fica logo depois dela; o Piso vem antes do ajuste no mesmo jogo', () => {
+    expect(pontosDoOvr({ ovrInicial: 62, historico: [], degraus: [{ jogo: 0, ovr: 75 }] }).map((p) => p.tipo)).toEqual(['ESTREIA', 'DEGRAU']);
+    const j = { ovrInicial: 60, historico: [jogo(1, 61)], pisoT1: { antes: 61, depois: 65 }, degraus: [{ jogo: 1, ovr: 70 }] };
+    expect(pontosDoOvr(j).map((p) => p.tipo)).toEqual(['ESTREIA', 'JOGO', 'PISO', 'DEGRAU']);
+  });
+});

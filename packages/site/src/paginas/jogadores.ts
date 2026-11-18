@@ -170,7 +170,8 @@ export function barrasDeHabilidade(posicao: Posicao, h: Habilidades, antes?: Hab
 
 export function card(j: JogadorPublico, o: { pequeno?: boolean } = {}): Html {
   const id = IDENTIDADE[j.time];
-  const delta = j.ovr - j.ovrInicial;
+  // A base é o último ajuste à mão do dono, quando houver (ADR-0079); senão, a estreia.
+  const delta = j.ovr - (j.base?.ovr ?? j.ovrInicial);
   return html`<div class="card ${o.pequeno ? 'pequeno' : ''}" style="--cor:${id.primaria};--cor2:${id.secundaria};--sobre:${tintaSobre(id.primaria)}">
     <div class="card-topo">
       <span class="card-ovr">${j.ovr}</span>
@@ -181,7 +182,7 @@ export function card(j: JogadorPublico, o: { pequeno?: boolean } = {}): Html {
     <p class="card-nome">${comCamisa(nomeVisivel(j), j.numero)}</p>
     ${j.apelido ? html`<p class="card-arroba">@${j.username}</p>` : ''}
     <p class="card-time">${curto(j.time)} · ${NOME_DA_POSICAO[j.posicao]}${j.capitao ? ' · Capitão' : ''}</p>
-    ${barrasDeHabilidade(j.posicao, j.habilidades, o.pequeno ? undefined : j.habilidadesIniciais)}
+    ${barrasDeHabilidade(j.posicao, j.habilidades, o.pequeno ? undefined : (j.base?.habilidades ?? j.habilidadesIniciais))}
     <dl class="card-numeros">
       <div><dt>Jogos</dt><dd>${j.jogos}</dd></div>
       <div><dt>${j.posicao === 'GOL' ? 'Defesas' : j.posicao === 'ZAG' ? 'Desarmes' : 'Gols'}</dt><dd>${j.posicao === 'GOL' ? j.defesas : j.posicao === 'ZAG' ? j.desarmes : j.gols}</dd></div>
@@ -206,7 +207,8 @@ function graficoOvr(series: { j: JogadorPublico; cor: string; tracejado?: boolea
   const x = (i: number) => m.e + (i / (n - 1)) * (w - m.e - m.d);
   const y = (v: number) => m.t + (1 - (v - min) / (max - min || 1)) * (h - m.t - m.b);
   const marcas = [...new Set([min + 2, Math.round((min + max) / 2), max - 2])];
-  const rotulo = (p: PontoDoOvr) => (p.tipo === 'ESTREIA' ? ' na estreia' : p.tipo === 'PISO' ? ' com o Piso da Temporada 1' : ` depois do ${p.jogo}º jogo`);
+  // O degrau do ajuste à mão fala como um jogo (ADR-0079): sem marca própria.
+  const rotulo = (p: PontoDoOvr) => (p.tipo === 'ESTREIA' || (p.tipo === 'DEGRAU' && p.jogo === 0) ? ' na estreia' : p.tipo === 'PISO' ? ' com o Piso da Temporada 1' : ` depois do ${p.jogo}º jogo`);
   const descricao = (j: JogadorPublico) =>
     `@${j.username}: OVR de ${j.ovrInicial} para ${j.ovr} em ${j.historico.length} jogos${j.pisoT1 ? `, com o Piso da Temporada 1 (de ${j.pisoT1.antes} para ${j.pisoT1.depois})` : ''}`;
   return html`<svg class="grafico" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(series.map((s) => descricao(s.j)).join('; '))}">

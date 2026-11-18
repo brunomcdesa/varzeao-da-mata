@@ -3,7 +3,7 @@
  * `capitao` e `ovr` (ou `pnpm liga capitao` / `pnpm liga ovr`). Sem `gravar`, é a simulação:
  * mostra o antes e o depois e não muda nada.
  */
-import { HABILIDADES, habilidadesComOvr, ovrDasHabilidades, type Habilidades, type Posicao, type TimeId } from '@liga/shared';
+import { HABILIDADES, duracaoAoVivoMs, habilidadesComOvr, ovrDasHabilidades, type Habilidades, type Posicao, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { habilidadesDe } from './regras.js';
 import { ordemDoCapitao } from './temporada2.js';
@@ -103,6 +103,15 @@ export interface ResultadoDoOvr {
  */
 export async function forcarOvr(b: Banco, username: string, alvo: number, opcoes: { gravar: boolean; id?: string; agora?: Date }): Promise<ResultadoDoOvr> {
   const j = await acharJogador(b, username, opcoes.id);
+  // Escalado num jogo que ainda não terminou: o resultado dele gravaria o OVR antigo por cima.
+  const agora = opcoes.agora ?? new Date();
+  const pendentes = (
+    await b.query<{ apito_inicial: Date | string; fase: 'LIGA' | 'MATA_MATA'; resultado: unknown }>(
+      `SELECT p.apito_inicial, r.fase, p.resultado FROM escalacao e JOIN partida p ON p.id = e.partida_id JOIN rodada r ON r.id = p.rodada_id WHERE e.jogador_id = $1`,
+      [j.id],
+    )
+  ).rows.filter((p) => p.resultado === null || new Date(p.apito_inicial).getTime() + duracaoAoVivoMs(p.fase) > agora.getTime());
+  if (pendentes.length) throw new Error(`@${j.username} está escalado num jogo que ainda não terminou: rode de novo depois do fim do jogo.`);
   const antes = habilidadesDe(j.posicao, j.ovr, j.habilidades);
   const depois = habilidadesComOvr(j.posicao, antes, alvo);
   const r: ResultadoDoOvr = {
@@ -119,7 +128,7 @@ export async function forcarOvr(b: Banco, username: string, alvo: number, opcoes
     await t.query(`UPDATE jogador SET ovr = $2, habilidades = $3 WHERE id = $1`, [j.id, r.ovrDepois, JSON.stringify(depois)]);
     await t.query(
       `INSERT INTO ovr_a_mao (jogador_id, ovr_antes, ovr_depois, habilidades_antes, habilidades_depois, feito_em) VALUES ($1, $2, $3, $4, $5, $6)`,
-      [j.id, r.ovrAntes, r.ovrDepois, JSON.stringify(antes), JSON.stringify(depois), opcoes.agora ?? new Date()],
+      [j.id, r.ovrAntes, r.ovrDepois, JSON.stringify(antes), JSON.stringify(depois), agora],
     );
   });
   return { ...r, gravado: true };
@@ -128,4 +137,23 @@ export async function forcarOvr(b: Banco, username: string, alvo: number, opcoes
 /** Uma linha "FIN 70 → 75 · PAS …" para o log. */
 export function habilidadesNoLog(antes: Habilidades, depois: Habilidades): string {
   return HABILIDADES.map((h) => `${h} ${antes[h]} → ${depois[h]}`).join(' · ');
+}
+
+/**
+ * Ajustes de OVR à mão já feitos até `agora`, por Jogador e em ordem: viram a base do card e os
+ * degraus do gráfico do OVR no site (ADR-0079).
+ */
+export async function ajustesDeOvr(b: Banco, agora: Date): Promise<Map<string, { ovr: number; habilidades: Habilidades; em: Date }[]>> {
+  const linhas = (
+    await b.query<{ jogador_id: string; ovr_depois: number; habilidades_depois: Habilidades | string; feito_em: Date | string }>(
+      `SELECT jogador_id::text AS jogador_id, ovr_depois, habilidades_depois, feito_em FROM ovr_a_mao WHERE feito_em <= $1 ORDER BY feito_em, id`,
+      [agora],
+    )
+  ).rows;
+  const por = new Map<string, { ovr: number; habilidades: Habilidades; em: Date }[]>();
+  for (const l of linhas) {
+    const h = typeof l.habilidades_depois === 'string' ? (JSON.parse(l.habilidades_depois) as Habilidades) : l.habilidades_depois;
+    por.set(l.jogador_id, [...(por.get(l.jogador_id) ?? []), { ovr: l.ovr_depois, habilidades: h, em: new Date(l.feito_em) }]);
+  }
+  return por;
 }

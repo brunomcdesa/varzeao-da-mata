@@ -10,6 +10,7 @@
 import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Grupo, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2, timesQueCaem, GRUPOS, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
 import { fundadorDe } from './rebalanceamento.js';
 import { comSeloT1, subiramPeloPiso } from './recompensaT1.js';
+import { ajustesDeOvr } from './aMao.js';
 import { TEMPORADA_DOS_DESTAQUES, desempenhosDasPartidas } from './destaques.js';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
@@ -264,6 +265,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   // Selo da Temporada 1 (ADR-0047): também só no site da T2.
   const seloT1 = comRegrasT2 ? await comSeloT1(banco) : new Set<string>();
   const pisoT1 = comRegrasT2 ? await subiramPeloPiso(banco) : new Map<string, { antes: number; depois: number }>();
+  const ajustes = await ajustesDeOvr(banco, agora);
   const porJogador = new Map<string, JogadorPublico>();
   const resumido = (id: string): JogadorResumido | null => {
     const j = porJogador.get(id);
@@ -378,6 +380,14 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     j.nestaTemporada.notaMedia = media(notas);
     j.nestaTemporada.melhorNota = notas.length ? Math.max(...notas) : null;
     j.temporadas = temporadasDe.get(j.id)?.size ?? 0;
+    // OVR à mão (ADR-0079): o último ajuste vira a base, e cada ajuste é um degrau no gráfico,
+    // depois do último jogo que ele tinha jogado.
+    const meus = ajustes.get(j.id);
+    if (meus?.length) {
+      const ultimo = meus.at(-1)!;
+      j.base = { ovr: ultimo.ovr, habilidades: ultimo.habilidades };
+      j.degraus = meus.map((a) => ({ jogo: j.historico.filter((h) => apitoDaPartida.get(h.partidaId)!.getTime() < a.em.getTime()).length, ovr: a.ovr }));
+    }
   }
   for (const [temporadaId, rodadas] of rodadasPorTemporada) {
     const numero = numeroDa.get(temporadaId)!;
