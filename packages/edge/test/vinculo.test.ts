@@ -169,3 +169,42 @@ describe('Vínculo pela DM (ADR-0013)', () => {
     expect(pedidos).toEqual([{ tipo: 'ESCOLHA', jogadorId: '7', escolha: { tipo: 'FORMACAO', valor: '3-2-1' } }]);
   });
 });
+
+describe('Link de Vínculo (ADR-0082)', () => {
+  const sha = async (s: string) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const token = 't'.repeat(43);
+  async function comLink(expiraEm = '2026-11-09T20:00:00Z') {
+    const t = montar([]);
+    await t.AGENDA.put(`vinculo/link/${await sha(token)}`, JSON.stringify({ jogadorId: '7', username: 'Fulano_10', criadoEm: agora.toISOString(), expiraEm }));
+    return t;
+  }
+
+  it('abrir o link vincula o navegador ao Jogador, e o link só vale uma vez', async () => {
+    const t = await comLink();
+    const r = (await (await t.post('/vinculo/link', { token })).json()) as { vinculado: boolean; sessao: string; jogadorId: string; username: string };
+    expect(r).toMatchObject({ vinculado: true, jogadorId: '7', username: 'Fulano_10' });
+    expect(r.sessao).toMatch(/^[A-Za-z0-9_-]{30,60}$/);
+    expect(await (await t.post('/vinculo/eu', { sessao: r.sessao })).json()).toEqual({ jogadorId: '7', username: 'Fulano_10' });
+    // O token não fica guardado; só o hash da sessão nova.
+    expect([...t.AGENDA.m.keys()].some((k) => k.startsWith('vinculo/link/'))).toBe(false);
+    expect(t.AGENDA.m.has(`vinculo/sessao/${await sha(r.sessao)}`)).toBe(true);
+    expect((await t.post('/vinculo/link', { token })).status).toBe(410);
+  });
+
+  it('troca o vínculo antigo do navegador: a sessão do outro Jogador é apagada', async () => {
+    const t = await comLink();
+    const antiga = 'a'.repeat(43);
+    await t.AGENDA.put(`vinculo/sessao/${await sha(antiga)}`, JSON.stringify({ jogadorId: '9', username: 'outro', vinculadoEm: agora.toISOString() }));
+    const r = (await (await t.post('/vinculo/link', { token, sessaoAntiga: antiga })).json()) as { sessao: string };
+    expect((await t.post('/vinculo/eu', { sessao: antiga })).status).toBe(404);
+    expect(await (await t.post('/vinculo/eu', { sessao: r.sessao })).json()).toMatchObject({ jogadorId: '7' });
+  });
+
+  it('link vencido ou inventado não vincula', async () => {
+    const t = await comLink('2026-11-08T19:59:00Z');
+    expect((await t.post('/vinculo/link', { token })).status).toBe(410);
+    expect([...t.AGENDA.m.keys()].some((k) => k.startsWith('vinculo/link/'))).toBe(false);
+    expect((await t.post('/vinculo/link', { token: 'x'.repeat(43) })).status).toBe(410);
+    expect((await t.post('/vinculo/link', { token: 'curto' })).status).toBe(400);
+  });
+});

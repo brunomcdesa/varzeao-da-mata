@@ -11,6 +11,7 @@
  *   TIME=onca pnpm liga capitao [--gravar]          tira o Capitão à mão: a faixa volta à regra de mais Partidas
  *   USUARIO=fulano OVR=72 pnpm liga ovr [--gravar]  OVR à mão (ADR-0079): todas as Habilidades na mesma proporção
  *   USUARIO=fulano pnpm liga vincular-conta        liga o Jogador da DM (id provisório) à conta do Instagram
+ *   USUARIO=fulano pnpm liga link-de-vinculo       manda na DM um link que vincula o navegador ao Jogador (ADR-0082)
  *   pnpm liga corrigir-trocas-de-posicao            devolve o OVR de quem trocou de posição pela regra antiga (ADR-0030)
  *   pnpm liga comentarios                          os comentários lidos e o resultado de cada um
  *   pnpm liga mudar-inicio --inicio 2026-11-08      antecipa/adia a Temporada (antes do 1º jogo)
@@ -52,6 +53,9 @@ import {
   corrigirLimitePorPosicao,
   avisoDaCorrecao,
   vincularConta,
+  criarLinkDeVinculo,
+  mensagemDoLink,
+  nuvemDoAmbiente,
   corrigirTrocasDePosicao,
   jogadorPeloUsername,
   interpretar,
@@ -371,6 +375,37 @@ async function main(): Promise<void> {
         if (!usuario) throw new Error('Use: USUARIO=fulano pnpm liga vincular-conta');
         const r = await vincularConta(banco, usuario);
         console.log(`Vinculado: Jogador ${r.id} (@${usuario.replace(/^@/, '')}) agora é da conta ${r.para} (era ${r.de}).`);
+        break;
+      }
+
+      case 'link-de-vinculo': {
+        // Link de Vínculo (ADR-0082): a Liga manda na DM um link de uso único (24 h). O link
+        // nunca aparece no log: o repositório é público e quem abre o link vincula o navegador.
+        const usuario = (process.env.USUARIO ?? '').replace(/^@/, '').trim();
+        if (!usuario) throw new Error('Use: USUARIO=fulano pnpm liga link-de-vinculo');
+        const achados = (await banco.query<{ id: string; username: string }>(
+          `SELECT id::text AS id, username FROM jogador WHERE lower(username) = lower($1) AND NOT banido AND ($2::text IS NULL OR id::text = $2) ORDER BY id`, [usuario, process.env.ID || null],
+        )).rows;
+        if (achados.length > 1) throw new Error(`Há ${achados.length} Jogadores @${usuario} (ids ${achados.map((x) => x.id).join(', ')}): informe o ID.`);
+        const j = achados[0];
+        if (!j) throw new Error(`Nenhum Jogador @${usuario}.`);
+        const nuvem = nuvemDoAmbiente();
+        if (!nuvem) throw new Error('Cloudflare não configurada (CF_ACCOUNT_ID, CF_API_TOKEN, CF_KV_NAMESPACE_ID e R2).');
+        const token = (await tokenGuardado(banco))?.token ?? process.env.IG_ACCESS_TOKEN;
+        if (!process.env.IG_USER_ID || !token) throw new Error('Instagram não configurado (IG_USER_ID e token).');
+        const ig = new Instagram({ userId: process.env.IG_USER_ID, token });
+        const destino = await ig.idNaDm(j.username);
+        if (!destino) throw new Error(`@${j.username} não tem conversa na DM da Liga. Peça para ele mandar uma mensagem primeiro (a Meta só deixa a Liga escrever para quem já conversou com ela).`);
+        const site = process.env.SITE_URL || 'https://varzeao-da-mata.pages.dev';
+        const link = await criarLinkDeVinculo(nuvem.agenda, j, { site, agora: new Date() });
+        try {
+          await ig.enviarDm(destino, mensagemDoLink(j.username, link.url));
+        } catch (e) {
+          await nuvem.agenda.apagar(link.chave); // não deixa um link válido que ninguém recebeu
+          throw new Error(`A DM não saiu (${(e as Error).message}). A Meta só deixa a Liga escrever até 24 h depois da última mensagem da pessoa: peça para ele mandar uma mensagem na DM e rode de novo.`);
+        }
+        const ate = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date(link.expiraEm));
+        console.log(`Link de Vínculo enviado na DM de @${j.username} (Jogador ${j.id}). Vale até ${ate}, uma vez só.`);
         break;
       }
 

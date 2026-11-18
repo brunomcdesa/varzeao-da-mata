@@ -1,0 +1,40 @@
+# Manda na DM do Jogador um Link de Vínculo (ADR-0082): abrir o link vincula aquele navegador
+# ao Jogador, no lugar de qualquer Vínculo anterior. Vale 24 h e uma vez só. O link não aparece
+# no log (o repositório é público). A pessoa precisa ter mandado mensagem na DM da Liga nas
+# últimas 24 h. Só à mão: Actions → link-de-vinculo → Run workflow.
+name: link-de-vinculo
+on:
+  workflow_dispatch:
+    inputs:
+      usuario:
+        description: '@ do Jogador (sem o @)'
+        required: true
+      id:
+        description: 'Opcional: id do Jogador, quando há dois com o mesmo @'
+        required: false
+jobs:
+  enviar:
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      IG_APP_ID: ${{ vars.IG_APP_ID }}
+      IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET_PUBLICO: ${{ vars.R2_BUCKET_PUBLICO }}
+      R2_BUCKET_PRIVADO: ${{ vars.R2_BUCKET_PRIVADO }}
+      R2_URL_PUBLICA: ${{ vars.R2_URL_PUBLICA }}
+      SITE_URL: ${{ vars.LIGA_SITE_URL || 'https://varzeao-da-mata.pages.dev' }}
+      USUARIO: ${{ inputs.usuario }}
+      ID: ${{ inputs.id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+      - run: pnpm liga link-de-vinculo

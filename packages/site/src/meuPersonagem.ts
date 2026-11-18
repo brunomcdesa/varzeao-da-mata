@@ -12,8 +12,11 @@ import { APELIDO_MAX, apelidoLiberaEm, podeTrocarApelido, CABELOS, NOME_DO_PENTE
 import { ALTURA_SPRITE, LARGURA_SPRITE, aparencia, sprite, visualDoJogador, type Pose } from '@liga/renderer';
 import { BASE_API, INSTAGRAM, ajustarLocalmente } from './dados.js';
 import { curto, html, NOME_DA_POSICAO, POSICOES_EM_ORDEM } from './ui.js';
+import type { Pagina } from './paginas/tipos.js';
 
 const CHAVE = 'varzeao:vinculo';
+/** Jogador recém-vinculado pelo Link de Vínculo (ADR-0082): a página dele mostra o "Pronto!" uma vez. */
+const CHAVE_RECEM = 'varzeao:vinculo:recem';
 /** Quais partes do painel a pessoa deixou abertas: o painel e a página são redesenhados depois de um pedido. */
 const abertas = new Set<string>();
 /** Mesma folga da Inscrição (FOLGA_DE_ELENCO no worker). */
@@ -95,6 +98,9 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
   const mostrar = (h: { s: string }) => {
     caixa.innerHTML = h.s;
   };
+  // Chegou agora pelo Link de Vínculo: o painel abre com a confirmação.
+  const recemVinculado = ler<string>(CHAVE_RECEM) === j.id;
+  if (recemVinculado) gravar(CHAVE_RECEM, null);
 
   // ---- sem vínculo: oferece vincular
   function convite(erro = '') {
@@ -184,6 +190,7 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
     // algo para mostrar, e lembram se a pessoa abriu.
     const abrirTransferencia = abertas.has('transferencia') || pendente || Boolean(mensagem) || Boolean(resultado);
     mostrar(html`<h2 class="secao">Seu personagem</h2>
+      ${recemVinculado ? html`<p class="sucesso">Pronto! Este navegador agora está vinculado ao seu Jogador.</p>` : ''}
       <p class="legenda">Vinculado a este navegador como @${g.username}. <button type="button" class="link" data-acao="sair">Desvincular</button></p>
       <details class="dobra" data-dobra="transferencia" ${abrirTransferencia ? 'open' : ''}>
       <summary>Transferência <small>${j.transferenciaUsada || estado.resultado === 'TRANSFERIDO' ? 'já usada nesta temporada' : '1 por temporada'}</small></summary>
@@ -606,3 +613,41 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
     timersVisual.splice(0).forEach((t) => clearTimeout(t));
   };
 }
+
+/**
+ * Link de Vínculo (ADR-0082): a Liga manda na DM um link `#/vincular/<token>`. Abrir troca o
+ * token por uma sessão na borda e vincula este navegador ao Jogador, no lugar de qualquer
+ * Vínculo anterior. O token sai do endereço na hora (não fica no histórico).
+ */
+export const paginaVincular: Pagina = async (main, [token]) => {
+  if (token) history.replaceState(null, '', `${location.pathname}${location.search}#/vincular`);
+  const desenhar = (corpo: { s: string }) => {
+    main.innerHTML = html`<section class="placa vincular meu-personagem" aria-live="polite">${corpo}</section>`.s;
+  };
+  const falhou = (erro: string, deNovo: boolean) => {
+    desenhar(html`<h1 class="secao">Não deu para vincular</h1>
+      <p class="erro">${erro}</p>
+      ${deNovo
+        ? html`<p><button type="button" class="botao" data-acao="tentar">Tentar de novo</button></p>`
+        : html`<p>Peça um link novo na DM da Liga. Ou vincule pela página do seu Jogador, mandando um código na DM.</p>
+            <p><a class="botao" href="#/jogadores">Buscar o meu Jogador</a></p>`}`);
+    main.querySelector('[data-acao="tentar"]')?.addEventListener('click', () => void vincular());
+  };
+  async function vincular(): Promise<void> {
+    if (!token || !vinculoDisponivel()) return falhou('Este link está incompleto.', false);
+    desenhar(html`<h1 class="secao">Vinculando o seu Jogador…</h1><p>Só um instante.</p>`);
+    const antiga = ler<Guardado>(CHAVE)?.sessao;
+    const r = await api<{ vinculado?: boolean; sessao?: string; jogadorId?: string; username?: string; erro?: string }>('vinculo/link', {
+      token,
+      ...(antiga ? { sessaoAntiga: antiga } : {}),
+    }).catch(() => null);
+    if (!r) return falhou('Sem conexão com a Liga agora. Confira a internet e tente de novo.', true);
+    const d = r.dados;
+    if (!d.vinculado || !d.sessao || !d.jogadorId) return falhou(d.erro ?? 'Este link já foi usado ou venceu.', r.status >= 500);
+    gravar(CHAVE, { sessao: d.sessao, jogadorId: d.jogadorId, username: d.username ?? '' } satisfies Guardado);
+    gravar(`${CHAVE}:pendente`, null);
+    gravar(CHAVE_RECEM, d.jogadorId);
+    location.replace(`#/jogador/${d.jogadorId}`);
+  }
+  await vincular();
+};

@@ -16,7 +16,8 @@ export interface Armazenamento {
 }
 
 export interface Agenda {
-  gravar(chave: string, valor: unknown): Promise<void>;
+  /** `validadeS`: o KV apaga sozinho depois desse tempo (mínimo de 60 s na Cloudflare). */
+  gravar(chave: string, valor: unknown, o?: { validadeS?: number }): Promise<void>;
   ler<T>(chave: string): Promise<T | null>;
   listar(prefixo: string): Promise<string[]>;
   /** Chaves com os metadados que a borda grava junto (o voto do site vai neles). */
@@ -76,8 +77,9 @@ export class KV implements Agenda {
     if (!r.ok && r.status !== 404) throw new Error(`KV ${r.status}: ${(await r.text()).slice(0, 300)}`);
     return r;
   }
-  async gravar(chave: string, valor: unknown): Promise<void> {
-    await this.chamar(this.url(`values/${encodeURIComponent(chave)}`), { method: 'PUT', body: JSON.stringify(valor), headers: { 'content-type': 'application/json' } });
+  async gravar(chave: string, valor: unknown, o: { validadeS?: number } = {}): Promise<void> {
+    const ttl = o.validadeS ? `?expiration_ttl=${Math.max(60, Math.round(o.validadeS))}` : '';
+    await this.chamar(this.url(`values/${encodeURIComponent(chave)}${ttl}`), { method: 'PUT', body: JSON.stringify(valor), headers: { 'content-type': 'application/json' } });
   }
   async ler<T>(chave: string): Promise<T | null> {
     const r = await this.chamar(this.url(`values/${encodeURIComponent(chave)}`));
@@ -123,8 +125,11 @@ export class AgendaNaMemoria implements Agenda {
   async listarComMetadados<M>(prefixo: string): Promise<{ nome: string; metadados: M | null }[]> {
     return (await this.listar(prefixo)).map((nome) => ({ nome, metadados: (this.metadados.get(nome) as M | undefined) ?? null }));
   }
-  async gravar(chave: string, valor: unknown): Promise<void> {
+  /** Validade de cada chave gravada com `validadeS` (para os testes conferirem). */
+  readonly validades = new Map<string, number>();
+  async gravar(chave: string, valor: unknown, o: { validadeS?: number } = {}): Promise<void> {
     this.itens.set(chave, JSON.stringify(valor));
+    if (o.validadeS) this.validades.set(chave, o.validadeS);
   }
   async ler<T>(chave: string): Promise<T | null> {
     const v = this.itens.get(chave);

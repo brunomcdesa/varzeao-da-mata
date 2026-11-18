@@ -19,3 +19,4 @@ export * from './limitePorPosicao.js';
 export * from './recompensaT1.js';
 export * from './aMao.js';
 export * from './programados.js';
+export * from './linkDeVinculo.js';

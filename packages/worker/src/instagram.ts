@@ -255,6 +255,18 @@ export class Instagram {
     return r.data.map((x) => (x.username ?? '').toLowerCase());
   }
 
+  /**
+   * Manda uma DM pela conta da Liga para quem já conversa com ela (o id vem de `idNaDm`).
+   * A Meta só deixa mandar dentro de 24 h da última mensagem da pessoa.
+   */
+  async enviarDm(destinatarioId: string, texto: string): Promise<string> {
+    const r = await this.chamar<{ message_id: string }>('POST', `${this.o.userId}/messages`, {
+      recipient: JSON.stringify({ id: destinatarioId }),
+      message: JSON.stringify({ text: texto }),
+    });
+    return r.message_id;
+  }
+
   /** Responde um comentário (aparece como resposta da conta da Liga). */
   async responder(igCommentId: string, texto: string): Promise<string> {
     const r = await this.chamar<{ id: string }>('POST', `${igCommentId}/replies`, { message: texto });

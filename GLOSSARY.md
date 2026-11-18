@@ -62,6 +62,10 @@ _Avoid_: troca, mudança de time, empréstimo
 Ligação entre um navegador e um Jogador, feita pelo dono, que manda um código na DM da Liga. Com ele, o dono pede a Transferência pelo site. ADR-0013.
 _Avoid_: login, conta, cadastro
 
+**Link de Vínculo**:
+Link de uso único, válido por 24 horas, que a Liga manda na DM de um Jogador quando o dono roda o workflow link-de-vinculo. Abrir o link faz o Vínculo daquele navegador com o Jogador, no lugar de qualquer Vínculo anterior. ADR-0082.
+_Avoid_: link mágico, convite, login por link
+
 **Novos Contratados**:
 Os Jogadores que fizeram Inscrição desde a Rodada anterior, apresentados no Resumo da Rodada como confirmação de que entraram na Liga.
 _Avoid_: novatos, novos inscritos, reforços

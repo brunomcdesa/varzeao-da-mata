@@ -7,6 +7,7 @@
  *   POST /vinculo/verificar      {codigo, sessao}         → {vinculado: true, jogadorId} | {vinculado: false}
  *   POST /vinculo/eu             {sessao}                 → {jogadorId, username} | 404
  *   POST /vinculo/sair           {sessao}                 → {ok}
+ *   POST /vinculo/link           {token, sessaoAntiga?}   → {vinculado, sessao, jogadorId, username} | 410 (ADR-0082)
  *   POST /transferencia          {sessao, time?, posicao?} → {ok}
  *   POST /transferencia/estado   {sessao}                 → o pedido com o resultado da coleta
  *   POST /perfil                 {sessao, visual?, numero?, apelido?} → {ok} (visual, camisa, apelido)
@@ -66,6 +67,18 @@ export interface SessaoVinculada {
   username: string;
   vinculadoEm: string;
 }
+
+/**
+ * Link de Vínculo (ADR-0082), gravado pelo workflow "link-de-vinculo" em
+ * `vinculo/link/<hash do token>`. O token só existe na DM do dono.
+ */
+export interface LinkDeVinculo {
+  jogadorId: string;
+  username: string;
+  criadoEm: string;
+  expiraEm: string;
+}
+export const chaveDoLink = (hashDoToken: string) => `vinculo/link/${hashDoToken}`;
 
 export interface PedidoDoSite {
   tipo: 'TRANSFERENCIA';
@@ -199,6 +212,26 @@ export async function rotasDoVinculo(
       message: JSON.stringify({ text: `Pronto, @${pendente.username}! Seu personagem está vinculado neste navegador. Agora dá para cuidar dele pelo site. ⚽` }),
     }).catch(() => {});
     return json({ vinculado: true, jogadorId: sessao.jogadorId, username: sessao.username });
+  }
+
+  // Link de Vínculo (ADR-0082): o dono manda pela DM um link de uso único; abrir vincula o
+  // navegador ao Jogador. Se o navegador era de outro Jogador, a sessão antiga é apagada.
+  if (pathname === '/vinculo/link') {
+    const c = await corpo<{ token: string; sessaoAntiga?: string }>(req);
+    if (!sessaoValida(c?.token)) return json({ erro: 'Link inválido' }, 400);
+    const chave = chaveDoLink(await hash(c.token));
+    const link = await env.AGENDA.get<LinkDeVinculo>(chave, 'json');
+    if (!link || Date.parse(link.expiraEm) <= agora.getTime()) {
+      if (link) await env.AGENDA.delete(chave);
+      return json({ erro: 'Este link já foi usado ou venceu.' }, 410);
+    }
+    await env.AGENDA.delete(chave);
+    if (sessaoValida(c.sessaoAntiga)) await env.AGENDA.delete(`vinculo/sessao/${await hash(c.sessaoAntiga)}`);
+    const sessao = aleatorio(32);
+    const vinculada: SessaoVinculada = { jogadorId: link.jogadorId, username: link.username, vinculadoEm: agora.toISOString() };
+    await env.AGENDA.put(`vinculo/sessao/${await hash(sessao)}`, JSON.stringify(vinculada));
+    await marcarPendencia(env.AGENDA, 'vinculos', agora);
+    return json({ vinculado: true, sessao, jogadorId: link.jogadorId, username: link.username });
   }
 
   if (pathname === '/vinculo/eu' || pathname === '/vinculo/sair') {
