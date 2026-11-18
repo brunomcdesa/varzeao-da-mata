@@ -1,6 +1,6 @@
 # 0082 — Link de Vínculo pela DM
 
-- Status: proposto
+- Status: aceito
 - Data: 2026-11-17
 
 ## Contexto
