@@ -305,7 +305,7 @@ export interface VagaProjetada {
 /**
  * Quem estaria nas Semifinais se a Fase de Liga acabasse hoje. Com Grupos (ADR-0064): 1º do Barro ×
  * 2º do Galho e 1º do Galho × 2º do Barro; sem: 1º × 4º e 2º × 3º. Antes do primeiro jogo, só as
- * posições, sem Time (ADR-0082): com tudo zerado, a ordem é só a do desempate por sigla.
+ * posições, sem Time (ADR-0084): com tudo zerado, a ordem é só a do desempate por sigla.
  */
 export function semifinaisProjetadas(tabela: LinhaTabelaPublica[], grupos?: { nome: string; tabela: LinhaTabelaPublica[] }[] | null): [[VagaProjetada, VagaProjetada], [VagaProjetada, VagaProjetada]] {
   if (grupos && grupos.length === 2) {

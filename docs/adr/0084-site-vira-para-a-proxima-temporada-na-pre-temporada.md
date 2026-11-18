@@ -1,4 +1,4 @@
-# 0082 — O site vira para a próxima Temporada já na Pré-temporada
+# 0084 — O site vira para a próxima Temporada já na Pré-temporada
 
 - Status: aceito
 - Data: 2026-11-17

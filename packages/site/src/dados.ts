@@ -105,7 +105,7 @@ async function completarLiga(l: LigaPublica): Promise<LigaPublica> {
  */
 export const preTemporada = (l: LigaPublica): boolean => tabelaDaPreTemporada(l);
 
-/** "A Temporada 2 começa quinta-feira, 19 de novembro. Todos os Times começam com 0 ponto." (Pré-temporada, ADR-0081/0082) */
+/** "A Temporada 2 começa quinta-feira, 19 de novembro. Todos os Times começam com 0 ponto." (Pré-temporada, ADR-0081/0084) */
 export function avisoDaPreTemporada(l: LigaPublica): string {
   const p = l.proximaTemporada;
   const dia = p && p.numero === l.temporada?.numero

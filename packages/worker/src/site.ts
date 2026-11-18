@@ -99,7 +99,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     const a = new Date(p.apito_inicial);
     return { id: p.id, fase: p.fase, rodada: p.rodada, mandante: p.mandante_id, visitante: p.visitante_id, apito: a.getTime(), hora: horaDeBrasilia(a), gols: p.resultado ? { ...p.resultado.gols } : null };
   };
-  // A Temporada "atual" é a que aceita Inscrição (ADR-0082): a em andamento ou, entre o fim de uma
+  // A Temporada "atual" é a que aceita Inscrição (ADR-0084): a em andamento ou, entre o fim de uma
   // e o início da próxima, a nova já na Pré-temporada. O site vira para ela assim que ela é criada
   // (e não só no dia da estreia); a que acabou segue na História. Sem isso, cai na última que já
   // começou.

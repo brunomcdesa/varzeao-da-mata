@@ -271,7 +271,7 @@ describe('Inscrição e voto com duas Séries', () => {
     expect(antes.ativa?.grupos ?? null).toBeNull();
 
     await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-19', seed: 8 });
-    // Véspera da estreia: o site já é da T2 (ADR-0082), e a Inscrição também.
+    // Véspera da estreia: o site já é da T2 (ADR-0084), e a Inscrição também.
     const pre = (await exportarSite(banco, new Date('2026-11-18T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
     expect(pre.temporada?.numero).toBe(2);
     expect(pre.ativa?.numero).toBe(2);
@@ -282,7 +282,7 @@ describe('Inscrição e voto com duas Séries', () => {
     expect(pre.ativa!.times.slice(0, 8)).toEqual([...TIMES_FUNDADORES]);
   }, 120_000);
 
-  it('na Pré-temporada, o site já é todo da T2: Grupos zerados, jogos e estreia anunciada (ADR-0081, ADR-0082)', async () => {
+  it('na Pré-temporada, o site já é todo da T2: Grupos zerados, jogos e estreia anunciada (ADR-0081, ADR-0084)', async () => {
     const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
     await jogarTemporada(t1);
     const antes = (await exportarSite(banco, new Date('2026-11-17T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
@@ -291,7 +291,7 @@ describe('Inscrição e voto com duas Séries', () => {
 
     await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-19', seed: 8 });
     const pre = (await exportarSite(banco, new Date('2026-11-18T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
-    // A Temporada atual do site já é a T2 (ADR-0082), ainda em Pré-temporada, com a estreia anunciada.
+    // A Temporada atual do site já é a T2 (ADR-0084), ainda em Pré-temporada, com a estreia anunciada.
     expect(pre.temporada).toEqual({ numero: 2, status: 'PRE_TEMPORADA' });
     expect(pre.proximaTemporada).toEqual({ numero: 2, inicio: '2026-11-19' });
     expect(pre.caem).toBe(4);

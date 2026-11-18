@@ -44,7 +44,7 @@ describe('Tabela na Pré-temporada da T2 (ADR-0081)', () => {
   });
 });
 
-describe('Chaveamento com Grupos (ADR-0064, ADR-0082)', () => {
+describe('Chaveamento com Grupos (ADR-0064, ADR-0084)', () => {
   const linha = (time: string, jogos: number) => ({ time, jogos, pontos: 0, vitorias: 0, empates: 0, derrotas: 0, golsPro: 0, golsContra: 0, saldo: 0 }) as never;
   const grupos = (jogos: number) => [
     { nome: 'Grupo do Barro', tabela: [linha('CAP', jogos), linha('JAC', jogos)] },

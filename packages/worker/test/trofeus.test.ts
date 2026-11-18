@@ -62,7 +62,7 @@ describe('Craque da Temporada e troféus', () => {
     const { arquivos } = await exportarSite(banco, new Date('2026-11-16T22:05:00Z'));
     const liga = arquivos.get('liga.json') as LigaPublica;
     const jogadores = arquivos.get('jogadores.json') as JogadorPublico[];
-    // O Craque e o campeão da T1 ficam na História (ADR-0082).
+    // O Craque e o campeão da T1 ficam na História (ADR-0084).
     expect(liga.temporadas.find((x) => x.numero === 1)!.craque?.jogadorId).toBe(t.craque_jogador_id);
     expect(liga.temporadas.find((x) => x.numero === 1)).toMatchObject({ numero: 1, campeao: t.campeao_id });
     // Com a Temporada 2 criada, o site já é dela (Pré-temporada) e anuncia a estreia.
