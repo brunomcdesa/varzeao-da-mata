@@ -35,12 +35,12 @@ describe('Times e App na Pré-temporada da T2 (ADR-0068)', () => {
 
 describe('Tabela na Pré-temporada da T2 (ADR-0081)', () => {
   const grupos = [{ grupo: 'CHAO' as const, nome: 'Grupo do Barro', tabela: [] }];
-  it('com os Grupos da T2 e o site ainda na T1, a tabela é a da Pré-temporada', () => {
-    expect(tabelaDaPreTemporada({ temporada: { numero: 1 }, grupos, gruposDaTemporada: 2 })).toBe(true);
+  it('com Grupos e a Temporada atual ainda em Pré-temporada, a tabela é a zerada da estreia', () => {
+    expect(tabelaDaPreTemporada({ temporada: { status: 'PRE_TEMPORADA' }, grupos })).toBe(true);
   });
-  it('quando a T2 começa, volta a ser a tabela normal; sem Grupos, também', () => {
-    expect(tabelaDaPreTemporada({ temporada: { numero: 2 }, grupos, gruposDaTemporada: 2 })).toBe(false);
-    expect(tabelaDaPreTemporada({ temporada: { numero: 1 } })).toBe(false);
+  it('depois da estreia, ou sem Grupos, volta a ser a tabela normal', () => {
+    expect(tabelaDaPreTemporada({ temporada: { status: 'EM_ANDAMENTO' }, grupos })).toBe(false);
+    expect(tabelaDaPreTemporada({ temporada: { status: 'PRE_TEMPORADA' } })).toBe(false);
   });
 });
 

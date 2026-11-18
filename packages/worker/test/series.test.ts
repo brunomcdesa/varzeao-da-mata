@@ -271,9 +271,9 @@ describe('Inscrição e voto com duas Séries', () => {
     expect(antes.ativa?.grupos ?? null).toBeNull();
 
     await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-19', seed: 8 });
-    // Quarta, véspera da estreia: a Temporada atual do site ainda é a 1, mas a Inscrição já é na 2.
+    // Véspera da estreia: o site já é da T2 (ADR-0082), e a Inscrição também.
     const pre = (await exportarSite(banco, new Date('2026-11-18T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
-    expect(pre.temporada?.numero).toBe(1);
+    expect(pre.temporada?.numero).toBe(2);
     expect(pre.ativa?.numero).toBe(2);
     expect(ordenados(pre.ativa!.times)).toEqual(ordenados(await timesAtivos(banco)));
     expect(pre.ativa!.times).toHaveLength(16);
@@ -282,31 +282,30 @@ describe('Inscrição e voto com duas Séries', () => {
     expect(pre.ativa!.times.slice(0, 8)).toEqual([...TIMES_FUNDADORES]);
   }, 120_000);
 
-  it('na Pré-temporada, a tabela já mostra os 2 Grupos da T2 zerados, e a T1 segue em `tabela` (ADR-0081)', async () => {
+  it('na Pré-temporada, o site já é todo da T2: Grupos zerados, jogos e estreia anunciada (ADR-0081, ADR-0082)', async () => {
     const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
     await jogarTemporada(t1);
     const antes = (await exportarSite(banco, new Date('2026-11-17T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
     expect(antes.grupos).toBeUndefined();
-    expect(antes.calendarioDaProxima).toBeUndefined();
+    expect(antes.temporada?.numero).toBe(1);
 
     await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-19', seed: 8 });
     const pre = (await exportarSite(banco, new Date('2026-11-18T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
-    expect(pre.temporada?.numero).toBe(1);
-    expect(pre.gruposDaTemporada).toBe(2);
+    // A Temporada atual do site já é a T2 (ADR-0082), ainda em Pré-temporada, com a estreia anunciada.
+    expect(pre.temporada).toEqual({ numero: 2, status: 'PRE_TEMPORADA' });
+    expect(pre.proximaTemporada).toEqual({ numero: 2, inicio: '2026-11-19' });
     expect(pre.caem).toBe(4);
     expect(pre.grupos?.map((g) => g.nome)).toEqual(['Grupo do Barro', 'Grupo do Galho']);
     for (const g of pre.grupos!) {
       expect(ordenados(g.tabela.map((x) => x.time))).toEqual(ordenados(GRUPOS_DA_A_DE_16[g.grupo]));
       expect(g.tabela.every((x) => x.jogos === 0 && x.pontos === 0)).toBe(true);
     }
-    // Os jogos da T2 já vão para a página Jogos (ADR-0082); o calendário segue o da T1.
-    expect(pre.calendarioDaProxima?.temporada).toBe(2);
-    expect(pre.calendarioDaProxima!.partidas.length).toBeGreaterThan(0);
-    expect(pre.calendarioDaProxima!.partidas.every((p) => p.situacao === 'AGENDADA' && !p.placar && p.apito >= '2026-11-19')).toBe(true);
-    expect(pre.calendario.every((p) => p.apito < '2026-11-19')).toBe(true);
-    // A tabela da T1 continua lá, com os 8 fundadores e os jogos dela.
-    expect(ordenados(pre.tabela.map((x) => x.time))).toEqual(ordenados(TIMES_FUNDADORES));
-    expect(pre.tabela.some((x) => x.jogos > 0)).toBe(true);
+    // Os jogos da T2 já são o calendário, e a T1 sai dele (fica na História).
+    expect(pre.calendario.length).toBeGreaterThan(0);
+    expect(pre.calendario.every((p) => p.situacao === 'AGENDADA' && !p.placar && p.apito >= '2026-11-19')).toBe(true);
+    expect(pre.campeao).toBeNull();
+    expect(pre.temporadas.map((t) => t.numero)).toEqual([2, 1]);
+    expect(pre.temporadas.find((t) => t.numero === 1)!.campeao).toBeTruthy();
   }, 120_000);
 
   it('o campeão da Temporada 1 ganha a estrela no escudo só quando a Temporada 2 é criada (ADR-0060)', async () => {

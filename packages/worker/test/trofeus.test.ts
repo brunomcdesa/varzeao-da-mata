@@ -58,14 +58,16 @@ describe('Craque da Temporada e troféus', () => {
 
     // Antes das 19h o site não conta; depois, sim.
     const antes = await exportarSite(banco, new Date('2026-11-16T21:30:00Z'));
-    expect((antes.arquivos.get('liga.json') as LigaPublica).craqueDaTemporada).toBeNull();
+    expect((antes.arquivos.get('liga.json') as LigaPublica).temporadas.find((x) => x.numero === 1)!.craque).toBeNull();
     const { arquivos } = await exportarSite(banco, new Date('2026-11-16T22:05:00Z'));
     const liga = arquivos.get('liga.json') as LigaPublica;
     const jogadores = arquivos.get('jogadores.json') as JogadorPublico[];
-    expect(liga.craqueDaTemporada?.jogadorId).toBe(t.craque_jogador_id);
+    // O Craque e o campeão da T1 ficam na História (ADR-0082).
+    expect(liga.temporadas.find((x) => x.numero === 1)!.craque?.jogadorId).toBe(t.craque_jogador_id);
     expect(liga.temporadas.find((x) => x.numero === 1)).toMatchObject({ numero: 1, campeao: t.campeao_id });
-    // Até a Temporada 2 começar, o site segue na 1 e anuncia a próxima.
-    expect(liga.temporada?.numero).toBe(1);
+    // Com a Temporada 2 criada, o site já é dela (Pré-temporada) e anuncia a estreia.
+    expect(liga.temporada).toEqual({ numero: 2, status: 'PRE_TEMPORADA' });
+    expect(liga.craqueDaTemporada).toBeNull();
     expect(liga.proximaTemporada).toEqual({ numero: 2, inicio: '2026-11-18' });
     const craque = jogadores.find((j) => j.id === t.craque_jogador_id)!;
     expect(craque.trofeus.some((x) => x.tipo === 'CRAQUE_TEMPORADA')).toBe(true);

@@ -99,15 +99,19 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     const a = new Date(p.apito_inicial);
     return { id: p.id, fase: p.fase, rodada: p.rodada, mandante: p.mandante_id, visitante: p.visitante_id, apito: a.getTime(), hora: horaDeBrasilia(a), gols: p.resultado ? { ...p.resultado.gols } : null };
   };
-  // A Temporada "atual" é a última que já começou: entre o fim de uma e o início da próxima, o
-  // site segue mostrando a que acabou (campeão, Craque) e anuncia a próxima à parte.
+  // A Temporada "atual" é a que aceita Inscrição (ADR-0082): a em andamento ou, entre o fim de uma
+  // e o início da próxima, a nova já na Pré-temporada. O site vira para ela assim que ela é criada
+  // (e não só no dia da estreia); a que acabou segue na História. Sem isso, cai na última que já
+  // começou.
   const hojeBrasilia = new Date(agora.getTime() - 3 * 3600_000).toISOString().slice(0, 10);
   const inicioDe = (t: LinhaTemporada) => (t.inicio instanceof Date ? t.inicio.toISOString() : String(t.inicio)).slice(0, 10);
-  const temporada = [...temporadas].reverse().find((t) => inicioDe(t) <= hojeBrasilia) ?? temporadas.at(-1);
-  const seguinte = temporadas.at(-1) !== temporada ? temporadas.at(-1) : undefined;
+  const ativaInscricao = await seriesAtivas(banco);
+  const temporada =
+    temporadas.find((t) => t.numero === ativaInscricao.numero) ?? [...temporadas].reverse().find((t) => inicioDe(t) <= hojeBrasilia) ?? temporadas.at(-1);
+  // Na Pré-temporada o site anuncia o dia da estreia (aviso no Início e nas páginas Jogos e Tabela).
+  const seguinte = temporada && temporada.status === 'PRE_TEMPORADA' ? temporada : temporadas.at(-1) !== temporada ? temporadas.at(-1) : undefined;
   // A Temporada que aceita Inscrição agora (ADR-0068): na Pré-temporada, já a próxima. O site
   // lista os Times dela, e não só os da atual.
-  const ativaInscricao = await seriesAtivas(banco);
   const ativaLinha = temporadas.find((t) => t.numero === ativaInscricao.numero);
   // Na ordem de sempre (fundadores, depois os novos), como na Abertura, e não na alfabética do banco.
   const naOrdem = (ts: readonly TimeId[]) => [...ts].sort((x, y) => TIMES.indexOf(x) - TIMES.indexOf(y));
@@ -172,7 +176,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   const placarDe = (r: ResultadoPartida) => ({ mandante: r.gols.mandante, visitante: r.gols.visitante, ...(r.penaltis ? { penaltis: r.penaltis.placar } : {}) });
 
   // ---- calendário da Temporada atual
-  const noCalendario = (p: LinhaPartida & { temporada_id: number }): PartidaNoCalendario => {
+  const calendario: PartidaNoCalendario[] = partidas.map((p) => {
     const r = encerrada(p) ? p.resultado! : null;
     return {
       id: p.id,
@@ -187,12 +191,9 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       ...(p.vantagem_do_empate ? { vantagemDoEmpate: true } : {}),
       ...(r && p.fase === 'MATA_MATA' && r.vencedor ? { classificado: r.times[r.vencedor] } : {}),
       ...(r ? { placar: placarDe(r) } : {}),
-      ...(comSeries(p.temporada_id) ? { serie: p.serie } : {}),
+      ...(temporada && comSeries(temporada.id) ? { serie: p.serie } : {}),
     };
-  };
-  const calendario: PartidaNoCalendario[] = partidas.map(noCalendario);
-  // Pré-temporada (ADR-0082): os jogos já marcados da Temporada que aceita Inscrição.
-  const jogosDaProxima = ativaLinha && ativaLinha !== temporada ? todas.filter((p) => p.temporada_id === ativaLinha.id) : [];
+  });
   const tabelaDa = (ps: LinhaPartida[], temporadaId: number, serie: Serie = 'A') =>
     classificar(
       ps.filter((p) => p.fase === 'LIGA' && p.serie === serie && encerrada(p)).map((p) => ({ mandante: p.mandante_id, visitante: p.visitante_id, gm: p.resultado!.gols.mandante, gv: p.resultado!.gols.visitante })),
@@ -533,22 +534,18 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   for (const j of porJogador.values()) j.trofeus.sort((a, b) => b.temporada - a.temporada || (b.rodada ?? 99) - (a.rodada ?? 99));
 
   const atual = historia.find((h) => h.numero === temporada?.numero);
-  // A Temporada cujos Grupos a tabela mostra: a atual ou, na Pré-temporada, a que aceita Inscrição.
-  const temporadaDosGrupos = temporada && gruposDe.get(temporada.id) ? temporada : ativaLinha && ativaLinha !== temporada && gruposDe.get(ativaLinha.id) ? ativaLinha : null;
   const liga: LigaPublica = {
     atualizadoEm: agora.toISOString(),
     temporada: temporada ? { numero: temporada.numero, status: temporada.status } : null,
     times,
     tabela: atual?.tabela ?? [],
-    // Grupos da T2 (ADR-0064): uma tabela por Grupo; caem os 4 últimos de cada. Na Pré-temporada
-    // (ADR-0081), já os Grupos da próxima, zerados, para todo mundo ver onde o seu Time vai jogar.
-    ...(temporadaDosGrupos
+    // Grupos da T2 (ADR-0064): uma tabela por Grupo; caem os 4 últimos de cada.
+    ...(temporada && gruposDe.get(temporada.id)
       ? {
           caem: timesQueCaem({ temSerieB: false, porGrupo: true }),
-          gruposDaTemporada: temporadaDosGrupos.numero,
           grupos: GRUPOS.map((grupo) => {
-            const times = gruposDe.get(temporadaDosGrupos.id)![grupo];
-            const doGrupo = todas.filter((p) => p.temporada_id === temporadaDosGrupos.id && times.includes(p.mandante_id) && times.includes(p.visitante_id));
+            const times = gruposDe.get(temporada.id)![grupo];
+            const doGrupo = todas.filter((p) => p.temporada_id === temporada.id && times.includes(p.mandante_id) && times.includes(p.visitante_id));
             return {
               grupo,
               nome: NOME_DO_GRUPO[grupo],
@@ -562,7 +559,6 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       : {}),
     ...(atual?.serieB && temporada ? { tabelaB: atual.serieB.tabela, series: { A: [...seriesDe.get(temporada.id)!.A], B: [...seriesDe.get(temporada.id)!.B] } } : {}),
     calendario,
-    ...(ativaLinha && jogosDaProxima.length ? { calendarioDaProxima: { temporada: ativaLinha.numero, partidas: jogosDaProxima.map(noCalendario) } } : {}),
     rodadas: temporada ? (rodadasPorTemporada.get(temporada.id) ?? []) : [],
     campeao: atual?.campeao ?? null,
     craqueDaTemporada: atual?.craque ?? null,

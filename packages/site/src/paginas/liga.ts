@@ -1,6 +1,6 @@
 /** Jogos (calendário), Tabela, Times e a página de cada Time. */
 import { FALA_DO_TIME, GRUPOS, IDENTIDADE, NOME_DO_GRUPO, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, foraDoMataMata, forcaProvavel, inscritosAteNoProximoJogo, nomeDaRodada, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
-import { avisoDaPreTemporada, avisoDosJogos, diaLongo, jogadores, liga, preTemporada, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos, gruposAtivos, formaDosTimes } from '../dados.js';
+import { avisoDaPreTemporada, diaLongo, jogadores, liga, preTemporada, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos, gruposAtivos, formaDosTimes } from '../dados.js';
 import { bonecoImg, campinho, curto, escudoImg, forcaHtml, formaHtml, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa } from '../ui.js';
 import { chaveamento } from './chave.js';
 import { linhaDePartida, tabelaDeClassificacao } from './comum.js';
@@ -54,15 +54,12 @@ function salaDoTime(l: LigaPublica, t: TimeId): ReturnType<typeof html> {
 }
 
 export const paginaJogos: Pagina = async (main) => {
-  const atual = await liga();
-  // Pré-temporada (ADR-0082): a página Jogos já é a da próxima Temporada.
-  const proxima = atual.calendarioDaProxima;
-  const l: LigaPublica = proxima ? { ...atual, calendario: proxima.partidas, temporada: { numero: proxima.temporada, status: 'PRE_TEMPORADA' } } : atual;
+  const l = await liga();
   // O Mata-mata aparece só no chaveamento; a lista é da Fase de Liga.
   const rodadas = [...new Set(l.calendario.filter((p) => p.fase === 'LIGA').map((p) => p.rodada))];
   const daVez = rodadaAtual(l);
   main.innerHTML = html`<h1 class="titulo-pagina">Jogos da Temporada ${l.temporada?.numero ?? ''}</h1>
-    ${proxima ? html`<p class="placa aviso-temporada">${avisoDosJogos(atual)}</p>` : ''}
+    ${preTemporada(l) ? html`<p class="placa aviso-temporada">${avisoDaPreTemporada(l)}</p>` : ''}
     ${rodadas.length ? seriesDaLiga(l).map((serie) => chaveamento(l, { serie })) : ''}
     ${rodadas.length
       ? html`<div class="grade-rodadas">${rodadas.map((n) => {
@@ -88,7 +85,7 @@ export const paginaTabela: Pagina = async (main) => {
         )}
         <p class="legenda"><a href="#/jogos">Ver o chaveamento do Mata-mata em Jogos</a></p>`.s
     : l.grupos?.length
-      ? html`<h1 class="titulo-pagina">${preTemporada(l) ? `Tabela da Temporada ${l.gruposDaTemporada}` : 'Tabela da Fase de Liga'}</h1>
+      ? html`<h1 class="titulo-pagina">${preTemporada(l) ? `Tabela da Temporada ${l.temporada?.numero}` : 'Tabela da Fase de Liga'}</h1>
         ${preTemporada(l) ? html`<p class="placa aviso-temporada">${avisoDaPreTemporada(l)}</p>` : ''}
         ${l.grupos.map(
           (g, k) => html`<section aria-labelledby="titulo-grupo-${g.grupo.toLowerCase()}">

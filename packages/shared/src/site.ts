@@ -86,16 +86,6 @@ export interface LigaPublica {
   caem?: number;
   /** Na T2, a tabela de cada Grupo da Série A (ADR-0064). */
   grupos?: { grupo: Grupo; nome: string; tabela: LinhaTabelaPublica[] }[];
-  /**
-   * De qual Temporada são os `grupos`. Na Pré-temporada (ADR-0081) é a próxima, ainda zerada,
-   * enquanto `temporada` e `tabela` seguem sendo a que acabou.
-   */
-  gruposDaTemporada?: number;
-  /**
-   * Pré-temporada (ADR-0082): os jogos já marcados da próxima Temporada, para a página Jogos.
-   * `calendario` segue sendo o da Temporada que acabou.
-   */
-  calendarioDaProxima?: { temporada: number; partidas: PartidaNoCalendario[] };
   /** Os Times de cada Série na Temporada atual, quando ela tem Séries. */
   series?: Record<Serie, TimeId[]> | null;
   /**
@@ -300,12 +290,9 @@ export function timesDaLiga(l: Pick<LigaPublica, 'ativa' | 'series'>): TimeId[] 
   return l.series ? [...l.series.A, ...l.series.B] : [...TIMES_FUNDADORES];
 }
 
-/**
- * A tabela mostra os Grupos da próxima Temporada, ainda zerados (Pré-temporada, ADR-0081)? Os
- * `grupos` são de outra Temporada que não a atual do site.
- */
-export function tabelaDaPreTemporada(l: Pick<LigaPublica, 'grupos' | 'gruposDaTemporada'> & { temporada: { numero: number } | null }): boolean {
-  return Boolean(l.grupos?.length && l.gruposDaTemporada !== undefined && l.gruposDaTemporada !== l.temporada?.numero);
+/** A Temporada atual ainda é a Pré-temporada (ADR-0081): tabela zerada, antes do Apito Inicial da estreia. */
+export function tabelaDaPreTemporada(l: Pick<LigaPublica, 'grupos'> & { temporada: { status: string } | null }): boolean {
+  return Boolean(l.grupos?.length && l.temporada?.status === 'PRE_TEMPORADA');
 }
 
 /** Uma vaga projetada das Semifinais: o Time (quando a Fase de Liga já tem jogo), a posição e o texto de espera. */
