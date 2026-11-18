@@ -6,8 +6,10 @@ import { tabelaDeClassificacao } from './comum.js';
 import type { Pagina } from './tipos.js';
 
 function linhaDaTemporada(t: TemporadaNaHistoria): Html {
-  const lider = t.tabela[0]?.time;
+  // Antes da estreia (Pré-temporada) não há líder: a tabela está zerada.
+  const lider = t.tabela[0] && t.tabela[0].jogos > 0 ? t.tabela[0].time : undefined;
   const andamento = !t.campeao;
+  const preTemporada = t.status === 'PRE_TEMPORADA';
   const fatos: Html[] = [];
   if (t.final) {
     const pl = t.final.placar;
@@ -50,7 +52,9 @@ function linhaDaTemporada(t: TemporadaNaHistoria): Html {
       <p class="temporada-numero">Temporada ${t.numero}</p>
       ${t.campeao
         ? html`${taca(34, 'trofeu')}<a class="campeao-time" href="#/time/${t.campeao}">${escudoImg(t.campeao, 3)}<span>${curto(t.campeao)}</span></a><p class="temporada-data">começou em ${inicio}</p>`
-        : html`<p class="temporada-andamento">Em andamento</p><p class="temporada-data">começou em ${inicio}</p>`}
+        : preTemporada
+          ? html`<p class="temporada-andamento">Pré-temporada</p><p class="temporada-data">começa em ${inicio}</p>`
+          : html`<p class="temporada-andamento">Em andamento</p><p class="temporada-data">começou em ${inicio}</p>`}
     </div>
     <dl class="temporada-fatos">${fatos}</dl>
     ${t.tabela.some((l) => l.jogos > 0)
