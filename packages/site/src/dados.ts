@@ -114,6 +114,14 @@ export function avisoDaPreTemporada(l: LigaPublica): string {
   return `${dia ? `A Temporada ${l.gruposDaTemporada} começa ${dia}. ` : ''}Todos os Times começam com 0 ponto.`;
 }
 
+/** "A Temporada 2 começa quinta-feira, 19 de novembro." (página Jogos na Pré-temporada, ADR-0082) */
+export function avisoDosJogos(l: LigaPublica): string {
+  const p = l.proximaTemporada;
+  const n = l.calendarioDaProxima?.temporada;
+  if (!p || p.numero !== n) return `Temporada ${n} já marcada.`;
+  return `A Temporada ${n} começa ${new Date(`${p.inicio}T12:00:00Z`).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Sao_Paulo' })}.`;
+}
+
 /** A Temporada atual tem Série B (ADR-0017)? */
 export const temSeries = (l: LigaPublica): boolean => Boolean(l.series?.B.length);
 

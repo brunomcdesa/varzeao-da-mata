@@ -91,6 +91,11 @@ export interface LigaPublica {
    * enquanto `temporada` e `tabela` seguem sendo a que acabou.
    */
   gruposDaTemporada?: number;
+  /**
+   * Pré-temporada (ADR-0082): os jogos já marcados da próxima Temporada, para a página Jogos.
+   * `calendario` segue sendo o da Temporada que acabou.
+   */
+  calendarioDaProxima?: { temporada: number; partidas: PartidaNoCalendario[] };
   /** Os Times de cada Série na Temporada atual, quando ela tem Séries. */
   series?: Record<Serie, TimeId[]> | null;
   /**
@@ -301,6 +306,39 @@ export function timesDaLiga(l: Pick<LigaPublica, 'ativa' | 'series'>): TimeId[] 
  */
 export function tabelaDaPreTemporada(l: Pick<LigaPublica, 'grupos' | 'gruposDaTemporada'> & { temporada: { numero: number } | null }): boolean {
   return Boolean(l.grupos?.length && l.gruposDaTemporada !== undefined && l.gruposDaTemporada !== l.temporada?.numero);
+}
+
+/** Uma vaga projetada das Semifinais: o Time (quando a Fase de Liga já tem jogo), a posição e o texto de espera. */
+export interface VagaProjetada {
+  time: TimeId | null;
+  semente: string;
+  espera: string;
+}
+
+/**
+ * Quem estaria nas Semifinais se a Fase de Liga acabasse hoje. Com Grupos (ADR-0064): 1º do Barro ×
+ * 2º do Galho e 1º do Galho × 2º do Barro; sem: 1º × 4º e 2º × 3º. Antes do primeiro jogo, só as
+ * posições, sem Time (ADR-0082): com tudo zerado, a ordem é só a do desempate por sigla.
+ */
+export function semifinaisProjetadas(tabela: LinhaTabelaPublica[], grupos?: { nome: string; tabela: LinhaTabelaPublica[] }[] | null): [[VagaProjetada, VagaProjetada], [VagaProjetada, VagaProjetada]] {
+  if (grupos && grupos.length === 2) {
+    const correndo = grupos.some((g) => g.tabela.some((x) => x.jogos > 0));
+    const curto = (nome: string) => nome.replace(/^Grupo d[oa] /, '');
+    const vaga = (g: number, pos: number): VagaProjetada => ({
+      time: correndo ? (grupos[g]!.tabela[pos]?.time ?? null) : null,
+      semente: `${pos + 1}º ${curto(grupos[g]!.nome)}`,
+      espera: `${pos + 1}º do ${curto(grupos[g]!.nome)}`,
+    });
+    return [
+      [vaga(0, 0), vaga(1, 1)],
+      [vaga(1, 0), vaga(0, 1)],
+    ];
+  }
+  const vaga = (pos: number): VagaProjetada => ({ time: tabela[pos]?.time ?? null, semente: `${pos + 1}º`, espera: `${pos + 1}º colocado` });
+  return [
+    [vaga(0), vaga(3)],
+    [vaga(1), vaga(2)],
+  ];
 }
 
 /** Os Grupos da Temporada que aceita Inscrição (T2, ADR-0064), ou null. */

@@ -2,7 +2,7 @@
  * Chaveamento do Mata-mata: Semifinais (1º × 4º, 2º × 3º) levando à Final e ao campeão.
  * Antes das Semifinais existirem, mostra quem estaria lá se a Fase de Liga acabasse hoje.
  */
-import { etapaDa, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
+import { etapaDa, semifinaisProjetadas, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
 import { dia, hora, serieDaPartida, situacaoAgora, tabelaDaSerie, temSeries } from '../dados.js';
 import { curto, escudoImg, html, taca, type Html } from '../ui.js';
 
@@ -51,8 +51,12 @@ export function chaveamento(l: LigaPublica, o: { titulo?: boolean; serie?: Serie
   const semis = mm.filter((p) => etapaDa(p.fase, p.rodada) === 'SEMIFINAL').sort((a, b) => a.apito.localeCompare(b.apito));
   const final = mm.find((p) => etapaDa(p.fase, p.rodada) === 'FINAL');
   const tabela = tabelaDaSerie(l, serie);
+  // Com Grupos (T2, ADR-0064), as Semifinais cruzam os Grupos, e a posição é a do Grupo.
+  const grupos = serie === 'A' && !comSeries && l.grupos?.length ? l.grupos : null;
+  const projecao = semifinaisProjetadas(tabela, grupos);
+  const sementes = new Map(projecao.flat().filter((v) => v.time).map((v) => [v.time!, v.semente]));
   const ordem = tabela.map((x) => x.time);
-  const semente = (t: TimeId) => (ordem.indexOf(t) >= 0 ? `${ordem.indexOf(t) + 1}º` : null);
+  const semente = (t: TimeId) => sementes.get(t) ?? (!grupos && ordem.indexOf(t) >= 0 ? `${ordem.indexOf(t) + 1}º` : null);
   const projetado = semis.length === 0;
   const encerrou = (p?: PartidaNoCalendario) => !!p && situacaoAgora(p) === 'ENCERRADA' && !!p.placar;
 
@@ -67,14 +71,14 @@ export function chaveamento(l: LigaPublica, o: { titulo?: boolean; serie?: Serie
   };
 
   const [s1, s2] = semis;
-  const t = (i: number) => (ordem[i] ?? null) as TimeId | null;
-  const [a1, b1] = vagasDe(s1, s1?.mandante ?? t(0), s1?.visitante ?? t(3), ['1º colocado', '4º colocado']);
-  const [a2, b2] = vagasDe(s2, s2?.mandante ?? t(1), s2?.visitante ?? t(2), ['2º colocado', '3º colocado']);
+  const [[p1, p4], [p2, p3]] = projecao;
+  const [a1, b1] = vagasDe(s1, s1?.mandante ?? p1.time, s1?.visitante ?? p4.time, [p1.espera, p4.espera]);
+  const [a2, b2] = vagasDe(s2, s2?.mandante ?? p2.time, s2?.visitante ?? p3.time, [p2.espera, p3.espera]);
   const v1 = encerrou(s1) ? s1!.classificado! : null;
   const v2 = encerrou(s2) ? s2!.classificado! : null;
   const [fa, fb] = vagasDe(final, final?.mandante ?? v1, final?.visitante ?? v2, ['Vencedor da Semi 1', 'Vencedor da Semi 2']);
   const campeao = encerrou(final) ? final!.classificado! : null;
-  const ligaCorrendo = tabela.some((x) => x.jogos > 0) && projetado;
+  const ligaCorrendo = (grupos ? grupos.some((g) => g.tabela.some((x) => x.jogos > 0)) : tabela.some((x) => x.jogos > 0)) && projetado;
   const id = `titulo-chave-${serie.toLowerCase()}`;
   const nomeCampeao = comSeries ? `Campeão da Série ${serie}` : 'Campeão';
 

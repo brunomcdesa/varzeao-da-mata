@@ -172,7 +172,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   const placarDe = (r: ResultadoPartida) => ({ mandante: r.gols.mandante, visitante: r.gols.visitante, ...(r.penaltis ? { penaltis: r.penaltis.placar } : {}) });
 
   // ---- calendário da Temporada atual
-  const calendario: PartidaNoCalendario[] = partidas.map((p) => {
+  const noCalendario = (p: LinhaPartida & { temporada_id: number }): PartidaNoCalendario => {
     const r = encerrada(p) ? p.resultado! : null;
     return {
       id: p.id,
@@ -187,9 +187,12 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       ...(p.vantagem_do_empate ? { vantagemDoEmpate: true } : {}),
       ...(r && p.fase === 'MATA_MATA' && r.vencedor ? { classificado: r.times[r.vencedor] } : {}),
       ...(r ? { placar: placarDe(r) } : {}),
-      ...(temporada && comSeries(temporada.id) ? { serie: p.serie } : {}),
+      ...(comSeries(p.temporada_id) ? { serie: p.serie } : {}),
     };
-  });
+  };
+  const calendario: PartidaNoCalendario[] = partidas.map(noCalendario);
+  // Pré-temporada (ADR-0082): os jogos já marcados da Temporada que aceita Inscrição.
+  const jogosDaProxima = ativaLinha && ativaLinha !== temporada ? todas.filter((p) => p.temporada_id === ativaLinha.id) : [];
   const tabelaDa = (ps: LinhaPartida[], temporadaId: number, serie: Serie = 'A') =>
     classificar(
       ps.filter((p) => p.fase === 'LIGA' && p.serie === serie && encerrada(p)).map((p) => ({ mandante: p.mandante_id, visitante: p.visitante_id, gm: p.resultado!.gols.mandante, gv: p.resultado!.gols.visitante })),
@@ -559,6 +562,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       : {}),
     ...(atual?.serieB && temporada ? { tabelaB: atual.serieB.tabela, series: { A: [...seriesDe.get(temporada.id)!.A], B: [...seriesDe.get(temporada.id)!.B] } } : {}),
     calendario,
+    ...(ativaLinha && jogosDaProxima.length ? { calendarioDaProxima: { temporada: ativaLinha.numero, partidas: jogosDaProxima.map(noCalendario) } } : {}),
     rodadas: temporada ? (rodadasPorTemporada.get(temporada.id) ?? []) : [],
     campeao: atual?.campeao ?? null,
     craqueDaTemporada: atual?.craque ?? null,
