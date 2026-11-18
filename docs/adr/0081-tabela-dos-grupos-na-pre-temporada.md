@@ -1,6 +1,6 @@
 # 0081 — Tabela dos Grupos já na Pré-temporada
 
-- Status: proposto
+- Status: aceito
 - Data: 2026-11-17
 
 ## Contexto
