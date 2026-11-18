@@ -394,18 +394,23 @@ async function main(): Promise<void> {
         const token = (await tokenGuardado(banco))?.token ?? process.env.IG_ACCESS_TOKEN;
         if (!process.env.IG_USER_ID || !token) throw new Error('Instagram não configurado (IG_USER_ID e token).');
         const ig = new Instagram({ userId: process.env.IG_USER_ID, token });
-        const destino = await ig.idNaDm(j.username);
-        if (!destino) throw new Error(`@${j.username} não tem conversa na DM da Liga. Peça para ele mandar uma mensagem primeiro (a Meta só deixa a Liga escrever para quem já conversou com ela).`);
+        // O id é o do remetente das mensagens (como na confirmação da borda), e a janela de 24 h
+        // da Meta conta da última mensagem dele.
+        const ultima = await ig.ultimaMensagemDe(j.username);
+        const quando = (d: Date | string) => new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date(d));
+        if (!ultima) throw new Error(`Não achei mensagem de @${j.username} na DM da Liga. Peça para ele mandar uma mensagem primeiro (a Meta só deixa a Liga escrever para quem escreveu nas últimas 24 h).`);
+        console.log(`Última mensagem de @${j.username} na DM: ${quando(ultima.em)}. Id do remetente ${ultima.id === ultima.idNaConversa ? 'igual ao' : 'diferente do'} da conversa.`);
+        if (Date.now() - ultima.em.getTime() > 24 * 3600_000) throw new Error(`Passou das 24 h desde a última mensagem de @${j.username}. Peça para ele mandar uma mensagem na DM e rode de novo.`);
+        const destino = ultima.id;
         const site = process.env.SITE_URL || 'https://varzeao-da-mata.pages.dev';
         const link = await criarLinkDeVinculo(nuvem.agenda, j, { site, agora: new Date() });
         try {
           await ig.enviarDm(destino, mensagemDoLink(j.username, link.url));
         } catch (e) {
           await nuvem.agenda.apagar(link.chave); // não deixa um link válido que ninguém recebeu
-          throw new Error(`A DM não saiu (${(e as Error).message}). A Meta só deixa a Liga escrever até 24 h depois da última mensagem da pessoa: peça para ele mandar uma mensagem na DM e rode de novo.`);
+          throw new Error(`A DM não saiu (${(e as Error).message}). O link foi apagado.`);
         }
-        const ate = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date(link.expiraEm));
-        console.log(`Link de Vínculo enviado na DM de @${j.username} (Jogador ${j.id}). Vale até ${ate}, uma vez só.`);
+        console.log(`Link de Vínculo enviado na DM de @${j.username} (Jogador ${j.id}). Vale até ${quando(link.expiraEm)}, uma vez só.`);
         break;
       }
 

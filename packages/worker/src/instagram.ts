@@ -256,7 +256,29 @@ export class Instagram {
   }
 
   /**
-   * Manda uma DM pela conta da Liga para quem já conversa com ela (o id vem de `idNaDm`).
+   * A última mensagem que o @ mandou para a Liga na DM: o id dele como remetente (o mesmo que a
+   * borda usa para confirmar o Vínculo) e quando foi. A janela de 24 h da Meta conta a partir dela.
+   */
+  async ultimaMensagemDe(username: string): Promise<{ id: string; em: Date; idNaConversa: string } | null> {
+    const alvo = username.replace(/^@/, '').toLowerCase();
+    type Conversa = { participants?: { data: { id: string; username?: string }[] }; messages?: { data: { from?: { id: string; username?: string }; created_time?: string }[] } };
+    let pagina = await this.chamar<Pagina<Conversa>>('GET', `${this.o.userId}/conversations`, { platform: 'instagram', fields: 'participants,messages.limit(20){from,created_time}', limit: '25' });
+    for (let i = 0; i < 10; i++) {
+      for (const c of pagina.data) {
+        const participante = c.participants?.data.find((x) => (x.username ?? '').toLowerCase() === alvo);
+        if (!participante) continue;
+        const dele = (c.messages?.data ?? []).filter((m) => (m.from?.username ?? '').toLowerCase() === alvo && m.created_time);
+        const ultima = dele.sort((a, b) => Date.parse(b.created_time!) - Date.parse(a.created_time!))[0];
+        if (ultima) return { id: ultima.from!.id, em: new Date(ultima.created_time!), idNaConversa: participante.id };
+      }
+      if (!pagina.paging?.next) return null;
+      pagina = await this.chamar('GET', pagina.paging.next);
+    }
+    return null;
+  }
+
+  /**
+   * Manda uma DM pela conta da Liga para quem já conversa com ela (o id vem de `ultimaMensagemDe`).
    * A Meta só deixa mandar dentro de 24 h da última mensagem da pessoa.
    */
   async enviarDm(destinatarioId: string, texto: string): Promise<string> {
