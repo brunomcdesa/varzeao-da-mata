@@ -287,6 +287,7 @@ describe('Inscrição e voto com duas Séries', () => {
     await jogarTemporada(t1);
     const antes = (await exportarSite(banco, new Date('2026-11-17T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
     expect(antes.grupos).toBeUndefined();
+    expect(antes.calendarioDaProxima).toBeUndefined();
 
     await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-19', seed: 8 });
     const pre = (await exportarSite(banco, new Date('2026-11-18T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
@@ -298,6 +299,11 @@ describe('Inscrição e voto com duas Séries', () => {
       expect(ordenados(g.tabela.map((x) => x.time))).toEqual(ordenados(GRUPOS_DA_A_DE_16[g.grupo]));
       expect(g.tabela.every((x) => x.jogos === 0 && x.pontos === 0)).toBe(true);
     }
+    // Os jogos da T2 já vão para a página Jogos (ADR-0082); o calendário segue o da T1.
+    expect(pre.calendarioDaProxima?.temporada).toBe(2);
+    expect(pre.calendarioDaProxima!.partidas.length).toBeGreaterThan(0);
+    expect(pre.calendarioDaProxima!.partidas.every((p) => p.situacao === 'AGENDADA' && !p.placar && p.apito >= '2026-11-19')).toBe(true);
+    expect(pre.calendario.every((p) => p.apito < '2026-11-19')).toBe(true);
     // A tabela da T1 continua lá, com os 8 fundadores e os jogos dela.
     expect(ordenados(pre.tabela.map((x) => x.time))).toEqual(ordenados(TIMES_FUNDADORES));
     expect(pre.tabela.some((x) => x.jogos > 0)).toBe(true);

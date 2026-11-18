@@ -1,6 +1,6 @@
 /** Jogos (calendário), Tabela, Times e a página de cada Time. */
 import { FALA_DO_TIME, GRUPOS, IDENTIDADE, NOME_DO_GRUPO, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, foraDoMataMata, forcaProvavel, inscritosAteNoProximoJogo, nomeDaRodada, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
-import { avisoDaPreTemporada, diaLongo, jogadores, liga, preTemporada, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos, gruposAtivos, formaDosTimes } from '../dados.js';
+import { avisoDaPreTemporada, avisoDosJogos, diaLongo, jogadores, liga, preTemporada, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos, gruposAtivos, formaDosTimes } from '../dados.js';
 import { bonecoImg, campinho, curto, escudoImg, forcaHtml, formaHtml, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa } from '../ui.js';
 import { chaveamento } from './chave.js';
 import { linhaDePartida, tabelaDeClassificacao } from './comum.js';
@@ -54,16 +54,20 @@ function salaDoTime(l: LigaPublica, t: TimeId): ReturnType<typeof html> {
 }
 
 export const paginaJogos: Pagina = async (main) => {
-  const l = await liga();
+  const atual = await liga();
+  // Pré-temporada (ADR-0082): a página Jogos já é a da próxima Temporada.
+  const proxima = atual.calendarioDaProxima;
+  const l: LigaPublica = proxima ? { ...atual, calendario: proxima.partidas, temporada: { numero: proxima.temporada, status: 'PRE_TEMPORADA' } } : atual;
   // O Mata-mata aparece só no chaveamento; a lista é da Fase de Liga.
   const rodadas = [...new Set(l.calendario.filter((p) => p.fase === 'LIGA').map((p) => p.rodada))];
-  const atual = rodadaAtual(l);
+  const daVez = rodadaAtual(l);
   main.innerHTML = html`<h1 class="titulo-pagina">Jogos da Temporada ${l.temporada?.numero ?? ''}</h1>
+    ${proxima ? html`<p class="placa aviso-temporada">${avisoDosJogos(atual)}</p>` : ''}
     ${rodadas.length ? seriesDaLiga(l).map((serie) => chaveamento(l, { serie })) : ''}
     ${rodadas.length
       ? html`<div class="grade-rodadas">${rodadas.map((n) => {
           const jogos = l.calendario.filter((p) => p.rodada === n);
-          return html`<section class="rodada-bloco ${n === atual ? 'atual' : ''}" id="rodada-${n}" aria-labelledby="t-rodada-${n}">
+          return html`<section class="rodada-bloco ${n === daVez ? 'atual' : ''}" id="rodada-${n}" aria-labelledby="t-rodada-${n}">
             <h2 id="t-rodada-${n}" class="secao">${nomeDaRodada(jogos[0]!.fase, n)} <small>${diaLongo(jogos[0]!.apito)}</small></h2>
             ${partidasPorSerie(l, jogos, (p) => linhaDePartida(p))}
           </section>`;
