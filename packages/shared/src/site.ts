@@ -86,6 +86,11 @@ export interface LigaPublica {
   caem?: number;
   /** Na T2, a tabela de cada Grupo da Série A (ADR-0064). */
   grupos?: { grupo: Grupo; nome: string; tabela: LinhaTabelaPublica[] }[];
+  /**
+   * De qual Temporada são os `grupos`. Na Pré-temporada (ADR-0081) é a próxima, ainda zerada,
+   * enquanto `temporada` e `tabela` seguem sendo a que acabou.
+   */
+  gruposDaTemporada?: number;
   /** Os Times de cada Série na Temporada atual, quando ela tem Séries. */
   series?: Record<Serie, TimeId[]> | null;
   /**
@@ -288,6 +293,14 @@ export interface PartidaPublica {
 export function timesDaLiga(l: Pick<LigaPublica, 'ativa' | 'series'>): TimeId[] {
   if (l.ativa?.times.length) return [...l.ativa.times];
   return l.series ? [...l.series.A, ...l.series.B] : [...TIMES_FUNDADORES];
+}
+
+/**
+ * A tabela mostra os Grupos da próxima Temporada, ainda zerados (Pré-temporada, ADR-0081)? Os
+ * `grupos` são de outra Temporada que não a atual do site.
+ */
+export function tabelaDaPreTemporada(l: Pick<LigaPublica, 'grupos' | 'gruposDaTemporada'> & { temporada: { numero: number } | null }): boolean {
+  return Boolean(l.grupos?.length && l.gruposDaTemporada !== undefined && l.gruposDaTemporada !== l.temporada?.numero);
 }
 
 /** Os Grupos da Temporada que aceita Inscrição (T2, ADR-0064), ou null. */

@@ -282,6 +282,27 @@ describe('Inscrição e voto com duas Séries', () => {
     expect(pre.ativa!.times.slice(0, 8)).toEqual([...TIMES_FUNDADORES]);
   }, 120_000);
 
+  it('na Pré-temporada, a tabela já mostra os 2 Grupos da T2 zerados, e a T1 segue em `tabela` (ADR-0081)', async () => {
+    const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
+    await jogarTemporada(t1);
+    const antes = (await exportarSite(banco, new Date('2026-11-17T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
+    expect(antes.grupos).toBeUndefined();
+
+    await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-19', seed: 8 });
+    const pre = (await exportarSite(banco, new Date('2026-11-18T12:00:00Z'))).arquivos.get('liga.json') as LigaPublica;
+    expect(pre.temporada?.numero).toBe(1);
+    expect(pre.gruposDaTemporada).toBe(2);
+    expect(pre.caem).toBe(4);
+    expect(pre.grupos?.map((g) => g.nome)).toEqual(['Grupo do Barro', 'Grupo do Galho']);
+    for (const g of pre.grupos!) {
+      expect(ordenados(g.tabela.map((x) => x.time))).toEqual(ordenados(GRUPOS_DA_A_DE_16[g.grupo]));
+      expect(g.tabela.every((x) => x.jogos === 0 && x.pontos === 0)).toBe(true);
+    }
+    // A tabela da T1 continua lá, com os 8 fundadores e os jogos dela.
+    expect(ordenados(pre.tabela.map((x) => x.time))).toEqual(ordenados(TIMES_FUNDADORES));
+    expect(pre.tabela.some((x) => x.jogos > 0)).toBe(true);
+  }, 120_000);
+
   it('o campeão da Temporada 1 ganha a estrela no escudo só quando a Temporada 2 é criada (ADR-0060)', async () => {
     const t1 = await criarTemporada(banco, { numero: 1, primeiraRodada: '2026-11-07', seed: 3 });
     await jogarTemporada(t1);
