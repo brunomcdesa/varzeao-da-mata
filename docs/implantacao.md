@@ -216,3 +216,11 @@ Os Avisos ficam desligados até as chaves existirem. Tudo fica no GitHub, no amb
 Opcional: `VAPID_CONTATO` na borda (um `https://` ou `mailto:`); sem ele vai o endereço do site.
 
 Trocar as chaves invalida os Avisos de todo mundo: cada um precisa ativar de novo.
+
+## Webhook de mensagens (ADR-0083)
+
+Para a Liga conseguir mandar DM pela API (Link de Vínculo, confirmação do vínculo):
+
+1. Invente um token de verificação e guarde na borda: `pnpm --filter @liga/edge exec wrangler secret put IG_WEBHOOK_TOKEN`. Guarde também a chave secreta do app: `wrangler secret put IG_APP_SECRET` (Configurações do app → Básico). Não mande em chat.
+2. No painel do app da Meta, em Webhooks, objeto Instagram, cadastre a URL `<borda>/webhook/instagram` com o mesmo token e assine o campo `messages`.
+3. Rode o workflow **webhook-mensagens**. Ele inscreve a conta e mostra os campos inscritos.

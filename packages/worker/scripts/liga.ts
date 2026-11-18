@@ -12,6 +12,7 @@
  *   USUARIO=fulano OVR=72 pnpm liga ovr [--gravar]  OVR à mão (ADR-0079): todas as Habilidades na mesma proporção
  *   USUARIO=fulano pnpm liga vincular-conta        liga o Jogador da DM (id provisório) à conta do Instagram
  *   USUARIO=fulano pnpm liga link-de-vinculo       manda na DM um link que vincula o navegador ao Jogador (ADR-0082)
+ *   pnpm liga webhook-mensagens [--gravar]         mostra (e com --gravar faz) a inscrição da conta no webhook `messages` (ADR-0083)
  *   pnpm liga corrigir-trocas-de-posicao            devolve o OVR de quem trocou de posição pela regra antiga (ADR-0030)
  *   pnpm liga comentarios                          os comentários lidos e o resultado de cada um
  *   pnpm liga mudar-inicio --inicio 2026-11-08      antecipa/adia a Temporada (antes do 1º jogo)
@@ -375,6 +376,20 @@ async function main(): Promise<void> {
         if (!usuario) throw new Error('Use: USUARIO=fulano pnpm liga vincular-conta');
         const r = await vincularConta(banco, usuario);
         console.log(`Vinculado: Jogador ${r.id} (@${usuario.replace(/^@/, '')}) agora é da conta ${r.para} (era ${r.de}).`);
+        break;
+      }
+
+      case 'webhook-mensagens': {
+        // Inscrição da conta da Liga no campo `messages` do webhook (ADR-0083): sem ela a Meta
+        // não abre a janela de 24 h e a Liga não consegue mandar DM pela API.
+        const token = (await tokenGuardado(banco))?.token ?? process.env.IG_ACCESS_TOKEN;
+        if (!process.env.IG_USER_ID || !token) throw new Error('Instagram não configurado (IG_USER_ID e token).');
+        const ig = new Instagram({ userId: process.env.IG_USER_ID, token });
+        if (args.gravar) console.log(`Inscrição no campo messages: ${(await ig.inscreverMensagens()) ? 'feita' : 'a Meta não confirmou'}.`);
+        const inscricoes = await ig.inscricoesDoWebhook();
+        if (!inscricoes.length) console.log('A conta não está inscrita em nenhum app.');
+        for (const i of inscricoes) console.log(`App ${i.app}: ${i.campos.length ? i.campos.join(', ') : 'nenhum campo'}.`);
+        if (!inscricoes.some((i) => i.campos.includes('messages'))) process.exitCode = 1;
         break;
       }
 

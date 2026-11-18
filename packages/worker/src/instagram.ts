@@ -289,6 +289,21 @@ export class Instagram {
     return r.message_id;
   }
 
+  /**
+   * Inscreve a conta da Liga no campo `messages` do webhook (ADR-0083). Sem isso, a Meta não abre
+   * a janela de 24 h para o app e toda DM pela API volta com 10/2534022.
+   */
+  async inscreverMensagens(): Promise<boolean> {
+    const r = await this.chamar<{ success?: boolean }>('POST', `${this.o.userId}/subscribed_apps`, { subscribed_fields: 'messages' });
+    return r.success === true;
+  }
+
+  /** Os campos do webhook em que a conta da Liga está inscrita, por app. */
+  async inscricoesDoWebhook(): Promise<{ app: string; campos: string[] }[]> {
+    const r = await this.chamar<{ data: { name?: string; id?: string; subscribed_fields?: string[] }[] }>('GET', `${this.o.userId}/subscribed_apps`);
+    return r.data.map((a) => ({ app: a.name ?? a.id ?? '?', campos: a.subscribed_fields ?? [] }));
+  }
+
   /** Responde um comentário (aparece como resposta da conta da Liga). */
   async responder(igCommentId: string, texto: string): Promise<string> {
     const r = await this.chamar<{ id: string }>('POST', `${igCommentId}/replies`, { message: texto });

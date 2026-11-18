@@ -83,3 +83,17 @@ describe('Última mensagem na DM (destino do Link de Vínculo)', () => {
     expect(await ig(conversas).ultimaMensagemDe('ninguem')).toBeNull();
   });
 });
+
+describe('Inscrição no webhook de mensagens (ADR-0083)', () => {
+  it('inscreve a conta no campo messages e lê as inscrições', async () => {
+    const pedidos: string[] = [];
+    const f = (async (u: URL, init: RequestInit) => {
+      pedidos.push(`${init.method} ${u.pathname} ${init.body ? String(init.body) : ''}`);
+      return init.method === 'POST' ? Response.json({ success: true }) : Response.json({ data: [{ name: 'Varzeão', subscribed_fields: ['messages'] }] });
+    }) as unknown as typeof fetch;
+    const ig = new Instagram({ userId: 'LIGA', token: 'EAAteste', fetch: f });
+    expect(await ig.inscreverMensagens()).toBe(true);
+    expect(pedidos[0]).toMatch(/^POST \/v[\d.]+\/LIGA\/subscribed_apps .*subscribed_fields=messages/);
+    expect(await ig.inscricoesDoWebhook()).toEqual([{ app: 'Varzeão', campos: ['messages'] }]);
+  });
+});

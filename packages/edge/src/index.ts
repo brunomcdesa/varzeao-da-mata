@@ -20,12 +20,13 @@ import { aplicarPerfil } from '../../worker/src/perfil.js';
 import { aplicarEscolha, capitaniaDoJogador, type Escolha } from '../../worker/src/temporada2.js';
 import { comBanco } from './banco.js';
 import { rotasDoVinculo, sessaoDe } from './vinculo.js';
+import { rotaDoWebhook, type EnvWebhook } from './webhook.js';
 import { rodarAvisos, rotaDosAvisos } from './avisos.js';
 import { CABECALHO_FIM } from './salaAoVivo.js';
 
 export { SalaAoVivo } from './salaAoVivo.js';
 
-export interface Env {
+export interface Env extends EnvWebhook {
   AGENDA: KVNamespace;
   PUBLICO: R2Bucket;
   PRIVADO: R2Bucket;
@@ -170,6 +171,8 @@ const duracaoAoVivoMs = (fase?: string) => (fase === 'MATA_MATA' ? 7 : 5) * 60_0
 
 export async function responder(req: Request, env: Env, agora = new Date(), f: Fetch = fetch): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+  const webhook = await rotaDoWebhook(req, env);
+  if (webhook) return webhook;
   const { pathname } = new URL(req.url);
   if (pathname === '/votos' && req.method === 'POST') return votar(req, env, agora, f);
   const avisos = await rotaDosAvisos(req, env, (fn) => comBanco(env.DATABASE_URL!, fn), CORS).catch((e: Error) => json({ erro: `Não deu agora: ${e.message.slice(0, 200)}` }, 502));

@@ -1,0 +1,26 @@
+# Inscreve a conta da Liga no campo `messages` do webhook do Instagram (ADR-0083) e mostra as
+# inscrições. Sem ela a Meta não abre a janela de 24 h e a Liga não manda DM pela API.
+# Só à mão: Actions → webhook-mensagens → Run workflow.
+name: webhook-mensagens
+on:
+  workflow_dispatch:
+    inputs:
+      gravar:
+        description: 'Fazer a inscrição (desmarcado só mostra como está)'
+        type: boolean
+        default: true
+jobs:
+  inscrever:
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      IG_APP_ID: ${{ vars.IG_APP_ID }}
+      IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+      - run: pnpm liga webhook-mensagens ${{ inputs.gravar && '--gravar' || '' }}
