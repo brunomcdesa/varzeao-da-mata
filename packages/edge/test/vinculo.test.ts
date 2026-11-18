@@ -208,3 +208,15 @@ describe('Link de Vínculo (ADR-0082)', () => {
     expect((await t.post('/vinculo/link', { token: 'curto' })).status).toBe(400);
   });
 });
+
+describe('Link de Vínculo: só gasta no toque', () => {
+  const sha = async (s: string) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+  it('olhar o link (pré-carregamento do navegador) não gasta; vincular gasta', async () => {
+    const token = 'v'.repeat(43);
+    const t = montar([]);
+    await t.AGENDA.put(`vinculo/link/${await sha(token)}`, JSON.stringify({ jogadorId: '7', username: 'Fulano_10', criadoEm: agora.toISOString(), expiraEm: '2026-11-09T20:00:00Z' }));
+    for (let i = 0; i < 3; i++) expect(await (await t.post('/vinculo/link/ver', { token })).json()).toEqual({ jogadorId: '7', username: 'Fulano_10' });
+    expect(await (await t.post('/vinculo/link', { token })).json()).toMatchObject({ vinculado: true, jogadorId: '7' });
+    expect((await t.post('/vinculo/link/ver', { token })).status).toBe(410);
+  });
+});

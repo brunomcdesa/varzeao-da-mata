@@ -624,30 +624,44 @@ export const paginaVincular: Pagina = async (main, [token]) => {
   const desenhar = (corpo: { s: string }) => {
     main.innerHTML = html`<section class="placa vincular meu-personagem" aria-live="polite">${corpo}</section>`.s;
   };
-  const falhou = (erro: string, deNovo: boolean) => {
+  const falhou = (erro: string, deNovo: (() => Promise<void>) | null) => {
     desenhar(html`<h1 class="secao">Não deu para vincular</h1>
       <p class="erro">${erro}</p>
       ${deNovo
         ? html`<p><button type="button" class="botao" data-acao="tentar">Tentar de novo</button></p>`
         : html`<p>Peça um link novo na DM da Liga. Ou vincule pela página do seu Jogador, mandando um código na DM.</p>
             <p><a class="botao" href="#/jogadores">Buscar o meu Jogador</a></p>`}`);
-    main.querySelector('[data-acao="tentar"]')?.addEventListener('click', () => void vincular());
+    main.querySelector('[data-acao="tentar"]')?.addEventListener('click', () => void deNovo?.());
   };
+  type Resposta = { vinculado?: boolean; sessao?: string; jogadorId?: string; username?: string; erro?: string };
+
+  // 1. Só olha o link: o navegador do Instagram pré-carrega a página, e isso não pode gastá-lo.
+  async function conferir(): Promise<void> {
+    if (!token || !vinculoDisponivel()) return falhou('Este link está incompleto.', null);
+    desenhar(html`<h1 class="secao">Abrindo o seu link…</h1><p>Só um instante.</p>`);
+    const r = await api<Resposta>('vinculo/link/ver', { token }).catch(() => null);
+    if (!r) return falhou('Sem conexão com a Liga agora. Confira a internet e tente de novo.', conferir);
+    if (!r.dados.username) return falhou(r.dados.erro ?? 'Este link já foi usado ou venceu.', r.status >= 500 ? conferir : null);
+    const atual = ler<Guardado>(CHAVE);
+    desenhar(html`<h1 class="secao">Vincular o @${r.dados.username}?</h1>
+      <p>Toque em <strong>Vincular</strong> para ligar este navegador ao seu Jogador. Depois dá para cuidar dele por aqui: transferência, apelido, visual e o voto no Craque.</p>
+      ${atual && atual.jogadorId !== r.dados.jogadorId ? html`<p class="legenda">Este navegador hoje está vinculado ao @${atual.username}. Esse vínculo será trocado.</p>` : ''}
+      <p><button type="button" class="botao" data-acao="vincular">Vincular</button></p>`);
+    main.querySelector('[data-acao="vincular"]')!.addEventListener('click', () => void vincular());
+  }
+
+  // 2. A pessoa tocou: agora o link é gasto.
   async function vincular(): Promise<void> {
-    if (!token || !vinculoDisponivel()) return falhou('Este link está incompleto.', false);
     desenhar(html`<h1 class="secao">Vinculando o seu Jogador…</h1><p>Só um instante.</p>`);
     const antiga = ler<Guardado>(CHAVE)?.sessao;
-    const r = await api<{ vinculado?: boolean; sessao?: string; jogadorId?: string; username?: string; erro?: string }>('vinculo/link', {
-      token,
-      ...(antiga ? { sessaoAntiga: antiga } : {}),
-    }).catch(() => null);
-    if (!r) return falhou('Sem conexão com a Liga agora. Confira a internet e tente de novo.', true);
+    const r = await api<Resposta>('vinculo/link', { token, ...(antiga ? { sessaoAntiga: antiga } : {}) }).catch(() => null);
+    if (!r) return falhou('Sem conexão com a Liga agora. Confira a internet e tente de novo.', conferir);
     const d = r.dados;
-    if (!d.vinculado || !d.sessao || !d.jogadorId) return falhou(d.erro ?? 'Este link já foi usado ou venceu.', r.status >= 500);
+    if (!d.vinculado || !d.sessao || !d.jogadorId) return falhou(d.erro ?? 'Este link já foi usado ou venceu.', r.status >= 500 ? conferir : null);
     gravar(CHAVE, { sessao: d.sessao, jogadorId: d.jogadorId, username: d.username ?? '' } satisfies Guardado);
     gravar(`${CHAVE}:pendente`, null);
     gravar(CHAVE_RECEM, d.jogadorId);
     location.replace(`#/jogador/${d.jogadorId}`);
   }
-  await vincular();
+  await conferir();
 };

@@ -7,6 +7,7 @@
  *   POST /vinculo/verificar      {codigo, sessao}         → {vinculado: true, jogadorId} | {vinculado: false}
  *   POST /vinculo/eu             {sessao}                 → {jogadorId, username} | 404
  *   POST /vinculo/sair           {sessao}                 → {ok}
+ *   POST /vinculo/link/ver       {token}                  → {jogadorId, username} | 410 (só olha; não gasta o link)
  *   POST /vinculo/link           {token, sessaoAntiga?}   → {vinculado, sessao, jogadorId, username} | 410 (ADR-0082)
  *   POST /transferencia          {sessao, time?, posicao?} → {ok}
  *   POST /transferencia/estado   {sessao}                 → o pedido com o resultado da coleta
@@ -216,7 +217,9 @@ export async function rotasDoVinculo(
 
   // Link de Vínculo (ADR-0082): o dono manda pela DM um link de uso único; abrir vincula o
   // navegador ao Jogador. Se o navegador era de outro Jogador, a sessão antiga é apagada.
-  if (pathname === '/vinculo/link') {
+  // O navegador do Instagram pré-carrega links da DM e roda a página sozinho: só olhar não gasta
+  // o link; ele só é gasto quando a pessoa toca em Vincular.
+  if (pathname === '/vinculo/link' || pathname === '/vinculo/link/ver') {
     const c = await corpo<{ token: string; sessaoAntiga?: string }>(req);
     if (!sessaoValida(c?.token)) return json({ erro: 'Link inválido' }, 400);
     const chave = chaveDoLink(await hash(c.token));
@@ -225,6 +228,7 @@ export async function rotasDoVinculo(
       if (link) await env.AGENDA.delete(chave);
       return json({ erro: 'Este link já foi usado ou venceu.' }, 410);
     }
+    if (pathname === '/vinculo/link/ver') return json({ jogadorId: link.jogadorId, username: link.username });
     await env.AGENDA.delete(chave);
     if (sessaoValida(c.sessaoAntiga)) await env.AGENDA.delete(`vinculo/sessao/${await hash(c.sessaoAntiga)}`);
     const sessao = aleatorio(32);

@@ -12,7 +12,8 @@ O Vínculo (ADR-0013) fica no navegador, e cada navegador tem um único personag
 - Novo workflow manual **link-de-vinculo** (`pnpm liga link-de-vinculo`), com o @ e, opcionalmente, o id do Jogador.
 - O workflow cria um token aleatório (32 bytes, base64url) e grava em `vinculo/link/<sha256 do token>` no KV: o Jogador, o @, quando foi criado e quando vence. O link vale 24 horas, com TTL no próprio KV.
 - A Liga manda na DM do Jogador o link `<site>/#/vincular/<token>`. O texto está em `mensagemDoLink`. O workflow é a aprovação do dono para essa DM.
-- Abrir o link chama `POST /vinculo/link` na borda. A borda confere o token e cria uma sessão nova para o navegador. O link é apagado, então funciona uma vez só. Se o navegador mandar a sessão antiga, ela também é apagada: o Vínculo anterior é trocado, e um navegador continua com um personagem só.
+- Abrir o link só mostra para qual @ ele é (`POST /vinculo/link/ver`, que não gasta o link) e um botão **Vincular**. O navegador do Instagram pré-carrega os links da DM e roda a página sozinho: na primeira versão, isso gastava o link antes de a pessoa tocar nele.
+- Tocar em Vincular chama `POST /vinculo/link` na borda. A borda confere o token e cria uma sessão nova para o navegador. O link é apagado, então funciona uma vez só. Se o navegador mandar a sessão antiga, ela também é apagada: o Vínculo anterior é trocado, e um navegador continua com um personagem só.
 - O site tira o token do endereço na hora e vai para a página do Jogador, que mostra "Pronto! Este navegador agora está vinculado ao seu Jogador.". Link usado, vencido ou inventado leva a uma tela que manda pedir outro link ou vincular pelo código.
 
 ## Segurança
