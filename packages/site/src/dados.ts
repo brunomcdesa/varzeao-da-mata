@@ -242,14 +242,4 @@ export const dia = (iso: string) => fmtDia.format(new Date(iso)).replace('.', ''
 export const diaLongo = (iso: string) => fmtDiaLongo.format(new Date(iso));
 export const mesmoDia = (a: string, b: string) => fmtChave.format(new Date(a)) === fmtChave.format(new Date(b));
 
-/** "em 1h 12min", "em 8min", "agora". */
-export function contagem(iso: string, agora = Date.now()): string {
-  const ms = Date.parse(iso) - agora;
-  if (ms <= 0) return 'agora';
-  const min = Math.ceil(ms / 60_000);
-  if (min < 60) return `em ${min} min`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `em ${h}h${min % 60 ? ` ${min % 60}min` : ''}`;
-  const d = Math.round(h / 24);
-  return d === 1 ? 'amanhã' : `em ${d} dias`;
-}
+export { contagem } from './contagem.js';
