@@ -126,7 +126,7 @@ export async function sessaoDe(env: EnvVinculo, sessao: string): Promise<SessaoV
 }
 
 /** Capitão do próximo jogo do Time do Jogador (T2); null fora da T2, sem jogo ou sem banco. */
-export type ConsultarCapitania = (jogadorId: string) => Promise<{ eu: boolean; capitao: string | null; postura: string; formacao?: string } | null>;
+export type ConsultarCapitania = (jogadorId: string) => Promise<{ eu: boolean; capitao: string | null; postura: string; formacao?: string; presenca?: boolean; jogo?: { apito: string; adversario: string } } | null>;
 
 export async function rotasDoVinculo(
   req: Request,

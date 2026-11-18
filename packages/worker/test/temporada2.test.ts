@@ -55,7 +55,7 @@ describe('Formação (ADR-0044)', () => {
     expect((await aplicarEscolha(banco, capitao, { tipo: 'FORMACAO', valor: '4-4-2' as never }, antes, vinc)).ok).toBe(false);
     expect((await aplicarEscolha(banco, capitao, { tipo: 'FORMACAO', valor: '3-2-1' }, antes, vinc)).ok).toBe(true);
     expect((await aplicarEscolha(banco, capitao, { tipo: 'POSTURA', valor: 'DEFENSIVA' }, antes, vinc)).ok).toBe(true);
-    expect(await capitaniaDoJogador(banco, outro, antes, vinc)).toEqual({ eu: false, capitao: 'capitao_onc', postura: 'DEFENSIVA', formacao: '3-2-1' });
+    expect(await capitaniaDoJogador(banco, outro, antes, vinc)).toMatchObject({ eu: false, capitao: 'capitao_onc', postura: 'DEFENSIVA', formacao: '3-2-1' });
     // Depois do Corte a escolha já vale para o jogo seguinte: a deste fica travada.
     const depoisDoCorte = new Date(new Date((await banco.query<{ a: Date }>(`SELECT apito_inicial AS a FROM partida WHERE id = $1`, [p.id])).rows[0]!.a).getTime() - 10 * 60_000);
     await aplicarEscolha(banco, capitao, { tipo: 'FORMACAO', valor: '2-3-1' }, depoisDoCorte, vinc);
@@ -198,8 +198,8 @@ describe('Temporada 2 no worker', () => {
     expect((await aplicarEscolha(banco, veterano, { tipo: 'POSTURA', valor: 'OFENSIVA' }, antes, async () => new Set([novato]))).ok).toBe(false);
     expect((await aplicarEscolha(banco, novato, { tipo: 'POSTURA', valor: 'OFENSIVA' }, antes, async () => new Set([novato]))).ok).toBe(true);
     // O painel do site: só o Capitão vê a escolha; o outro vê quem é o Capitão e a Postura.
-    expect(await capitaniaDoJogador(banco, novato, antes, async () => new Set([novato]))).toEqual({ eu: true, capitao: 'novato', postura: 'OFENSIVA', formacao: '2-2-2' });
-    expect(await capitaniaDoJogador(banco, veterano, antes, async () => new Set([novato]))).toEqual({ eu: false, capitao: 'novato', postura: 'OFENSIVA', formacao: '2-2-2' });
+    expect(await capitaniaDoJogador(banco, novato, antes, async () => new Set([novato]))).toMatchObject({ eu: true, capitao: 'novato', postura: 'OFENSIVA', formacao: '2-2-2' });
+    expect(await capitaniaDoJogador(banco, veterano, antes, async () => new Set([novato]))).toMatchObject({ eu: false, capitao: 'novato', postura: 'OFENSIVA', formacao: '2-2-2' });
     // O site mostra a faixa "C" para todos: no Capitão atual e, depois, na Escalação.
     const antesDoJogo = await exportarSite(banco, antes, { vinculos: new Set([novato]) });
     const doSite = antesDoJogo.arquivos.get('jogadores.json') as { id: string; capitao?: true }[];
@@ -222,6 +222,20 @@ describe('Temporada 2 no worker', () => {
     expect(ordemDoRodizio(jogouMais, jogouMenos, null)).toBeGreaterThan(0);
     expect(ordemDoRodizio(jogouMais, jogouMenos, null, new Set(['1']))).toBeLessThan(0);
     expect(ordemDoRodizio(jogouMais, jogouMenos, '2', new Set(['1']))).toBeGreaterThan(0);
+  });
+
+  it('o painel do site sabe se o Jogador já confirmou Presença no próximo jogo', async () => {
+    const t2 = await novaT2();
+    const quem = await inscrever('TAT', 'ATA', 'confirma_site', '2026-11-10T12:00:00Z');
+    const p = await primeiraPartida(t2, 'TAT');
+    const antes = new Date('2026-11-18T10:00:00Z');
+    const adversario = p.mandante_id === 'TAT' ? p.visitante_id : p.mandante_id;
+    expect(await capitaniaDoJogador(banco, quem, antes, ninguem)).toMatchObject({ presenca: false, jogo: { adversario } });
+    expect((await aplicarEscolha(banco, quem, { tipo: 'PRESENCA' }, antes, ninguem)).ok).toBe(true);
+    const c = await capitaniaDoJogador(banco, quem, antes, ninguem);
+    expect(c).toMatchObject({ presenca: true, jogo: { adversario } });
+    const apito = (await banco.query<{ a: Date }>(`SELECT apito_inicial AS a FROM partida WHERE id = $1`, [p.id])).rows[0]!.a;
+    expect(c!.jogo.apito).toBe(new Date(apito).toISOString());
   });
 
   it('CONFIRMO marca Presença no próximo jogo do Time, e a Escalação respeita', async () => {

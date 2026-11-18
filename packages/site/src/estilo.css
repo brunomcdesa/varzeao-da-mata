@@ -2981,6 +2981,39 @@ a.jogo:hover {
   color: var(--tinta-fraca);
   font-size: 0.8125rem;
 }
+/* Presença confirmada (ADR-0023): o botão dá lugar a um selo verde com o próximo jogo. */
+.dobra > summary small.presenca-ok {
+  color: #2f6b22;
+}
+.selo-presenca {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  padding: 5px 12px 4px 8px;
+  font: 400 1.35rem/1 var(--display);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--grama);
+  box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.28), inset 0 0 0 2px var(--sobe);
+  clip-path: var(--canto);
+  text-shadow: 1px 1px 0 rgb(0 0 0 / 0.45);
+}
+.selo-presenca .visto {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  font-size: 1rem;
+  color: var(--grama);
+  background: #fff;
+  text-shadow: none;
+  clip-path: var(--canto);
+}
+[data-presenca-convite][hidden] {
+  display: none;
+}
 .estado-escolha:empty {
   display: none;
 }

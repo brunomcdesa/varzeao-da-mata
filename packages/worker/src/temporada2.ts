@@ -169,6 +169,10 @@ export interface Capitania {
   postura: Postura;
   /** Formação escolhida para o próximo jogo (ADR-0044). */
   formacao: Formacao;
+  /** Este Jogador já confirmou Presença no próximo jogo (pelo site ou com CONFIRMO). */
+  presenca: boolean;
+  /** O próximo jogo do Time: Apito Inicial (ISO) e adversário, para o selo de Presença. */
+  jogo: { apito: string; adversario: TimeId };
 }
 
 /**
@@ -185,7 +189,16 @@ export async function capitaniaDoJogador(b: Banco, jogadorId: string, agora: Dat
   const id = await capitaoDaPartida(b, p.id, j.time_id, await comVinculo());
   const capitao = id ? ((await b.query<{ username: string }>(`SELECT username FROM jogador WHERE id = $1`, [id])).rows[0]?.username ?? null) : null;
   const escolha = (await b.query<{ postura: Postura; formacao: Formacao }>(`SELECT postura, formacao FROM postura WHERE partida_id = $1 AND time_id = $2`, [p.id, j.time_id])).rows[0];
-  return { eu: id === jogadorId, capitao, postura: escolha?.postura ?? 'EQUILIBRADA', formacao: escolha?.formacao ?? FORMACAO_PADRAO };
+  const lados = (await b.query<{ mandante_id: TimeId; visitante_id: TimeId }>(`SELECT mandante_id, visitante_id FROM partida WHERE id = $1`, [p.id])).rows[0]!;
+  const presenca = (await b.query(`SELECT 1 FROM presenca WHERE partida_id = $1 AND jogador_id = $2`, [p.id, jogadorId])).rows.length > 0;
+  return {
+    eu: id === jogadorId,
+    capitao,
+    postura: escolha?.postura ?? 'EQUILIBRADA',
+    formacao: escolha?.formacao ?? FORMACAO_PADRAO,
+    presenca,
+    jogo: { apito: p.apito.toISOString(), adversario: lados.mandante_id === j.time_id ? lados.visitante_id : lados.mandante_id },
+  };
 }
 
 /** Cópia da lista de quem tem Vínculo, para não listar as sessões a cada coleta (ADR-0035). */

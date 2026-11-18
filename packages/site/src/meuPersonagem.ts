@@ -7,6 +7,7 @@
  */
 import { CANTOS, DESCRICAO_DA_ESPECIALIZACAO, DESCRICAO_DA_FORMACAO, ESPECIALIZACOES, FORMACOES, FORMACAO_PADRAO, HABILIDADES, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, POSTURAS, ehFormacao, type Canto, type Especializacao, type Formacao, type HabilidadeId, type Postura } from '@liga/shared';
 import { desenhoDaFormacao } from './formacao.js';
+import { linhaDaPresenca } from './presenca.js';
 import { APELIDO_MAX, apelidoLiberaEm, podeTrocarApelido, CABELOS, NOME_DO_PENTEADO, validarApelido, PELES, PENTEADOS, TIMES, type Aparencia, type JogadorPublico, type Penteado, type Posicao, type TimeId } from '@liga/shared';
 import { ALTURA_SPRITE, LARGURA_SPRITE, aparencia, sprite, visualDoJogador, type Pose } from '@liga/renderer';
 import { BASE_API, INSTAGRAM, ajustarLocalmente } from './dados.js';
@@ -17,6 +18,16 @@ const CHAVE = 'varzeao:vinculo';
 const abertas = new Set<string>();
 /** Mesma folga da Inscrição (FOLGA_DE_ELENCO no worker). */
 const FOLGA = 5;
+
+/** Capitania e Presença do próximo jogo do Time (borda, `escolha/estado`). */
+interface Capitania {
+  eu: boolean;
+  capitao: string | null;
+  postura: string;
+  formacao?: string;
+  presenca?: boolean;
+  jogo?: { apito: string; adversario: TimeId } | null;
+}
 
 interface Guardado {
   sessao: string;
@@ -252,8 +263,8 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
     return html`<details class="dobra" data-dobra="jogo" ${abertas.has('jogo') ? 'open' : ''}>
       <summary>Próximo jogo <small data-resumo-jogo>presença</small></summary>
       <div class="escolha-t2" data-tipo="PRESENCA">
-        <p>Confirme que vai jogar: quem confirma entra antes no rodízio, logo depois do Craque. Vale até o Corte do próximo jogo do seu Time. Também dá para comentar <strong>CONFIRMO</strong> no post.</p>
-        <p><button type="button" class="botao" data-enviar="PRESENCA">Confirmar presença</button></p>
+        <p data-presenca-convite>Confirme que vai jogar: quem confirma entra antes no rodízio, logo depois do Craque. Vale até o Corte do próximo jogo do seu Time. Também dá para comentar <strong>CONFIRMO</strong> no post.</p>
+        <p data-presenca-convite><button type="button" class="botao" data-enviar="PRESENCA">Confirmar presença</button></p>
         <p class="estado-escolha" role="status" aria-live="polite"></p>
       </div>
       <div data-capitania></div>
@@ -297,7 +308,7 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
   }
 
   /** Só o Capitão vê a escolha de Postura e Formação; os outros veem quem ele é (ADRs 0020 e 0044). */
-  function blocoCapitania(c: { eu: boolean; capitao: string | null; postura: string; formacao?: string } | null) {
+  function blocoCapitania(c: Capitania | null) {
     if (!c) return html``;
     const atual = (POSTURAS as readonly string[]).includes(c.postura) ? (c.postura as Postura) : 'EQUILIBRADA';
     const formacao: Formacao = ehFormacao(c.formacao) ? c.formacao : FORMACAO_PADRAO;
@@ -325,9 +336,35 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
     </form>`;
   }
 
+  /** O próximo jogo do Time (vem com a capitania), para a linha do selo de Presença. */
+  let jogo: Capitania['jogo'] = null;
+  let souCapitao = false;
+  /** Presença confirmada (pelo site ou com CONFIRMO): o botão dá lugar ao selo. */
+  function mostrarPresenca() {
+    const bloco = caixa.querySelector<HTMLElement>('.escolha-t2[data-tipo="PRESENCA"]');
+    if (!bloco) return;
+    for (const p of bloco.querySelectorAll<HTMLElement>('[data-presenca-convite]')) p.hidden = true;
+    const estado = bloco.querySelector<HTMLElement>('.estado-escolha');
+    if (estado) {
+      estado.textContent = '';
+      estado.className = 'estado-escolha';
+    }
+    bloco.querySelector('.selo-presenca')?.remove();
+    bloco.querySelector('.linha-presenca')?.remove();
+    bloco.insertAdjacentHTML(
+      'afterbegin',
+      html`<span class="selo-presenca"><span class="visto" aria-hidden="true">✓</span>Presença confirmada</span><p class="legenda linha-presenca">${linhaDaPresenca(jogo)}</p>`.s,
+    );
+    const resumo = caixa.querySelector<HTMLElement>('[data-resumo-jogo]');
+    if (resumo) {
+      resumo.textContent = souCapitao ? '✓ presença confirmada, Postura e Formação' : '✓ presença confirmada';
+      resumo.classList.add('presenca-ok');
+    }
+  }
+
   function ligarEscolhas(g: Guardado) {
     // O canto não é público: vem do último pedido deste navegador (borda).
-    void api<Record<string, { escolha?: { valor?: Canto | null }; resultado?: string } | null> & { capitania?: { eu: boolean; capitao: string | null; postura: string; formacao?: string } | null }>('escolha/estado', { sessao: g.sessao })
+    void api<Record<string, { escolha?: { valor?: Canto | null }; resultado?: string } | null> & { capitania?: Capitania | null }>('escolha/estado', { sessao: g.sessao })
       .then((r) => {
         const lugar = caixa.querySelector<HTMLElement>('[data-capitania]');
         if (lugar) {
@@ -335,6 +372,9 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
           for (const form of lugar.querySelectorAll<HTMLFormElement>('form.escolha-t2')) ligarBloco(form);
           const resumo = caixa.querySelector('[data-resumo-jogo]');
           if (resumo && r.dados.capitania?.eu) resumo.textContent = 'presença, Postura e Formação';
+          jogo = r.dados.capitania?.jogo ?? null;
+          souCapitao = Boolean(r.dados.capitania?.eu);
+          if (r.dados.capitania?.presenca) mostrarPresenca();
         }
         const c = r.dados.CANTO;
         if (c && c.resultado !== 'RECUSADO' && c.escolha) {
@@ -370,6 +410,7 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
       if (tipo === 'ESPECIALIZACAO') especializacao = (valor as Especializacao | null) ?? null;
       if (tipo === 'TREINO') treino = (valor as HabilidadeId | null) ?? null;
       if (tipo === 'CANTO') canto = (valor as Canto | null) ?? null;
+      if (tipo === 'PRESENCA') return mostrarPresenca();
       if (tipo === 'ESPECIALIZACAO' || tipo === 'TREINO') ajustarLocalmente(j.id, { especializacao, treino });
       const resumo = caixa.querySelector(`details[data-dobra="${tipo === 'CANTO' ? 'canto' : tipo.toLowerCase()}"] summary small`);
       if (resumo && tipo === 'ESPECIALIZACAO') resumo.textContent = especializacao ? NOME_DA_ESPECIALIZACAO[especializacao] : 'nenhuma';
