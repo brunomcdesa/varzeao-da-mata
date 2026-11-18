@@ -1,6 +1,6 @@
 /** Jogos (calendário), Tabela, Times e a página de cada Time. */
 import { FALA_DO_TIME, GRUPOS, IDENTIDADE, NOME_DO_GRUPO, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, foraDoMataMata, forcaProvavel, inscritosAteNoProximoJogo, nomeDaRodada, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
-import { diaLongo, jogadores, liga, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos, gruposAtivos, formaDosTimes } from '../dados.js';
+import { avisoDaPreTemporada, diaLongo, jogadores, liga, preTemporada, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos, gruposAtivos, formaDosTimes } from '../dados.js';
 import { bonecoImg, campinho, curto, escudoImg, forcaHtml, formaHtml, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa } from '../ui.js';
 import { chaveamento } from './chave.js';
 import { linhaDePartida, tabelaDeClassificacao } from './comum.js';
@@ -84,14 +84,15 @@ export const paginaTabela: Pagina = async (main) => {
         )}
         <p class="legenda"><a href="#/jogos">Ver o chaveamento do Mata-mata em Jogos</a></p>`.s
     : l.grupos?.length
-      ? html`<h1 class="titulo-pagina">Tabela da Fase de Liga</h1>
+      ? html`<h1 class="titulo-pagina">${preTemporada(l) ? `Tabela da Temporada ${l.gruposDaTemporada}` : 'Tabela da Fase de Liga'}</h1>
+        ${preTemporada(l) ? html`<p class="placa aviso-temporada">${avisoDaPreTemporada(l)}</p>` : ''}
         ${l.grupos.map(
           (g, k) => html`<section aria-labelledby="titulo-grupo-${g.grupo.toLowerCase()}">
             <h2 id="titulo-grupo-${g.grupo.toLowerCase()}" class="secao">${g.nome}</h2>
-            <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(g.tabela, { forma: formaDosTimes(l), classificam: 2, porGrupo: true, caem: l.caem ?? 0, semLegenda: k < l.grupos!.length - 1 })}</div>
+            <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(g.tabela, { ...(preTemporada(l) ? {} : { forma: formaDosTimes(l) }), classificam: 2, porGrupo: true, caem: l.caem ?? 0, semLegenda: k < l.grupos!.length - 1 })}</div>
           </section>`,
         )}
-        <p class="legenda"><a href="#/jogos">Ver o chaveamento do Mata-mata em Jogos</a></p>`.s
+        ${preTemporada(l) ? '' : html`<p class="legenda"><a href="#/jogos">Ver o chaveamento do Mata-mata em Jogos</a></p>`}`.s
     : html`<h1 class="titulo-pagina">Tabela da Fase de Liga</h1>
     <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(l.tabela, { forma: formaDosTimes(l), ...(l.caem ? { caem: l.caem } : {}) })}</div>
     <p class="legenda"><a href="#/jogos">Ver o chaveamento do Mata-mata em Jogos</a></p>`.s;

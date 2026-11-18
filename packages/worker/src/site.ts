@@ -520,18 +520,22 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   for (const j of porJogador.values()) j.trofeus.sort((a, b) => b.temporada - a.temporada || (b.rodada ?? 99) - (a.rodada ?? 99));
 
   const atual = historia.find((h) => h.numero === temporada?.numero);
+  // A Temporada cujos Grupos a tabela mostra: a atual ou, na Pré-temporada, a que aceita Inscrição.
+  const temporadaDosGrupos = temporada && gruposDe.get(temporada.id) ? temporada : ativaLinha && ativaLinha !== temporada && gruposDe.get(ativaLinha.id) ? ativaLinha : null;
   const liga: LigaPublica = {
     atualizadoEm: agora.toISOString(),
     temporada: temporada ? { numero: temporada.numero, status: temporada.status } : null,
     times,
     tabela: atual?.tabela ?? [],
-    // Grupos da T2 (ADR-0064): uma tabela por Grupo; caem os 4 últimos de cada.
-    ...(temporada && gruposDe.get(temporada.id)
+    // Grupos da T2 (ADR-0064): uma tabela por Grupo; caem os 4 últimos de cada. Na Pré-temporada
+    // (ADR-0081), já os Grupos da próxima, zerados, para todo mundo ver onde o seu Time vai jogar.
+    ...(temporadaDosGrupos
       ? {
           caem: timesQueCaem({ temSerieB: false, porGrupo: true }),
+          gruposDaTemporada: temporadaDosGrupos.numero,
           grupos: GRUPOS.map((grupo) => {
-            const times = gruposDe.get(temporada.id)![grupo];
-            const doGrupo = todas.filter((p) => p.temporada_id === temporada.id && times.includes(p.mandante_id) && times.includes(p.visitante_id));
+            const times = gruposDe.get(temporadaDosGrupos.id)![grupo];
+            const doGrupo = todas.filter((p) => p.temporada_id === temporadaDosGrupos.id && times.includes(p.mandante_id) && times.includes(p.visitante_id));
             return {
               grupo,
               nome: NOME_DO_GRUPO[grupo],

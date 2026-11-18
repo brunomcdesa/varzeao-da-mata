@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GRUPOS_DA_A_DE_16, TIMES_FUNDADORES, TIMES_NOVOS, appLiberado, gruposDaLiga, temRegrasT2, temporadaDoApp, timesDaLiga } from '@liga/shared';
+import { GRUPOS_DA_A_DE_16, TIMES_FUNDADORES, TIMES_NOVOS, appLiberado, gruposDaLiga, temRegrasT2, tabelaDaPreTemporada, temporadaDoApp, timesDaLiga } from '@liga/shared';
 
 const DEZESSEIS = [...TIMES_FUNDADORES, ...TIMES_NOVOS];
 const GRUPOS = { CHAO: [...GRUPOS_DA_A_DE_16.CHAO], COPA: [...GRUPOS_DA_A_DE_16.COPA] };
@@ -30,5 +30,16 @@ describe('Times e App na Pré-temporada da T2 (ADR-0068)', () => {
     expect(timesDaLiga({ series: { A: ['CAP'], B: ['QUA'] } })).toEqual(['CAP', 'QUA']);
     expect(temporadaDoApp({ temporada: { numero: 2 } })).toBe(2);
     expect(temporadaDoApp(null)).toBeNull();
+  });
+});
+
+describe('Tabela na Pré-temporada da T2 (ADR-0081)', () => {
+  const grupos = [{ grupo: 'CHAO' as const, nome: 'Grupo do Barro', tabela: [] }];
+  it('com os Grupos da T2 e o site ainda na T1, a tabela é a da Pré-temporada', () => {
+    expect(tabelaDaPreTemporada({ temporada: { numero: 1 }, grupos, gruposDaTemporada: 2 })).toBe(true);
+  });
+  it('quando a T2 começa, volta a ser a tabela normal; sem Grupos, também', () => {
+    expect(tabelaDaPreTemporada({ temporada: { numero: 2 }, grupos, gruposDaTemporada: 2 })).toBe(false);
+    expect(tabelaDaPreTemporada({ temporada: { numero: 1 } })).toBe(false);
   });
 });

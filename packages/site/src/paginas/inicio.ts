@@ -1,6 +1,6 @@
 /** Início: a Partida da vez (ao vivo ou a próxima), a Rodada, a votação do Craque e a tabela. */
 import { IDENTIDADE, duracaoAoVivoMs, nomeDaRodada, type LigaPublica, type PartidaNoCalendario, type Posicao, type Serie, type TimeId } from '@liga/shared';
-import { contagem, diaLongo, hora, liga, partida, partidasDaRodada, rodadaAtual, serieDaPartida, seriesDaLiga, situacaoAgora, tabelaDaSerie, temSeries } from '../dados.js';
+import { contagem, diaLongo, hora, liga, preTemporada, partida, partidasDaRodada, rodadaAtual, serieDaPartida, seriesDaLiga, situacaoAgora, tabelaDaSerie, temSeries } from '../dados.js';
 import { montarTimeline, transmitir } from '../transmissao.js';
 import { bonecoImg, curto, escudoImg, html, jogadorLink, nota, rotuloClassico, type Html } from '../ui.js';
 import { chamadaDeVoto, comoEntrar, linhaDePartida, perfil, tabelaDeClassificacao } from './comum.js';
@@ -201,7 +201,7 @@ export const inicio: Pagina = async (main) => {
             : ''}
           ${jogos.length && jogos[0]!.fase === 'MATA_MATA' ? html`<p class="tabela-link"><a href="#/jogos">Ver o chaveamento do Mata-mata</a></p>` : ''}
           <section class="quadro-negro tabela-bloco" aria-labelledby="titulo-tabela">
-            <h2 id="titulo-tabela">Tabela</h2>
+            <h2 id="titulo-tabela">${preTemporada(l) ? `Tabela da Temporada ${l.gruposDaTemporada}` : 'Tabela'}</h2>
             ${temSeries(l)
               ? seriesDaLiga(l).map((s: Serie) => html`<h3 class="subsecao-serie"><span class="selo-serie serie-${s.toLowerCase()}">Série ${s}</span></h3>${tabelaDeClassificacao(tabelaDaSerie(l, s), { compacta: true, semLegenda: true, serie: s })}`)
               : l.grupos?.length

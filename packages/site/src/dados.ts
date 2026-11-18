@@ -4,7 +4,7 @@
  * porque os arquivos estáticos só são regerados de hora em hora.
  */
 import { definirAparencias, definirEstrelas } from '@liga/renderer';
-import { duracaoAoVivoMs, gruposDaLiga, timesDaLiga, type Grupo, type JogadorPublico, type LigaPublica, type LinhaTabelaPublica, type PartidaNoCalendario, type PartidaPublica, type Serie, type SituacaoPartida, type TimeId } from '@liga/shared';
+import { duracaoAoVivoMs, gruposDaLiga, tabelaDaPreTemporada, timesDaLiga, type Grupo, type JogadorPublico, type LigaPublica, type LinhaTabelaPublica, type PartidaNoCalendario, type PartidaPublica, type Serie, type SituacaoPartida, type TimeId } from '@liga/shared';
 
 const meta = (nome: string) => document.querySelector<HTMLMetaElement>(`meta[name="${nome}"]`)?.content.trim() ?? '';
 const comBarra = (s: string) => (s && !s.endsWith('/') ? `${s}/` : s);
@@ -94,7 +94,24 @@ async function completarLiga(l: LigaPublica): Promise<LigaPublica> {
     calendario,
     tabela: mudouTabela ? refazer(l.tabela) : l.tabela,
     ...(l.tabelaB ? { tabelaB: mudouTabela ? refazer(l.tabelaB) : l.tabelaB } : {}),
+    // Grupos da T2 (ADR-0064): a Fase de Liga é só dentro do Grupo, então a linha do Time é a mesma.
+    ...(l.grupos && !preTemporada(l) ? { grupos: mudouTabela ? l.grupos.map((g) => ({ ...g, tabela: refazer(g.tabela) })) : l.grupos } : {}),
   };
+}
+
+/**
+ * Pré-temporada com Grupos (ADR-0081): a tabela já mostra os Grupos da próxima Temporada,
+ * zerados, enquanto o resto do site ainda é da que acabou.
+ */
+export const preTemporada = (l: LigaPublica): boolean => tabelaDaPreTemporada(l);
+
+/** "Começa quinta-feira, 19 de novembro. Todos os Times começam com 0 ponto." */
+export function avisoDaPreTemporada(l: LigaPublica): string {
+  const p = l.proximaTemporada;
+  const dia = p && p.numero === l.gruposDaTemporada
+    ? new Date(`${p.inicio}T12:00:00Z`).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Sao_Paulo' })
+    : null;
+  return `${dia ? `A Temporada ${l.gruposDaTemporada} começa ${dia}. ` : ''}Todos os Times começam com 0 ponto.`;
 }
 
 /** A Temporada atual tem Série B (ADR-0017)? */
