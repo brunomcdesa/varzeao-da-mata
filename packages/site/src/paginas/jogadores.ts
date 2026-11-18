@@ -4,7 +4,7 @@ import { jogadores, liga, timesAtivos } from '../dados.js';
 import { bonecoImg, comCamisa, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html, faixaC } from '../ui.js';
 import type { Pagina } from './tipos.js';
 import { blocoDoDono, ligarMeuPersonagem } from '../meuPersonagem.js';
-import { pontosDoOvr, type PontoDoOvr } from '../pontosDoOvr.js';
+import { pontosDoOvr, variacaoDoOvr, type PontoDoOvr } from '../pontosDoOvr.js';
 
 type Criterio = 'ovr' | 'gols' | 'assistencias' | 'notaMedia' | 'jogos' | 'desarmes' | 'defesas' | 'dribles' | 'bloqueios' | 'titulos' | 'craqueDaRodada' | 'craqueDaTemporada';
 const CRITERIOS: Record<Criterio, string> = {
@@ -171,7 +171,7 @@ export function barrasDeHabilidade(posicao: Posicao, h: Habilidades, antes?: Hab
 export function card(j: JogadorPublico, o: { pequeno?: boolean } = {}): Html {
   const id = IDENTIDADE[j.time];
   // A base é o último ajuste à mão do dono, quando houver (ADR-0079); senão, a estreia.
-  const delta = j.ovr - (j.base?.ovr ?? j.ovrInicial);
+  const { delta, desde } = variacaoDoOvr(j);
   return html`<div class="card ${o.pequeno ? 'pequeno' : ''}" style="--cor:${id.primaria};--cor2:${id.secundaria};--sobre:${tintaSobre(id.primaria)}">
     <div class="card-topo">
       <span class="card-ovr">${j.ovr}</span>
@@ -188,7 +188,7 @@ export function card(j: JogadorPublico, o: { pequeno?: boolean } = {}): Html {
       <div><dt>${j.posicao === 'GOL' ? 'Defesas' : j.posicao === 'ZAG' ? 'Desarmes' : 'Gols'}</dt><dd>${j.posicao === 'GOL' ? j.defesas : j.posicao === 'ZAG' ? j.desarmes : j.gols}</dd></div>
       <div><dt>Nota</dt><dd>${nota(j.notaMedia)}</dd></div>
     </dl>
-    ${delta ? html`<p class="card-delta ${delta > 0 ? 'sobe' : 'desce'}">${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)} desde a estreia</p>` : ''}
+    ${delta ? html`<p class="card-delta ${delta > 0 ? 'sobe' : 'desce'}">${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)} ${desde}</p>` : ''}
     ${medalhas(j).length ? html`<p class="card-titulos">${medalhas(j).map(([rotulo, n]) => html`<span class="titulo">${rotulo}${n > 1 ? ` ×${n}` : ''}</span>`)}</p>` : ''}
   </div>`;
 }

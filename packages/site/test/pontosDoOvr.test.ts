@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { JogadorPublico } from '@liga/shared';
-import { pontosDoOvr } from '../src/pontosDoOvr.js';
+import { pontosDoOvr, variacaoDoOvr } from '../src/pontosDoOvr.js';
 
 const jogo = (temporada: number, ovr: number) => ({ temporada, ovr }) as JogadorPublico['historico'][number];
 
@@ -27,5 +27,12 @@ describe('OVR à mão no gráfico (ADR-0079)', () => {
     expect(pontosDoOvr({ ovrInicial: 62, historico: [], degraus: [{ jogo: 0, ovr: 75 }] }).map((p) => p.tipo)).toEqual(['ESTREIA', 'DEGRAU']);
     const j = { ovrInicial: 60, historico: [jogo(1, 61)], pisoT1: { antes: 61, depois: 65 }, degraus: [{ jogo: 1, ovr: 70 }] };
     expect(pontosDoOvr(j).map((p) => p.tipo)).toEqual(['ESTREIA', 'JOGO', 'PISO', 'DEGRAU']);
+  });
+});
+
+describe('variação do OVR no card (ADR-0079)', () => {
+  it('sem ajuste, conta desde a estreia; com ajuste, desde o ajuste e sem revelá-lo', () => {
+    expect(variacaoDoOvr({ ovr: 66, ovrInicial: 62 })).toEqual({ delta: 4, desde: 'desde a estreia' });
+    expect(variacaoDoOvr({ ovr: 79, ovrInicial: 62, base: { ovr: 80, habilidades: {} as never } })).toEqual({ delta: -1, desde: 'nos últimos jogos' });
   });
 });

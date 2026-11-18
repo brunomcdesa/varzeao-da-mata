@@ -20,3 +20,11 @@ export function pontosDoOvr(j: Pick<JogadorPublico, 'ovrInicial' | 'historico' |
   });
   return pontos;
 }
+
+/**
+ * Quanto o OVR mudou, para o card: desde a estreia ou, para quem teve ajuste à mão, desde o
+ * último ajuste, com um texto que não revela o ajuste (ADR-0079).
+ */
+export function variacaoDoOvr(j: Pick<JogadorPublico, 'ovr' | 'ovrInicial' | 'base'>): { delta: number; desde: string } {
+  return j.base ? { delta: j.ovr - j.base.ovr, desde: 'nos últimos jogos' } : { delta: j.ovr - j.ovrInicial, desde: 'desde a estreia' };
+}
