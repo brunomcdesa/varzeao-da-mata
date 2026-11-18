@@ -8,6 +8,7 @@
 import { CANTOS, DESCRICAO_DA_ESPECIALIZACAO, DESCRICAO_DA_FORMACAO, ESPECIALIZACOES, FORMACOES, FORMACAO_PADRAO, HABILIDADES, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, POSTURAS, ehFormacao, type Canto, type Especializacao, type Formacao, type HabilidadeId, type Postura } from '@liga/shared';
 import { desenhoDaFormacao } from './formacao.js';
 import { linhaDaPresenca } from './presenca.js';
+import { pedidoValido } from './pedidoDoSite.js';
 import { APELIDO_MAX, apelidoLiberaEm, podeTrocarApelido, CABELOS, NOME_DO_PENTEADO, validarApelido, PELES, PENTEADOS, TIMES, type Aparencia, type JogadorPublico, type Penteado, type Posicao, type TimeId } from '@liga/shared';
 import { ALTURA_SPRITE, LARGURA_SPRITE, aparencia, sprite, visualDoJogador, type Pose } from '@liga/renderer';
 import { BASE_API, INSTAGRAM, ajustarLocalmente } from './dados.js';
@@ -168,7 +169,8 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
     parar();
     const g = ler<Guardado>(CHAVE);
     if (!g) return convite();
-    const estado = (await api<Pedido>('transferencia/estado', { sessao: g.sessao }).catch(() => null))?.dados ?? {};
+    // Pedido antigo (de outra Temporada, por exemplo) não conta: o Time vem do jogadores.json.
+    const estado: Pedido = pedidoValido((await api<Pedido>('transferencia/estado', { sessao: g.sessao }).catch(() => null))?.dados, new Date());
     painel(g, estado, mensagem);
     if (estado.resultado === 'TRANSFERIDO' && estado.processadoEm && !j.transferenciaUsada) {
       ajustarLocalmente(j.id, { ...(estado.time ? { time: estado.time } : {}), ...(estado.posicao ? { posicao: estado.posicao } : {}), transferenciaUsada: true });
