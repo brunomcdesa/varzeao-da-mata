@@ -1,6 +1,6 @@
 # 0086 — Plano do Capitão na página do Time e campinho em qualquer Formação
 
-- Status: proposto
+- Status: aceito
 - Data: 2026-11-19
 
 ## Contexto
