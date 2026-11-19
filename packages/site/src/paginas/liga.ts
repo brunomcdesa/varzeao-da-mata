@@ -1,7 +1,9 @@
 /** Jogos (calendário), Tabela, Times e a página de cada Time. */
-import { FALA_DO_TIME, GRUPOS, IDENTIDADE, NOME_DO_GRUPO, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, foraDoMataMata, forcaProvavel, inscritosAteNoProximoJogo, nomeDaRodada, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, GRUPOS, IDENTIDADE, NOME_DO_GRUPO, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, foraDoMataMata, forcaProvavel, inscritosAteNoProximoJogo, nomeDaRodada, type Formacao, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
 import { avisoDaPreTemporada, diaLongo, jogadores, liga, preTemporada, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos, gruposAtivos, formaDosTimes } from '../dados.js';
 import { bonecoImg, campinho, curto, escudoImg, forcaHtml, formaHtml, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa } from '../ui.js';
+import { capitaniaDoVinculo, jogadorVinculado } from '../meuPersonagem.js';
+import { blocoDoPlano, planoDaCapitania } from '../planoDoTime.js';
 import { chaveamento } from './chave.js';
 import { linhaDePartida, tabelaDeClassificacao } from './comum.js';
 import type { Pagina } from './tipos.js';
@@ -154,6 +156,19 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
   // Mata-mata (ADR-0057): quem se inscreveu depois do último jogo do Time na Fase de Liga estreia na próxima Temporada.
   const inscritosAte = inscritosAteNoProximoJogo(l.calendario, t);
   const novatos = elenco.filter((j) => foraDoMataMata(j, inscritosAte));
+  // Com o Plano do Capitão (ADR-0086), a escalação provável sai na Formação escolhida.
+  const provavel = (formacao: Formacao | null) =>
+    html`<h2 class="secao">Escalação provável <small>${inscritosAte ? 'próximo jogo · Mata-mata' : 'próximo jogo'}${formacao ? ` · ${formacao}` : ''}</small></h2>
+      ${campinho(
+        escalacaoProvavel(elenco, inscritosAte, formacao).map((x) => ({
+          posicao: x.posicao,
+          time: t,
+          username: x.jogador?.username ?? null,
+          apelido: x.jogador?.apelido ?? null,
+          ovr: x.ovr ?? OVR_JOGADOR_DA_BASE,
+          ...(x.jogador ? { href: `#/jogador/${x.jogador.id}` } : {}),
+        })),
+      )}`;
   main.innerHTML = html`<article class="pagina-time" style="--cor:${id.primaria};--cor2:${id.secundaria};--sobre:${tintaSobre(id.primaria)}">
     <header class="faixa-time">
       ${escudoImg(t, 5)}
@@ -170,22 +185,13 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
         ${estreante ? html`<p class="campanha">Estreia na próxima Temporada, na Série B. Quem comentar ENTRO ${curto(t).toUpperCase()} já entra quando ela começar.</p>` : ''}
       </div>
     </header>
+    <div data-plano hidden></div>
     ${salaDoTime(l, t)}
     <div class="time-colunas">
       <section aria-labelledby="titulo-elenco">
         ${estreante
           ? ''
-          : html`<h2 class="secao">Escalação provável <small>${inscritosAte ? 'próximo jogo · Mata-mata' : 'próximo jogo'}</small></h2>
-            ${campinho(
-              escalacaoProvavel(elenco, inscritosAte).map((x) => ({
-                posicao: x.posicao,
-                time: t,
-                username: x.jogador?.username ?? null,
-                apelido: x.jogador?.apelido ?? null,
-                ovr: x.jogador?.ovr ?? OVR_JOGADOR_DA_BASE,
-                ...(x.jogador ? { href: `#/jogador/${x.jogador.id}` } : {}),
-              })),
-            )}
+          : html`<div data-provavel>${provavel(null)}</div>
             ${novatos.length
               ? html`<p class="legenda aviso-mata-mata">${novatos.length === 1 ? 'Quem chegou' : `Os ${novatos.length} que chegaram`} depois do último jogo da Fase de Liga não ${novatos.length === 1 ? 'joga' : 'jogam'} o Mata-mata: ${novatos.length === 1 ? 'estreia' : 'estreiam'} na próxima Temporada.</p>`
               : ''}`}
@@ -204,4 +210,16 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
       </section>
     </div>
   </article>`.s;
+
+  // Plano do Capitão (ADR-0086): só para quem tem Vínculo com um Jogador deste Time.
+  const vinculado = jogadorVinculado();
+  if (estreante || !vinculado || !elenco.some((j) => j.id === vinculado)) return;
+  const pagina = main.querySelector('.pagina-time');
+  void capitaniaDoVinculo().then((r) => {
+    const lugar = main.querySelector<HTMLElement>('[data-plano]');
+    if (!r || r.jogadorId !== vinculado || !lugar || !pagina?.isConnected) return;
+    lugar.outerHTML = blocoDoPlano(r.capitania, r.jogadorId).s;
+    const prov = main.querySelector<HTMLElement>('[data-provavel]');
+    if (prov) prov.innerHTML = provavel(planoDaCapitania(r.capitania).formacao).s;
+  });
 };

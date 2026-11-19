@@ -7,6 +7,7 @@
  */
 import { CANTOS, DESCRICAO_DA_ESPECIALIZACAO, DESCRICAO_DA_FORMACAO, ESPECIALIZACOES, FORMACOES, FORMACAO_PADRAO, HABILIDADES, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, POSTURAS, ehFormacao, type Canto, type Especializacao, type Formacao, type HabilidadeId, type Postura } from '@liga/shared';
 import { desenhoDaFormacao } from './formacao.js';
+import { NOME_DA_POSTURA, type Capitania } from './planoDoTime.js';
 import { linhaDaPresenca } from './presenca.js';
 import { pedidoValido } from './pedidoDoSite.js';
 import { APELIDO_MAX, apelidoLiberaEm, podeTrocarApelido, CABELOS, NOME_DO_PENTEADO, validarApelido, PELES, PENTEADOS, TIMES, type Aparencia, type JogadorPublico, type Penteado, type Posicao, type TimeId } from '@liga/shared';
@@ -23,15 +24,6 @@ const abertas = new Set<string>();
 /** Mesma folga da Inscrição (FOLGA_DE_ELENCO no worker). */
 const FOLGA = 5;
 
-/** Capitania e Presença do próximo jogo do Time (borda, `escolha/estado`). */
-interface Capitania {
-  eu: boolean;
-  capitao: string | null;
-  postura: string;
-  formacao?: string;
-  presenca?: boolean;
-  jogo?: { apito: string; adversario: TimeId } | null;
-}
 
 interface Guardado {
   sessao: string;
@@ -73,6 +65,17 @@ const gravar = (k: string, v: unknown) => {
 async function api<T>(caminho: string, corpo: unknown): Promise<{ status: number; dados: T }> {
   const r = await fetch(`${BASE_API}${caminho}`, { method: 'POST', body: JSON.stringify(corpo), headers: { 'content-type': 'application/json' } });
   return { status: r.status, dados: (await r.json().catch(() => ({}))) as T };
+}
+
+/**
+ * Capitania do próximo jogo do Time de quem tem Vínculo neste navegador (borda,
+ * `escolha/estado`). Sem Vínculo, ou com ele expirado, devolve null.
+ */
+export async function capitaniaDoVinculo(): Promise<{ jogadorId: string; capitania: Capitania } | null> {
+  const g = ler<Guardado>(CHAVE);
+  if (!g || !BASE_API) return null;
+  const r = await api<{ capitania?: Capitania | null }>('escolha/estado', { sessao: g.sessao }).catch(() => null);
+  return r?.status === 200 && r.dados.capitania ? { jogadorId: g.jogadorId, capitania: r.dados.capitania } : null;
 }
 
 /** O Jogador vinculado neste navegador, se houver (os Avisos já vêm com o Time dele marcado). */
@@ -257,7 +260,6 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
   let especializacao: Especializacao | null = j.especializacao ?? null;
   let treino: HabilidadeId | null = j.treino ?? null;
   let canto: Canto | null = null;
-  const NOME_DA_POSTURA: Record<Postura, string> = { OFENSIVA: 'Ofensiva', EQUILIBRADA: 'Equilibrada', DEFENSIVA: 'Defensiva' };
   const DESCRICAO_DA_POSTURA: Record<Postura, string> = {
     OFENSIVA: 'O Time ataca mais e deixa a defesa mais exposta.',
     EQUILIBRADA: 'Sem mudar nada (é a Postura quando o Capitão não escolhe).',

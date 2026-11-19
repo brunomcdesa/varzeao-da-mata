@@ -244,6 +244,9 @@ _Avoid_: líder, técnico, dono do time
 A atitude do Time numa Partida (Ofensiva, Equilibrada ou Defensiva), escolhida em segredo pelo Capitão até o Corte. Sem escolha, é Equilibrada.
 _Avoid_: tática, estratégia, esquema
 
+**Plano do Capitão**:
+A Formação e a Postura que o Capitão escolheu para o próximo jogo, mostradas na página do Time só para quem tem Vínculo com um Jogador daquele Time. A escalação provável dessa página sai na Formação do plano. ADR-0086.
+
 **Formação**:
 O desenho do Time em campo na Temporada 2: quantos zagueiros, meias e atacantes jogam (2-2-2, 2-3-1, 3-2-1 ou 3-1-2; o goleiro é sempre um). Escolhida pelo Capitão junto da Postura, até o Corte; sem escolha, 2-2-2. As vagas da Escalação seguem a Formação. ADR-0044.
 _Avoid_: esquema tático, sistema, escalação (a Escalação é quem joga)

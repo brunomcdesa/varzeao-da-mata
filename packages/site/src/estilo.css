@@ -3049,6 +3049,35 @@ a.jogo:hover {
 .mini-campo .vaga-gol {
   fill: var(--cal);
 }
+/* Plano do Capitão na página do Time (ADR-0086): só para quem é do Time. */
+.plano-do-capitao {
+  margin-top: 8px;
+}
+.plano-do-capitao .secao {
+  margin-top: 0;
+}
+.plano-do-capitao .secao small,
+.plano-do-capitao .legenda {
+  color: var(--tinta-fraca);
+}
+.plano-corpo {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.plano-corpo .mini-campo {
+  width: 72px;
+  height: 114px;
+}
+.plano-corpo p {
+  margin: 4px 0;
+}
+.plano-escolha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 1.1rem;
+}
 .jogada-formacao {
   font-style: normal;
   font-size: 0.75rem;

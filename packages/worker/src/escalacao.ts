@@ -9,6 +9,7 @@ import {
   ehClassico,
   habilidadesDoPerfil,
   ovrDasHabilidades,
+  QUEM_COBRE,
   posicoesDaFormacao,
   temBonusT1,
   temRegrasT2,
@@ -87,16 +88,8 @@ export interface RegrasDaEscalacao {
   cortados?: ReadonlySet<string>;
 }
 
-/**
- * Formação (ADR-0044): de onde vem quem cobre uma vaga sem inscrito da Posição. Primeiro a
- * Posição vizinha, depois a outra. Goleiro só joga no gol, e ninguém de linha vai para o gol.
- */
-export const QUEM_COBRE: Readonly<Record<Posicao, readonly Posicao[]>> = {
-  GOL: [],
-  ZAG: ['MEI', 'ATA'],
-  MEI: ['ZAG', 'ATA'],
-  ATA: ['MEI', 'ZAG'],
-};
+/** Formação (ADR-0044): quem cobre a vaga sem inscrito (mora no shared, junto da escalação provável). */
+export { QUEM_COBRE };
 
 /**
  * Ordem do rodízio, por Posição: Craque da Rodada anterior primeiro; depois quem tem
