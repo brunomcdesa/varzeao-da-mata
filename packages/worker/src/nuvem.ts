@@ -37,7 +37,15 @@ export interface ConfigR2 {
   /** Domínio público do bucket público (r2.dev ou domínio próprio). */
   urlPublica: string;
   fetch?: typeof fetch;
+  /** Espera entre as tentativas de envio (nos testes, sem esperar de verdade). */
+  dormir?: (ms: number) => Promise<void>;
 }
+
+/**
+ * Espera antes de cada nova tentativa de envio ao R2. Um 503 da Cloudflare costuma passar em
+ * segundos; sem repetir, a narração do Ao Vivo de 20/11 (Partida 44) se perdeu por um 503 só.
+ */
+export const ESPERAS_DO_ENVIO_MS = [2_000, 8_000] as const;
 
 export class R2 implements Armazenamento {
   private readonly aws: AwsClient;
@@ -47,13 +55,28 @@ export class R2 implements Armazenamento {
   async enviar(bucket: Bucket, chave: string, corpo: Uint8Array | string, o: { tipo?: string; cache?: string } = {}): Promise<void> {
     const nome = bucket === 'publico' ? this.c.bucketPublico : this.c.bucketPrivado;
     const url = `https://${this.c.contaId}.r2.cloudflarestorage.com/${nome}/${chave.split('/').map(encodeURIComponent).join('/')}`;
-    const pedido = await this.aws.sign(url, {
-      method: 'PUT',
-      body: corpo as BodyInit,
-      headers: { 'content-type': o.tipo ?? tipoDe(chave), ...(o.cache ? { 'cache-control': o.cache } : {}) },
-    });
-    const r = await (this.c.fetch ?? fetch)(pedido);
-    if (!r.ok) throw new Error(`R2 ${r.status} ao enviar ${nome}/${chave}: ${(await r.text()).slice(0, 300)}`);
+    const dormir = this.c.dormir ?? ((ms: number) => new Promise<void>((ok) => setTimeout(ok, ms)));
+    let ultimoErro: Error | null = null;
+    // Instabilidade (5xx, 429 ou falha de rede) tenta de novo; recusa (4xx) não adianta repetir.
+    for (let tentativa = 0; tentativa <= ESPERAS_DO_ENVIO_MS.length; tentativa++) {
+      if (tentativa > 0) await dormir(ESPERAS_DO_ENVIO_MS[tentativa - 1]!);
+      const pedido = await this.aws.sign(url, {
+        method: 'PUT',
+        body: corpo as BodyInit,
+        headers: { 'content-type': o.tipo ?? tipoDe(chave), ...(o.cache ? { 'cache-control': o.cache } : {}) },
+      });
+      let r: Response;
+      try {
+        r = await (this.c.fetch ?? fetch)(pedido);
+      } catch (e) {
+        ultimoErro = new Error(`R2 sem resposta ao enviar ${nome}/${chave}: ${(e as Error).message}`);
+        continue;
+      }
+      if (r.ok) return;
+      ultimoErro = new Error(`R2 ${r.status} ao enviar ${nome}/${chave}: ${(await r.text()).slice(0, 300)}`);
+      if (r.status < 500 && r.status !== 429) break;
+    }
+    throw ultimoErro!;
   }
   urlPublica(chave: string): string {
     return `${this.c.urlPublica.replace(/\/$/, '')}/${chave}`;

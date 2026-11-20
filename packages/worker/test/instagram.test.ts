@@ -116,6 +116,33 @@ describe('Cloudflare', () => {
     expect(r2.urlPublica('videos/x.mp4')).toBe('https://v.exemplo/videos/x.mp4');
   });
 
+  it('R2 tenta de novo quando a Cloudflare fica fora do ar (503) e desiste numa recusa (403)', async () => {
+    const config = { contaId: 'C', chaveId: 'ID', segredo: 'S', bucketPublico: 'pub', bucketPrivado: 'priv', urlPublica: 'https://v.exemplo/' };
+    const esperas: number[] = [];
+    const dormir = async (ms: number) => void esperas.push(ms);
+    // 503, falha de rede, depois sobe.
+    let n = 0;
+    const instavel = (async () => {
+      n++;
+      if (n === 1) return new Response('<Error><Code>ServiceUnavailable</Code></Error>', { status: 503 });
+      if (n === 2) throw new TypeError('fetch failed');
+      return new Response('', { status: 200 });
+    }) as typeof fetch;
+    await new R2({ ...config, fetch: instavel, dormir }).enviar('publico', 'narracao/x.m4a', new Uint8Array([1]));
+    expect(n).toBe(3);
+    expect(esperas).toEqual([2_000, 8_000]);
+    // Fora do ar o tempo todo: três tentativas e o erro do R2.
+    let fora = 0;
+    const sempre503 = (async () => (fora++, new Response('fora', { status: 503 }))) as typeof fetch;
+    await expect(new R2({ ...config, fetch: sempre503, dormir }).enviar('publico', 'a.json', '{}')).rejects.toThrow(/R2 503 ao enviar pub\/a.json/);
+    expect(fora).toBe(3);
+    // Recusa (credencial errada): não repete.
+    let recusas = 0;
+    const recusa = (async () => (recusas++, new Response('negado', { status: 403 }))) as typeof fetch;
+    await expect(new R2({ ...config, fetch: recusa, dormir }).enviar('privado', 'b.json', '{}')).rejects.toThrow(/R2 403/);
+    expect(recusas).toBe(1);
+  });
+
   it('KV grava, lê e lista com cursor', async () => {
     const guardado = new Map<string, string>();
     const { f } = falso({

@@ -7,7 +7,7 @@ import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
 import type { Comentario } from '../src/coletar.js';
 import type { Instagram } from '../src/instagram.js';
-import { CAPA_DO_RESUMO_MS, jobColetar, jobEscalar, jobPartida, jobResumo, sincronizarPublicados, type ContextoDoJob } from '../src/jobs.js';
+import { CAPA_DO_RESUMO_MS, jobColetar, jobEscalar, jobPartida, jobResumo, refazerNarracoes, sincronizarPublicados, type ContextoDoJob } from '../src/jobs.js';
 import { AgendaNaMemoria, CHAVE_TOKEN, PastaLocal, type ItemDaAgenda } from '../src/nuvem.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 
@@ -152,6 +152,50 @@ describe('jobs', () => {
     await agenda.gravar(chave!, { ...item, publicadoEm: '2026-11-07T15:06:30Z', mediaId: 'M1' });
     expect(await sincronizarPublicados(ctx)).toBe(1);
     expect(await status(id!)).toBe('PUBLICADA');
+  });
+
+  it('partida: narração que falhou no envio é refeita na rodada seguinte do job, depois do Ao Vivo (ADR-0097)', async () => {
+    await jobColetar(ctx);
+    let narracoes = 0;
+    ctx.gravarAoVivo = async (_d, saida) => {
+      narracoes++;
+      await writeFile(saida, 'm4a de mentira');
+    };
+    // O R2 cai na hora de subir a narração (como no 503 de 20/11); o Reels sobe normal.
+    const local = ctx.armazenamento;
+    let cair = true;
+    ctx.armazenamento = {
+      enviar: (b, chave, corpo, o) => (cair && chave.startsWith('narracao/') ? Promise.reject(new Error('R2 503 ao enviar')) : local.enviar(b, chave, corpo, o)),
+      // Como no R2: o site só entrega narração com link http.
+      urlPublica: (chave) => `https://pub.exemplo/${chave}`,
+    };
+    agora = new Date('2026-11-07T14:25:00Z');
+    const [id] = await jobPartida(ctx);
+    expect(await status(id!)).toBe('AGENDADA');
+    const narracao = async () => (await banco.query<{ narracao_url: string | null }>(`SELECT narracao_url FROM partida WHERE id = $1`, [id])).rows[0]!.narracao_url;
+    expect(await narracao()).toBeNull();
+    expect(narracoes).toBe(1);
+
+    // O R2 volta. Durante o Ao Vivo o job ainda não refaz (o áudio sairia fora de sincronia).
+    cair = false;
+    agora = new Date('2026-11-07T15:02:00Z');
+    expect(await refazerNarracoes(ctx)).toEqual([]);
+    expect(await narracao()).toBeNull();
+    // Depois do Ao Vivo, refaz uma vez, sem mexer no resultado, e a cópia privada ganha a narração.
+    const resultadoAntes = (await banco.query<{ resultado: unknown }>(`SELECT resultado FROM partida WHERE id = $1`, [id])).rows[0]!.resultado;
+    agora = new Date('2026-11-07T15:25:00Z');
+    await jobPartida(ctx, { janelaMin: 0 }); // o job partida chama a refação no fim
+    expect(await narracao()).toMatch(/narracao\/[0-9a-f-]{36}\.m4a$/);
+    expect((await banco.query<{ resultado: unknown }>(`SELECT resultado FROM partida WHERE id = $1`, [id])).rows[0]!.resultado).toEqual(resultadoAntes);
+    expect(JSON.parse(await readFile(join(pasta, 'privado/partidas', `${id}.json`), 'utf8')).narracao).toBe(await narracao());
+    expect(ig.containers).toHaveLength(1);
+    // Com narração, não grava de novo; e fora da janela de 48 h, uma Partida sem narração fica como está.
+    expect(await refazerNarracoes(ctx)).toEqual([]);
+    expect(narracoes).toBe(2);
+    await banco.query(`UPDATE partida SET narracao_url = NULL WHERE id = $1`, [id]);
+    agora = new Date('2026-11-09T15:00:00Z');
+    expect(await refazerNarracoes(ctx)).toEqual([]);
+    expect(narracoes).toBe(2);
   });
 
   it('escalar: no Corte escala, simula, guarda e publica o site sem gravar; o partida depois só grava (ADR-0038)', async () => {

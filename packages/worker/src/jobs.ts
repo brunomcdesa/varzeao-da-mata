@@ -384,6 +384,67 @@ export async function jobEscalar(c: ContextoDoJob, o: { janelaMin?: number; espe
   return pendentes.filter((q) => q.status === 'SIMULADA' && new Date(q.apito_inicial).getTime() === apito).map((q) => q.id);
 }
 
+/**
+ * Grava e sobe a narração do Ao Vivo de uma Partida que ainda não tem (Ao Vivo e Replay usam o
+ * mesmo áudio). Devolve se a Partida ficou com narração; uma falha só vai para o log.
+ */
+async function gravarNarracao(c: ContextoDoJob, partidaId: number, apito: Date, dados: DadosDoVideo, pasta: string): Promise<boolean> {
+  if (!c.gravarAoVivo) return false;
+  const ja = (await c.banco.query<{ narracao_url: string | null }>(`SELECT narracao_url FROM partida WHERE id = $1`, [partidaId])).rows[0]?.narracao_url;
+  if (ja) return true;
+  try {
+    const arquivo = join(pasta, 'aovivo.m4a');
+    await c.gravarAoVivo(dados, arquivo);
+    const chave = `narracao/${randomUUID()}.m4a`;
+    await c.armazenamento.enviar('publico', chave, new Uint8Array(await readFile(arquivo)), { tipo: 'audio/mp4', cache: 'public, max-age=31536000, immutable' });
+    await c.banco.query(`UPDATE partida SET narracao_url = $2 WHERE id = $1`, [partidaId, c.armazenamento.urlPublica(chave)]);
+    // A cópia que a borda entrega no Ao Vivo foi guardada antes da narração: guarda de novo, agora com ela.
+    await guardarPartidaPrivada(c, partidaId, apito);
+    return true;
+  } catch (e) {
+    logDe(c)(`Partida ${partidaId}: sem narração do Ao Vivo (${(e as Error).message}).`);
+    return false;
+  }
+}
+
+/** Até quanto tempo depois do Apito o job ainda refaz uma narração que faltou (ADR-0097). */
+export const JANELA_DA_NARRACAO_MS = 48 * 3600_000;
+
+/**
+ * Partidas já jogadas que ficaram sem narração (falha da voz ou do envio ao R2) ganham a
+ * narração na rodada seguinte do job, para o Replay. Só o áudio: o resultado não muda, e as
+ * falas já estão no cache de voz. Só as das últimas 48 h, para não refazer a Temporada antiga.
+ */
+export async function refazerNarracoes(c: ContextoDoJob): Promise<number[]> {
+  if (!c.gravarAoVivo) return [];
+  const agora = agoraDe(c);
+  const faltam = (
+    await c.banco.query<{ id: number; apito_inicial: Date | string; fase: 'LIGA' | 'MATA_MATA' }>(
+      `SELECT p.id, p.apito_inicial, r.fase FROM partida p JOIN rodada r ON r.id = p.rodada_id
+       WHERE p.narracao_url IS NULL AND p.status IN ('AGENDADA', 'PUBLICADA') AND p.apito_inicial > $1 AND p.apito_inicial <= $2
+       ORDER BY p.apito_inicial`,
+      [new Date(agora.getTime() - JANELA_DA_NARRACAO_MS).toISOString(), agora.toISOString()],
+    )
+  ).rows;
+  const feitas: number[] = [];
+  for (const p of faltam) {
+    const apito = new Date(p.apito_inicial);
+    // Só depois do fim do Ao Vivo: no meio do jogo, o áudio começaria fora de sincronia.
+    if (agora.getTime() < apito.getTime() + duracaoAoVivoMs(p.fase)) continue;
+    const pasta = await mkdtemp(join(tmpdir(), 'varzea-narracao-'));
+    try {
+      const r = await rodarPartida(c.banco, p.id, { craque: null });
+      if (await gravarNarracao(c, p.id, apito, r.dados, pasta)) {
+        logDe(c)(`Partida ${p.id}: narração do Ao Vivo refeita para o Replay.`);
+        feitas.push(p.id);
+      }
+    } finally {
+      await rm(pasta, { recursive: true, force: true });
+    }
+  }
+  return feitas;
+}
+
 export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; esperarCorte?: boolean } = {}): Promise<number[]> {
   const log = logDe(c);
   const feitas: number[] = [];
@@ -427,23 +488,8 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
           capaUrl = c.armazenamento.urlPublica(`${nome}-capa.jpg`);
         }
       }
-      // Narração do Ao Vivo: falha aqui não atrapalha o Reels (o Ao Vivo segue mudo).
-      if (c.gravarAoVivo) {
-        const ja = (await c.banco.query<{ narracao_url: string | null }>(`SELECT narracao_url FROM partida WHERE id = $1`, [p.id])).rows[0]?.narracao_url;
-        if (!ja) {
-          try {
-            const arquivo = join(pasta, 'aovivo.m4a');
-            await c.gravarAoVivo(r.dados, arquivo);
-            const chave = `narracao/${randomUUID()}.m4a`;
-            await c.armazenamento.enviar('publico', chave, new Uint8Array(await readFile(arquivo)), { tipo: 'audio/mp4', cache: 'public, max-age=31536000, immutable' });
-            await c.banco.query(`UPDATE partida SET narracao_url = $2 WHERE id = $1`, [p.id, c.armazenamento.urlPublica(chave)]);
-            // A cópia que a borda entrega no Ao Vivo foi guardada antes da narração: guarda de novo, agora com ela.
-            await guardarPartidaPrivada(c, p.id, apito);
-          } catch (e) {
-            log(`Partida ${p.id}: sem narração do Ao Vivo (${(e as Error).message}).`);
-          }
-        }
-      }
+      // Narração do Ao Vivo: falha aqui não atrapalha o Reels; a próxima rodada do job refaz (ADR-0097).
+      await gravarNarracao(c, p.id, apito, r.dados, pasta);
       if (!videoUrl) {
         log(`Partida ${p.id}: simulada, sem vídeo (gravador não configurado).`);
         feitas.push(p.id);
@@ -470,6 +516,7 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
     }
   }
   if (pendentes.length) await publicarSite(c); // as Escalações aparecem no site
+  await refazerNarracoes(c);
   return feitas;
 }
 
