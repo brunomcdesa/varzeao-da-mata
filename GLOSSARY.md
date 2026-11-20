@@ -196,6 +196,18 @@ _Avoid_: oitavas, primeira fase
 A conquista da Copa. Conta para o Time campeão e para cada Jogador dele que entrou em campo na Copa; dá a Estrela de Título bronze e 40 Moedas (ADR-0088).
 _Avoid_: taça da Copa, Título (sozinho é o da Série)
 
+**Expansão**:
+A entrada de 4 Times novos na Série B quando 90% das vagas da Liga estão ocupadas no fim da Fase de Liga. Naquela virada ninguém cai da A e 2 sobem, e as Séries ficam com 10 Times cada (ADR-0093).
+_Avoid_: ampliação, inchaço
+
+**Fase do Clássico**:
+O primeiro dia da Copa com 20 Times: os 10 primeiros Clássicos, um por Time (ADR-0093). Com 16 Times, são as Oitavas de Clássico.
+_Avoid_: primeira fase, preliminar
+
+**Repescagem**:
+Na Copa com 20 Times, os 2 jogos entre os 4 vencedores da Fase do Clássico com pior campanha na Temporada anterior; os 2 vencedores vão às Quartas (ADR-0093).
+_Avoid_: playoff, preliminar
+
 **Supercopa**:
 Jogo único entre o campeão da Série A e o campeão da Copa, abrindo a Temporada. Planejado para a T4 (ADR-0092).
 _Avoid_: superfinal, desafio dos campeões
