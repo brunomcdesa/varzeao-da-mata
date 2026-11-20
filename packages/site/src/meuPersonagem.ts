@@ -7,7 +7,7 @@
  */
 import { CANTOS, DESCRICAO_DA_ESPECIALIZACAO, DESCRICAO_DA_FORMACAO, ESPECIALIZACOES, FORMACOES, FORMACAO_PADRAO, HABILIDADES, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, POSTURAS, ehFormacao, type Canto, type Especializacao, type Formacao, type HabilidadeId, type Postura } from '@liga/shared';
 import { desenhoDaFormacao } from './formacao.js';
-import { NOME_DA_POSTURA, type Capitania } from './planoDoTime.js';
+import { NOME_DA_POSTURA, capitaniaAindaVale, type Capitania } from './planoDoTime.js';
 import { linhaDaPresenca } from './presenca.js';
 import { pedidoValido } from './pedidoDoSite.js';
 import { APELIDO_MAX, apelidoLiberaEm, podeTrocarApelido, CABELOS, NOME_DO_PENTEADO, validarApelido, PELES, PENTEADOS, TIMES, type Aparencia, type JogadorPublico, type Penteado, type Posicao, type TimeId } from '@liga/shared';
@@ -67,6 +67,61 @@ async function api<T>(caminho: string, corpo: unknown): Promise<{ status: number
   return { status: r.status, dados: (await r.json().catch(() => ({}))) as T };
 }
 
+/** O último estado das escolhas visto neste navegador (ADR-0094): a página mostra na hora e confere depois. */
+const CHAVE_ESTADO = 'varzeao:escolhas';
+type EstadoDasEscolhas = Record<string, { escolha?: { valor?: string | null }; resultado?: string } | null> & { capitania?: Capitania | null };
+interface EstadoGuardado {
+  jogadorId: string;
+  estado: EstadoDasEscolhas;
+}
+
+/** Estado guardado deste Jogador, sem a capitania se o jogo dela já passou do Corte. */
+export function estadoGuardado(jogadorId: string): EstadoDasEscolhas | null {
+  const e = ler<EstadoGuardado>(CHAVE_ESTADO);
+  if (!e || e.jogadorId !== jogadorId) return null;
+  return capitaniaAindaVale(e.estado.capitania) ? e.estado : { ...e.estado, capitania: null };
+}
+
+/** Um pedido só por vez para `escolha/estado`: o boot, o painel e a página do Time dividem a resposta. */
+let pedidoDoEstado: { sessao: string; em: number; p: Promise<{ status: number; dados: EstadoDasEscolhas } | null> } | null = null;
+/** Resposta recente serve para quem chegar logo depois (navegar entre páginas não pede de novo). */
+const ESTADO_FRESCO_MS = 20_000;
+
+function pedirEstado(g: Guardado, novo = false) {
+  if (!novo && pedidoDoEstado && pedidoDoEstado.sessao === g.sessao && Date.now() - pedidoDoEstado.em < ESTADO_FRESCO_MS) return pedidoDoEstado.p;
+  const p = api<EstadoDasEscolhas>('escolha/estado', { sessao: g.sessao })
+    .then((r) => {
+      if (r.status === 200) gravar(CHAVE_ESTADO, { jogadorId: g.jogadorId, estado: r.dados } satisfies EstadoGuardado);
+      else if (r.status === 401) gravar(CHAVE_ESTADO, null);
+      return r;
+    })
+    .catch(() => null);
+  pedidoDoEstado = { sessao: g.sessao, em: Date.now(), p };
+  return p;
+}
+
+/** Guarda o que o próprio navegador acabou de salvar, para a próxima página já abrir certo. */
+function ajustarEstadoGuardado(jogadorId: string, f: (e: EstadoDasEscolhas) => void) {
+  const e = ler<EstadoGuardado>(CHAVE_ESTADO);
+  if (!e || e.jogadorId !== jogadorId) return;
+  f(e.estado);
+  gravar(CHAVE_ESTADO, e);
+  pedidoDoEstado = null;
+}
+
+/** Começa a buscar o estado assim que o site abre (ADR-0094), para a página já achar pronto. */
+export function adiantarEstadoDasEscolhas() {
+  const g = ler<Guardado>(CHAVE);
+  if (g && BASE_API) void pedirEstado(g);
+}
+
+/** Capitania guardada neste navegador, para mostrar na hora (null sem Vínculo ou se o jogo já mudou). */
+export function capitaniaGuardada(): { jogadorId: string; capitania: Capitania } | null {
+  const g = ler<Guardado>(CHAVE);
+  const c = g ? estadoGuardado(g.jogadorId)?.capitania : null;
+  return g && c ? { jogadorId: g.jogadorId, capitania: c } : null;
+}
+
 /**
  * Capitania do próximo jogo do Time de quem tem Vínculo neste navegador (borda,
  * `escolha/estado`). Sem Vínculo, ou com ele expirado, devolve null.
@@ -74,7 +129,7 @@ async function api<T>(caminho: string, corpo: unknown): Promise<{ status: number
 export async function capitaniaDoVinculo(): Promise<{ jogadorId: string; capitania: Capitania } | null> {
   const g = ler<Guardado>(CHAVE);
   if (!g || !BASE_API) return null;
-  const r = await api<{ capitania?: Capitania | null }>('escolha/estado', { sessao: g.sessao }).catch(() => null);
+  const r = await pedirEstado(g);
   return r?.status === 200 && r.dados.capitania ? { jogadorId: g.jogadorId, capitania: r.dados.capitania } : null;
 }
 
@@ -374,9 +429,15 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
   }
 
   function ligarEscolhas(g: Guardado) {
-    // O canto não é público: vem do último pedido deste navegador (borda).
-    void api<Record<string, { escolha?: { valor?: Canto | null }; resultado?: string } | null> & { capitania?: Capitania | null }>('escolha/estado', { sessao: g.sessao })
-      .then((r) => {
+    // O canto não é público: vem do último pedido deste navegador (borda). O último estado
+    // visto aparece na hora; a resposta da borda só redesenha se algo mudou (ADR-0094).
+    let mostrado: string | null = null;
+    const aplicarEstado = (dados: EstadoDasEscolhas) => {
+      const chave = JSON.stringify(dados);
+      if (chave === mostrado) return;
+      mostrado = chave;
+      const r = { dados: dados as Record<string, { escolha?: { valor?: Canto | null }; resultado?: string } | null> & { capitania?: Capitania | null } };
+      {
         const lugar = caixa.querySelector<HTMLElement>('[data-capitania]');
         if (lugar) {
           lugar.innerHTML = blocoCapitania(r.dados.capitania ?? null).s;
@@ -394,8 +455,13 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
           if (atual) atual.textContent = canto ? NOME_DO_CANTO[canto] : 'sorteado';
           for (const i of caixa.querySelectorAll<HTMLInputElement>('form[data-tipo="CANTO"] input[name="valor"]')) i.checked = i.value === (canto ?? '');
         }
-      })
-      .catch(() => null);
+      }
+    };
+    const guardado = estadoGuardado(g.jogadorId);
+    if (guardado) aplicarEstado(guardado);
+    void pedirEstado(g).then((r) => {
+      if (r?.status === 200) aplicarEstado(r.dados);
+    });
     const enviar = async (tipo: string, valor: string | null, estado: HTMLElement) => {
       estado.textContent = 'Enviando...';
       estado.className = 'estado-escolha';
@@ -421,6 +487,13 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
       if (tipo === 'ESPECIALIZACAO') especializacao = (valor as Especializacao | null) ?? null;
       if (tipo === 'TREINO') treino = (valor as HabilidadeId | null) ?? null;
       if (tipo === 'CANTO') canto = (valor as Canto | null) ?? null;
+      // A próxima página (a do Time, por exemplo) já abre com o que acabou de ser salvo.
+      ajustarEstadoGuardado(g.jogadorId, (e) => {
+        if (e.capitania && tipo === 'POSTURA' && valor) e.capitania.postura = valor;
+        if (e.capitania && tipo === 'FORMACAO' && valor) e.capitania.formacao = valor;
+        if (e.capitania && tipo === 'PRESENCA') e.capitania.presenca = true;
+        if (tipo === 'CANTO') e.CANTO = { escolha: { valor }, resultado: p.resultado ?? 'SALVO' };
+      });
       if (tipo === 'PRESENCA') return mostrarPresenca();
       if (tipo === 'ESPECIALIZACAO' || tipo === 'TREINO') ajustarLocalmente(j.id, { especializacao, treino });
       const resumo = caixa.querySelector(`details[data-dobra="${tipo === 'CANTO' ? 'canto' : tipo.toLowerCase()}"] summary small`);

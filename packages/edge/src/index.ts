@@ -18,8 +18,8 @@ import { marcarPendencia } from './pendencias.js';
 import { transferirJogador } from '../../worker/src/coletar.js';
 import { aplicarPerfil } from '../../worker/src/perfil.js';
 import { aplicarEscolha, capitaniaDoJogador, type Escolha } from '../../worker/src/temporada2.js';
-import { comBanco } from './banco.js';
-import { rotasDoVinculo, sessaoDe } from './vinculo.js';
+import { bancoDeLeitura, comBanco } from './banco.js';
+import { completarMetadadosDasSessoes, jogadoresVinculados, rotasDoVinculo, sessaoDe } from './vinculo.js';
 import { rotaDoWebhook, type EnvWebhook } from './webhook.js';
 import { rodarAvisos, rotaDosAvisos } from './avisos.js';
 import { CABECALHO_FIM } from './salaAoVivo.js';
@@ -150,19 +150,7 @@ async function publicarDaLista(env: Env, agora: Date, f: Fetch): Promise<string[
 }
 
 /** Postura (T2): o Capitão é o primeiro da ordem com Vínculo; as sessões ficam no KV. */
-async function comVinculo(env: Env): Promise<Set<string>> {
-  const ids = new Set<string>();
-  let cursor: string | undefined;
-  do {
-    const lista = await env.AGENDA.list({ prefix: 'vinculo/sessao/', ...(cursor ? { cursor } : {}) });
-    for (const k of lista.keys) {
-      const sessao = await env.AGENDA.get<{ jogadorId?: string }>(k.name, 'json');
-      if (sessao?.jogadorId) ids.add(sessao.jogadorId);
-    }
-    cursor = lista.list_complete ? undefined : lista.cursor;
-  } while (cursor);
-  return ids;
-}
+const comVinculo = (env: Env) => jogadoresVinculados(env.AGENDA);
 
 // ------------------------------------------------------------------ leitura
 
@@ -206,7 +194,7 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
         }),
       );
     },
-    async (jogadorId) => (env.DATABASE_URL ? comBanco(env.DATABASE_URL, (b) => capitaniaDoJogador(b, jogadorId, agora, () => comVinculo(env))) : null),
+    async (jogadorId) => (env.DATABASE_URL ? capitaniaDoJogador(bancoDeLeitura(env.DATABASE_URL), jogadorId, agora, () => comVinculo(env)) : null),
   ).catch((e: Error) => json({ erro: `Não deu agora: ${e.message.slice(0, 200)}` }, 502));
   if (vinculo) return vinculo;
   if (req.method !== 'GET' && req.method !== 'HEAD') return json({ erro: 'método não permitido' }, 405);
@@ -387,6 +375,13 @@ export default {
   fetch: (req: Request, env: Env) => responder(req, env),
   async scheduled(_c: ScheduledController, env: Env, ctx: ExecutionContext) {
     const agora = new Date();
+    ctx.waitUntil(
+      completarMetadadosDasSessoes(env.AGENDA)
+        .then((n) => {
+          if (n) console.log(`sessões com metadados: ${n}`);
+        })
+        .catch((e: Error) => console.error(`metadados das sessões: ${e.message}`)),
+    );
     ctx.waitUntil(
       publicarVencidos(env, agora).then((feitas) => {
         if (feitas.length) console.log(`publicados: ${feitas.join(', ')}`);

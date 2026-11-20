@@ -2,7 +2,7 @@
  * Banco na borda (Neon pelo driver serverless, por WebSocket): a mesma interface do worker,
  * para a borda aplicar a Transferência e o perfil na hora, com as mesmas regras (ADR-0013).
  */
-import { Pool } from '@neondatabase/serverless';
+import { neon, Pool } from '@neondatabase/serverless';
 import type { Banco } from '../../worker/src/banco.js';
 
 /** Roda `fn` com um banco aberto só para este pedido. */
@@ -38,4 +38,24 @@ export async function comBanco<T>(url: string, fn: (b: Banco) => Promise<T>): Pr
   } finally {
     await pool.end();
   }
+}
+
+/**
+ * Banco só de leitura, por HTTP (ADR-0094): cada consulta é um pedido só, sem abrir a conexão
+ * por WebSocket. Para o que a página pede a cada visita (a capitania), onde várias consultas
+ * independentes podem ir ao mesmo tempo. Escrita continua pelo `comBanco`, com transação.
+ */
+export function bancoDeLeitura(url: string): Banco {
+  const sql = neon(url);
+  const banco: Banco = {
+    query: async <R>(q: string, params?: unknown[]) => ({ rows: (await sql.query(q, params ?? [])) as R[] }),
+    executar: async () => {
+      throw new Error('Banco de leitura: use comBanco para escrever.');
+    },
+    transacao: async () => {
+      throw new Error('Banco de leitura: use comBanco para transações.');
+    },
+    fechar: async () => {},
+  };
+  return banco;
 }

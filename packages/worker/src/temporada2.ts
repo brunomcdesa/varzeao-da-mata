@@ -50,29 +50,21 @@ async function temporadaAtual(b: Banco): Promise<{ id: number; numero: number; s
  * nele completou dois amarelos na Temporada (a cada dois, uma Partida fora).
  */
 export async function suspensos(b: Banco, time: TimeId, partidaId: number): Promise<Set<string>> {
-  const atual = (
-    await b.query<{ temporada_id: number; apito_inicial: Date | string }>(
-      `SELECT r.temporada_id, p.apito_inicial FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE p.id = $1`,
-      [partidaId],
-    )
-  ).rows[0];
-  if (!atual) return new Set();
-  const anterior = (
-    await b.query<{ id: number }>(
-      `SELECT p.id FROM partida p JOIN rodada r ON r.id = p.rodada_id
-       WHERE r.temporada_id = $1 AND (p.mandante_id = $2 OR p.visitante_id = $2) AND p.apito_inicial < $3 AND p.resultado IS NOT NULL
-       ORDER BY p.apito_inicial DESC LIMIT 1`,
-      [atual.temporada_id, time, new Date(atual.apito_inicial).toISOString()],
-    )
-  ).rows[0];
-  if (!anterior) return new Set();
+  // Uma consulta só (ADR-0094): o jogo anterior do Time na mesma Temporada e os cartões dele.
   const linhas = (
     await b.query<{ jogador_id: string; expulso: boolean; amarelos: number | null; antes: string }>(
-      `SELECT e.jogador_id::text AS jogador_id, e.expulso, e.amarelos,
+      `WITH atual AS (
+         SELECT r.temporada_id, p.apito_inicial FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE p.id = $1
+       ), anterior AS (
+         SELECT p.id, p.apito_inicial, a.temporada_id FROM partida p JOIN rodada r ON r.id = p.rodada_id JOIN atual a ON r.temporada_id = a.temporada_id
+         WHERE (p.mandante_id = $2 OR p.visitante_id = $2) AND p.apito_inicial < a.apito_inicial AND p.resultado IS NOT NULL
+         ORDER BY p.apito_inicial DESC LIMIT 1
+       )
+       SELECT e.jogador_id::text AS jogador_id, e.expulso, e.amarelos,
               (SELECT coalesce(sum(x.amarelos), 0) FROM escalacao x JOIN partida q ON q.id = x.partida_id JOIN rodada s ON s.id = q.rodada_id
-                WHERE x.jogador_id = e.jogador_id AND s.temporada_id = $2 AND NOT x.expulso AND q.apito_inicial < (SELECT apito_inicial FROM partida WHERE id = $1)) AS antes
-       FROM escalacao e WHERE e.partida_id = $1 AND e.time_id = $3 AND e.jogador_id IS NOT NULL`,
-      [anterior.id, atual.temporada_id, time],
+                WHERE x.jogador_id = e.jogador_id AND s.temporada_id = an.temporada_id AND NOT x.expulso AND q.apito_inicial < an.apito_inicial) AS antes
+       FROM escalacao e JOIN anterior an ON an.id = e.partida_id WHERE e.time_id = $2 AND e.jogador_id IS NOT NULL`,
+      [partidaId, time],
     )
   ).rows;
   const fora = new Set<string>();
@@ -111,8 +103,12 @@ export async function ordemDoCapitao(b: Banco, time: TimeId): Promise<string[]> 
  * leva a faixa mas não escolhe (a Postura fica Equilibrada).
  */
 export async function capitaoDaPartida(b: Banco, partidaId: number, time: TimeId, comVinculo: ReadonlySet<string>): Promise<string | null> {
-  const ordem = await ordemDoCapitao(b, time);
-  const fora = await suspensos(b, time, partidaId);
+  const [ordem, fora] = await Promise.all([ordemDoCapitao(b, time), suspensos(b, time, partidaId)]);
+  return escolherCapitao(ordem, fora, comVinculo);
+}
+
+/** A regra do Capitão sobre a ordem já lida: o primeiro não suspenso com Vínculo; senão, o primeiro não suspenso. */
+function escolherCapitao(ordem: readonly string[], fora: ReadonlySet<string>, comVinculo: ReadonlySet<string>): string | null {
   const aptos = ordem.filter((id) => !fora.has(id));
   return aptos.find((id) => comVinculo.has(id)) ?? aptos[0] ?? null;
 }
@@ -180,17 +176,28 @@ export interface Capitania {
  * Mesma regra de `aplicarEscolha`: o primeiro da ordem, não suspenso, com Vínculo.
  */
 export async function capitaniaDoJogador(b: Banco, jogadorId: string, agora: Date, comVinculo: () => Promise<ReadonlySet<string>>): Promise<Capitania | null> {
-  const t = await temporadaAtual(b);
-  if (!t || !temRegrasT2(t.numero)) return null;
-  const j = (await b.query<{ time_id: TimeId }>(`SELECT time_id FROM jogador WHERE id = $1 AND NOT banido`, [jogadorId])).rows[0];
-  if (!j) return null;
+  // A página espera por isto (ADR-0094): o que não depende de nada vai junto, e a lista de
+  // Vínculos começa já, em paralelo com o banco.
+  const vinculos = comVinculo();
+  vinculos.catch(() => {});
+  const [t, j] = await Promise.all([
+    temporadaAtual(b),
+    b.query<{ time_id: TimeId }>(`SELECT time_id FROM jogador WHERE id = $1 AND NOT banido`, [jogadorId]).then((r) => r.rows[0]),
+  ]);
+  if (!t || !temRegrasT2(t.numero) || !j) return null;
   const p = await proximaPartidaDoTime(b, j.time_id, agora);
   if (!p) return null;
-  const id = await capitaoDaPartida(b, p.id, j.time_id, await comVinculo());
-  const capitao = id ? ((await b.query<{ username: string }>(`SELECT username FROM jogador WHERE id = $1`, [id])).rows[0]?.username ?? null) : null;
-  const escolha = (await b.query<{ postura: Postura; formacao: Formacao }>(`SELECT postura, formacao FROM postura WHERE partida_id = $1 AND time_id = $2`, [p.id, j.time_id])).rows[0];
-  const lados = (await b.query<{ mandante_id: TimeId; visitante_id: TimeId }>(`SELECT mandante_id, visitante_id FROM partida WHERE id = $1`, [p.id])).rows[0]!;
-  const presenca = (await b.query(`SELECT 1 FROM presenca WHERE partida_id = $1 AND jogador_id = $2`, [p.id, jogadorId])).rows.length > 0;
+  const [ordem, fora, nomes, escolha, lados, presenca, comV] = await Promise.all([
+    ordemDoCapitao(b, j.time_id),
+    suspensos(b, j.time_id, p.id),
+    b.query<{ id: string; username: string }>(`SELECT id::text AS id, username FROM jogador WHERE time_id = $1`, [j.time_id]).then((r) => r.rows),
+    b.query<{ postura: Postura; formacao: Formacao }>(`SELECT postura, formacao FROM postura WHERE partida_id = $1 AND time_id = $2`, [p.id, j.time_id]).then((r) => r.rows[0]),
+    b.query<{ mandante_id: TimeId; visitante_id: TimeId }>(`SELECT mandante_id, visitante_id FROM partida WHERE id = $1`, [p.id]).then((r) => r.rows[0]!),
+    b.query(`SELECT 1 FROM presenca WHERE partida_id = $1 AND jogador_id = $2`, [p.id, jogadorId]).then((r) => r.rows.length > 0),
+    vinculos,
+  ]);
+  const id = escolherCapitao(ordem, fora, comV);
+  const capitao = id ? (nomes.find((n) => n.id === id)?.username ?? null) : null;
   return {
     eu: id === jogadorId,
     capitao,

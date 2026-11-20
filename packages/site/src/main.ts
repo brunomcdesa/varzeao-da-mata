@@ -8,7 +8,7 @@ import { paginaPartida } from './paginas/partida.js';
 import { paginaCarreira } from './paginas/carreira.js';
 import { paginaTemporada } from './paginas/temporada.js';
 import { paginaAvisos } from './paginas/avisos.js';
-import { paginaVincular } from './meuPersonagem.js';
+import { adiantarEstadoDasEscolhas, paginaVincular } from './meuPersonagem.js';
 import type { Pagina } from './paginas/tipos.js';
 import { html } from './ui.js';
 import { prepararApp } from './appInstalavel.js';
@@ -77,6 +77,8 @@ window.addEventListener('hashchange', () => {
   });
 });
 document.addEventListener('submit', (e) => e.preventDefault());
+// Quem tem Vínculo: a capitania começa a vir junto com os dados da página (ADR-0094).
+adiantarEstadoDasEscolhas();
 void navegar();
 void prepararApp();
 

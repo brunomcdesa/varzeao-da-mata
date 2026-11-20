@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { escalacaoProvavel, habilidadesDoPerfil, ovrDasHabilidades, type Posicao } from '@liga/shared';
-import { blocoDoPlano, planoDaCapitania } from '../src/planoDoTime.js';
+import { blocoDoPlano, capitaniaAindaVale, planoDaCapitania } from '../src/planoDoTime.js';
 import { xDoCampinho } from '../src/ui.js';
 
 const j = (id: string, posicao: Posicao, ovr = 66, jogos = 0) => ({ id, posicao, ovr, jogos, inscritoEm: `2026-11-0${id.length}T00:00:00.000Z`, habilidades: habilidadesDoPerfil(posicao, ovr) });
@@ -56,5 +56,19 @@ describe('Plano do Capitão na página do Time (ADR-0086)', () => {
     expect(planoDaCapitania({ eu: true, capitao: null, postura: '?', formacao: undefined })).toEqual({ postura: 'EQUILIBRADA', formacao: '2-2-2' });
     const s = blocoDoPlano({ eu: true, capitao: 'eu', postura: 'EQUILIBRADA' }, 'abc', agora).s;
     expect(s).toContain('href="#/jogador/abc"');
+  });
+});
+
+describe('capitania guardada no navegador (ADR-0094)', () => {
+  const apito = '2026-11-21T14:00:00.000Z';
+  const c = { eu: true, capitao: 'eu', postura: 'OFENSIVA', formacao: '3-2-1', jogo: { apito, adversario: 'ONC' as const } };
+  it('vale até o Corte do jogo dela (30 min antes do Apito Inicial)', () => {
+    expect(capitaniaAindaVale(c, Date.parse('2026-11-21T13:29:00Z'))).toBe(true);
+    expect(capitaniaAindaVale(c, Date.parse('2026-11-21T13:30:00Z'))).toBe(false);
+    expect(capitaniaAindaVale(c, Date.parse('2026-11-21T15:00:00Z'))).toBe(false);
+  });
+  it('sem jogo ou sem capitania, não vale', () => {
+    expect(capitaniaAindaVale({ ...c, jogo: null }, 0)).toBe(false);
+    expect(capitaniaAindaVale(null, 0)).toBe(false);
   });
 });

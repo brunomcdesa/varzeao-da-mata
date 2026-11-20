@@ -273,6 +273,26 @@ describe('Temporada 2 no worker', () => {
     expect([...e.escalacoes.mandante.jogadores, ...e.escalacoes.visitante.jogadores].map((j) => j.jogadorId)).not.toContain(z1);
   });
 
+  it('Suspensão: o segundo amarelo da Temporada tira do jogo seguinte; o primeiro não (consulta única, ADR-0094)', async () => {
+    const t2 = await novaT2();
+    const z1 = await inscrever('SAG', 'ZAG');
+    await inscrever('SAG', 'ZAG');
+    await inscrever('SAG', 'ZAG');
+    const jogos = (
+      await banco.query<{ id: number }>(`SELECT p.id FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND (p.mandante_id = 'SAG' OR p.visitante_id = 'SAG') ORDER BY p.apito_inicial LIMIT 3`, [t2])
+    ).rows;
+    await rodarPartida(banco, jogos[0]!.id, { seed: 2 });
+    await banco.query(`UPDATE escalacao SET amarelos = 1, expulso = false WHERE partida_id = $1 AND jogador_id = $2`, [jogos[0]!.id, z1]);
+    expect([...(await suspensos(banco, 'SAG', jogos[1]!.id))]).toEqual([]);
+    await rodarPartida(banco, jogos[1]!.id, { seed: 3 });
+    const jogouOSegundo = (await banco.query(`SELECT 1 FROM escalacao WHERE partida_id = $1 AND jogador_id = $2`, [jogos[1]!.id, z1])).rows.length;
+    expect(jogouOSegundo).toBe(1);
+    await banco.query(`UPDATE escalacao SET amarelos = 0, expulso = false WHERE partida_id = $1 AND jogador_id = $2`, [jogos[1]!.id, z1]);
+    expect([...(await suspensos(banco, 'SAG', jogos[2]!.id))]).toEqual([]);
+    await banco.query(`UPDATE escalacao SET amarelos = 1 WHERE partida_id = $1 AND jogador_id = $2`, [jogos[1]!.id, z1]);
+    expect([...(await suspensos(banco, 'SAG', jogos[2]!.id))]).toEqual([z1]);
+  });
+
   it('Janela de Transferências: na Pré-temporada da T2 a troca não gasta a da Temporada', async () => {
     const t2 = await novaT2();
     const id = await inscrever('CAP', 'MEI');

@@ -3,7 +3,7 @@
  * Formação e a Postura que o Capitão escolheu para o próximo jogo. Os outros não veem: o
  * adversário não pode saber antes do Corte.
  */
-import { DESCRICAO_DA_FORMACAO, FORMACAO_PADRAO, POSTURAS, ehFormacao, type Formacao, type Postura, type TimeId } from '@liga/shared';
+import { CORTE_MINUTOS, DESCRICAO_DA_FORMACAO, FORMACAO_PADRAO, POSTURAS, ehFormacao, type Formacao, type Postura, type TimeId } from '@liga/shared';
 import { desenhoDaFormacao } from './formacao.js';
 import { contraO, quandoDoJogo } from './presenca.js';
 import { html } from './ui.js';
@@ -16,6 +16,14 @@ export interface Capitania {
   formacao?: string;
   presenca?: boolean;
   jogo?: { apito: string; adversario: TimeId } | null;
+}
+
+/**
+ * A capitania guardada no navegador só vale enquanto o jogo dela ainda é o próximo, antes do
+ * Corte (ADR-0094). Depois disso o próximo jogo é outro, e a página espera a borda.
+ */
+export function capitaniaAindaVale(c: Capitania | null | undefined, agora = Date.now()): c is Capitania {
+  return Boolean(c?.jogo && Date.parse(c.jogo.apito) - CORTE_MINUTOS * 60_000 > agora);
 }
 
 export const NOME_DA_POSTURA: Record<Postura, string> = { OFENSIVA: 'Ofensiva', EQUILIBRADA: 'Equilibrada', DEFENSIVA: 'Defensiva' };

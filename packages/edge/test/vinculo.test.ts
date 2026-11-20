@@ -1,16 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { responder, type Env } from '../src/index.js';
-import { codigoNaMensagem, rotasDoVinculo } from '../src/vinculo.js';
+import { CHAVE_METADADOS_OK, codigoNaMensagem, completarMetadadosDasSessoes, jogadoresVinculados, rotasDoVinculo } from '../src/vinculo.js';
 
 function kv() {
   const m = new Map<string, string>();
   let listagens = 0;
+  let leituras = 0;
   return {
     m,
+    get leituras() {
+      return leituras;
+    },
     get listagens() {
       return listagens;
     },
     async get(k: string, tipo?: string) {
+      leituras++;
       const v = m.get(k);
       return v === undefined ? null : tipo === 'json' ? JSON.parse(v) : v;
     },
@@ -27,7 +32,7 @@ function kv() {
     },
     async list(o: { prefix: string }) {
       listagens++;
-      return { keys: [...m.keys()].filter((k) => k.startsWith(o.prefix)).sort().map((name) => ({ name })) };
+      return { list_complete: true, keys: [...m.keys()].filter((k) => k.startsWith(o.prefix)).sort().map((name) => ({ name, ...(this.meta.has(name) ? { metadata: this.meta.get(name) } : {}) })) };
     },
   };
 }
@@ -167,6 +172,44 @@ describe('Vínculo pela DM (ADR-0013)', () => {
     const r = await rotasDoVinculo(new Request('https://borda/escolha', { method: 'POST', body: JSON.stringify({ sessao, tipo: 'FORMACAO', valor: '3-2-1' }) }), t.env, agora, async () => ({}) as never, async () => true, aplicar);
     expect(await r!.json()).toMatchObject({ ok: true, pedido: { resultado: 'SALVO' } });
     expect(pedidos).toEqual([{ tipo: 'ESCOLHA', jogadorId: '7', escolha: { tipo: 'FORMACAO', valor: '3-2-1' } }]);
+  });
+});
+
+describe('Lista de quem tem Vínculo (ADR-0094)', () => {
+  const sha = async (s: string) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+  it('a sessão nova guarda o Jogador nos metadados, e a lista sai da listagem sem ler sessão por sessão', async () => {
+    const t = montar([]);
+    const token = 't'.repeat(43);
+    await t.AGENDA.put(`vinculo/link/${await sha(token)}`, JSON.stringify({ jogadorId: '7', username: 'Fulano_10', criadoEm: agora.toISOString(), expiraEm: '2026-11-09T20:00:00Z' }));
+    const r = (await (await t.post('/vinculo/link', { token })).json()) as { sessao: string };
+    expect(t.AGENDA.meta.get(`vinculo/sessao/${await sha(r.sessao)}`)).toEqual({ jogadorId: '7' });
+    const antes = t.AGENDA.leituras;
+    expect([...(await jogadoresVinculados(t.AGENDA as never))]).toEqual(['7']);
+    expect(t.AGENDA.leituras).toBe(antes);
+  });
+
+  it('sessão antiga, sem metadados, ainda conta (lida à parte)', async () => {
+    const t = montar([]);
+    await t.AGENDA.put(`vinculo/sessao/${await sha('a'.repeat(43))}`, JSON.stringify({ jogadorId: '9', username: 'antigo', vinculadoEm: agora.toISOString() }));
+    await t.AGENDA.put(`vinculo/sessao/${await sha('b'.repeat(43))}`, JSON.stringify({ jogadorId: '7', username: 'novo', vinculadoEm: agora.toISOString() }), { metadata: { jogadorId: '7' } });
+    const antes = t.AGENDA.leituras;
+    expect([...(await jogadoresVinculados(t.AGENDA as never))].sort()).toEqual(['7', '9']);
+    expect(t.AGENDA.leituras - antes).toBe(1);
+  });
+
+  it('o cron regrava as sessões antigas com metadados uma vez só', async () => {
+    const t = montar([]);
+    const chave = `vinculo/sessao/${await sha('a'.repeat(43))}`;
+    await t.AGENDA.put(chave, JSON.stringify({ jogadorId: '9', username: 'antigo', vinculadoEm: agora.toISOString() }));
+    expect(await completarMetadadosDasSessoes(t.AGENDA as never)).toBe(1);
+    expect(t.AGENDA.meta.get(chave)).toEqual({ jogadorId: '9' });
+    expect(JSON.parse(t.AGENDA.m.get(chave)!)).toMatchObject({ jogadorId: '9', username: 'antigo' });
+    expect(t.AGENDA.m.has(CHAVE_METADADOS_OK)).toBe(true);
+    expect(await completarMetadadosDasSessoes(t.AGENDA as never)).toBe(0);
+    const antes = t.AGENDA.leituras;
+    expect([...(await jogadoresVinculados(t.AGENDA as never))]).toEqual(['9']);
+    expect(t.AGENDA.leituras).toBe(antes);
   });
 });
 

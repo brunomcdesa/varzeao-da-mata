@@ -135,6 +135,61 @@ async function jogadorPublico(env: EnvVinculo, id: string): Promise<{ id: string
   return lista.find((j) => j.id === id) ?? null;
 }
 
+/**
+ * Grava a sessão com o `jogadorId` também nos metadados da chave (ADR-0094): assim a lista de
+ * quem tem Vínculo sai de uma listagem só, sem ler sessão por sessão.
+ */
+async function gravarSessao(agenda: KVNamespace, hashDaSessao: string, s: SessaoVinculada) {
+  await agenda.put(`vinculo/sessao/${hashDaSessao}`, JSON.stringify(s), { metadata: { jogadorId: s.jogadorId } });
+}
+
+/**
+ * Os Jogadores com Vínculo (ADR-0094). O `jogadorId` vem dos metadados da listagem; só as
+ * sessões antigas, gravadas antes dos metadados, são lidas uma a uma, todas ao mesmo tempo.
+ */
+export async function jogadoresVinculados(agenda: KVNamespace): Promise<Set<string>> {
+  const ids = new Set<string>();
+  const semMetadados: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const lista = await agenda.list<{ jogadorId?: string }>({ prefix: 'vinculo/sessao/', ...(cursor ? { cursor } : {}) });
+    for (const k of lista.keys) {
+      if (k.metadata?.jogadorId) ids.add(k.metadata.jogadorId);
+      else semMetadados.push(k.name);
+    }
+    cursor = lista.list_complete ? undefined : lista.cursor;
+  } while (cursor);
+  const antigas = await Promise.all(semMetadados.map((k) => agenda.get<{ jogadorId?: string }>(k, 'json').catch(() => null)));
+  for (const s of antigas) if (s?.jogadorId) ids.add(s.jogadorId);
+  return ids;
+}
+
+/** Marca de que as sessões antigas já ganharam os metadados (uma vez só, pelo cron). */
+export const CHAVE_METADADOS_OK = 'vinculo/metadados-v1';
+
+/**
+ * Uma vez só (ADR-0094): regrava as sessões antigas com o `jogadorId` nos metadados, para a
+ * lista de Vínculos não precisar mais ler nenhuma. Devolve quantas regravou.
+ */
+export async function completarMetadadosDasSessoes(agenda: KVNamespace): Promise<number> {
+  if (await agenda.get(CHAVE_METADADOS_OK)) return 0;
+  let feitas = 0;
+  let cursor: string | undefined;
+  do {
+    const lista = await agenda.list<{ jogadorId?: string }>({ prefix: 'vinculo/sessao/', ...(cursor ? { cursor } : {}) });
+    for (const k of lista.keys) {
+      if (k.metadata?.jogadorId) continue;
+      const s = await agenda.get<SessaoVinculada>(k.name, 'json');
+      if (!s?.jogadorId) continue;
+      await gravarSessao(agenda, k.name.slice('vinculo/sessao/'.length), s);
+      feitas++;
+    }
+    cursor = lista.list_complete ? undefined : lista.cursor;
+  } while (cursor);
+  await agenda.put(CHAVE_METADADOS_OK, new Date().toISOString());
+  return feitas;
+}
+
 export async function sessaoDe(env: EnvVinculo, sessao: string): Promise<SessaoVinculada | null> {
   return env.AGENDA.get<SessaoVinculada>(`vinculo/sessao/${await hash(sessao)}`, 'json');
 }
@@ -204,7 +259,7 @@ export async function rotasDoVinculo(
     if (!remetente) return json({ vinculado: false });
 
     const sessao: SessaoVinculada = { jogadorId: pendente.jogadorId, username: pendente.username, vinculadoEm: agora.toISOString() };
-    await env.AGENDA.put(`vinculo/sessao/${h}`, JSON.stringify(sessao));
+    await gravarSessao(env.AGENDA, h, sessao);
     await marcarPendencia(env.AGENDA, 'vinculos', agora);
     await env.AGENDA.delete(`vinculo/codigo/${codigo}`);
     // Confirmação na DM (se a API não deixar, o site já mostra que deu certo).
@@ -233,7 +288,7 @@ export async function rotasDoVinculo(
     if (sessaoValida(c.sessaoAntiga)) await env.AGENDA.delete(`vinculo/sessao/${await hash(c.sessaoAntiga)}`);
     const sessao = aleatorio(32);
     const vinculada: SessaoVinculada = { jogadorId: link.jogadorId, username: link.username, vinculadoEm: agora.toISOString() };
-    await env.AGENDA.put(`vinculo/sessao/${await hash(sessao)}`, JSON.stringify(vinculada));
+    await gravarSessao(env.AGENDA, await hash(sessao), vinculada);
     await marcarPendencia(env.AGENDA, 'vinculos', agora);
     return json({ vinculado: true, sessao, jogadorId: link.jogadorId, username: link.username });
   }
@@ -281,10 +336,15 @@ export async function rotasDoVinculo(
     const s = await sessaoDe(env, c.sessao);
     if (!s) return json({ erro: 'Não vinculado' }, 401);
     if (pathname === '/escolha/estado') {
+      // Tudo ao mesmo tempo (ADR-0094): as escolhas guardadas e a capitania, que vai ao banco.
+      const [escolhas, cap] = await Promise.all([
+        Promise.all(TIPOS_DE_ESCOLHA.map((t) => env.AGENDA.get(`escolha-site/${s.jogadorId}/${t}`, 'json'))),
+        // A Postura só aparece para o Capitão (os outros veem quem ele é).
+        capitania(s.jogadorId).catch(() => null),
+      ]);
       const estado: Record<string, unknown> = {};
-      for (const t of TIPOS_DE_ESCOLHA) estado[t] = (await env.AGENDA.get(`escolha-site/${s.jogadorId}/${t}`, 'json')) ?? null;
-      // A Postura só aparece para o Capitão (os outros veem quem ele é).
-      estado.capitania = await capitania(s.jogadorId).catch(() => null);
+      TIPOS_DE_ESCOLHA.forEach((t, i) => (estado[t] = escolhas[i] ?? null));
+      estado.capitania = cap;
       return json(estado);
     }
     const tipo = String(c.tipo ?? '') as (typeof TIPOS_DE_ESCOLHA)[number];

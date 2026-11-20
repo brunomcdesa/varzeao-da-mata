@@ -2,8 +2,8 @@
 import { FALA_DO_TIME, GRUPOS, IDENTIDADE, NOME_DO_GRUPO, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, foraDoMataMata, forcaProvavel, inscritosAteNoProximoJogo, nomeDaRodada, type Formacao, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
 import { avisoDaPreTemporada, diaLongo, jogadores, liga, preTemporada, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos, gruposAtivos, formaDosTimes } from '../dados.js';
 import { bonecoImg, campinho, curto, escudoImg, forcaHtml, formaHtml, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa } from '../ui.js';
-import { capitaniaDoVinculo, jogadorVinculado } from '../meuPersonagem.js';
-import { blocoDoPlano, planoDaCapitania } from '../planoDoTime.js';
+import { capitaniaDoVinculo, capitaniaGuardada, jogadorVinculado } from '../meuPersonagem.js';
+import { blocoDoPlano, planoDaCapitania, type Capitania } from '../planoDoTime.js';
 import { chaveamento } from './chave.js';
 import { linhaDePartida, tabelaDeClassificacao } from './comum.js';
 import type { Pagina } from './tipos.js';
@@ -215,11 +215,18 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
   const vinculado = jogadorVinculado();
   if (estreante || !vinculado || !elenco.some((j) => j.id === vinculado)) return;
   const pagina = main.querySelector('.pagina-time');
-  void capitaniaDoVinculo().then((r) => {
+  // O último plano visto aparece na hora; a resposta da borda confere e só redesenha se mudou (ADR-0094).
+  let mostrado: string | null = null;
+  const mostrar = (r: { jogadorId: string; capitania: Capitania } | null) => {
     const lugar = main.querySelector<HTMLElement>('[data-plano]');
     if (!r || r.jogadorId !== vinculado || !lugar || !pagina?.isConnected) return;
-    lugar.outerHTML = blocoDoPlano(r.capitania, r.jogadorId).s;
+    const chave = JSON.stringify(r.capitania);
+    if (chave === mostrado) return;
+    mostrado = chave;
+    lugar.outerHTML = html`<div data-plano>${blocoDoPlano(r.capitania, r.jogadorId)}</div>`.s;
     const prov = main.querySelector<HTMLElement>('[data-provavel]');
     if (prov) prov.innerHTML = provavel(planoDaCapitania(r.capitania).formacao).s;
-  });
+  };
+  mostrar(capitaniaGuardada());
+  void capitaniaDoVinculo().then(mostrar);
 };
