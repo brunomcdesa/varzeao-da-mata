@@ -27,7 +27,8 @@ O cuidado principal é não criar "pagar para ganhar": o equilíbrio do OVR, do 
 
 - Cartão não desconta Moedas: a suspensão já é a punição, e o saldo nunca fica negativo.
 - Quem não tem Vínculo recebe normalmente e gasta quando fizer o Vínculo.
-- Tudo começa do zero na T3, sem cálculo retroativo. Bônus de largada: 20 Moedas por Temporada jogada (T1 e/ou T2).
+- Tudo começa do zero na Pré-temporada da T3, sem cálculo retroativo; a Copa (ADR-0088) já paga Moedas. Bônus de largada: 20 Moedas por Temporada jogada (T1 e/ou T2).
+- Outras fontes de Moedas, decididas depois: Palpite (ADR-0089), Conquistas (ADR-0090) e Título da Copa (ADR-0088).
 
 **Loja**
 
@@ -40,7 +41,7 @@ O cuidado principal é não criar "pagar para ganhar": o equilíbrio do OVR, do 
 - A Escalação guarda o visual da época (itens equipados), como já faz com o Número da camisa: Partidas já jogadas nunca mudam.
 - Itens são públicos (página de Carreira); saldo e extrato só aparecem para quem tem Vínculo com o Jogador.
 
-**Divulgação:** Reels próprio "Salário e Loja" na série de novidades da T3, gerado e postado sozinho no horário marcado depois da aprovação da prévia; outro Reels anuncia a segunda fase.
+**Divulgação:** Reels próprio "Salário e Loja" na série de novidades da T3 (ADR-0092), gerado e postado sozinho no horário marcado depois da aprovação da prévia; outro Reels anuncia a segunda fase.
 
 ## Consequências
 

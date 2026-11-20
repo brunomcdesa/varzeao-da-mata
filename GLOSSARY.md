@@ -145,7 +145,7 @@ A conquista da Temporada. Conta para o Time campeão e para cada Jogador dele qu
 _Avoid_: taça, troféu (troféu é o nome genérico de qualquer conquista no Card)
 
 **Estrela de Título**:
-A estrela acima do escudo do Time, uma por Título: dourada para a Série A (ou a Liga da T1) e prata para a Série B. Aparece quando a Temporada seguinte é criada (ADR-0060).
+A estrela acima do escudo do Time, uma por Título: dourada para a Série A (ou a Liga da T1), prata para a Série B e bronze para a Copa (ADR-0088). A da Série aparece quando a Temporada seguinte é criada (ADR-0060).
 _Avoid_: estrelinha, selo (Selo é o da Temporada 1, do Jogador)
 
 **Temporada**:
@@ -161,11 +161,11 @@ O Reels das 19h que fecha o dia: placares e tabelas das duas Séries, Novos Cont
 _Avoid_: compacto, melhores momentos, recap
 
 **Pré-temporada**:
-Os 2 a 3 dias antes da primeira Rodada de uma Temporada, dedicados a apresentar os Times e captar Inscrições, sem Partidas.
+Os dias antes da primeira Rodada de uma Temporada, dedicados a apresentar os Times, captar Inscrições e abrir a Janela de Transferências. Até a T2, sem Partidas; a partir da T3, termina com os 3 dias da Copa, depois que a Janela fecha (ADR-0088).
 _Avoid_: aquecimento, lançamento
 
 **Clássico**:
-Partida entre os dois Times de um par de rivais fixos. Desde a T2, cada Time da Série A de 16 tem dois Clássicos, os dois no seu Grupo (ADR-0066). Cai no calendário por sorteio, como qualquer Partida, mas ganha abertura especial no Reels e as ações valem o dobro para as Habilidades (e o limite por Partida também dobra).
+Partida entre os dois Times de um par de rivais fixos. Desde a T2, cada Time da Série A de 16 tem dois Clássicos, os dois no seu Grupo (ADR-0066). Na T3 em diante, só acontece na Fase de Liga se os dois estiverem na mesma Série; os segundos Clássicos também abrem a Copa (ADR-0088). Cai no calendário por sorteio, como qualquer Partida, mas ganha abertura especial no Reels e as ações valem o dobro para as Habilidades (e o limite por Partida também dobra).
 _Avoid_: derby, rivalidade, jogo grande
 
 **Goleada**:
@@ -184,12 +184,29 @@ _Avoid_: fase de grupos, classificatória, pontos corridos
 A parte final da Temporada, disputada em cada Série, com semifinais (1º × 4º e 2º × 3º) e final entre os 4 melhores da Fase de Liga. Na Série B, os dois finalistas ganham o Acesso. Empate vai para a Disputa de pênaltis. Só joga o Mata-mata quem já podia jogar o último jogo do Time na Fase de Liga; quem se inscreve depois entra no Elenco e estreia na próxima Temporada. ADR-0057.
 _Avoid_: playoffs, eliminatórias
 
+**Copa**:
+O Mata-mata com os 16 Times das duas Séries, a partir da T3, nos 3 últimos dias da Pré-temporada: Oitavas de Clássico, Quartas e Semifinais, Final. Jogo único, com Disputa de pênaltis no empate. Habilidade, Cartões e Moedas valem; a Suspensão da Copa só vale dentro dela (ADR-0088).
+_Avoid_: copinha, torneio, taça
+
+**Oitavas de Clássico**:
+As oitavas da Copa, formadas pelos 8 segundos Clássicos (Onça×Leão, Capivara×Sucuri etc.), que cobrem os 16 Times. Valem como Clássico completo (ADR-0088).
+_Avoid_: oitavas, primeira fase
+
+**Título da Copa**:
+A conquista da Copa. Conta para o Time campeão e para cada Jogador dele que entrou em campo na Copa; dá a Estrela de Título bronze e 40 Moedas (ADR-0088).
+_Avoid_: taça da Copa, Título (sozinho é o da Série)
+
+**Supercopa**:
+Jogo único entre o campeão da Série A e o campeão da Copa, abrindo a Temporada. Planejado para a T4 (ADR-0092).
+_Avoid_: superfinal, desafio dos campeões
+
 **Briga pelo Mata-mata**:
 Na última Rodada da Fase de Liga, a situação de cada Time em relação às 4 vagas do Mata-mata: **Garantido** (nenhum resultado que falta o tira dos 4 primeiros, contando os desempates), **Eliminado** (nenhum resultado o coloca entre os 4) ou "depende" (ainda depende de outros resultados). O Narrador e as plaquinhas embaixo do placar mostram também do que o Time precisa e o que acontece "se terminar assim". ADR-0053.
 _Avoid_: classificado matematicamente, G4
 
 **Disputa de pênaltis**:
 Como se decide um jogo do Mata-mata (Semifinal ou Final) que termina empatado nos 90 minutos. Aparece cobrança por cobrança no Ao Vivo, no Replay e no Reels; o Ao Vivo do Mata-mata dura até 8 minutos para caber a disputa.
+Também decide os jogos empatados da Copa. A ordem é a dos Batedores escolhidos pelo Capitão; sem escolha, ATA, ATA, MEI, MEI, ZAG, ZAG, GOL (ADR-0091).
 _Avoid_: penalidades, prorrogação (não existe)
 
 **Duelo**:
@@ -244,8 +261,12 @@ _Avoid_: líder, técnico, dono do time
 A atitude do Time numa Partida (Ofensiva, Equilibrada ou Defensiva), escolhida em segredo pelo Capitão até o Corte. Sem escolha, é Equilibrada.
 _Avoid_: tática, estratégia, esquema
 
+**Batedores**:
+A ordem dos 5 primeiros cobradores da Disputa de pênaltis, escolhida pelo Capitão junto com a Formação e a Postura, a partir da T3. Quem não está em campo é pulado; depois dos 5, vale a ordem automática (ADR-0091).
+_Avoid_: cobradores, lista de pênaltis
+
 **Plano do Capitão**:
-A Formação e a Postura que o Capitão escolheu para o próximo jogo, mostradas na página do Time só para quem tem Vínculo com um Jogador daquele Time. A escalação provável dessa página sai na Formação do plano. ADR-0086.
+A Formação, a Postura e, a partir da T3, os Batedores que o Capitão escolheu para o próximo jogo, mostrados na página do Time só para quem tem Vínculo com um Jogador daquele Time. A partir da T3, o Capitão também pode fazer essas escolhas ali. A escalação provável dessa página sai na Formação do plano. ADR-0086 e ADR-0091.
 
 **Formação**:
 O desenho do Time em campo na Temporada 2: quantos zagueiros, meias e atacantes jogam (2-2-2, 2-3-1, 3-2-1 ou 3-1-2; o goleiro é sempre um). Escolhida pelo Capitão junto da Postura, até o Corte; sem escolha, 2-2-2. As vagas da Escalação seguem a Formação. ADR-0044.
@@ -386,7 +407,7 @@ _Avoid_: visual, skin, avatar
 ### Economia
 
 **Moedas**:
-O dinheiro da Liga, ganho com o Salário e os prêmios e gasto só na Loja. Não compra OVR, Habilidade, vaga na Escalação nem Transferência. Começa a contar na T3 (ADR-0087).
+O dinheiro da Liga, ganho com o Salário e os prêmios e gasto só na Loja. Não compra OVR, Habilidade, vaga na Escalação nem Transferência. Começa a contar na Pré-temporada da T3, com a Copa (ADR-0087 e ADR-0092).
 _Avoid_: dinheiro, coins, pontos, bufunfa
 
 **Salário**:
@@ -404,3 +425,11 @@ _Avoid_: skin, cosmético, acessório (para o conjunto)
 **Comemoração de gol**:
 O Item raro que dá ao boneco uma animação curta (cerca de 1 s) quando ele marca, no Reels, no Ao Vivo e no Replay (ADR-0087).
 _Avoid_: dancinha, celebração, emote
+
+**Palpite**:
+O placar que o Jogador com Vínculo aposta para uma Partida, pelo site, até o Corte. Acertar o resultado vale 2 Moedas e o placar exato vale 5, com teto de 10 Moedas de Palpite por dia; o que passa do teto conta só no ranking de Palpites. Na Disputa de pênaltis, vale o placar dos 90 minutos (ADR-0089).
+_Avoid_: aposta, bolão, chute
+
+**Conquista**:
+Marco da Carreira ganho uma vez só (primeiro gol, hat-trick, 20 gols etc.), que vira selo na página de Carreira e paga 5, 10 ou 20 Moedas conforme a dificuldade. O que foi feito na T1 e na T2 dá só o selo (ADR-0090).
+_Avoid_: troféu, medalha, achievement, Título
