@@ -5,7 +5,7 @@
  * Linguagem visual: várzea em pixel art. Placar de tábua com plaquinhas penduradas,
  * campo com terrão e cal, mata em volta e faixa de torcida no gol.
  */
-import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type Posicao, type SituacaoNaBriga, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, NOME_DO_PERFIL_DO_JUIZ, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type Posicao, type SituacaoNaBriga, type TimeId } from '@liga/shared';
 import type { Lado } from '@liga/sim';
 import { CAMPO, cenario } from './cenario.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste, ruido } from './pixel.js';
@@ -429,9 +429,47 @@ function desenharPlacar(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, display:
     desenharMarcasDePenalti(pin, e, display, texto);
     return;
   }
-  const rotulo = e.encerrada ? 'Fim de jogo' : `${e.minuto}'`;
+  // T3: nos Acréscimos o relógio mostra 90+n (ADR-0094).
+  const rotulo = e.encerrada ? 'Fim de jogo' : e.acrescimo ? `90+${e.acrescimo}'` : `${e.minuto}'`;
   pin.texto(rotulo, COLUNAS / 2, 52, 9, texto, COR.amarelo, { contorno: COR.mata, peso: 700 });
+  if (!e.encerrada) desenharMarcasDaT3(pin, e, texto);
   if (o.briga) desenharBriga(pin, o.briga, e, o, texto);
+}
+
+/**
+ * T3 (ADR-0094): a placa dos Acréscimos (o "+3" luminoso ao lado do relógio), a Pressão final
+ * (embaixo do placar, do lado de quem se lança) e o Perfil do Juiz no começo da Partida.
+ */
+function desenharMarcasDaT3(pin: Pincel, e: EstadoQuadro, texto: string): void {
+  const placa = e.placaDosAcrescimos;
+  if (placa) {
+    const sobe = Math.min(1, placa.progresso / 0.08);
+    const desce = placa.progresso > 0.9 ? (placa.progresso - 0.9) / 0.1 : 0;
+    const y = 46 + Math.round((1 - suave(sobe)) * 8 + suave(desce) * 8);
+    if (sobe > 0.2 && desce < 0.8) {
+      const x = COLUNAS / 2 + 22;
+      pin.r(x - 1, y - 1, 30, 14, COR.contorno);
+      pin.r(x, y, 28, 12, '#1E2A22');
+      pin.texto(`+${placa.minutos}`, x + 14, y + 6.5, 9, texto, '#3DDC64', { peso: 700 });
+    }
+  }
+  for (const lado of e.pressao ?? []) {
+    const x = COLUNAS / 2 + (lado === 'mandante' ? -62 : 62);
+    pin.texto('pressão!', x, 52, 7.5, texto, '#FF9F43', { contorno: COR.mata, peso: 700 });
+  }
+  const juiz = e.placaDoJuiz;
+  if (juiz) {
+    const entra = Math.min(1, juiz.progresso / 0.08);
+    const sai = juiz.progresso > 0.88 ? (juiz.progresso - 0.88) / 0.12 : 0;
+    if (entra > 0.3 && sai < 0.7) {
+      const rotulo = `Juiz: ${NOME_DO_PERFIL_DO_JUIZ[juiz.perfil]}`;
+      const w = 104;
+      const x = COLUNAS / 2 - w / 2;
+      const y = 60 - Math.round(suave(sai) * 8);
+      pin.tabua(x, y, w, 16);
+      pin.texto(rotulo, COLUNAS / 2, y + 8, 8.5, texto, juiz.perfil === 'RIGOROSO' ? '#FF6B5B' : juiz.perfil === 'DEIXA_JOGAR' ? '#3DDC64' : COR.placa, { peso: 700 });
+    }
+  }
 }
 
 export type TipoDaPlaquinhaDaBriga = 'GARANTIDO' | 'ELIMINADO' | 'DEPENDE';
@@ -564,6 +602,7 @@ const TITULO_PENALTI = { GOL: 'Converteu!', DEFESA: 'Pegou!', BLOQUEIO: 'Bloqueo
 
 /** Letreiro de um destaque menor (T2: falta, cartão, pênalti e barreira têm o seu). */
 function tituloDoDestaque(d: NonNullable<EstadoQuadro['destaque']>): string {
+  if (d.trave) return 'Na trave!';
   if (d.tipo === 'FALTA') return d.cartao === 'VERMELHO' ? 'Expulso!' : d.cartao === 'AMARELO' ? 'Amarelo!' : 'Falta!';
   if (d.bolaParada === 'PENALTI') return d.tipo === 'DEFESA' ? 'Pegou o pênalti!' : d.tipo === 'FORA' ? 'Pênalti pra fora!' : TITULO_PENALTI[d.tipo];
   if (d.bolaParada === 'FALTA_DIRETA' && d.tipo === 'BLOQUEIO') return 'Na barreira!';
@@ -633,7 +672,8 @@ function desenharDestaque(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, displa
     const fase = p * 38;
     const onda = faixaDeTorcida(pin, y, 66, id, fase, abre);
     if (abre >= 0.6) {
-      const titulo = TITULO.GOL;
+      // T3: o Gol de placa ganha letreiro próprio (ADR-0094).
+      const titulo = d.golDePlaca ? 'Gol de placa!' : TITULO.GOL;
       const tam = pin.caber(titulo, 240, 58, display);
       pin.ctx.font = `400 ${tam * pin.px}px ${display}`;
       const larguras = [...titulo].map((ch) => pin.ctx.measureText(ch).width / pin.px);

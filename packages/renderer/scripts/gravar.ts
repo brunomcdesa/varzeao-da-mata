@@ -12,7 +12,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import type { TimeId } from '@liga/shared';
+import type { PerfilDoJuiz, TimeId } from '@liga/shared';
 import type { PartidaParaVideo } from '../src/video.js';
 import { exportarEscudos, gravarReels, partidaDeTeste } from './gravacao.js';
 
@@ -41,6 +41,11 @@ const { values: args } = parseArgs({
     vitrine: { type: 'boolean' },
     /** Com --t2: a primeira Partida a partir de --seed com Substituição no intervalo (ADR-0061). */
     troca: { type: 'boolean' },
+    /**
+     * Partida com as regras da Temporada 3 (ADR-0094), com o Juiz informado (RIGOROSO, NORMAL ou
+     * DEIXA_JOGAR). Com --vitrine, procura uma com Trave, Rebote, Chute de longe, Pressão e Gol de placa.
+     */
+    t3: { type: 'string' },
     /** Na prévia, instantes extras em segundos, separados por vírgula. */
     instantes: { type: 'string' },
     /** Mata-mata (ADR-0048): semifinal ou final, com --temporada N e, se houver Séries, --serie A|B. */
@@ -61,6 +66,17 @@ async function main(): Promise<void> {
     do partida = partidaDeTeste(s++, args.mandante as TimeId, args.visitante as TimeId, args.subtitulo ?? 'Final', 'MATA_MATA');
     while (!partida.resultado.penaltis);
     console.log(`seed ${s - 1}: ${partida.resultado.gols.mandante}x${partida.resultado.gols.visitante}, pênaltis ${partida.resultado.penaltis.placar.mandante}x${partida.resultado.penaltis.placar.visitante}`);
+  } else if (args.t3) {
+    const juiz = args.t3.toUpperCase() as PerfilDoJuiz;
+    let s = Number(args.seed ?? 1);
+    const tem = (p: PartidaParaVideo) => {
+      const ls = p.resultado.lances;
+      if (!args.vitrine) return true;
+      return ls.some((l) => l.trave) && ls.some((l) => l.rebote && l.tipo === 'GOL') && ls.some((l) => l.chuteDeLonge) && ls.some((l) => l.golDePlaca) && ls.some((l) => l.pressao) && ls.filter((l) => l.tipo === 'GOL').length <= 6;
+    };
+    do partida = partidaDeTeste(s++, args.mandante as TimeId, args.visitante as TimeId, args.subtitulo, 'LIGA', true, juiz);
+    while (!tem(partida));
+    console.log(`seed ${s - 1}: ${partida.resultado.gols.mandante}x${partida.resultado.gols.visitante}, juiz ${partida.resultado.juiz}, acréscimos ${partida.resultado.acrescimos}`);
   } else if (args.t2 && args.vitrine) {
     // A primeira Partida da T2 a partir de --seed com pênalti, chute direto, cartão e gol.
     let s = Number(args.seed ?? 1);

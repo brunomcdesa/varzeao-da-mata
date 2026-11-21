@@ -7,7 +7,7 @@
  *
  * A coreografia de cada lance (quem passa para quem, de onde sai o chute) fica em jogada.ts.
  */
-import type { Escalacao, Posicao } from '@liga/shared';
+import type { Escalacao, PerfilDoJuiz, Posicao } from '@liga/shared';
 import { criarRng, type Lado, type Lance, type ResultadoPartida, type SlotRef } from '@liga/sim';
 import {
   FISICA,
@@ -22,6 +22,7 @@ import {
   pontoDoCobrador,
   pontoDoEscanteio,
   pontoDoLateral,
+  pontoDoRebote,
   sentido,
   type AcaoJogador,
   type Alvo,
@@ -40,6 +41,10 @@ import { F_RESOLUCAO_PENALTI, estadoDaDisputa, instanteDaCobranca, montarDisputa
 export type { Disputa, EstadoPenaltis, MarcaDePenalti } from './penaltis.js';
 
 export const DURACAO_JOGO = 90 * 60;
+/** T3: quanto tempo (s de jogo) a placa dos Acréscimos fica levantada. */
+export const DURACAO_PLACA_DOS_ACRESCIMOS = 25;
+/** T3: quanto tempo (s de jogo) o Perfil do Juiz aparece no começo da Partida. */
+export const DURACAO_PLACA_DO_JUIZ = 60;
 /** Velocidade do Ao Vivo: 90 minutos de jogo em 4 min 30 s (ADR-0005; era 15×, 6 min). */
 export const VELOCIDADE_AO_VIVO = 20;
 
@@ -74,7 +79,15 @@ export interface Destaque {
   ocupante?: number;
   /** T2: o lance era uma cobrança de falta ou pênalti (muda o letreiro). */
   bolaParada?: Lance['bolaParada'];
+  /** T3 (ADR-0094): Trave, Gol de placa, Rebote e Chute de longe mudam o letreiro. */
+  trave?: true;
+  golDePlaca?: true;
+  rebote?: true;
+  chuteDeLonge?: true;
 }
+
+/** T3 (ADR-0094): a Partida tem as novidades de campo da Temporada 3. */
+export const ehT3 = (r: Pick<ResultadoPartida, 'versaoSim' | 'juiz'>): boolean => r.juiz !== undefined;
 
 export interface JogadorNoQuadro {
   slot: SlotRef;
@@ -115,6 +128,14 @@ export interface EstadoQuadro {
   trocas?: { lista: Troca[]; progresso: number } | null;
   /** T2 (ADR-0074): os cartões que o juiz já mostrou até aqui, para o placar e o @. */
   cartoes?: CartaoNoJogo[];
+  /** T3: nos Acréscimos, o minuto a mais (o relógio mostra 90+n). */
+  acrescimo?: number;
+  /** T3: a placa dos Acréscimos levantada (total de minutos e 0 → 1 enquanto aparece). */
+  placaDosAcrescimos?: { minutos: number; progresso: number };
+  /** T3: o Time que está na Pressão final no lance em andamento. */
+  pressao?: Lado[];
+  /** T3 (ADR-0094): o Perfil do Juiz, mostrado no começo da Partida (0 → 1 enquanto aparece). */
+  placaDoJuiz?: { perfil: PerfilDoJuiz; progresso: number };
 }
 
 /** Um cartão mostrado na Partida (ADR-0074): de que Time, quem levou (ocupante da vaga) e a cor. */
@@ -244,6 +265,9 @@ export class Timeline {
   private readonly corridaDoJuiz: Float32Array | null;
   /** Substituições do intervalo (ADR-0061), com o instante em que aparecem. */
   readonly trocas: Troca[];
+  /** T3: instante (s de jogo) em que começam os Acréscimos; null antes da T3. */
+  readonly inicioDosAcrescimos: number | null;
+  private readonly fimDaPlacaDosAcrescimos: number;
 
   constructor(
     readonly resultado: ResultadoPartida,
@@ -275,8 +299,11 @@ export class Timeline {
       if (proximo.bolaParada === 'ESCANTEIO') return pontoDoEscanteio(proximo);
       if (proximo.bolaParada === 'LATERAL') return pontoDoLateral(proximo, this.bases);
       if (proximo.bolaParada && COBRANCAS_DE_FALTA.has(proximo.bolaParada)) return pontoDaFalta(proximo);
+      // T3: antes do Rebote, a bola fica solta na frente do gol.
+      if (proximo.rebote) return pontoDoRebote(proximo);
       return this.bases[proximo.criador.lado][proximo.criador.indice]!;
     };
+    const t3 = ehT3(resultado);
     this.planos = lances.map((l, i) => {
       const proximo = lances[i + 1];
       const plano = montarPlano(l, this.bases, escalacoes, resultado.seed, {
@@ -289,6 +316,8 @@ export class Timeline {
           : {}),
         // Ritmo novo: depois do gol a bola fica na rede; quem sofreu vai buscá-la no toque de bola.
         ...(this.novo && l.tipo === 'GOL' ? { golFicaNaRede: true } : {}),
+        ...(t3 ? { t3: true } : {}),
+        ...(proximo?.rebote && l.tipo === 'DEFESA' ? { rebote: pontoDoRebote(proximo) } : {}),
       });
       // Ritmo novo: depois do toque de bola, a jogada começa com a bola já no pé do criador.
       return this.novo && comToqueAntes.has(i) ? comecaNoCriador(plano, l.criador) : plano;
@@ -327,6 +356,11 @@ export class Timeline {
       : null;
     this.corridaDoJuiz = this.t2 ? this.simularJuiz() : null;
     this.trocas = trocasDaPartida(resultado, escalacoes, this.janelas);
+    // T3: os Acréscimos começam com o primeiro lance deles (o relógio chega aos 90 ali).
+    const primeiroAcrescimo = this.janelas.findIndex((j) => j.lance.acrescimo);
+    this.inicioDosAcrescimos = t3 && primeiroAcrescimo > 0 ? this.janelas[primeiroAcrescimo]!.inicio : null;
+    // A placa fica levantada durante o primeiro lance dos Acréscimos (no Reels, ela aparece junto).
+    this.fimDaPlacaDosAcrescimos = this.inicioDosAcrescimos === null ? 0 : Math.max(this.inicioDosAcrescimos + DURACAO_PLACA_DOS_ACRESCIMOS, this.janelas[primeiroAcrescimo]!.fim);
     // Cartões (ADR-0074): contam no placar e no @ a partir de quando o juiz levanta.
     this.cartoes = this.janelas.flatMap((j) => {
       const f = j.lance.falta;
@@ -589,9 +623,10 @@ export class Timeline {
     }
 
     const destaque = this.destaqueEm(t);
+    const relogio = this.relogioEm(t, indice);
     return {
       t,
-      minuto: Math.min(90, Math.floor(t / 60) + 1),
+      ...relogio,
       placar: this.placarEm(t),
       bola,
       bolaAltura: altura,
@@ -609,6 +644,25 @@ export class Timeline {
         return troca ? { trocas: { lista: this.trocas.filter((x) => x.t === troca.t), progresso: (t - troca.t) / DURACAO_TROCA } } : {};
       })(),
     };
+  }
+
+  /**
+   * O relógio: nas Partidas da T3 os 90 minutos vão até o começo dos Acréscimos, e dali em
+   * diante ele mostra 90+n, com a placa levantada por um tempo.
+   */
+  private relogioEm(t: number, indice: number): Pick<EstadoQuadro, 'minuto' | 'acrescimo' | 'placaDosAcrescimos' | 'pressao' | 'placaDoJuiz'> {
+    const juiz = this.resultado.juiz;
+    const pressao = {
+      ...(indice >= 0 && this.resultado.lances[indice]?.pressao ? { pressao: [this.resultado.lances[indice]!.ataque] } : {}),
+      ...(juiz && t < DURACAO_PLACA_DO_JUIZ ? { placaDoJuiz: { perfil: juiz, progresso: t / DURACAO_PLACA_DO_JUIZ } } : {}),
+    };
+    const ini = this.inicioDosAcrescimos;
+    if (ini === null) return { minuto: Math.min(90, Math.floor(t / 60) + 1), ...pressao };
+    if (t < ini) return { minuto: Math.min(90, Math.floor((t / ini) * 90) + 1), ...pressao };
+    const total = this.resultado.acrescimos ?? 1;
+    const acrescimo = Math.min(total, 1 + Math.floor(((t - ini) / Math.max(1, DURACAO_JOGO - ini)) * total));
+    const placa = (t - ini) / Math.max(1, this.fimDaPlacaDosAcrescimos - ini);
+    return { minuto: 90, acrescimo, ...(placa < 1 ? { placaDosAcrescimos: { minutos: total, progresso: placa } } : {}), ...pressao };
   }
 
   private estadoDaDisputa(t: number): EstadoQuadro {
@@ -953,6 +1007,10 @@ export class Timeline {
           progresso: (t - j.resolucao) / dur,
           ...(cartao ? { cartao } : {}),
           ...(bp && bp !== 'LATERAL' && bp !== 'ESCANTEIO' ? { bolaParada: bp } : {}),
+          ...(j.lance.trave ? { trave: true as const } : {}),
+          ...(j.lance.golDePlaca ? { golDePlaca: true as const } : {}),
+          ...(j.lance.rebote ? { rebote: true as const } : {}),
+          ...(j.lance.chuteDeLonge ? { chuteDeLonge: true as const } : {}),
         };
       }
     }
@@ -987,7 +1045,8 @@ function comecaNoCriador(plano: Plano, criador: SlotRef): Plano {
  * último lance até o apito é toque de bola.
  */
 function encaixarJogadas(cheias: readonly Janela[], lances: readonly Lance[]): { janelas: Janela[]; intervalos: Intervalo[] } {
-  const imediato = (l: Lance) => Boolean(l.bolaParada || l.contraAtaque);
+  // O Rebote (T3) vem colado na defesa, sem toque de bola no meio.
+  const imediato = (l: Lance) => Boolean(l.bolaParada || l.contraAtaque || l.rebote);
   const janelas: Janela[] = [];
   const intervalos: Intervalo[] = [];
   let g0 = 0;

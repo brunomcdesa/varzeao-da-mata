@@ -17,7 +17,7 @@ export interface Ponto {
   y: number;
 }
 
-export type EstiloJogada = 'TABELA' | 'CHUTE_DE_LONGE' | 'LANCAMENTO' | 'CRUZAMENTO' | 'INDIVIDUAL' | 'DESARME' | 'ESCANTEIO' | 'FALTA' | 'PENALTI' | 'FALTA_DIRETA' | 'FALTA_CURTA';
+export type EstiloJogada = 'TABELA' | 'CHUTE_DE_LONGE' | 'LANCAMENTO' | 'CRUZAMENTO' | 'INDIVIDUAL' | 'DESARME' | 'ESCANTEIO' | 'FALTA' | 'PENALTI' | 'FALTA_DIRETA' | 'FALTA_CURTA' | 'REBOTE';
 
 export type AcaoJogador = 'PARADO' | 'CORRENDO' | 'PASSE' | 'CHUTE' | 'CABECEIO' | 'MERGULHO' | 'CARRINHO' | 'COMEMORANDO' | 'ARREMESSO';
 
@@ -56,6 +56,8 @@ const PESOS: [EstiloJogada, number][] = [
   ['CRUZAMENTO', 0.2],
   ['INDIVIDUAL', 0.2],
 ];
+/** T3 (ADR-0094): os mesmos pesos sem o chute de longe, que agora só aparece quando é de verdade. */
+const PESOS_T3: [EstiloJogada, number][] = PESOS.filter(([e]) => e !== 'CHUTE_DE_LONGE').map(([e, p]) => [e, p / 0.8]);
 
 /**
  * Continuidade entre lances: de onde a bola vem (`entrada`) e para onde ela vai no fim
@@ -91,7 +93,23 @@ export interface Continuidade {
   escanteio?: Ponto;
   /** Ritmo novo (ADR-0045): no gol, a bola fica na rede (quem sofreu vai buscá-la no toque de bola). */
   golFicaNaRede?: boolean;
+  /**
+   * Temporada 3 (ADR-0094): o estilo "chute de longe" só aparece no Chute de longe de verdade
+   * (as Partidas antigas guardam o sorteio de antes).
+   */
+  t3?: boolean;
+  /** T3: o próximo lance é Rebote; a defesa solta a bola aqui, na frente do gol. */
+  rebote?: Ponto;
 }
+
+/** T3: onde a bola sobra no Rebote (na frente do gol atacado; o lado sai do número do lance). */
+export function pontoDoRebote(lance: Lance): Ponto {
+  const x = 0.5 + ((lance.numero % 3) - 1) * 0.07;
+  return { x, y: golAlvo(lance.ataque) - sentido(lance.ataque) * 0.075 };
+}
+
+/** T3: o pé da trave do lado do chute (o gol vai de 0,41 a 0,59). */
+const TRAVE = { esquerda: 0.405, direita: 0.595 };
 
 /** Bandeirinha do escanteio do lance (o lado sai do número do lance: sempre o mesmo). */
 export function pontoDoEscanteio(lance: Lance): Ponto {
@@ -229,6 +247,8 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
   const C = lance.criador;
   const cx = bases[C.lado][C.indice]!.x;
 
+  // T3: no Rebote desarmado, o zagueiro chega primeiro na sobra e afasta.
+  if (lance.rebote && lance.tipo === 'DESARME') return planoReboteAfastado(lance, entrada, saida);
   if (lance.tipo === 'DESARME' && lance.bolaParada !== 'ESCANTEIO' && lance.bolaParada !== 'FALTA_CRUZADA') {
     // Ligação direta interceptada (ADR-0044): o zagueiro rival corta o lançamento no ar.
     if (lance.jogadaDaFormacao === 'LIGACAO_DIRETA' && !lance.finalizador) return planoInterceptacao(lance, P, cx, rng.next());
@@ -247,7 +267,7 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
   const G = bloqueio ? goleiroDe(escalacoes[def], def) : lance.defensor;
   let sorteio = rng.next();
   let estilo: EstiloJogada = 'INDIVIDUAL';
-  for (const [e, p] of PESOS) {
+  for (const [e, p] of cont.t3 ? PESOS_T3 : PESOS) {
     if (sorteio < p) {
       estilo = e;
       break;
@@ -260,6 +280,9 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
   // Drible certo é sempre jogada individual; chute marcado nunca é (não passou pelo zagueiro).
   if (lance.drible === true) estilo = 'INDIVIDUAL';
   else if (lance.drible === false && estilo === 'INDIVIDUAL') estilo = 'TABELA';
+  // T3: o Chute de longe e o Rebote têm o desenho deles.
+  if (lance.chuteDeLonge) estilo = 'CHUTE_DE_LONGE';
+  if (lance.rebote) estilo = 'REBOTE';
 
   const atores = new Map<string, QuadroAtor[]>();
   const bola: TrechoBola[] = [];
@@ -275,7 +298,8 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
   if (lance.bolaParada === 'ESCANTEIO' || lance.bolaParada === 'FALTA_CRUZADA') return planoEscanteio();
 
   // A bola chega ao criador de onde o lance anterior a deixou (do meio, só depois de gol).
-  bola.push({ de: 0, ate: 0.08, tipo: 'VOO', origem: { ponto: entrada }, destino: { ator: C }, altura: 0 });
+  // No Rebote ela está solta na área: quem chega nela é o finalizador.
+  if (estilo !== 'REBOTE') bola.push({ de: 0, ate: 0.08, tipo: 'VOO', origem: { ponto: entrada }, destino: { ator: C }, altura: 0 });
 
   // Destino do chute, que depende do resultado do lance.
   const r = rng.next();
@@ -284,7 +308,9 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
   if (lance.tipo === 'GOL') destino = P(0.5 + (r * 2 - 1) * 0.085, -0.012);
   else if (lance.tipo === 'DEFESA') destino = P(0.5 + (r * 2 - 1) * 0.08, 0.035);
   else destino = r < 0.5 ? P(r < 0.25 ? 0.33 : 0.67, -0.01) : P(0.44 + r * 0.12, -0.01);
-  const porCima = lance.tipo === 'FORA' && r >= 0.5;
+  // T3: na Trave, o chute vai no pé do poste e volta para o campo.
+  if (lance.trave) destino = P(r < 0.5 ? TRAVE.esquerda : TRAVE.direita, 0.004);
+  const porCima = lance.tipo === 'FORA' && r >= 0.5 && !lance.trave;
 
   let inicioChute: number;
   let finalizacao: Ponto; // onde o finalizador está quando chuta
@@ -327,6 +353,22 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
     inicioChute = 0.7;
     alturaChute = porCima ? 0.6 : 0.06;
   } else switch (estilo) {
+    case 'REBOTE': {
+      // T3: a bola sobrou na frente do gol; o finalizador chega antes do zagueiro e bate de perto.
+      finalizacao = { x: entrada.x, y: entrada.y + dir * 0.005 };
+      ator(F, [[0, null], [0.22, P(lerp(fx, entrada.x, 0.6), 0.14)], [0.42, finalizacao], [0.78, finalizacao], [0.95, P(entrada.x, 0.12)], [1, null]]);
+      if (lance.marcador) {
+        const M = lance.marcador;
+        const atrasado: Ponto = { x: entrada.x + lateral * 0.035, y: entrada.y + dir * 0.03 };
+        ator(M, [[0, null], [0.25, null], [0.48, atrasado], [0.56, atrasado], [0.8, P(atrasado.x, 0.06)], [1, null]]);
+        acao(M, 0.44, 0.54, 'CARRINHO');
+      }
+      bola.push({ de: 0, ate: 0.42, tipo: 'PARADA', ponto: entrada });
+      posse(0.42, 0.5, F);
+      inicioChute = 0.5;
+      alturaChute = porCima ? 0.5 : 0.05;
+      break;
+    }
     case 'TABELA': {
       const cMeio = lerp(cx, 0.5, 0.5);
       const fArea = lerp(fx, 0.5, 0.5);
@@ -352,6 +394,16 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
     case 'CHUTE_DE_LONGE': {
       const fLonge = lerp(fx, 0.5, 0.5);
       finalizacao = P(fLonge, 0.31);
+      if (mesmoSlot(C, F)) {
+        // T3: quem criou arrisca sozinho: conduz até a entrada da área e solta a bomba.
+        const cLonge = P(lerp(cx, 0.5, 0.45), 0.31);
+        finalizacao = cLonge;
+        ator(C, [[0, null], [0.08, P(cx, 0.52)], [0.38, P(lerp(cx, 0.5, 0.3), 0.38)], [0.56, cLonge], [0.78, cLonge], [0.92, P(cLonge.x, 0.28)], [1, null]]);
+        posse(0.08, 0.56, C);
+        inicioChute = 0.56;
+        alturaChute = porCima ? 0.7 : 0.22;
+        break;
+      }
       ator(C, [[0, null], [0.08, P(cx, 0.52)], [0.35, P(cx, 0.42)], [0.5, P(cx, 0.42)], [0.72, null]]);
       ator(F, [[0, null], [0.3, P(fx, 0.37)], [0.43, P(fLonge, 0.33)], [0.6, finalizacao], [0.78, finalizacao], [0.92, P(fLonge, 0.28)], [1, null]]);
       posse(0.08, 0.35, C);
@@ -472,12 +524,23 @@ function montarJogada(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: Re
     bola.push(cont.golFicaNaRede ? { de: 0.9, ate: 1, tipo: 'PARADA', ponto: destino } : { de: 0.9, ate: 1, tipo: 'VOO', origem: { ponto: destino }, destino: { ponto: MEIO }, altura: 0.3 });
     acao(F, F_RESOLUCAO_CHUTE + 0.01, 0.97, 'COMEMORANDO');
     acao(C, F_RESOLUCAO_CHUTE + 0.04, 0.95, 'COMEMORANDO');
+  } else if (lance.tipo === 'DEFESA' && cont.rebote) {
+    // T3: o goleiro espalma para a frente e a bola fica solta na área (Rebote no próximo lance).
+    bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.9, tipo: 'VOO', origem: { ponto: destino }, destino: { ponto: cont.rebote }, altura: 0.12 });
+    bola.push({ de: 0.9, ate: 1, tipo: 'PARADA', ponto: cont.rebote });
   } else if (lance.tipo === 'DEFESA' && cont.escanteio) {
     // Espalmou para a linha de fundo: escanteio.
     bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.9, tipo: 'VOO', origem: { ponto: destino }, destino: { ponto: cont.escanteio }, altura: 0.35 });
     bola.push({ de: 0.9, ate: 1, tipo: 'PARADA', ponto: cont.escanteio });
   } else if (lance.tipo === 'DEFESA') {
     bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.9, tipo: 'POSSE', ator: G });
+    bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ator: G }, destino: { ponto: saida }, altura: 0.6 });
+    acao(G, 0.88, 0.92, 'PASSE');
+  } else if (lance.trave) {
+    // T3: bate no poste e volta; o goleiro fica com ela.
+    const volta: Ponto = { x: destino.x + (destino.x < 0.5 ? 0.05 : -0.05), y: destino.y - dir * 0.09 };
+    bola.push({ de: F_RESOLUCAO_CHUTE, ate: 0.85, tipo: 'VOO', origem: { ponto: destino }, destino: { ponto: volta }, altura: 0.08 });
+    bola.push({ de: 0.85, ate: 0.9, tipo: 'VOO', origem: { ponto: volta }, destino: { ator: G }, altura: 0 });
     bola.push({ de: 0.9, ate: 1, tipo: 'VOO', origem: { ator: G }, destino: { ponto: saida }, altura: 0.6 });
     acao(G, 0.88, 0.92, 'PASSE');
   } else {
@@ -971,4 +1034,32 @@ function planoCobranca(lance: Lance, bases: Record<Lado, Ponto[]>, escalacoes: R
       acoes,
     };
   }
+}
+
+/**
+ * T3 (ADR-0094): Rebote afastado. A bola sobrou na área, o atacante corre para ela, mas o
+ * zagueiro chega primeiro e dá o chutão.
+ */
+function planoReboteAfastado(lance: Lance, sobra: Ponto, saida: Ponto): Plano {
+  const F = lance.finalizador!;
+  const Z = lance.defensor;
+  const dir = sentido(lance.ataque);
+  const quase: Ponto = { x: sobra.x + 0.03, y: sobra.y - dir * 0.03 };
+  return {
+    estilo: 'REBOTE',
+    atores: [
+      { slot: F, quadros: [[0, null], [0.3, null], [F_RESOLUCAO_DESARME, quase], [0.75, quase], [1, null]] },
+      { slot: Z, quadros: [[0, null], [0.2, null], [F_RESOLUCAO_DESARME - 0.04, sobra], [0.75, sobra], [1, null]] },
+    ],
+    bola: [
+      { de: 0, ate: F_RESOLUCAO_DESARME - 0.04, tipo: 'PARADA', ponto: sobra },
+      { de: F_RESOLUCAO_DESARME - 0.04, ate: F_RESOLUCAO_DESARME + 0.02, tipo: 'POSSE', ator: Z },
+      { de: F_RESOLUCAO_DESARME + 0.02, ate: 0.95, tipo: 'VOO', origem: { ator: Z }, destino: { ponto: saida }, altura: 0.6 },
+      { de: 0.95, ate: 1, tipo: 'PARADA', ponto: saida },
+    ],
+    acoes: [
+      { slot: Z, de: F_RESOLUCAO_DESARME - 0.08, ate: F_RESOLUCAO_DESARME, acao: 'CARRINHO' },
+      { slot: Z, de: F_RESOLUCAO_DESARME + 0.01, ate: F_RESOLUCAO_DESARME + 0.04, acao: 'PASSE' },
+    ],
+  };
 }
