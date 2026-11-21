@@ -397,7 +397,7 @@ O canto próprio de cada Time, que a Arquibancada entoa depois de um gol do Time
 _Avoid_: hino, música, cântico
 
 **Juiz**:
-O boneco que apita as Partidas da T2: acompanha o lance, apita a falta e mostra o Cartão. É só visual e não tem nome escrito.
+O boneco que apita as Partidas desde a T2: acompanha o lance, apita a falta e mostra o Cartão. Na T2 é só visual; a partir da T3, o Perfil do Juiz muda a chance de Falta e de Cartão (ADR-0094). Não tem nome escrito.
 _Avoid_: árbitro, apitador
 
 **Perfil do Juiz**:
