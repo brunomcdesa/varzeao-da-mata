@@ -17,3 +17,4 @@ export { apelidoFalavel } from './narracao.js';
 export { timelineDaPartida, paraEscalacao, momentosDoAoVivo } from './partidaPublica.js';
 export { trocasDaPartida, ocupanteNoLance, ocupanteDoDesempenho, DURACAO_TROCA, type Troca } from './substituicao.js';
 export { todosDaEscalacao } from './partidaPublica.js';
+export { desenharQuadroDoSite, efeitosDoSite, cartaoGiganteEm, TREMOR_DO_GOL, CLARAO_DO_GOL } from './efeitosDoSite.js';

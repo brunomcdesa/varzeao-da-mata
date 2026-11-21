@@ -30,7 +30,7 @@ export interface OpcoesDesenho {
   fonteTexto?: string;
   /** Última Rodada da Fase de Liga (ADR-0053): faixa "Última Rodada" e situação de cada Time. */
   briga?: BrigaPeloMataMata | null;
-  /** Reels (ADR-0072): câmera que segue a jogada. Sem ela, o campo inteiro (site). */
+  /** Reels (ADR-0072): câmera que segue a jogada. No site (ADR-0094), parada no campo inteiro, só para o tremor. Sem ela, nada de efeito de momento. */
   camera?: Camera;
   /** Reels (ADR-0072): posições anteriores da bola (da mais antiga à mais nova), para o rastro. */
   rastro?: { pos: Ponto; altura: number }[];
