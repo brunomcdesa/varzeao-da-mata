@@ -1,4 +1,4 @@
-import type { Canto, Escalacao, Formacao, HabilidadeId, Habilidades, JogadaDaFormacao, Posicao, Postura, TimeId } from '@liga/shared';
+import type { Canto, Escalacao, Formacao, HabilidadeId, Habilidades, JogadaDaFormacao, PerfilDoJuiz, Posicao, Postura, TimeId } from '@liga/shared';
 
 export type Lado = 'mandante' | 'visitante';
 export type Fase = 'LIGA' | 'MATA_MATA';
@@ -26,6 +26,16 @@ export interface EntradaPartida {
     postura: Record<Lado, Postura>;
     /** Formação de cada Time (ADR-0044, VERSAO_SIM 11). Sem ela, os dois jogam no 2-2-2. */
     formacao?: Record<Lado, Formacao>;
+  };
+  /**
+   * Regras da Temporada 3 (VERSAO_SIM_T3, ADRs 0091 e 0094): Trave, Rebote, Chute de longe,
+   * Pressão final, Acréscimos, Perfil do Juiz, Gol de placa e Batedores. Só valem junto com `t2`;
+   * sem este campo, a Partida sai igual à versão da T2.
+   */
+  t3?: {
+    juiz: PerfilDoJuiz;
+    /** Batedores escolhidos pelo Capitão (ids dos Jogadores, em ordem). Sem escolha, a ordem automática. */
+    batedores?: Partial<Record<Lado, readonly string[]>>;
   };
 }
 
@@ -90,6 +100,21 @@ export interface Lance {
   apoio?: SlotRef;
   /** Na COBERTURA: o zagueiro que fez a sobra (é o `defensor` quando desarmou). */
   cobertura?: SlotRef;
+  /** T3 (ADR-0094): o chute (FORA) bateu na trave. */
+  trave?: true;
+  /**
+   * T3: Rebote. O goleiro soltou a bola do lance anterior; `criador` é quem chutou antes,
+   * `finalizador` o atacante que foi na sobra e `marcador` o zagueiro que disputou com ele.
+   */
+  rebote?: true;
+  /** T3: Chute de longe de verdade (meia ou zagueiro, sem Duelo com o marcador). */
+  chuteDeLonge?: true;
+  /** T3: Gol de placa (drible que ainda venceu a Cobertura, ou Chute de longe improvável). */
+  golDePlaca?: true;
+  /** T3: o Time de quem ataca estava na Pressão final (ou os dois, no empate do Mata-mata). */
+  pressao?: true;
+  /** T3: lance nos Acréscimos; o minuto fica 90 e este é o minuto a mais (90+2 → 2). */
+  acrescimo?: number;
 }
 
 export interface Cobranca {
@@ -162,6 +187,9 @@ export interface ResultadoPartida {
   substituicoes?: Substituicao[];
   /** Com Substituição (ADR-0061): o Jogador do `decisivo` (o lugar pode ter tido dois). */
   decisivoJogadorId?: string | null;
+  /** T3 (ADR-0094): o Perfil do Juiz e os minutos de Acréscimos do 2º tempo. */
+  juiz?: PerfilDoJuiz;
+  acrescimos?: number;
 }
 
 export interface Substituicao {
