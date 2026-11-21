@@ -9,6 +9,8 @@ import type { TimeId } from './index.js';
 export interface Estrelas {
   ouro: number;
   prata: number;
+  /** Copa (ADR-0088): uma bronze por Título da Copa. */
+  bronze?: number;
 }
 
 /** O que importa de cada Temporada para contar estrelas. */
@@ -16,6 +18,8 @@ export interface TituloDaTemporada {
   numero: number;
   campeao: TimeId | null;
   campeaoB?: TimeId | null;
+  /** Campeão da Copa (ADR-0088), decidida no começo da Temporada. */
+  campeaoCopa?: TimeId | null;
 }
 
 /** Quantas estrelas cabem desenhadas acima do escudo; Títulos além disso não aparecem. */
@@ -27,9 +31,11 @@ export function estrelasDosTimes(temporadas: readonly TituloDaTemporada[]): Part
   const somar = (time: TimeId | null | undefined, tipo: keyof Estrelas) => {
     if (!time) return;
     const e = (estrelas[time] ??= { ouro: 0, prata: 0 });
-    e[tipo]++;
+    e[tipo] = (e[tipo] ?? 0) + 1;
   };
   for (const t of temporadas) {
+    // A Copa acaba antes da Fase de Liga: a bronze aparece assim que ela termina.
+    somar(t.campeaoCopa, 'bronze');
     if (t.numero >= ultima) continue;
     somar(t.campeao, 'ouro');
     somar(t.campeaoB, 'prata');

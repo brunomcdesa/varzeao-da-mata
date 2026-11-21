@@ -7,7 +7,7 @@
  * aparecem depois do Apito (o lance a lance) ou do fim do Ao Vivo (placar, tabela, Card).
  * Escalações aparecem assim que existem (a partir do Corte).
  */
-import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Grupo, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2, temRegrasT3, perfilDoJuiz, timesQueCaem, GRUPOS, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
+import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Grupo, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, type EtapaDaCopa, temRegrasT2, temRegrasT3, perfilDoJuiz, timesQueCaem, GRUPOS, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
 import { fundadorDe } from './rebalanceamento.js';
 import { comSeloT1, subiramPeloPiso } from './recompensaT1.js';
 import { ajustesDeOvr } from './aMao.js';
@@ -38,6 +38,7 @@ interface LinhaPartida {
   narracao_url: string | null;
   vantagem_do_empate: 'mandante' | 'visitante' | null;
   serie: Serie;
+  copa_etapa: EtapaDaCopa | null;
 }
 
 interface LinhaEscalacao {
@@ -70,6 +71,7 @@ interface LinhaTemporada {
   status: string;
   inicio: string | Date;
   campeao_id: TimeId | null;
+  campeao_copa_id: TimeId | null;
   craque_jogador_id: string | null;
   craque_b_jogador_id: string | null;
   craque_revelado_em: string | Date | null;
@@ -85,7 +87,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   const arquivos = new Map<string, unknown>();
   const temporadas = (
     await banco.query<LinhaTemporada>(
-      `SELECT id, numero, status, inicio, campeao_id, craque_jogador_id::text AS craque_jogador_id, craque_b_jogador_id::text AS craque_b_jogador_id, craque_revelado_em FROM temporada ORDER BY numero`,
+      `SELECT id, numero, status, inicio, campeao_id, campeao_copa_id, craque_jogador_id::text AS craque_jogador_id, craque_b_jogador_id::text AS craque_b_jogador_id, craque_revelado_em FROM temporada ORDER BY numero`,
     )
   ).rows;
   // As Séries de cada Temporada (ADR-0017); Temporada sem Série B mostra tudo como antes.
@@ -130,7 +132,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   // Todas as Partidas de todas as Temporadas: a carreira dos Jogadores atravessa Temporadas.
   const todas = (
     await banco.query<LinhaPartida & { temporada_id: number; resumo_status: string }>(
-      `SELECT p.id, p.rodada_id, r.temporada_id, r.numero AS rodada, r.fase, r.data, r.resumo_status, p.apito_inicial, p.mandante_id, p.visitante_id, p.status, p.resultado, p.video_url, p.narracao_url, p.vantagem_do_empate, p.serie
+      `SELECT p.id, p.rodada_id, r.temporada_id, r.numero AS rodada, r.fase, r.data, r.resumo_status, p.apito_inicial, p.mandante_id, p.visitante_id, p.status, p.resultado, p.video_url, p.narracao_url, p.vantagem_do_empate, p.serie, p.copa_etapa
        FROM partida p JOIN rodada r ON r.id = p.rodada_id ORDER BY p.apito_inicial, p.serie`,
     )
   ).rows;
@@ -192,6 +194,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       ...(r && p.fase === 'MATA_MATA' && r.vencedor ? { classificado: r.times[r.vencedor] } : {}),
       ...(r ? { placar: placarDe(r) } : {}),
       ...(temporada && comSeries(temporada.id) ? { serie: p.serie } : {}),
+      ...(p.copa_etapa ? { copa: p.copa_etapa } : {}),
     };
   });
   const tabelaDa = (ps: LinhaPartida[], temporadaId: number, serie: Serie = 'A') =>
@@ -209,7 +212,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     const doDia = todas.filter((p) => p.rodada_id === base.rodada_id);
     const daTemporada = todas.filter((p) => p.temporada_id === base.temporada_id);
     const ehAFinal = etapaDa(base.fase, base.rodada) === 'FINAL';
-    const proximaRodada = daTemporada.find((p) => p.rodada === base.rodada + 1);
+    // A Rodada seguinte pela data (a Copa numera 101 a 103 e vem antes da Rodada 1).
+    const proximaRodada = daTemporada.find((p) => diaTexto(p.data) > diaTexto(base.data));
     const votacaoFechada = !ehAFinal && (proximaRodada ? apito(proximaRodada).getTime() <= agora.getTime() : false);
     const candidatos = doDia.every(encerrada)
       ? (
@@ -472,6 +476,21 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       return craque;
     };
     const { final, rf, campeao, vice } = desfecho('A');
+    // Copa (ADR-0088): o Título é de quem entrou em campo pelo campeão na Copa.
+    const finalDaCopa = ps.find((p) => p.copa_etapa === 'FINAL');
+    const rfCopa = finalDaCopa && encerrada(finalDaCopa) ? finalDaCopa.resultado : null;
+    const campeaoCopa = rfCopa?.vencedor ? rfCopa.times[rfCopa.vencedor] : null;
+    if (campeaoCopa) {
+      const naCopa = new Set(
+        ps.filter((p) => p.copa_etapa && encerrada(p)).flatMap((p) => p.resultado!.desempenhos.filter((d) => d.jogadorId && p.resultado!.times[d.slot.lado] === campeaoCopa).map((d) => d.jogadorId!)),
+      );
+      for (const id of naCopa) {
+        const j = porJogador.get(id);
+        if (!j) continue;
+        j.titulos++;
+        j.trofeus.push({ tipo: 'CAMPEAO_COPA', temporada: t.numero, time: campeaoCopa, partidaId: finalDaCopa!.id });
+      }
+    }
     const craque = craqueDa('A', t.craque_jogador_id);
     const b = comSeries(t.id) ? desfecho('B') : null;
     const craqueB = b ? craqueDa('B', t.craque_b_jogador_id) : null;
@@ -519,6 +538,15 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       artilheiro,
       goleiro,
       tabela: tabelaDa(ps, t.id, 'A'),
+      ...(finalDaCopa
+        ? {
+            copa: {
+              campeao: campeaoCopa,
+              vice: rfCopa?.vencedor ? rfCopa.times[rfCopa.vencedor === 'mandante' ? 'visitante' : 'mandante'] : null,
+              final: rfCopa ? { partidaId: finalDaCopa.id, mandante: finalDaCopa.mandante_id, visitante: finalDaCopa.visitante_id, placar: placarDe(rfCopa) } : null,
+            },
+          }
+        : {}),
       ...(b
         ? {
             serieB: {
@@ -565,7 +593,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     craqueDaTemporada: atual?.craque ?? null,
     ...(atual?.serieB ? { campeaoB: atual.serieB.campeao, craqueDaTemporadaB: atual.serieB.craque } : {}),
     temporadas: [...historia].reverse(),
-    estrelas: estrelasDosTimes(historia.map((h) => ({ numero: h.numero, campeao: h.campeao, campeaoB: h.serieB?.campeao ?? null }))),
+    estrelas: estrelasDosTimes(historia.map((h) => ({ numero: h.numero, campeao: h.campeao, campeaoB: h.serieB?.campeao ?? null, campeaoCopa: h.copa?.campeao ?? null }))),
     proximaTemporada: seguinte ? { numero: seguinte.numero, inicio: inicioDe(seguinte) } : null,
     ativa,
   };
@@ -602,7 +630,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       video: encerrada(p) && p.video_url?.startsWith('http') ? p.video_url : null,
       narracao: revelada(p) && p.narracao_url?.startsWith('http') ? p.narracao_url : null,
       ...(() => {
-        const mm = mataMataDaPartida({ fase: p.fase, rodada: p.rodada, temporada: temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0, serie: p.serie, comSeries: comSeries(p.temporada_id) });
+        const mm = mataMataDaPartida({ fase: p.fase, rodada: p.rodada, temporada: temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0, serie: p.serie, comSeries: comSeries(p.temporada_id), copa: p.copa_etapa });
         return mm ? { mataMata: mm } : {};
       })(),
       // Última Rodada (ADR-0053): só depois do Apito, junto com o Ao Vivo.
@@ -618,6 +646,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
             : brigaDaPartida(linhaParaBriga(p), daSerie, timesDaSerie(p.temporada_id, p.serie), comSeries(p.temporada_id) ? p.serie : null);
         return b ? { briga: b } : {};
       })(),
+      ...(p.copa_etapa ? { copa: p.copa_etapa } : {}),
       // Perfil do Juiz (T3, ADR-0094): aparece com a Escalação; sai do id da Partida, igual na simulação.
       ...(linhas && temRegrasT3(temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0) ? { juiz: perfilDoJuiz(p.id) } : {}),
       // Arquibancada (T2): só nas Partidas simuladas com as regras da Temporada 2.

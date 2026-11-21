@@ -2,7 +2,7 @@
  * Chaveamento do Mata-mata: Semifinais (1º × 4º, 2º × 3º) levando à Final e ao campeão.
  * Antes das Semifinais existirem, mostra quem estaria lá se a Fase de Liga acabasse hoje.
  */
-import { etapaDa, semifinaisProjetadas, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
+import { NOME_DA_ETAPA_DA_COPA, OITAVAS_DE_CLASSICO, etapaDa, nomeDoClassico, semifinaisProjetadas, type EtapaDaCopa, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
 import { dia, hora, serieDaPartida, situacaoAgora, tabelaDaSerie, temSeries } from '../dados.js';
 import { curto, escudoImg, html, taca, type Html } from '../ui.js';
 
@@ -47,7 +47,8 @@ function jogo(o: { titulo: string; p?: PartidaNoCalendario; a: Vaga; b: Vaga; no
 export function chaveamento(l: LigaPublica, o: { titulo?: boolean; serie?: Serie } = {}): Html {
   const serie = o.serie ?? 'A';
   const comSeries = temSeries(l);
-  const mm = l.calendario.filter((p) => p.fase === 'MATA_MATA' && serieDaPartida(p) === serie);
+  // A Copa (ADR-0088) tem chave própria (chaveDaCopa).
+  const mm = l.calendario.filter((p) => p.fase === 'MATA_MATA' && !p.copa && serieDaPartida(p) === serie);
   const semis = mm.filter((p) => etapaDa(p.fase, p.rodada) === 'SEMIFINAL').sort((a, b) => a.apito.localeCompare(b.apito));
   const final = mm.find((p) => etapaDa(p.fase, p.rodada) === 'FINAL');
   const tabela = tabelaDaSerie(l, serie);
@@ -101,6 +102,57 @@ export function chaveamento(l: LigaPublica, o: { titulo?: boolean; serie?: Serie
           ${campeao ? html`<span class="trofeu-espera">${nomeCampeao}</span>` : ''}
         </div>
       </div>
+    </div>
+  </section>`;
+}
+
+/**
+ * Chave da Copa A+B (ADR-0088): Oitavas de Clássico, Quartas, Semifinais e Final, com a chave
+ * fixa desde o começo (as vagas seguintes esperam o vencedor do jogo anterior). Só aparece na
+ * Temporada que tem Copa.
+ */
+export function chaveDaCopa(l: LigaPublica): Html {
+  const copa = l.calendario.filter((p) => p.copa).sort((a, b) => a.apito.localeCompare(b.apito));
+  if (!copa.length) return html``;
+  const da = (e: EtapaDaCopa) => copa.filter((p) => p.copa === e);
+  const encerrou = (p?: PartidaNoCalendario) => !!p && situacaoAgora(p) === 'ENCERRADA' && !!p.placar;
+  const vaga = (p: PartidaNoCalendario | undefined, t: TimeId | null, lado: 'mandante' | 'visitante', espera: string): Vaga => {
+    const fim = encerrou(p);
+    return { time: t, semente: null, gols: fim ? p!.placar![lado] : null, penaltis: fim && p!.placar!.penaltis ? p!.placar!.penaltis[lado] : null, vence: fim && !!t && p!.classificado === t, espera };
+  };
+  /** Uma etapa: os jogos que já existem, ou as vagas esperando os vencedores da anterior. */
+  const etapa = (e: EtapaDaCopa, n: number, anteriores: (PartidaNoCalendario | undefined)[], rotuloAnterior: string) => {
+    const jogos = da(e);
+    return Array.from({ length: n }, (_, k) => {
+      const p = jogos[k];
+      const [ea, eb] = [anteriores[2 * k], anteriores[2 * k + 1]];
+      const espera = (x: PartidaNoCalendario | undefined) => (encerrou(x) ? x!.classificado! : null);
+      const ta = p?.mandante ?? espera(ea);
+      const tb = p?.visitante ?? espera(eb);
+      const titulo = e === 'FINAL' ? 'Final' : `${NOME_DA_ETAPA_DA_COPA[e].split(' ')[0]} ${k + 1}`;
+      return { p, html: jogo({ titulo, ...(p ? { p } : {}), a: vaga(p, ta, 'mandante', `Vencedor ${rotuloAnterior} ${2 * k + 1}`), b: vaga(p, tb, 'visitante', `Vencedor ${rotuloAnterior} ${2 * k + 2}`), ...(encerrou(p) ? {} : { nota: 'empate vai para os pênaltis' }) }) };
+    });
+  };
+  const oitavas = OITAVAS_DE_CLASSICO.map(([a, b], k) => {
+    const p = da('OITAVAS')[k];
+    const nome = nomeDoClassico(a, b);
+    return { p, html: jogo({ titulo: nome ?? `Oitavas ${k + 1}`, ...(p ? { p } : {}), a: vaga(p, p?.mandante ?? a, 'mandante', ''), b: vaga(p, p?.visitante ?? b, 'visitante', ''), ...(encerrou(p) ? {} : { nota: 'empate vai para os pênaltis' }) }) };
+  });
+  const quartas = etapa('QUARTAS', 4, oitavas.map((x) => x.p), 'Oitavas');
+  const semis = etapa('SEMIFINAL', 2, quartas.map((x) => x.p), 'Quartas');
+  const final = etapa('FINAL', 1, semis.map((x) => x.p), 'Semi');
+  const campeao = encerrou(final[0]!.p) ? final[0]!.p!.classificado! : null;
+  const coluna = (titulo: string, jogos: { html: Html }[]) => html`<div class="copa-etapa"><h3>${titulo}</h3><div class="copa-jogos">${jogos.map((j) => j.html)}</div></div>`;
+  return html`<section class="chave-bloco chave-copa" aria-labelledby="titulo-copa">
+    <h2 id="titulo-copa" class="secao">Copa do Varzeão <small>as duas Séries, jogo único</small></h2>
+    ${coluna('Oitavas de Clássico', oitavas)}
+    ${coluna('Quartas de final', quartas)}
+    ${coluna('Semifinais', semis)}
+    ${coluna('Final', final)}
+    <div class="trofeu-vaga ${campeao ? 'tem-campeao' : ''}">
+      ${taca(40, 'trofeu')}
+      ${campeao ? html`<a href="#/time/${campeao}">${escudoImg(campeao, 2)}<span>${curto(campeao)}</span></a>` : ''}
+      <span class="trofeu-espera">Campeão da Copa</span>
     </div>
   </section>`;
 }

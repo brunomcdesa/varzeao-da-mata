@@ -50,8 +50,10 @@ export async function estruturaDaTemporada(banco: Banco, temporadaId: number): P
 
 /** Estrelas de Título nos escudos (ADR-0060): Títulos das Temporadas anteriores à última criada. */
 export async function estrelasNoBanco(banco: Banco): Promise<Partial<Record<TimeId, Estrelas>>> {
-  const linhas = (await banco.query<{ numero: number; campeao_id: TimeId | null; campeao_b_id: TimeId | null }>(`SELECT numero, campeao_id, campeao_b_id FROM temporada`)).rows;
-  return estrelasDosTimes(linhas.map((l) => ({ numero: l.numero, campeao: l.campeao_id, campeaoB: l.campeao_b_id })));
+  const linhas = (
+    await banco.query<{ numero: number; campeao_id: TimeId | null; campeao_b_id: TimeId | null; campeao_copa_id: TimeId | null }>(`SELECT numero, campeao_id, campeao_b_id, campeao_copa_id FROM temporada`)
+  ).rows;
+  return estrelasDosTimes(linhas.map((l) => ({ numero: l.numero, campeao: l.campeao_id, campeaoB: l.campeao_b_id, campeaoCopa: l.campeao_copa_id })));
 }
 
 /** Campeão de uma Série na Temporada (null enquanto a Final não foi simulada). */

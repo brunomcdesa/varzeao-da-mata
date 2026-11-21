@@ -12,6 +12,7 @@ import { temporadasDaCarreira, type TemporadaDaCarreira } from '../carreira.js';
 
 const NOME_DO_TROFEU: Record<TipoTrofeu, [string, string]> = {
   CAMPEAO: ['Título', 'Títulos'],
+  CAMPEAO_COPA: ['Título da Copa', 'Títulos da Copa'],
   CRAQUE_TEMPORADA: ['Craque da Temporada', 'Craque da Temporada'],
   SELECAO_TEMPORADA: ['Seleção da Temporada', 'vezes na Seleção da Temporada'],
   CRAQUE_RODADA: ['Craque da Rodada', 'Craques da Rodada'],

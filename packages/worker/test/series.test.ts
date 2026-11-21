@@ -146,8 +146,10 @@ describe('Série A e Série B (ADR-0017)', () => {
     expect(h2.serieB?.campeao).toBe(campeaoB);
     expect(ordenados(h2.tabela.map((l) => l.time))).toEqual(ordenados(s2.A));
     expect(ordenados(h2.serieB!.tabela.map((l) => l.time))).toEqual(ordenados(s2.B));
-    expect(liga.calendario.filter((p) => p.serie === 'B')).toHaveLength(7 * 4 + 2 + 1);
-    expect(liga.calendario.filter((p) => p.serie === 'A')).toHaveLength(7 * 4 + 2 + 1);
+    expect(liga.calendario.filter((p) => p.serie === 'B' && !p.copa)).toHaveLength(7 * 4 + 2 + 1);
+    expect(liga.calendario.filter((p) => p.serie === 'A' && !p.copa)).toHaveLength(7 * 4 + 2 + 1);
+    // A Copa da T3 (ADR-0088) abre com as Oitavas de Clássico, à parte das Séries.
+    expect(liga.calendario.filter((p) => p.copa === 'OITAVAS')).toHaveLength(8);
 
     const t3 = await criarTemporada(banco, { numero: 4, primeiraRodada: '2026-12-22', seed: 10 });
     const s3 = await seriesDaTemporada(banco, t3);

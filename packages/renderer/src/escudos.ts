@@ -583,7 +583,7 @@ const LADO_DA_ESTRELA = 7;
 const PASSO_DA_ESTRELA = 6;
 /** Altura da faixa de estrelas acima do escudo, em pixels do escudo (estrela + 1 de folga). */
 export const ALTURA_DAS_ESTRELAS = 8;
-const MIOLO = { ouro: '#F2C230', prata: '#C8CDD6' } as const;
+const MIOLO = { ouro: '#F2C230', prata: '#C8CDD6', bronze: '#C9803F' } as const;
 
 const estrelasDe = new Map<TimeId, Estrelas>();
 const cacheDasEstrelas = new Map<string, HTMLCanvasElement | OffscreenCanvas>();
@@ -591,14 +591,15 @@ const cacheDasEstrelas = new Map<string, HTMLCanvasElement | OffscreenCanvas>();
 /** Estrelas de cada Time (estrelasDosTimes). Time fora da lista fica sem estrela. */
 export function definirEstrelas(lista: Partial<Record<TimeId, Estrelas>>): void {
   estrelasDe.clear();
-  for (const [t, e] of Object.entries(lista)) if (e && e.ouro + e.prata > 0) estrelasDe.set(t as TimeId, e);
+  for (const [t, e] of Object.entries(lista)) if (e && e.ouro + e.prata + (e.bronze ?? 0) > 0) estrelasDe.set(t as TimeId, e);
 }
 
 /** A fila de estrelas do Time, da esquerda para a direita (no máximo MAXIMO_DE_ESTRELAS). */
-export function filaDeEstrelas(time: TimeId): ('ouro' | 'prata')[] {
+export function filaDeEstrelas(time: TimeId): ('ouro' | 'prata' | 'bronze')[] {
   const e = estrelasDe.get(time);
   if (!e) return [];
-  return [...Array<'ouro'>(e.ouro).fill('ouro'), ...Array<'prata'>(e.prata).fill('prata')].slice(0, MAXIMO_DE_ESTRELAS);
+  // Ouro (Série A), prata (Série B) e bronze (Copa, ADR-0088), nessa ordem.
+  return [...Array<'ouro'>(e.ouro).fill('ouro'), ...Array<'prata'>(e.prata).fill('prata'), ...Array<'bronze'>(e.bronze ?? 0).fill('bronze')].slice(0, MAXIMO_DE_ESTRELAS);
 }
 
 /** Largura da fila em pixels do escudo (0 sem estrela). Pode passar da largura do escudo. */

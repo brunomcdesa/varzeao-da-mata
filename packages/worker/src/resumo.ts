@@ -194,7 +194,13 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
  * jogo do dia, e o eleito já jogou com vaga garantida). Nota e gols são os daquela Rodada.
  */
 async function anuncioDoCraque(banco: Banco, temporadaId: number, numero: number, serie: Serie): Promise<DadosDoResumo['craqueDaRodada'] | null> {
-  const anterior = (await banco.query<{ id: number; numero: number; fase: 'LIGA' | 'MATA_MATA' }>(`SELECT id, numero, fase FROM rodada WHERE temporada_id = $1 AND numero = $2`, [temporadaId, numero - 1])).rows[0];
+  // A Rodada anterior pela data (a Copa, ADR-0088, numera 101 a 103 e vem antes da Rodada 1).
+  const anterior = (
+    await banco.query<{ id: number; numero: number; fase: 'LIGA' | 'MATA_MATA' }>(
+      `SELECT id, numero, fase FROM rodada WHERE temporada_id = $1 AND data < (SELECT data FROM rodada WHERE temporada_id = $1 AND numero = $2) ORDER BY data DESC LIMIT 1`,
+      [temporadaId, numero],
+    )
+  ).rows[0];
   if (!anterior) return null;
   const eleito = await craqueDaRodada(banco, anterior.id, serie);
   if (!eleito) return null;
@@ -220,7 +226,8 @@ export async function rodadaEmVotacao(b: Banco): Promise<number | null> {
       `SELECT r.id FROM rodada r JOIN temporada t ON t.id = r.temporada_id
        WHERE EXISTS (SELECT 1 FROM candidato c WHERE c.rodada_id = r.id)
          AND NOT EXISTS (SELECT 1 FROM rodada s JOIN partida p ON p.rodada_id = s.id
-                         WHERE s.temporada_id = r.temporada_id AND s.numero = r.numero + 1 AND p.status <> 'PENDENTE')
+                         WHERE s.temporada_id = r.temporada_id AND p.status <> 'PENDENTE'
+                           AND s.data = (SELECT min(x.data) FROM rodada x WHERE x.temporada_id = r.temporada_id AND x.data > r.data))
          -- a votação da Final (Craque da Temporada) fecha quando o Craque é decidido
          AND NOT (r.fase = 'MATA_MATA' AND r.numero = ${SQL_RODADA_DA_FINAL()} AND t.craque_jogador_id IS NOT NULL)
          -- e nenhuma votação passa para a Temporada seguinte

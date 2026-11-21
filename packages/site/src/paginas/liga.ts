@@ -4,7 +4,7 @@ import { avisoDaPreTemporada, diaLongo, jogadores, liga, preTemporada, rodadaAtu
 import { bonecoImg, campinho, curto, escudoImg, forcaHtml, formaHtml, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa } from '../ui.js';
 import { capitaniaDoVinculo, capitaniaGuardada, enviarEscolhaDoVinculo, jogadorVinculado } from '../meuPersonagem.js';
 import { blocoDoPlano, planoDaCapitania, valorDoFormulario, type Capitania } from '../planoDoTime.js';
-import { chaveamento } from './chave.js';
+import { chaveDaCopa, chaveamento } from './chave.js';
 import { linhaDePartida, tabelaDeClassificacao } from './comum.js';
 import type { Pagina } from './tipos.js';
 
@@ -62,6 +62,7 @@ export const paginaJogos: Pagina = async (main) => {
   const daVez = rodadaAtual(l);
   main.innerHTML = html`<h1 class="titulo-pagina">Jogos da Temporada ${l.temporada?.numero ?? ''}</h1>
     ${preTemporada(l) ? html`<p class="placa aviso-temporada">${avisoDaPreTemporada(l)}</p>` : ''}
+    ${chaveDaCopa(l)}
     ${rodadas.length ? seriesDaLiga(l).map((serie) => chaveamento(l, { serie })) : ''}
     ${rodadas.length
       ? html`<div class="grade-rodadas">${rodadas.map((n) => {

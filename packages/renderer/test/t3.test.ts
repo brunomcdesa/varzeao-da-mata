@@ -99,3 +99,16 @@ describe('Partida com as regras da Temporada 3 (ADR-0094)', () => {
     expect(ro.segmentos.some((s) => s.lance === rebote.lance! - 1)).toBe(false);
   });
 });
+
+describe('Copa no Narrador (ADR-0088)', () => {
+  it('abre como Copa e fecha dizendo quem avança ou é campeão da Copa', async () => {
+    const { aberturaDoMataMata, desfechoDoMataMata } = await import('../src/narracao.js');
+    const oitavas = { etapa: 'SEMIFINAL' as const, temporada: 3, serie: null, copa: 'OITAVAS' as const };
+    expect(aberturaDoMataMata(oitavas, 'ONC', 'LEA', 1)).toContain('Oitavas de Clássico');
+    expect(aberturaDoMataMata(oitavas, 'ONC', 'LEA', 1)).toContain('Clássico dos Felinos');
+    expect(desfechoDoMataMata(oitavas, 'ONC')).toBe('A Onça avança na Copa!');
+    const final = { etapa: 'FINAL' as const, temporada: 3, serie: null, copa: 'FINAL' as const };
+    expect(aberturaDoMataMata(final, 'CAP', 'TAT', 1)).toContain('Final da Copa');
+    expect(desfechoDoMataMata(final, 'CAP')).toBe('A Capivara é campeão da Copa do Varzeão da Mata!');
+  });
+});

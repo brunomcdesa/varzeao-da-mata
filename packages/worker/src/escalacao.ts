@@ -31,7 +31,7 @@ import { capitaoEmCampo, confirmados, formacoesDaPartida, suspensos } from './te
 
 /** O Corte mora no shared: o site usa o mesmo número na escalação provável. */
 export { CORTE_MINUTOS } from '@liga/shared';
-import { CORTE_MINUTOS } from '@liga/shared';
+import { CORTE_MINUTOS, ehRodadaDaCopa } from '@liga/shared';
 
 /**
  * Limite de Partidas Fora (ADR-0043): quem ficou esse número de Partidas seguidas do próprio
@@ -380,7 +380,8 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
     // Bônus da Temporada 1 (ADR-0047): só nas primeiras Rodadas da Fase de Liga da T2.
     const bonusT1 = temBonusT1(p.numero, p.rodada, p.fase) ? await comSeloT1(b) : new Set<string>();
     // Mata-mata (ADR-0057): quem chegou depois do último jogo do Time na Fase de Liga estreia na próxima Temporada.
-    const limite = async (time: TimeId) => (p.fase === 'MATA_MATA' ? await fimDaInscricaoNoMataMata(b, p.temporada_id, time) : null);
+    // A Copa (ADR-0088) vem antes da Fase de Liga: nela joga todo mundo do Elenco.
+    const limite = async (time: TimeId) => (p.fase === 'MATA_MATA' && !ehRodadaDaCopa(p.rodada) ? await fimDaInscricaoNoMataMata(b, p.temporada_id, time) : null);
     const limiteM = await limite(p.mandante_id);
     const limiteV = await limite(p.visitante_id);
     const mandante = await montarEscalacao(b, { time: p.mandante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, resenha: resenhaM, bonusT1, classico, ...(regrasM ? { t2: regrasM } : {}), ...(limiteM ? { inscritosAte: limiteM } : {}) });

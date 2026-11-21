@@ -4,7 +4,7 @@
  *
  * Regra do glossário: o Locutor fala dos Jogadores pela Posição e pelo Time, nunca pelo @.
  */
-import { FALA_DO_TIME, type PerfilDoJuiz, concordar, deQuemDepende, doTime, ehGoleada, listaDeTimes, necessidadeNaBriga, nomeDoClassico, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, NOME_DA_ETAPA_DA_COPA, type PerfilDoJuiz, concordar, deQuemDepende, doTime, ehGoleada, listaDeTimes, necessidadeNaBriga, nomeDoClassico, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, type Lado, type Lance, type SlotRef } from '@liga/sim';
 import { narradorDa } from './narradores.js';
 import { F_CHUTE_PENALTI, instanteDaCobranca, resultadoDaCobranca } from './penaltis.js';
@@ -584,6 +584,13 @@ export function aberturaDoMataMata(m: MataMataDaPartida, mandante: TimeId, visit
   const rng = criarRng(((seed >>> 0) ^ 0x27d4eb2f) >>> 0);
   const confronto = `${FALA_DO_TIME[mandante].curto} contra ${FALA_DO_TIME[visitante].curto}`;
   const classico = nomeDoClassico(mandante, visitante);
+  // Copa (ADR-0088): Times das duas Séries; perdeu, tá fora.
+  if (m.copa) {
+    const etapa = NOME_DA_ETAPA_DA_COPA[m.copa];
+    if (m.copa === 'FINAL') return classico ? `É o ${classico} na Final da Copa! ${confronto}, valendo a taça!` : `É a Final da Copa do Varzeão! ${confronto}, valendo a taça!`;
+    if (m.copa === 'OITAVAS') return `É Copa! Oitavas de Clássico: ${classico ? `o ${classico}, ` : ''}${confronto}! Perdeu, tá fora!`;
+    return rng.pick([`É Copa! ${etapa}: ${confronto}! Quem perder volta pra casa!`, `${etapa} da Copa no Varzeão: ${confronto}!`]);
+  }
   if (m.etapa === 'SEMIFINAL') {
     if (classico) return `É o ${classico}, valendo vaga na Final${daSerie(m)}! ${confronto}!`;
     return rng.pick([
@@ -682,6 +689,7 @@ export function desfechoDaBriga(b: BrigaPeloMataMata, times: Times, placar: Plac
 /** O que a vitória vale, no fim da Partida do Mata-mata: vaga na Final ou o Título. */
 export function desfechoDoMataMata(m: MataMataDaPartida, vencedor: TimeId): string {
   const quem = `${cap(artigoDe(vencedor))} ${FALA_DO_TIME[vencedor].curto}`;
+  if (m.copa) return m.copa === 'FINAL' ? `${quem} é campeão da Copa do Varzeão da Mata!` : m.copa === 'SEMIFINAL' ? `${quem} está na Final da Copa!` : `${quem} avança na Copa!`;
   return m.etapa === 'SEMIFINAL' ? `${quem} está na Final${daSerie(m)}!` : `${quem} é campeão${daSerie(m)} da Temporada ${m.temporada} do Varzeão da Mata!`;
 }
 

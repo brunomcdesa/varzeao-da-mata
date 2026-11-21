@@ -6,7 +6,7 @@
 import { aparenciasEscolhidas } from './perfil.js';
 import type { Aparencia, Estrelas } from '@liga/shared';
 import { randomInt } from 'node:crypto';
-import { mataMataDaPartida, nomeDaEtapa, perfilDoJuiz, temRegrasT3, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
+import { mataMataDaPartida, type EtapaDaCopa, nomeDaEtapa, perfilDoJuiz, temRegrasT3, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
 import { brigaDe } from './briga.js';
 import { estrelasNoBanco } from './mataMata.js';
 import { simularPartida, type Lado, type ResultadoPartida } from '@liga/sim';
@@ -59,13 +59,14 @@ interface LinhaPartida {
   serie: Serie;
   temporada_id: number;
   temporada: number;
+  copa_etapa: EtapaDaCopa | null;
 }
 
 async function lerPartida(b: Banco, id: number): Promise<LinhaPartida> {
   const p = (
     await b.query<LinhaPartida>(
       `SELECT p.id, p.status, p.mandante_id, p.visitante_id, p.apito_inicial, p.vantagem_do_empate, p.resultado, p.video_url,
-              r.fase, r.numero AS rodada, p.serie, r.temporada_id, t.numero AS temporada
+              r.fase, r.numero AS rodada, p.serie, r.temporada_id, t.numero AS temporada, p.copa_etapa
        FROM partida p JOIN rodada r ON r.id = p.rodada_id JOIN temporada t ON t.id = r.temporada_id WHERE p.id = $1`,
       [id],
     )
@@ -145,13 +146,13 @@ export async function simular(banco: Banco, partidaId: number, escalada: Partida
 async function mataMataDe(banco: Banco, p: LinhaPartida): Promise<MataMataDaPartida | null> {
   if (p.fase !== 'MATA_MATA') return null;
   const comSeries = (await seriesDaTemporada(banco, p.temporada_id)).B.length > 0;
-  return mataMataDaPartida({ fase: p.fase, rodada: p.rodada, temporada: p.temporada, serie: p.serie, comSeries });
+  return mataMataDaPartida({ fase: p.fase, rodada: p.rodada, temporada: p.temporada, serie: p.serie, comSeries, copa: p.copa_etapa });
 }
 
 /** "Rodada 3, jogo das 14h" (ou "Semifinal…" no Mata-mata). `ultima`: última Rodada da Liga da Série. */
-export function subtituloDaPartida(rodada: number, fase: 'LIGA' | 'MATA_MATA', apito: Date, ultima = false): string {
+export function subtituloDaPartida(rodada: number, fase: 'LIGA' | 'MATA_MATA', apito: Date, ultima = false, copa: EtapaDaCopa | null = null): string {
   const hora = (apito.getUTCHours() + FUSO_BRASILIA + 24) % 24;
-  const nome = nomeDaEtapa(fase, rodada);
+  const nome = nomeDaEtapa(fase, rodada, copa);
   if (fase === 'LIGA' && ultima) return `Última Rodada, jogo das ${hora}h`;
   return fase === 'LIGA' ? `${nome}, jogo das ${hora}h` : nome;
 }
@@ -189,7 +190,7 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
     nomes: { mandante: [...escalada.nomes.mandante, ...(escalada.banco?.mandante.map((x) => x.nome) ?? [])], visitante: [...escalada.nomes.visitante, ...(escalada.banco?.visitante.map((x) => x.nome) ?? [])] },
     apelidos: { mandante: [...escalada.apelidos.mandante, ...(escalada.banco?.mandante.map((x) => x.apelido) ?? [])], visitante: [...escalada.apelidos.visitante, ...(escalada.banco?.visitante.map((x) => x.apelido) ?? [])] },
     numeros: { mandante: [...escalada.numeros.mandante, ...(escalada.banco?.mandante.map((x) => x.numero) ?? [])], visitante: [...escalada.numeros.visitante, ...(escalada.banco?.visitante.map((x) => x.numero) ?? [])] },
-    subtitulo: subtituloDaPartida(p.rodada, p.fase, new Date(p.apito_inicial), briga !== null),
+    subtitulo: subtituloDaPartida(p.rodada, p.fase, new Date(p.apito_inicial), briga !== null, p.copa_etapa),
     aparencias: await aparenciasEscolhidas(banco),
     estrelas: await estrelasNoBanco(banco),
   };

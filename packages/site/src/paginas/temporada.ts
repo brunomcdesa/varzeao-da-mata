@@ -14,6 +14,7 @@ function andamento(l: LigaPublica, agora: number): string {
   const n = rodadaAtual(l, agora);
   const p = l.calendario.find((x) => x.rodada === n);
   if (!p) return '';
+  if (p.copa) return nomeDaRodada(p.fase, n!).replace(': ', ' · ');
   if (p.fase === 'MATA_MATA') return `Mata-mata · ${nomeDaRodada(p.fase, n!)}`;
   const total = new Set(l.calendario.filter((x) => x.fase === 'LIGA').map((x) => x.rodada)).size;
   return `Fase de Liga · Rodada ${n} de ${total}`;

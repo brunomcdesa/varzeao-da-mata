@@ -25,6 +25,7 @@ import { CORTE_MINUTOS } from './escalacao.js';
 import { Instagram, ErroInstagram } from './instagram.js';
 import { CHAVE_TOKEN, gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
 import { avancarMataMata, estrelasNoBanco, estruturaDaTemporada } from './mataMata.js';
+import { avancarCopaPendente } from './copa.js';
 import { rebalancear } from './rebalanceamento.js';
 import { destaquesDaTemporadaNoBanco } from './destaques.js';
 import { SQL_RODADA_DA_FINAL, seriesDaTemporada } from './series.js';
@@ -322,7 +323,7 @@ async function agendar(c: ContextoDoJob, o: { tipo: ItemDaAgenda['tipo']; ref: n
 
 /** O Craque da Rodada anterior da mesma Série, que tem a vaga garantida na Escalação (ADR-0017). */
 async function craqueDaVez(banco: Banco, p: LinhaJob): Promise<{ id: string } | null> {
-  const anterior = (await banco.query<{ id: number }>(`SELECT s.id FROM rodada s JOIN rodada r ON r.temporada_id = s.temporada_id AND s.numero = r.numero - 1 WHERE r.id = $1`, [p.rodada_id])).rows[0];
+  const anterior = (await banco.query<{ id: number }>(`SELECT s.id FROM rodada s JOIN rodada r ON r.temporada_id = s.temporada_id AND s.data = (SELECT max(x.data) FROM rodada x WHERE x.temporada_id = r.temporada_id AND x.data < r.data) WHERE r.id = $1`, [p.rodada_id])).rows[0];
   return anterior ? craqueDaRodada(banco, anterior.id, p.serie) : null;
 }
 
@@ -373,6 +374,9 @@ async function etapaDoCorte(c: ContextoDoJob, pendentes: LinhaJob[], p: LinhaJob
  * grava os Reels depois e, se este job não tiver rodado, faz a etapa do Corte ele mesmo.
  */
 export async function jobEscalar(c: ContextoDoJob, o: { janelaMin?: number; esperarCorte?: boolean } = {}): Promise<number[]> {
+  // Copa (ADR-0088): a etapa seguinte nasce assim que a anterior termina (Semifinais no mesmo dia das Quartas).
+  const copa = await avancarCopaPendente(c.banco);
+  if (copa !== 'NADA') logDe(c)(`Copa: ${copa}.`);
   const pendentes = await partidasPendentes(c.banco, agoraDe(c), o.janelaMin ?? 60);
   const p = pendentes.find((q) => q.status === 'PENDENTE');
   if (!p) {
@@ -799,6 +803,9 @@ export async function jobResumo(c: ContextoDoJob): Promise<number | null> {
   const log = logDe(c);
   const agora = agoraDe(c);
   if (await jobCraqueDaTemporada(c)) return null;
+  // Copa (ADR-0088): avança antes de escolher a Rodada, para o Resumo do dia das Quartas sair com as Semifinais.
+  const copa = await avancarCopaPendente(c.banco);
+  if (copa !== 'NADA') log(`Copa: ${copa}.`);
   // A Rodada mais recente com todas as Partidas simuladas e o Resumo ainda não agendado.
   const r = (
     await c.banco.query<{ id: number; temporada_id: number; numero: number; data: string | Date; resumo_status: string }>(

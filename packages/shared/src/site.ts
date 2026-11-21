@@ -51,6 +51,8 @@ export interface PartidaNoCalendario {
   classificado?: TimeId;
   /** A Série da Partida (ADR-0017). Sem o campo, é a A. */
   serie?: Serie;
+  /** Copa (ADR-0088): a etapa da Partida; sem o campo, não é da Copa. */
+  copa?: import('./copa.js').EtapaDaCopa;
 }
 
 export interface RodadaPublica {
@@ -131,6 +133,12 @@ export interface TemporadaNaHistoria {
   goleiro: (JogadorResumido & { notaMedia: number; jogos: number; defesas: number; golsSofridos: number }) | null;
   /** Tabela da Fase de Liga (parcial enquanto a Temporada corre). Com duas Séries, a da A. */
   tabela: LinhaTabelaPublica[];
+  /** Copa (ADR-0088): campeão, vice e Final. */
+  copa?: {
+    campeao: TimeId | null;
+    vice: TimeId | null;
+    final: { partidaId: number; mandante: TimeId; visitante: TimeId; placar: { mandante: number; visitante: number; penaltis?: { mandante: number; visitante: number } } } | null;
+  };
   /** Série B (ADR-0017): campeão, vice, Final, Craque e tabela. */
   serieB?: {
     campeao: TimeId | null;
@@ -157,9 +165,9 @@ export interface Estatisticas {
   derrotas: number;
 }
 
-export type TipoTrofeu = 'CAMPEAO' | 'CRAQUE_TEMPORADA' | 'SELECAO_TEMPORADA' | 'CRAQUE_RODADA' | 'SELECAO_RODADA' | 'REI_DO_CLASSICO';
+export type TipoTrofeu = 'CAMPEAO' | 'CAMPEAO_COPA' | 'CRAQUE_TEMPORADA' | 'SELECAO_TEMPORADA' | 'CRAQUE_RODADA' | 'SELECAO_RODADA' | 'REI_DO_CLASSICO';
 /** Ordem em que os troféus aparecem no site. */
-export const ORDEM_DOS_TROFEUS: readonly TipoTrofeu[] = ['CAMPEAO', 'CRAQUE_TEMPORADA', 'SELECAO_TEMPORADA', 'CRAQUE_RODADA', 'SELECAO_RODADA', 'REI_DO_CLASSICO'];
+export const ORDEM_DOS_TROFEUS: readonly TipoTrofeu[] = ['CAMPEAO', 'CAMPEAO_COPA', 'CRAQUE_TEMPORADA', 'SELECAO_TEMPORADA', 'CRAQUE_RODADA', 'SELECAO_RODADA', 'REI_DO_CLASSICO'];
 
 export interface Trofeu {
   tipo: TipoTrofeu;
@@ -279,6 +287,8 @@ export interface PartidaPublica {
   briga?: import('./briga.js').BrigaPeloMataMata;
   /** Só no arquivo privado (job partida): quando cada gol aparece no Ao Vivo, para os Avisos do App (ADR-0042). */
   momentos?: MomentosDoAoVivo;
+  /** Copa (ADR-0088): a etapa da Partida. */
+  copa?: import('./copa.js').EtapaDaCopa;
   /** T3 (ADR-0094): o Perfil do Juiz, que aparece junto com a Escalação. */
   juiz?: import('./temporada3.js').PerfilDoJuiz;
 }
