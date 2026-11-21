@@ -337,7 +337,7 @@ O lado escolhido por batedor e goleiro na Disputa de pênaltis; quem não escolh
 _Avoid_: lado, direção
 
 **Janela de Transferências**:
-O período da Pré-temporada em que qualquer Jogador pode trocar para qualquer Time, de qualquer Série, desde que o destino não fique desequilibrado. Não gasta a Transferência da Temporada.
+O período da Pré-temporada, até o Corte do primeiro jogo da Temporada, em que qualquer Jogador pode trocar para qualquer Time, de qualquer Série, desde que o destino não fique desequilibrado. Conta a hora do pedido. Não gasta a Transferência da Temporada (ADR-0022, ADR-0096).
 _Avoid_: mercado, janela de inverno
 
 **Rebalanceamento**:

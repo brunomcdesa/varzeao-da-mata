@@ -400,7 +400,7 @@ export async function transferirJogador(
     return { resultado: 'TRANSFERENCIA_FECHADA', mensagem: 'as transferências estão fechadas: só valem na Fase de Liga. Elas reabrem na próxima temporada. ⚽' };
   }
   // Janela de Transferências (T2, ADR-0022): na Pré-temporada, a troca não gasta a da Temporada.
-  const janela = await emJanela(b, temporada);
+  const janela = await emJanela(b, temporada, o.quando);
   const usada = (await b.query(`SELECT 1 FROM transferencia WHERE jogador_id = $1 AND temporada_id = $2 AND janela = $3`, [jogadorId, temporada, janela])).rows[0];
   if (usada) {
     return janela
@@ -459,7 +459,7 @@ export async function transferirJogador(
   const vaga = `${NOME_DA_POSICAO_FALADO[posicao]} ${doTime(destino)}, OVR ${ovr}`;
   return {
     resultado: 'TRANSFERIDO',
-    mensagem: `${destino === j.time_id ? 'mudança de posição feita' : 'transferência feita'}! Agora você é ${vaga}. Vale a partir do próximo jogo escalado. Esta foi a sua transferência da temporada.${perdeCamisa ? ` A camisa ${camisa} já tem dono ${doTime(destino)}: escolha outro número no site.` : ''} ⚽`,
+    mensagem: `${destino === j.time_id ? 'mudança de posição feita' : 'transferência feita'}! Agora você é ${vaga}. Vale a partir do próximo jogo escalado. ${janela ? 'Foi a troca da Janela: durante a temporada ainda vale uma transferência.' : 'Esta foi a sua transferência da temporada.'}${perdeCamisa ? ` A camisa ${camisa} já tem dono ${doTime(destino)}: escolha outro número no site.` : ''} ⚽`,
   };
 }
 
@@ -571,10 +571,22 @@ export async function moverJogador(
  * Temporada em que a Transferência conta, ou null se estão fechadas: só antes do último
  * jogo da Fase de Liga (a partir dele, as Escalações que faltam são do Mata-mata).
  */
-/** A Temporada está na Pré-temporada e tem as regras da T2? Então é a Janela (ADR-0022). */
-async function emJanela(b: Banco, temporadaId: number): Promise<boolean> {
-  const t = (await b.query<{ numero: number; status: string }>(`SELECT numero, status FROM temporada WHERE id = $1`, [temporadaId])).rows[0];
-  return !!t && t.status === 'PRE_TEMPORADA' && temRegrasT2(t.numero);
+/**
+ * O pedido caiu na Janela (ADR-0022, ADR-0096)? Só a partir da T2, e vale a hora do pedido, não a
+ * hora em que a coleta o processou: a Janela vai até o Corte do primeiro jogo da Temporada. Sem
+ * jogos marcados ainda, vale o status (Pré-temporada).
+ */
+async function emJanela(b: Banco, temporadaId: number, quando: Date): Promise<boolean> {
+  const t = (
+    await b.query<{ numero: number; status: string; primeiro: Date | string | null }>(
+      `SELECT t.numero, t.status, (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id) AS primeiro
+         FROM temporada t WHERE t.id = $1`,
+      [temporadaId],
+    )
+  ).rows[0];
+  if (!t || !temRegrasT2(t.numero)) return false;
+  if (!t.primeiro) return t.status === 'PRE_TEMPORADA';
+  return quando.getTime() < new Date(t.primeiro).getTime() - CORTE_MS;
 }
 
 async function temporadaDaTransferencia(b: Banco, agora: Date): Promise<number | null> {

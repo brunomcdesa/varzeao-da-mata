@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { TIMES_FUNDADORES, TIMES_NOVOS, type TimeId } from '@liga/shared';
 import type { ResultadoPartida } from '@liga/sim';
@@ -301,8 +303,60 @@ describe('Temporada 2 no worker', () => {
     const janela = await transferirJogador(banco, id, { times: ['JAC'] }, { quando, ref: 'j1' });
     expect(janela.resultado).toBe('TRANSFERIDO');
     expect((await transferirJogador(banco, id, { times: ['CAP'] }, { quando, ref: 'j2' })).resultado).toBe('TRANSFERENCIA_USADA');
+    // Depois do Corte do primeiro jogo a Janela fechou: vale a Transferência da Temporada.
+    const depois = new Date((await primeiroApito(t2)).getTime() - 10 * 60_000);
+    const daTemporada = await transferirJogador(banco, id, { times: ['CAP'] }, { quando: depois, ref: 'j3' });
+    expect(daTemporada.resultado).toBe('TRANSFERIDO');
+    expect(daTemporada.mensagem).toContain('Esta foi a sua transferência da temporada');
+    expect((await transferirJogador(banco, id, { times: ['JAC'] }, { quando: depois, ref: 'j4' })).resultado).toBe('TRANSFERENCIA_USADA');
+  });
+
+  const primeiroApito = async (t: number) =>
+    new Date(
+      (await banco.query<{ a: Date }>(`SELECT min(p.apito_inicial) AS a FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1`, [t])).rows[0]!.a,
+    );
+
+  it('Janela pela hora do pedido: troca pedida na Pré-temporada e processada depois da virada não gasta a da Temporada (ADR-0096)', async () => {
+    const t2 = await novaT2();
+    const id = await inscrever('CAP', 'MEI');
+    await inscrever('JAC', 'MEI');
+    // A coleta só chegou depois que a Temporada virou EM_ANDAMENTO, mas o pedido é da Pré-temporada.
     await banco.query(`UPDATE temporada SET status = 'EM_ANDAMENTO' WHERE id = $1`, [t2]);
-    expect((await transferirJogador(banco, id, { times: ['CAP'] }, { quando, ref: 'j3' })).resultado).toBe('TRANSFERIDO');
+    const naPre = await transferirJogador(banco, id, { times: ['JAC'] }, { quando: new Date('2026-11-17T13:00:00Z'), ref: 'p1' });
+    expect(naPre.resultado).toBe('TRANSFERIDO');
+    expect(naPre.mensagem).toContain('Foi a troca da Janela');
+    expect((await banco.query<{ janela: boolean }>(`SELECT janela FROM transferencia WHERE ig_comment_id = 'p1'`)).rows[0]!.janela).toBe(true);
+    // Durante a Temporada ainda tem a Transferência dela, e o site não mostra como usada.
+    const site = async () => ((await exportarSite(banco, new Date('2026-11-18T20:00:00Z'))).arquivos.get('jogadores.json') as { id: string; transferenciaUsada: boolean }[]).find((j) => j.id === id)!.transferenciaUsada;
+    expect(await site()).toBe(false);
+    const meio = new Date((await primeiroApito(t2)).getTime() + 60 * 60_000);
+    expect((await transferirJogador(banco, id, { times: ['CAP'] }, { quando: meio, ref: 'p2' })).resultado).toBe('TRANSFERIDO');
+    expect(await site()).toBe(true);
+  });
+
+  it('migração 025: libera quem trocou na Pré-temporada e ficou marcado como Transferência da Temporada (ADR-0096)', async () => {
+    const t2 = await novaT2();
+    const errado = await inscrever('CAP', 'MEI', 'errado');
+    const jaTem = await inscrever('ONC', 'MEI', 'ja_tem');
+    const noMeio = await inscrever('TAT', 'MEI', 'no_meio');
+    const apito = await primeiroApito(t2);
+    const ins = (jogador: string, ref: string, em: Date, janela: boolean) =>
+      banco.query(
+        `INSERT INTO transferencia (jogador_id, temporada_id, de_time, para_time, de_posicao, para_posicao, ig_comment_id, feita_em, janela) VALUES ($1, $2, 'CAP', 'JAC', 'MEI', 'MEI', $3, $4, $5)`,
+        [jogador, t2, ref, em.toISOString(), janela],
+      );
+    const naPre = new Date('2026-11-17T13:00:00Z');
+    await ins(errado, 'm1', naPre, false);
+    await ins(jaTem, 'm2', naPre, true);
+    await ins(jaTem, 'm3', new Date(apito.getTime() - 60 * 60_000), false);
+    await ins(noMeio, 'm4', new Date(apito.getTime() + 60 * 60_000), false);
+    const sql = await readFile(fileURLToPath(new URL('../migracoes/025_janela_pela_hora_do_pedido.sql', import.meta.url)), 'utf8');
+    await banco.executar(sql);
+    const janela = async (ref: string) => (await banco.query<{ janela: boolean }>(`SELECT janela FROM transferencia WHERE ig_comment_id = $1`, [ref])).rows[0]!.janela;
+    expect(await janela('m1')).toBe(true);
+    expect(await janela('m2')).toBe(true);
+    expect(await janela('m3')).toBe(false);
+    expect(await janela('m4')).toBe(false);
   });
 
   it('Transferência respeita o Limite por Posição: 4 atacantes no destino, a troca não acontece (ADR-0080)', async () => {

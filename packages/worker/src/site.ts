@@ -256,10 +256,11 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       `SELECT id::text AS id, username, time_id, posicao, ovr, habilidades, inscrito_em, visual, numero, apelido, apelido_em, especializacao, treino FROM jogador WHERE NOT banido ORDER BY id`,
     )
   ).rows;
+  // Só a Transferência da Temporada conta: a troca da Janela não gasta (ADR-0022, ADR-0096).
   const transferiram = new Set(
     (
       await banco.query<{ jogador_id: string }>(
-        `SELECT t.jogador_id::text AS jogador_id FROM transferencia t JOIN temporada tp ON tp.id = t.temporada_id WHERE tp.status IN ('PRE_TEMPORADA', 'EM_ANDAMENTO')`,
+        `SELECT t.jogador_id::text AS jogador_id FROM transferencia t JOIN temporada tp ON tp.id = t.temporada_id WHERE tp.status IN ('PRE_TEMPORADA', 'EM_ANDAMENTO') AND NOT t.janela`,
       )
     ).rows.map((r) => r.jogador_id),
   );
