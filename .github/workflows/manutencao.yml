@@ -2,6 +2,7 @@
 # Só à mão: Actions → manutencao → Run workflow.
 #   vincular-conta: liga o Jogador inscrito pela DM (id provisório) à conta do Instagram dele.
 #   corrigir-trocas-de-posicao: devolve o OVR de quem trocou de posição pela regra antiga (ADR-0030).
+#   corrigir-ovr-fora-de-posicao: devolve o OVR da Posição a quem ficou com o da vaga (ADR-0098).
 name: manutencao
 on:
   workflow_dispatch:
@@ -9,7 +10,7 @@ on:
       comando:
         description: 'O que fazer'
         type: choice
-        options: [vincular-conta, corrigir-trocas-de-posicao]
+        options: [vincular-conta, corrigir-trocas-de-posicao, corrigir-ovr-fora-de-posicao]
       usuario:
         description: '@ do Jogador (só no vincular-conta)'
         required: false

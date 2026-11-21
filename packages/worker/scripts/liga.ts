@@ -14,6 +14,7 @@
  *   USUARIO=fulano pnpm liga link-de-vinculo       manda na DM um link que vincula o navegador ao Jogador (ADR-0082)
  *   pnpm liga webhook-mensagens [--gravar]         mostra (e com --gravar faz) a inscrição da conta no webhook `messages` (ADR-0083)
  *   pnpm liga corrigir-trocas-de-posicao            devolve o OVR de quem trocou de posição pela regra antiga (ADR-0030)
+ *   pnpm liga corrigir-ovr-fora-de-posicao          devolve o OVR da Posição a quem ficou com o da vaga (ADR-0098)
  *   pnpm liga comentarios                          os comentários lidos e o resultado de cada um
  *   pnpm liga mudar-inicio --inicio 2026-11-08      antecipa/adia a Temporada (antes do 1º jogo)
  *   pnpm liga inscricoes-de-teste [--quantidade 40]  "comentários" ENTRO de seguidores fictícios
@@ -26,6 +27,7 @@
  * O banco fica em .cache/liga-local (PGlite). Com DATABASE_URL definida, usa esse Postgres.
  * Os vídeos vão para ~/varzeao-videos (mude com --pasta). Chaves de voz vêm do .env da raiz.
  */
+import { corrigirOvrForaDePosicao, trocasDepoisDeJogoFora } from '../src/foraDePosicao.js';
 import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -434,6 +436,18 @@ async function main(): Promise<void> {
         const feitas = await corrigirTrocasDePosicao(banco);
         for (const f of feitas) console.log(`Corrigido: @${f.username} OVR ${f.antes} → ${f.depois}.`);
         console.log(`${feitas.length} Jogador(es) corrigido(s).`);
+        break;
+      }
+
+      case 'corrigir-ovr-fora-de-posicao': {
+        // Quem ficou com o OVR da vaga depois de jogar fora de posição volta ao da Posição dele (ADR-0098).
+        const feitas = await corrigirOvrForaDePosicao(banco);
+        for (const f of feitas) console.log(`Corrigido: @${f.username} OVR ${f.antes} → ${f.depois}.`);
+        console.log(`${feitas.length} Jogador(es) corrigido(s).`);
+        // Só leitura: troca de posição logo depois de um jogo fora de posição (decisão do dono).
+        const trocas = await trocasDepoisDeJogoFora(banco);
+        for (const t of trocas) console.log(`Verificar: @${t.username} trocou de ${t.de} para ${t.para} com OVR ${t.ovrNaTroca} (o certo era ${t.ovrCerto}).`);
+        console.log(`${trocas.length} troca(s) de posição para verificar.`);
         break;
       }
 

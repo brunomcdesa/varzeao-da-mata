@@ -6,10 +6,10 @@
 import { aparenciasEscolhidas } from './perfil.js';
 import type { Aparencia, Estrelas } from '@liga/shared';
 import { randomInt } from 'node:crypto';
-import { mataMataDaPartida, nomeDaEtapa, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
+import { mataMataDaPartida, nomeDaEtapa, ovrDasHabilidades, type Posicao, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
 import { brigaDe } from './briga.js';
 import { estrelasNoBanco } from './mataMata.js';
-import { simularPartida, type Lado, type ResultadoPartida } from '@liga/sim';
+import { simularPartida, type Desempenho, type Lado, type ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA } from './calendario.js';
 import { seriesDaTemporada } from './series.js';
@@ -74,6 +74,21 @@ async function lerPartida(b: Banco, id: number): Promise<LinhaPartida> {
   return p;
 }
 
+/** A Posição de inscrição do Jogador nesta Partida: a de origem quando jogou fora de posição. */
+export function posicaoDeInscricao(d: Pick<Desempenho, 'jogadorId' | 'posicao' | 'posicaoDeOrigem'>, escalacao: Escalacao): Posicao {
+  const linha = [...escalacao.jogadores, ...(escalacao.banco ?? [])].find((j) => j.jogadorId !== null && j.jogadorId === d.jogadorId);
+  return linha?.posicaoDeOrigem ?? d.posicaoDeOrigem ?? linha?.posicao ?? d.posicao;
+}
+
+/**
+ * OVR que fica no Jogador depois da Partida (ADR-0098): o das Habilidades novas com os pesos da
+ * Posição dele. Fora de posição, o OVR da vaga (ADR-0044) vale só dentro da Partida.
+ */
+export function ovrQueFica(d: Pick<Desempenho, 'jogadorId' | 'posicao' | 'posicaoDeOrigem' | 'ovrDepois' | 'habilidadesDepois'>, escalacao: Escalacao): number {
+  const posicao = posicaoDeInscricao(d, escalacao);
+  return posicao === d.posicao ? d.ovrDepois : ovrDasHabilidades(posicao, d.habilidadesDepois);
+}
+
 /**
  * Simula a Partida já escalada e grava tudo numa transação: seed, resultado, Notas,
  * Habilidades e OVR novos de cada Jogador (Jogadores da Base não mudam). Status → SIMULADA.
@@ -118,7 +133,9 @@ export async function simular(banco: Banco, partidaId: number, escalada: Partida
         [partidaId, time, lugar, d.nota, d.ovrDepois, JSON.stringify(d.habilidadesDepois), d.faltas ?? null, d.amarelos ?? null, d.expulso ?? false, d.substituicao ?? null, !!troca, troca ? d.slot.indice : null],
       );
       if (d.jogadorId !== null) {
-        await b.query(`UPDATE jogador SET ovr = $2, habilidades = $3 WHERE id = $1`, [d.jogadorId, d.ovrDepois, JSON.stringify(d.habilidadesDepois)]);
+        // Fora de posição, o OVR da vaga vale só na Partida: o Jogador fica com o da Posição dele (ADR-0098).
+        const ovr = ovrQueFica(d, escalada.escalacoes[d.slot.lado]);
+        await b.query(`UPDATE jogador SET ovr = $2, habilidades = $3 WHERE id = $1`, [d.jogadorId, ovr, JSON.stringify(d.habilidadesDepois)]);
       }
     }
     await b.query(
