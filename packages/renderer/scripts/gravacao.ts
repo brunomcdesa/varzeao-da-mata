@@ -13,7 +13,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
-import { IDENTIDADE, TIMES, habilidadesDoPerfil, type Escalacao, type Posicao, type TimeId } from '@liga/shared';
+import { IDENTIDADE, TIMES, habilidadesDoPerfil, type Escalacao, type PerfilDoJuiz, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, simularPartida } from '@liga/sim';
 import type { PartidaParaVideo } from '../src/video.js';
 import { Roteiro, type OpcoesRoteiro } from '../src/roteiro.js';
@@ -56,7 +56,7 @@ export interface OpcoesGravacao {
 }
 
 /** Mesma montagem da página de Replay: Escalações sorteadas a partir do seed. */
-export function partidaDeTeste(seed: number, mandante: TimeId, visitante: TimeId, subtitulo?: string, fase: 'LIGA' | 'MATA_MATA' = 'LIGA', t2 = false): PartidaParaVideo {
+export function partidaDeTeste(seed: number, mandante: TimeId, visitante: TimeId, subtitulo?: string, fase: 'LIGA' | 'MATA_MATA' = 'LIGA', t2 = false, juiz?: PerfilDoJuiz): PartidaParaVideo {
   for (const t of [mandante, visitante]) if (!TIMES.includes(t)) throw new Error(`Time desconhecido: ${t} (use ${TIMES.join(', ')})`);
   const ORDEM: Posicao[] = ['GOL', 'ZAG', 'ZAG', 'MEI', 'MEI', 'ATA', 'ATA'];
   const APELIDOS = ['rafa', 'bia', 'duda', 'leo', 'malu', 'gui', 'nanda', 'pedrinho', 'lari', 'thiago', 'carol', 'vini', 'ju', 'digo'];
@@ -90,7 +90,7 @@ export function partidaDeTeste(seed: number, mandante: TimeId, visitante: TimeId
   };
   const a = montar(mandante, seed * 7 + 1);
   const b = montar(visitante, seed * 7 + 2);
-  const resultado = simularPartida({ mandante: a.esc, visitante: b.esc, seed, fase, ...(t2 ? { t2: { postura: { mandante: 'OFENSIVA', visitante: 'EQUILIBRADA' } } } : {}) });
+  const resultado = simularPartida({ mandante: a.esc, visitante: b.esc, seed, fase, ...(t2 || juiz ? { t2: { postura: { mandante: 'OFENSIVA', visitante: 'EQUILIBRADA' } } } : {}), ...(juiz ? { t3: { juiz } } : {}) });
   // Números da camisa de exemplo (sorteio próprio, não mexe na Partida): um em cada quatro sem número.
   const numeros = (nomes: string[], s: number) => {
     const rng = criarRng(s);

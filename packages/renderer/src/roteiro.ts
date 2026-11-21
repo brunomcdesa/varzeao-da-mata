@@ -99,6 +99,9 @@ const RECORTE: Record<TipoLance, { de: number; extraDepois: number }> = {
  */
 export const TEMPO_DO_CARTAO = 2;
 
+/** T3 (ADR-0094): o Gol de placa passa este tanto mais devagar até a bola entrar. */
+export const CAMERA_LENTA_DO_GOL_DE_PLACA = 1.7;
+
 /** Quanto a Substituição dura no Reels (s de vídeo), antes de esticar para a fala caber. */
 const DURACAO_TROCA_NO_VIDEO = 3.5;
 
@@ -119,6 +122,9 @@ export class Roteiro {
     let escolhidos = lances
       .map((l, i) => i)
       .filter((i) => o.duracaoLance[lances[i]!.tipo] > 0 && (o.bolasParadas || lances[i]!.bolaParada !== 'ESCANTEIO' || lances[i]!.tipo === 'GOL'));
+    // T3 (ADR-0094): o Rebote mostra junto o chute que o goleiro soltou, num trecho só.
+    const soltouParaORebote = new Set(escolhidos.filter((i) => i > 0 && lances[i]!.rebote && lances[i - 1]!.tipo === 'DEFESA').map((i) => i - 1));
+    escolhidos = escolhidos.filter((i) => !soltouParaORebote.has(i));
     const total = (lista: number[]) =>
       o.duracaoAbertura + o.duracaoFim + lista.reduce((s, i) => s + o.duracaoLance[lances[i]!.tipo], 0);
 
@@ -159,10 +165,12 @@ export class Roteiro {
       // Gol de bola parada: o Reels mostra desde a cobrança (lateral ou escanteio).
       const de = lance.bolaParada === 'LATERAL' ? 0 : lance.bolaParada === 'ESCANTEIO' ? 0.2 : recorte.de;
       let jogoInicio = janela.inicio + (janela.fim - janela.inicio) * de;
+      const soltou = lance.rebote && soltouParaORebote.has(i - 1) ? timeline.janelas[i - 1]! : null;
+      if (soltou) jogoInicio = soltou.inicio + (soltou.fim - soltou.inicio) * RECORTE.DEFESA.de;
       let jogoFim = Math.min(DURACAO_JOGO, janela.resolucao + recorte.extraDepois);
       const base = o.duracaoLance[lance.tipo];
       const m = minimo(segmentos.length);
-      const antes = Math.max(base * PIVO[lance.tipo], m.antes ?? 0);
+      const antes = Math.max(base * PIVO[lance.tipo] + (soltou ? o.duracaoLance.DEFESA * PIVO.DEFESA : 0), m.antes ?? 0);
       // Falta com cartão (ADR-0074): mais tempo depois do apito para a pausa com o cartão gigante.
       const doCartao = lance.falta?.cartao ? TEMPO_DO_CARTAO : 0;
       const depois = Math.max(base * (1 - PIVO[lance.tipo]) + doCartao, m.depois ?? 0);
@@ -170,12 +178,13 @@ export class Roteiro {
       // sempre. A construção começa antes e o lance respira mais depois, sem entrar em outro
       // lance. Bola parada começa na cobrança, então ali só o depois cresce.
       const livre = timeline.trechoLivre(i);
-      const escalaAntes = antes / (base * PIVO[lance.tipo]);
-      if (escalaAntes > 1 && !lance.bolaParada) jogoInicio = Math.max(livre.de, Math.min(jogoInicio, janela.resolucao - (janela.resolucao - jogoInicio) * escalaAntes));
+      const escalaAntes = antes / (base * PIVO[lance.tipo] + (soltou ? o.duracaoLance.DEFESA * PIVO.DEFESA : 0));
+      if (escalaAntes > 1 && !lance.bolaParada && !soltou) jogoInicio = Math.max(livre.de, Math.min(jogoInicio, janela.resolucao - (janela.resolucao - jogoInicio) * escalaAntes));
       const escalaDepois = depois / (base * (1 - PIVO[lance.tipo]));
       if (escalaDepois > 1) jogoFim = Math.max(jogoFim, Math.min(livre.ate, DURACAO_JOGO, janela.resolucao + (jogoFim - janela.resolucao) * escalaDepois));
       const inicio = cursor;
-      const resolucao = inicio + antes;
+      // T3: o Gol de placa passa em câmera lenta até a bola entrar (o trecho de jogo é o mesmo).
+      const resolucao = inicio + antes * (lance.golDePlaca ? CAMERA_LENTA_DO_GOL_DE_PLACA : 1);
       const fim = (cursor = resolucao + depois);
       segmentos.push({ tipo: 'LANCE', inicio, fim, jogoInicio, jogoFim, jogoResolucao: janela.resolucao, resolucao, lance: i });
     }

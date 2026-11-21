@@ -3,7 +3,7 @@
  * mais as cartelas de abertura e de fim e o escurecimento dos cortes.
  */
 import { ocupanteDoDesempenho } from './substituicao.js';
-import { FALA_DO_TIME, IDENTIDADE, TAMANHO_ESCALACAO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type MataMataDaPartida, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, NOME_DO_PERFIL_DO_JUIZ, TAMANHO_ESCALACAO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type MataMataDaPartida, type TimeId } from '@liga/shared';
 import type { Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, faixaDeTorcida, noCampo, plaquinha, rotulo, type Camera, type OpcoesDesenho } from './desenho.js';
@@ -376,6 +376,8 @@ function desenharAbertura(pin: Pincel, r: ResultadoPartida, p: number, tVideo: n
     pin.texto('x', COLUNAS / 2, 273, 20, display, COR.tinta);
     // Quem narra esta Partida (sorteado pela semente).
     pin.texto(`Narração: ${narradorDa(r.seed).nome}`, COLUNAS / 2, 372, 10, texto, COR.placa, { peso: 600 });
+    // T3 (ADR-0094): o Perfil do Juiz da Partida, como na Escalação.
+    if (r.juiz) pin.texto(`Juiz: ${NOME_DO_PERFIL_DO_JUIZ[r.juiz]}`, COLUNAS / 2, 386, 10, texto, r.juiz === 'RIGOROSO' ? '#FF6B5B' : r.juiz === 'DEIXA_JOGAR' ? '#3DDC64' : COR.placa, { peso: 600 });
   }
   pin.ctx.restore();
 }

@@ -67,6 +67,8 @@ describe('Temporada 3: novidades de campo (ADR-0094)', () => {
       expect(antes?.tipo).toBe('DEFESA');
       expect(antes?.ataque).toBe(l.ataque);
       expect(l.marcador).toBeDefined();
+      // A bola está solta na área: o Rebote nunca começa com lateral.
+      expect(l.bolaParada).toBeUndefined();
     }
   });
 

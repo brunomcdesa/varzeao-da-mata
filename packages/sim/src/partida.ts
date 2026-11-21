@@ -844,7 +844,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
   lances.forEach((l, i) => {
     l.numero = i + 1;
     const antes = lances[i - 1];
-    if (!antes || antes.tipo === 'GOL' || antes.tipo === 'FALTA' || l.bolaParada || l.contraAtaque || lances[i + 1]?.bolaParada === 'ESCANTEIO' || antes.bolaParada === 'ESCANTEIO') return;
+    if (!antes || antes.tipo === 'GOL' || antes.tipo === 'FALTA' || l.bolaParada || l.contraAtaque || l.rebote || lances[i + 1]?.bolaParada === 'ESCANTEIO' || antes.bolaParada === 'ESCANTEIO') return;
     if (!rngBP.chance(PARAMETROS.chanceLateral)) return;
     const jaSaiu = (indice: number) => (expulsoNoLance.get(`${l.criador.lado}:${indice}`) ?? Infinity) < i;
     const companheiros = escalacoes[l.criador.lado].jogadores.flatMap((j, indice) => ((j.posicao === 'MEI' || j.posicao === 'ZAG') && indice !== l.criador.indice && !jaSaiu(indice) ? [{ lado: l.criador.lado, indice }] : []));
