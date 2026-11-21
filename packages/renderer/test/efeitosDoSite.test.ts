@@ -5,7 +5,7 @@ import { CLARAO_DO_GOL, TREMOR_DO_GOL, cartaoGiganteEm, efeitosDoSite } from '..
 import { DURACAO_DO_CARTAO } from '../src/video.js';
 import { COLUNAS, LINHAS } from '../src/pixel.js';
 
-describe('efeitos de momento no Ao Vivo e no Replay (ADR-0094)', () => {
+describe('efeitos de momento no Ao Vivo e no Replay (ADR-0095)', () => {
   const casos = [3, 8, 42, 77].map((seed) => {
     const p = partidaDeTeste(seed, 'CAP', 'ONC', undefined, 'LIGA', true);
     return { seed, tl: new Timeline(p.resultado, p.escalacoes) };

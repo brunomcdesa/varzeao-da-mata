@@ -1,7 +1,7 @@
 /**
  * Ao Vivo e Replay no navegador: o mesmo renderer do vídeo, no "tempo de relógio".
  * Ao Vivo segue o relógio (90 min de jogo em 4 min 30 s, ninguém adianta); o Replay deixa
- * pausar, pular e acelerar. Os dois têm os efeitos de momento do Reels (ADR-0094).
+ * pausar, pular e acelerar. Os dois têm os efeitos de momento do Reels (ADR-0095).
  */
 import { DURACAO_JOGO, Timeline, VELOCIDADE_AO_VIVO, desenharQuadroDoSite, timelineDaPartida } from '@liga/renderer';
 import type { EscalacaoPublica, PartidaPublica } from '@liga/shared';
@@ -62,7 +62,7 @@ export function transmitir(
       tocando = false;
       marcar();
     }
-    // Efeitos de momento do Reels (ADR-0094); quem pediu menos movimento fica sem tremor e clarão.
+    // Efeitos de momento do Reels (ADR-0095); quem pediu menos movimento fica sem tremor e clarão.
     desenharQuadroDoSite(ctx, timeline, t, { times: timeline.resultado.times, nomes, apelidos, numeros, semMovimento: reduzido, ...(p.briga ? { briga: p.briga } : {}) });
     if (barra) barra.value = String(Math.round(t));
     o.aoMudar?.(t);

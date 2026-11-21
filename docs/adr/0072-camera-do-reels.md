@@ -11,7 +11,7 @@ O Reels mostrava o campo inteiro o tempo todo. No celular, os bonecos e a bola f
   - no gol, a imagem treme por 0,5 s e clareia por 0,3 s;
   - a rede estufa e balança logo depois do gol;
   - o carrinho levanta poeira de terra.
-- **Site sem câmera.** Ao Vivo e Replay continuam com o campo inteiro e todos os @, porque lá cada um procura o próprio boneco. (Os efeitos de momento chegaram ao site no ADR-0094.)
+- **Site sem câmera.** Ao Vivo e Replay continuam com o campo inteiro e todos os @, porque lá cada um procura o próprio boneco. (Os efeitos de momento chegaram ao site no ADR-0095.)
 - Não muda a simulação (VERSAO_SIM continua igual). Vale para os Reels gravados a partir daqui. Reels já publicados não mudam.
 
 ## Considered Options

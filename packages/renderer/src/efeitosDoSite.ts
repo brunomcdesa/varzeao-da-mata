@@ -1,5 +1,5 @@
 /**
- * Efeitos de momento no Ao Vivo e no Replay do site (ADR-0094): os mesmos do Reels (ADR-0072 e
+ * Efeitos de momento no Ao Vivo e no Replay do site (ADR-0095): os mesmos do Reels (ADR-0072 e
  * ADR-0074), mas com o campo inteiro, sem zoom e sem pausa.
  *
  * - No gol, a imagem treme por 0,5 s e clareia por 0,3 s; a rede estufa e balança.
