@@ -46,8 +46,12 @@ export type EscolhaDaT2 =
   | { tipo: 'POSTURA'; valor: string }
   | { tipo: 'FORMACAO'; valor: string }
   /** T3 (ADR-0091): ids dos Batedores, em ordem (até 5). */
-  | { tipo: 'BATEDORES'; valor: string[] };
-const TIPOS_DE_ESCOLHA = ['ESPECIALIZACAO', 'TREINO', 'CANTO', 'PRESENCA', 'POSTURA', 'FORMACAO', 'BATEDORES'] as const;
+  | { tipo: 'BATEDORES'; valor: string[] }
+  /** T3 (ADR-0089): Palpite, "partida:mandante-visitante". */
+  | { tipo: 'PALPITE'; valor: string };
+const TIPOS_DE_ESCOLHA = ['ESPECIALIZACAO', 'TREINO', 'CANTO', 'PRESENCA', 'POSTURA', 'FORMACAO', 'BATEDORES', 'PALPITE'] as const;
+/** A Carteira de Moedas (ADR-0087): saldo e extrato só para o dono, pelo Vínculo. */
+export type ConsultarCarteira = (jogadorId: string) => Promise<unknown | null>;
 
 type Graph = <T>(metodo: 'GET' | 'POST', caminho: string, params: Record<string, string>) => Promise<T>;
 type Disparar = (job: string) => Promise<boolean>;
@@ -216,9 +220,19 @@ export async function rotasDoVinculo(
   disparar: Disparar,
   aplicar: AplicarAgora = async () => null,
   capitania: ConsultarCapitania = async () => null,
+  carteira: ConsultarCarteira = async () => null,
 ): Promise<Response | null> {
   const { pathname } = new URL(req.url);
   if (req.method !== 'POST') return null;
+
+  if (pathname === '/carteira') {
+    const c = await corpo<{ sessao: string }>(req);
+    if (!sessaoValida(c?.sessao)) return json({ erro: 'Sessão inválida' }, 400);
+    const s = await sessaoDe(env, c.sessao);
+    if (!s) return json({ erro: 'Não vinculado' }, 401);
+    const dados = await carteira(s.jogadorId);
+    return dados ? json(dados) : json({ erro: 'Sem Carteira ainda' }, 404);
+  }
 
   if (pathname === '/vinculo') {
     const c = await corpo<{ jogadorId: string }>(req);
@@ -366,6 +380,7 @@ export async function rotasDoVinculo(
     const valor = c.valor === null || c.valor === undefined || c.valor === '' || Array.isArray(c.valor) ? null : String(c.valor).slice(0, 30);
     if (tipo === 'POSTURA' && !valor) return json({ erro: 'Escolha a Postura' }, 400);
     if (tipo === 'FORMACAO' && !valor) return json({ erro: 'Escolha a Formação' }, 400);
+    if (tipo === 'PALPITE' && !/^\d{1,9}:\d{1,2}-\d{1,2}$/.test(valor ?? '')) return json({ erro: 'Palpite inválido' }, 400);
     const escolha = (tipo === 'PRESENCA' ? { tipo } : batedores ? { tipo, valor: batedores } : { tipo, valor }) as EscolhaDaT2;
     const base = { jogadorId: s.jogadorId, escolha, pedidoEm: agora.toISOString() };
     const feito = await aplicar({ tipo: 'ESCOLHA', jogadorId: s.jogadorId, escolha }).catch(() => null);

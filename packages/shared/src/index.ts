@@ -440,3 +440,4 @@ export * from './programados.js';
 export * from './estrelas.js';
 export * from './temporada3.js';
 export * from './copa.js';
+export * from './moedas.js';

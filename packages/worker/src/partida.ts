@@ -14,6 +14,7 @@ import type { Banco } from './banco.js';
 import { FUSO_BRASILIA } from './calendario.js';
 import { seriesDaTemporada } from './series.js';
 import { escalarPartida, type PartidaEscalada } from './escalacao.js';
+import { pagarPartida } from './moedas.js';
 import { batedoresDaPartida, formacoesDaPartida, partidaTemRegrasT2, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
 
 /** O que o renderer precisa para gravar o Reels (mesmo formato de PartidaParaVideo). */
@@ -138,6 +139,8 @@ export async function simular(banco: Banco, partidaId: number, escalada: Partida
         JSON.stringify(resultado),
       ],
     );
+    // Moedas (ADR-0087): gols, assistências, Palpites e Conquistas, visíveis no fim do Ao Vivo.
+    await pagarPartida(b, partidaId);
     return resultado;
   });
 }

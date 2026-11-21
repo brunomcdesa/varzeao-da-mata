@@ -25,6 +25,7 @@ import {
   type TimeId,
 } from '@liga/shared';
 import type { Banco } from './banco.js';
+import { registrarPalpite } from './carteira.js';
 import { CORTE_MINUTOS } from './escalacao.js';
 import type { Agenda } from './nuvem.js';
 
@@ -252,7 +253,9 @@ export type Escolha =
   | { tipo: 'POSTURA'; valor: Postura }
   | { tipo: 'FORMACAO'; valor: Formacao }
   /** Batedores (ADR-0091): ids dos Jogadores do Time, em ordem; lista vazia volta à ordem automática. */
-  | { tipo: 'BATEDORES'; valor: string[] };
+  | { tipo: 'BATEDORES'; valor: string[] }
+  /** Palpite (ADR-0089): "partida:mandante-visitante", até o Corte. */
+  | { tipo: 'PALPITE'; valor: string };
 
 export interface ResultadoDaEscolha {
   ok: boolean;
@@ -331,6 +334,8 @@ export async function aplicarEscolha(b: Banco, jogadorId: string, e: Escolha, ag
       );
       return { ok: true, mensagem: `Formação ${e.valor} no próximo jogo.` };
     }
+    case 'PALPITE':
+      return registrarPalpite(b, jogadorId, String(e.valor ?? ''), agora);
     case 'BATEDORES': {
       // ADR-0091: mesma regra da Postura (só o Capitão, até o Corte), a partir da T3.
       if (!temRegrasT3(t.numero)) return { ok: false, mensagem: 'Os Batedores chegam na Temporada 3.' };

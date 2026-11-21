@@ -17,6 +17,7 @@ import {
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { apitoInicial, somarDias } from './calendario.js';
+import { pagarTituloDaCopa } from './moedas.js';
 
 export type PassoDaCopa = 'NADA' | 'QUARTAS_CRIADAS' | 'SEMIFINAIS_CRIADAS' | 'FINAL_CRIADA' | 'COPA_ENCERRADA';
 
@@ -81,7 +82,10 @@ export async function avancarCopa(banco: Banco, temporadaId: number): Promise<Pa
     const proxima = ETAPA_SEGUINTE[atual];
     if (!proxima) {
       const r = await b.query(`UPDATE temporada SET campeao_copa_id = $2 WHERE id = $1 AND campeao_copa_id IS NULL RETURNING id`, [temporadaId, vencedores[0]]);
-      return r.rows.length ? 'COPA_ENCERRADA' : 'NADA';
+      if (!r.rows.length) return 'NADA';
+      // Título da Copa (ADR-0088): 40 Moedas para quem jogou pelo campeão na Copa.
+      await pagarTituloDaCopa(b, temporadaId);
+      return 'COPA_ENCERRADA';
     }
     // Quartas no dia seguinte às Oitavas; Semifinais no mesmo dia das Quartas; Final no dia seguinte.
     const diaDaAtual = diaTexto(desta[0]!.data);

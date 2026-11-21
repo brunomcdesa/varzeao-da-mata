@@ -8,12 +8,13 @@
  * (8 Times) faz turno e returno em 14 Rodadas, para as duas terminarem juntas.
  * O Mata-mata é criado depois, quando a Fase de Liga termina.
  */
-import { DIAS_DA_COPA, GRUPOS, TIMES_FUNDADORES, temCopa, type Serie, type TimeId } from '@liga/shared';
+import { DIAS_DA_COPA, GRUPOS, TIMES_FUNDADORES, temCopa, temMoedas, type Serie, type TimeId } from '@liga/shared';
 import { criarRng } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { gravarSeries, gruposPara, seriesDaProximaTemporada, seriesComTimes, type GruposDaTemporada, type SeriesDaTemporada } from './series.js';
 import { tabela } from './tabela.js';
 import { cabeACopa, criarOitavas } from './copa.js';
+import { pagarBonusDeLargada } from './moedas.js';
 
 export const HORARIOS = [12, 14, 16, 18] as const;
 /** Com duas Séries (ADR-0050): a B joga antes, a A fecha o dia. */
@@ -173,6 +174,8 @@ export async function criarTemporada(banco: Banco, o: { numero: number; primeira
     const comCopa = temCopa(o.numero) && !!series && comSeries && cabeACopa([...series.A, ...series.B]);
     if (comCopa) await criarOitavas(b, temporadaId, o.primeiraRodada, (t) => (series!.B.includes(t) ? 'B' : 'A'));
     const inicioDaLiga = comCopa ? somarDias(o.primeiraRodada, DIAS_DA_COPA) : o.primeiraRodada;
+    // Moedas (ADR-0087): a primeira Temporada com elas abre a Loja com o bônus de largada dos veteranos.
+    if (temMoedas(o.numero) && !temMoedas(o.numero - 1)) await pagarBonusDeLargada(b, new Date());
     for (let r = 0; r < totalDeRodadas; r++) {
       const dia = somarDias(inicioDaLiga, r);
       const rodadaId = (

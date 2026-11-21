@@ -26,6 +26,7 @@ import { Instagram, ErroInstagram } from './instagram.js';
 import { CHAVE_TOKEN, gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
 import { avancarMataMata, estrelasNoBanco, estruturaDaTemporada } from './mataMata.js';
 import { avancarCopaPendente } from './copa.js';
+import { pagarRodada, pagarTitulos } from './moedas.js';
 import { rebalancear } from './rebalanceamento.js';
 import { destaquesDaTemporadaNoBanco } from './destaques.js';
 import { SQL_RODADA_DA_FINAL, seriesDaTemporada } from './series.js';
@@ -821,9 +822,12 @@ export async function jobResumo(c: ContextoDoJob): Promise<number | null> {
     return null;
   }
   await fecharRodada(c.banco, r.id);
+  // Moedas (ADR-0087): Salário do dia, Seleção da Rodada e o Craque da Rodada anterior.
+  await c.banco.transacao((b) => pagarRodada(b, r.id));
   // Depois da 7ª Rodada cria as Semifinais; depois delas, a Final; depois dela, encerra.
   const passo = await avancarMataMata(c.banco, r.temporada_id);
   if (passo !== 'NADA') log(`Mata-mata: ${passo}.`);
+  if (passo === 'TEMPORADA_ENCERRADA') await c.banco.transacao((b) => pagarTitulos(b, r.temporada_id));
   const dados = await dadosDoResumo(c.banco, r.id);
   const dia = typeof r.data === 'string' ? r.data.slice(0, 10) : r.data.toISOString().slice(0, 10);
   const [a, m, d] = dia.split('-').map(Number) as [number, number, number];
