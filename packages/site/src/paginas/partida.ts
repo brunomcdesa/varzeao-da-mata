@@ -6,6 +6,7 @@ import { DURACAO_JOGO, narradorDa, ocupanteNoLance, resultadoDaCobranca, todosDa
 import { montarTimeline, transmitir } from '../transmissao.js';
 import { desfechoDoMataMata } from '../mataMata.js';
 import { REACOES, entrarNaSala } from '../reacoes.js';
+import { enviarEscolhaDoVinculo, jogadorVinculado } from '../meuPersonagem.js';
 import type { Timeline } from '@liga/renderer';
 import { bonecoImg, campinho, curto, duelaDeForcas, escudoImg, html, jogadorLink, nota, NOME_DA_POSICAO, rotuloClassico, type Html, comCamisa, comFaixa } from '../ui.js';
 import type { Pagina } from './tipos.js';
@@ -221,6 +222,19 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
         : ''}
       ${mostrarFinal && timeline ? linhaDoTempo(r, timeline) : ''}
 
+      ${p.palpite && Date.now() < Date.parse(p.apito) - CORTE_MIN * 60_000 && jogadorVinculado()
+        ? html`<section class="placa palpite" aria-labelledby="titulo-palpite">
+            <h2 id="titulo-palpite" class="secao">Seu Palpite <small>até o Corte</small></h2>
+            <form class="form-palpite" data-partida="${p.id}">
+              <label><span>${curto(p.mandante)}</span><input type="number" name="mandante" min="0" max="20" value="${meuPalpite(p.id)?.mandante ?? ''}" required inputmode="numeric" /></label>
+              <span aria-hidden="true">×</span>
+              <label><span>${curto(p.visitante)}</span><input type="number" name="visitante" min="0" max="20" value="${meuPalpite(p.id)?.visitante ?? ''}" required inputmode="numeric" /></label>
+              <button type="submit" class="botao">Palpitar</button>
+            </form>
+            <p class="legenda">Resultado certo vale 2 Moedas; placar exato, 5. Até 10 Moedas de Palpite por dia.</p>
+            <p class="estado-escolha" role="status" aria-live="polite"></p>
+          </section>`
+        : ''}
       ${p.escalacoes
         ? html`<section aria-labelledby="titulo-forca"><h2 id="titulo-forca" class="secao">Força em campo <small>OVR antes do jogo</small></h2>
             ${duelaDeForcas(
@@ -320,3 +334,40 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
   };
 };
 
+/** O último Palpite deste navegador em cada Partida (para o formulário já vir preenchido). */
+const CHAVE_PALPITES = 'varzeao:palpites';
+function meuPalpite(partidaId: number): { mandante: number; visitante: number } | null {
+  try {
+    return (JSON.parse(localStorage.getItem(CHAVE_PALPITES) ?? '{}') as Record<string, { mandante: number; visitante: number }>)[partidaId] ?? null;
+  } catch {
+    return null;
+  }
+}
+function guardarPalpite(partidaId: number, x: { mandante: number; visitante: number }): void {
+  try {
+    const todos = JSON.parse(localStorage.getItem(CHAVE_PALPITES) ?? '{}') as Record<string, unknown>;
+    todos[partidaId] = x;
+    localStorage.setItem(CHAVE_PALPITES, JSON.stringify(todos));
+  } catch {
+    /* sem armazenamento: o Palpite vale do mesmo jeito */
+  }
+}
+
+/** Palpite (ADR-0089): vai pela borda como escolha do site, "partida:mandante-visitante". */
+export function ligarPalpite(raiz: HTMLElement): void {
+  const form = raiz.querySelector<HTMLFormElement>('.form-palpite');
+  if (!form) return;
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const dados = new FormData(form);
+    const x = { mandante: Number(dados.get('mandante')), visitante: Number(dados.get('visitante')) };
+    const estado = form.parentElement!.querySelector<HTMLElement>('.estado-escolha')!;
+    estado.textContent = 'Enviando...';
+    estado.className = 'estado-escolha';
+    void enviarEscolhaDoVinculo('PALPITE', `${form.dataset.partida}:${x.mandante}-${x.visitante}`).then((r) => {
+      if (r.ok) guardarPalpite(Number(form.dataset.partida), x);
+      estado.textContent = r.mensagem;
+      estado.className = `estado-escolha ${r.ok ? 'sucesso' : 'erro'}`;
+    });
+  });
+}

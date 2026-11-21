@@ -7,7 +7,7 @@
  * aparecem depois do Apito (o lance a lance) ou do fim do Ao Vivo (placar, tabela, Card).
  * Escalações aparecem assim que existem (a partir do Corte).
  */
-import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Grupo, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, type EtapaDaCopa, temRegrasT2, temRegrasT3, perfilDoJuiz, timesQueCaem, GRUPOS, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
+import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Grupo, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, type EtapaDaCopa, temMoedas, temRegrasT2, temRegrasT3, perfilDoJuiz, timesQueCaem, GRUPOS, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
 import { fundadorDe } from './rebalanceamento.js';
 import { comSeloT1, subiramPeloPiso } from './recompensaT1.js';
 import { ajustesDeOvr } from './aMao.js';
@@ -274,6 +274,15 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   // Selo da Temporada 1 (ADR-0047): também só no site da T2.
   const seloT1 = comRegrasT2 ? await comSeloT1(banco) : new Set<string>();
   const pisoT1 = comRegrasT2 ? await subiramPeloPiso(banco) : new Map<string, { antes: number; depois: number }>();
+  // Conquistas (ADR-0090): selos públicos, só do que já apareceu (fim do Ao Vivo), a partir da T3.
+  const conquistasDe = new Map<string, { codigo: string; temporada: number }[]>();
+  if (temporada && temMoedas(temporada.numero)) {
+    for (const c of (await banco.query<{ jogador_id: string; codigo: string; temporada: number }>(`SELECT jogador_id::text AS jogador_id, codigo, temporada FROM conquista WHERE em <= $1 ORDER BY em`, [agora.toISOString()])).rows) {
+      const l = conquistasDe.get(c.jogador_id) ?? [];
+      l.push({ codigo: c.codigo, temporada: c.temporada });
+      conquistasDe.set(c.jogador_id, l);
+    }
+  }
   const ajustes = await ajustesDeOvr(banco, agora);
   const porJogador = new Map<string, JogadorPublico>();
   const resumido = (id: string): JogadorResumido | null => {
@@ -303,6 +312,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       ...(comRegrasT2 ? { especializacao: j.especializacao ?? null, treino: j.treino ?? null } : {}),
       ...(fundadores.has(j.id) ? { fundador: fundadores.get(j.id)! } : {}),
       ...(seloT1.has(j.id) ? { seloT1: true as const } : {}),
+      ...(conquistasDe.has(j.id) ? { conquistas: conquistasDe.get(j.id)! } : {}),
       ...(pisoT1.has(j.id) ? { pisoT1: pisoT1.get(j.id)! } : {}),
       ...estatisticasVazias(),
       vezesCandidato: 0,
@@ -588,6 +598,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       : {}),
     ...(atual?.serieB && temporada ? { tabelaB: atual.serieB.tabela, series: { A: [...seriesDe.get(temporada.id)!.A], B: [...seriesDe.get(temporada.id)!.B] } } : {}),
     calendario,
+    // Ranking de Palpites (ADR-0089): só Partidas já encerradas (o fim do Ao Vivo passou).
+    ...(temporada && temMoedas(temporada.numero) ? { palpites: await rankingDePalpites(banco, temporada.id, agora) } : {}),
     rodadas: temporada ? (rodadasPorTemporada.get(temporada.id) ?? []) : [],
     campeao: atual?.campeao ?? null,
     craqueDaTemporada: atual?.craque ?? null,
@@ -647,6 +659,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
         return b ? { briga: b } : {};
       })(),
       ...(p.copa_etapa ? { copa: p.copa_etapa } : {}),
+      ...(temMoedas(temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0) ? { palpite: true as const } : {}),
       // Perfil do Juiz (T3, ADR-0094): aparece com a Escalação; sai do id da Partida, igual na simulação.
       ...(linhas && temRegrasT3(temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0) ? { juiz: perfilDoJuiz(p.id) } : {}),
       // Arquibancada (T2): só nas Partidas simuladas com as regras da Temporada 2.
@@ -671,4 +684,24 @@ export async function escreverSite(exportacao: ExportacaoDoSite, pasta: string):
     escritos.push(caminho);
   }
   return escritos;
+}
+
+/** Os 20 melhores Palpiteiros da Temporada: pontos somados (além do teto do dia) e acertos. */
+async function rankingDePalpites(banco: Banco, temporadaId: number, agora: Date): Promise<NonNullable<LigaPublica['palpites']>> {
+  const linhas = (
+    await banco.query<{ jogador_id: string; username: string; apelido: string | null; pontos: string; acertos: string; apito: Date | string; fase: 'LIGA' | 'MATA_MATA' }>(
+      `SELECT x.jogador_id::text AS jogador_id, j.username, j.apelido, x.pontos::text AS pontos, (x.pontos > 0)::int::text AS acertos, p.apito_inicial AS apito, r.fase
+       FROM palpite x JOIN partida p ON p.id = x.partida_id JOIN rodada r ON r.id = p.rodada_id JOIN jogador j ON j.id = x.jogador_id
+       WHERE r.temporada_id = $1 AND x.pontos IS NOT NULL AND NOT j.banido`,
+      [temporadaId],
+    )
+  ).rows.filter((l) => new Date(l.apito).getTime() + duracaoAoVivoMs(l.fase) <= agora.getTime());
+  const soma = new Map<string, { jogadorId: string; username: string; apelido: string | null; pontos: number; acertos: number }>();
+  for (const l of linhas) {
+    const a = soma.get(l.jogador_id) ?? { jogadorId: l.jogador_id, username: l.username, apelido: l.apelido, pontos: 0, acertos: 0 };
+    a.pontos += Number(l.pontos);
+    a.acertos += Number(l.acertos);
+    soma.set(l.jogador_id, a);
+  }
+  return [...soma.values()].filter((a) => a.pontos > 0).sort((a, b) => b.pontos - a.pontos || b.acertos - a.acertos || Number(a.jogadorId) - Number(b.jogadorId)).slice(0, 20);
 }

@@ -6,6 +6,8 @@
  * A sessão é um segredo que só este navegador guarda (localStorage); a borda guarda o hash.
  */
 import { CANTOS, DESCRICAO_DA_ESPECIALIZACAO, ESPECIALIZACOES, FORMACAO_PADRAO, HABILIDADES, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, POSTURAS, ehFormacao, type Canto, type Especializacao, type Formacao, type HabilidadeId, type Postura } from '@liga/shared';
+import type { Carteira } from '@liga/shared';
+import { blocoDaCarteira, ligarCarteira } from './carteira.js';
 import { NOME_DA_POSTURA, capitaniaAindaVale, formulariosDoCapitao, nomesDosBatedores, valorDoFormulario, type Capitania } from './planoDoTime.js';
 import { linhaDaPresenca } from './presenca.js';
 import { pedidoValido } from './pedidoDoSite.js';
@@ -136,7 +138,7 @@ export async function capitaniaDoVinculo(): Promise<{ jogadorId: string; capitan
  * Escolha do Capitão feita fora do painel (página do Time, ADR-0091): manda pela borda e, se a
  * Liga aplicou na hora, guarda no estado deste navegador para a página já mostrar o plano novo.
  */
-export async function enviarEscolhaDoVinculo(tipo: 'POSTURA' | 'FORMACAO' | 'BATEDORES', valor: string | string[] | null): Promise<{ ok: boolean; aplicada: boolean; mensagem: string }> {
+export async function enviarEscolhaDoVinculo(tipo: 'POSTURA' | 'FORMACAO' | 'BATEDORES' | 'PALPITE', valor: string | string[] | null): Promise<{ ok: boolean; aplicada: boolean; mensagem: string }> {
   const g = ler<Guardado>(CHAVE);
   if (!g || !BASE_API) return { ok: false, aplicada: false, mensagem: 'Vincule o seu personagem para escolher.' };
   const r = await api<{ ok?: boolean; erro?: string; pedido?: { resultado?: string; mensagem?: string; processadoEm?: string } }>('escolha', { sessao: g.sessao, tipo, valor }).catch(() => null);
@@ -168,7 +170,7 @@ export const blocoDoDono = () => (vinculoDisponivel() ? html`<section class="meu
  * `t2`: a Temporada atual tem as regras da Temporada 2 (ADRs 0020 a 0024). Sem ela, o painel
  * é exatamente o da T1: nada de Presença, Postura, Especialização, Treino ou Canto.
  */
-export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: JogadorPublico[], ativos: readonly TimeId[] = TIMES, t2 = false): () => void {
+export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: JogadorPublico[], ativos: readonly TimeId[] = TIMES, t2 = false, moedas = false): () => void {
   const achada = raiz.querySelector<HTMLElement>('.meu-personagem');
   if (!achada) return () => {};
   const caixa: HTMLElement = achada;
@@ -297,6 +299,11 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
             </form>`}
       </details>`);
 
+    // Moedas (ADR-0087): saldo e extrato só para o dono, a partir da T3.
+    if (moedas) {
+      caixa.insertAdjacentHTML('beforeend', blocoDaCarteira(abertas.has('carteira')).s);
+      void ligarCarteira(caixa, () => api<Carteira & { erro?: string }>('carteira', { sessao: g.sessao }));
+    }
     if (t2) {
       caixa.insertAdjacentHTML('beforeend', blocoEscolhas().s);
       ligarEscolhas(g);

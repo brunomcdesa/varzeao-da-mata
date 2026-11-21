@@ -1,5 +1,5 @@
 /** Jogadores: busca e ranking, o Card de cada um e a comparação lado a lado. */
-import { DESTAQUE_DA_POSICAO, IDENTIDADE, ORDEM_DOS_TROFEUS, nomeVisivel, temporadaDoApp, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId, temRegrasT2 } from '@liga/shared';
+import { temMoedas, DESTAQUE_DA_POSICAO, IDENTIDADE, ORDEM_DOS_TROFEUS, nomeVisivel, temporadaDoApp, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId, temRegrasT2 } from '@liga/shared';
 import { jogadores, liga, timesAtivos } from '../dados.js';
 import { bonecoImg, comCamisa, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html, faixaC } from '../ui.js';
 import type { Pagina } from './tipos.js';
@@ -302,7 +302,7 @@ export const paginaJogador: Pagina = async (main, [id]) => {
     if (v) location.hash = `#/comparar/${j.id}/${v}`;
   });
   // Transferência só para os Times que jogam a Temporada (com a Série B, os 16).
-  return ligarMeuPersonagem(main, j, todos, timesAtivos(l), temRegrasT2(temporadaDoApp(l) ?? 0));
+  return ligarMeuPersonagem(main, j, todos, timesAtivos(l), temRegrasT2(temporadaDoApp(l) ?? 0), temMoedas(temporadaDoApp(l) ?? 0));
 };
 
 function numeros(e: Estatisticas, j: JogadorPublico): Html {

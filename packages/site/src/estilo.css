@@ -3115,6 +3115,105 @@ a.jogo:hover {
   max-width: 220px;
 }
 
+/* Moedas (T3, ADR-0087): Carteira no painel do dono, Conquistas e Palpite. */
+.saldo-moedas {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+}
+.saldo-moedas strong {
+  font: 400 2rem/1 var(--display);
+}
+.moeda {
+  width: 18px;
+  height: 18px;
+  background: #f2c230;
+  border: 2px solid var(--contorno);
+  box-shadow: inset -3px -3px 0 #c9962a;
+}
+.extrato {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.extrato li {
+  display: grid;
+  grid-template-columns: 3.4em 1fr auto;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--placa-sombra);
+}
+.extrato-dia {
+  color: var(--tinta-fraca);
+  font-size: 0.85rem;
+}
+.extrato .entrada {
+  color: #1e8449;
+}
+.extrato .saida {
+  color: #c0392b;
+}
+.selos-conquista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.selo-conquista {
+  padding: 2px 8px;
+  border: 2px solid var(--contorno);
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: #efe3c8;
+}
+.selo-conquista.nivel-media {
+  background: #dfe3ea;
+}
+.selo-conquista.nivel-dificil {
+  background: #f6d97a;
+}
+.selo-conquista small {
+  color: #1e8449;
+}
+.form-palpite {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.form-palpite label {
+  display: grid;
+  gap: 4px;
+  font-weight: 600;
+}
+.palpite .secao small,
+.palpite .legenda,
+.ranking-palpites .secao small {
+  color: var(--tinta-fraca);
+}
+.form-palpite input {
+  color: var(--tinta);
+  width: 4em;
+  font: 400 1.6rem/1 var(--display);
+  text-align: center;
+  padding: 4px;
+  border: 2px solid var(--contorno);
+  background: #fffaf0;
+}
+.ranking-palpites ol {
+  margin: 0;
+  padding-left: 1.6em;
+  display: grid;
+  gap: 4px;
+}
+.ranking-palpites li span {
+  color: var(--tinta-fraca);
+  font-size: 0.85rem;
+  margin: 0 8px;
+}
+
 /* Perfil do Juiz (T3, ADR-0094), embaixo da Escalação. */
 .juiz-da-partida small {
   color: var(--tinta-fraca);

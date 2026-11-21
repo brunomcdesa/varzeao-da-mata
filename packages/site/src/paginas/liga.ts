@@ -63,6 +63,12 @@ export const paginaJogos: Pagina = async (main) => {
   main.innerHTML = html`<h1 class="titulo-pagina">Jogos da Temporada ${l.temporada?.numero ?? ''}</h1>
     ${preTemporada(l) ? html`<p class="placa aviso-temporada">${avisoDaPreTemporada(l)}</p>` : ''}
     ${chaveDaCopa(l)}
+    ${l.palpites?.length
+      ? html`<section class="placa ranking-palpites" aria-labelledby="titulo-palpiteiros">
+          <h2 id="titulo-palpiteiros" class="secao">Palpiteiros da Temporada <small>pontos dos Palpites</small></h2>
+          <ol>${l.palpites.slice(0, 10).map((x) => html`<li><a href="#/jogador/${x.jogadorId}">${x.apelido || `@${x.username}`}</a><span>${x.acertos} ${x.acertos === 1 ? 'acerto' : 'acertos'}</span><strong>${x.pontos}</strong></li>`)}</ol>
+        </section>`
+      : ''}
     ${rodadas.length ? seriesDaLiga(l).map((serie) => chaveamento(l, { serie })) : ''}
     ${rodadas.length
       ? html`<div class="grade-rodadas">${rodadas.map((n) => {

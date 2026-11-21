@@ -77,6 +77,8 @@ export interface RodadaPublica {
 }
 
 export interface LigaPublica {
+  /** Ranking de Palpites da Temporada (ADR-0089): pontos somados, mesmo além do teto do dia. */
+  palpites?: { jogadorId: string; username: string; apelido: string | null; pontos: number; acertos: number }[];
   atualizadoEm: string;
   temporada: { numero: number; status: string } | null;
   times: TimePublico[];
@@ -209,6 +211,8 @@ export interface JogadorPublico {
   fundador?: { time: TimeId; temporada: number };
   /** Selo da Temporada 1 (ADR-0047): se inscreveu na T1. Só aparece no site a partir da T2. */
   seloT1?: true;
+  /** Conquistas (ADR-0090): selos da Carreira, a partir da T3 (código e Temporada em que saiu). */
+  conquistas?: { codigo: string; temporada: number }[];
   /** Piso da Temporada 1 (ADR-0047): o OVR antes e depois, só para quem subiu. Marca o degrau no gráfico do OVR (ADR-0078). */
   pisoT1?: { antes: number; depois: number };
   /** Base do OVR (ADR-0079): o último ajuste do dono. O '+N' e as barras do card partem daqui. */
@@ -289,6 +293,8 @@ export interface PartidaPublica {
   momentos?: MomentosDoAoVivo;
   /** Copa (ADR-0088): a etapa da Partida. */
   copa?: import('./copa.js').EtapaDaCopa;
+  /** T3 (ADR-0089): a Partida aceita Palpite (até o Corte, pelo Vínculo). */
+  palpite?: true;
   /** T3 (ADR-0094): o Perfil do Juiz, que aparece junto com a Escalação. */
   juiz?: import('./temporada3.js').PerfilDoJuiz;
 }
