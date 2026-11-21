@@ -279,6 +279,8 @@ export interface PartidaPublica {
   briga?: import('./briga.js').BrigaPeloMataMata;
   /** Só no arquivo privado (job partida): quando cada gol aparece no Ao Vivo, para os Avisos do App (ADR-0042). */
   momentos?: MomentosDoAoVivo;
+  /** T3 (ADR-0094): o Perfil do Juiz, que aparece junto com a Escalação. */
+  juiz?: import('./temporada3.js').PerfilDoJuiz;
 }
 
 /**

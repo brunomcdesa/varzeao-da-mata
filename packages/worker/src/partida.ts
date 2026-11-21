@@ -6,7 +6,7 @@
 import { aparenciasEscolhidas } from './perfil.js';
 import type { Aparencia, Estrelas } from '@liga/shared';
 import { randomInt } from 'node:crypto';
-import { mataMataDaPartida, nomeDaEtapa, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
+import { mataMataDaPartida, nomeDaEtapa, perfilDoJuiz, temRegrasT3, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
 import { brigaDe } from './briga.js';
 import { estrelasNoBanco } from './mataMata.js';
 import { simularPartida, type Lado, type ResultadoPartida } from '@liga/sim';
@@ -14,7 +14,7 @@ import type { Banco } from './banco.js';
 import { FUSO_BRASILIA } from './calendario.js';
 import { seriesDaTemporada } from './series.js';
 import { escalarPartida, type PartidaEscalada } from './escalacao.js';
-import { formacoesDaPartida, partidaTemRegrasT2, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
+import { batedoresDaPartida, formacoesDaPartida, partidaTemRegrasT2, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
 
 /** O que o renderer precisa para gravar o Reels (mesmo formato de PartidaParaVideo). */
 export interface DadosDoVideo {
@@ -103,6 +103,8 @@ export async function simular(banco: Banco, partidaId: number, escalada: Partida
       fase: p.fase,
       ...(p.vantagem_do_empate ? { vantagemDoEmpate: p.vantagem_do_empate } : {}),
       ...(t2 ? { t2 } : {}),
+      // Regras da Temporada 3 (ADRs 0091 e 0094): Juiz sorteado pelo id da Partida e Batedores.
+      ...(t2 && temRegrasT3(p.temporada) ? { t3: { juiz: perfilDoJuiz(partidaId), batedores: await batedoresDaPartida(b, partidaId, p.mandante_id, p.visitante_id) } } : {}),
     });
 
     for (const d of resultado.desempenhos) {

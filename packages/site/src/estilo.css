@@ -3086,6 +3086,46 @@ a.jogo:hover {
   background: var(--madeira);
   color: #fffaf0;
 }
+/* Perfil do Juiz (T3, ADR-0094), embaixo da Escalação. */
+.juiz-da-partida small {
+  color: var(--tinta-fraca);
+  margin-left: 4px;
+}
+.juiz-rigoroso strong {
+  color: #c0392b;
+}
+.juiz-deixa_jogar strong {
+  color: #1e8449;
+}
+
+/* Batedores (T3, ADR-0091): cinco listas em ordem, no painel e na página do Time. */
+.lista-batedores {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.escolha-t2 .lista-batedores label.batedor {
+  display: grid;
+  grid-template-columns: 2.2em 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.batedor span {
+  font-family: var(--display, inherit);
+  font-size: 1.2rem;
+  color: var(--madeira);
+}
+.plano-batedores strong {
+  font-weight: 600;
+}
+.escolhas-no-time {
+  margin-top: 12px;
+}
+.escolhas-no-time > .escolha-t2:first-of-type {
+  margin-top: 10px;
+}
 
 /* ---- Página de Carreira (T2, ADR-0025) */
 .pagina-carreira {

@@ -14,6 +14,8 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import type { PerfilDoJuiz, TimeId } from '@liga/shared';
 import type { PartidaParaVideo } from '../src/video.js';
+import { Roteiro } from '../src/roteiro.js';
+import { Timeline } from '../src/timeline.js';
 import { exportarEscudos, gravarReels, partidaDeTeste } from './gravacao.js';
 
 try {
@@ -72,7 +74,11 @@ async function main(): Promise<void> {
     const tem = (p: PartidaParaVideo) => {
       const ls = p.resultado.lances;
       if (!args.vitrine) return true;
-      return ls.some((l) => l.trave) && ls.some((l) => l.rebote && l.tipo === 'GOL') && ls.some((l) => l.chuteDeLonge) && ls.some((l) => l.golDePlaca) && ls.some((l) => l.pressao) && ls.filter((l) => l.tipo === 'GOL').length <= 6;
+      if (!(ls.some((l) => l.trave) && ls.some((l) => l.rebote && l.tipo === 'GOL') && ls.some((l) => l.chuteDeLonge && l.tipo !== 'DESARME') && ls.some((l) => l.golDePlaca) && ls.filter((l) => l.tipo === 'GOL').length <= 6)) return false;
+      // A Trave e um lance de Pressão final precisam entrar nos melhores momentos.
+      const ro = new Roteiro(new Timeline(p.resultado, p.escalacoes));
+      const no = ro.segmentos.flatMap((x) => (x.lance === undefined ? [] : [ls[x.lance]!]));
+      return no.some((l) => l.trave) && no.some((l) => l.pressao);
     };
     do partida = partidaDeTeste(s++, args.mandante as TimeId, args.visitante as TimeId, args.subtitulo, 'LIGA', true, juiz);
     while (!tem(partida));

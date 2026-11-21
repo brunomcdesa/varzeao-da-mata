@@ -14,6 +14,8 @@ import {
   FORMACAO_PADRAO,
   ehFormacao,
   temRegrasT2,
+  temRegrasT3,
+  QUANTIDADE_DE_BATEDORES,
   type Canto,
   type Formacao,
   type Especializacao,
@@ -169,6 +171,9 @@ export interface Capitania {
   presenca: boolean;
   /** O próximo jogo do Time: Apito Inicial (ISO) e adversário, para o selo de Presença. */
   jogo: { apito: string; adversario: TimeId };
+  /** T3 (ADR-0091): os Batedores escolhidos (ids, em ordem) e o Elenco para escolher. */
+  batedores?: string[];
+  elenco?: { id: string; nome: string; posicao: Posicao }[];
 }
 
 /**
@@ -190,8 +195,8 @@ export async function capitaniaDoJogador(b: Banco, jogadorId: string, agora: Dat
   const [ordem, fora, nomes, escolha, lados, presenca, comV] = await Promise.all([
     ordemDoCapitao(b, j.time_id),
     suspensos(b, j.time_id, p.id),
-    b.query<{ id: string; username: string }>(`SELECT id::text AS id, username FROM jogador WHERE time_id = $1`, [j.time_id]).then((r) => r.rows),
-    b.query<{ postura: Postura; formacao: Formacao }>(`SELECT postura, formacao FROM postura WHERE partida_id = $1 AND time_id = $2`, [p.id, j.time_id]).then((r) => r.rows[0]),
+    b.query<{ id: string; username: string; apelido: string | null; posicao: Posicao; banido: boolean }>(`SELECT id::text AS id, username, apelido, posicao, banido FROM jogador WHERE time_id = $1`, [j.time_id]).then((r) => r.rows),
+    b.query<{ postura: Postura; formacao: Formacao; batedores: string[] | null }>(`SELECT postura, formacao, batedores FROM postura WHERE partida_id = $1 AND time_id = $2`, [p.id, j.time_id]).then((r) => r.rows[0]),
     b.query<{ mandante_id: TimeId; visitante_id: TimeId }>(`SELECT mandante_id, visitante_id FROM partida WHERE id = $1`, [p.id]).then((r) => r.rows[0]!),
     b.query(`SELECT 1 FROM presenca WHERE partida_id = $1 AND jogador_id = $2`, [p.id, jogadorId]).then((r) => r.rows.length > 0),
     vinculos,
@@ -205,6 +210,13 @@ export async function capitaniaDoJogador(b: Banco, jogadorId: string, agora: Dat
     formacao: escolha?.formacao ?? FORMACAO_PADRAO,
     presenca,
     jogo: { apito: p.apito.toISOString(), adversario: lados.mandante_id === j.time_id ? lados.visitante_id : lados.mandante_id },
+    // T3 (ADR-0091): Batedores e o Elenco para a lista (a resposta só vai para quem é do Time).
+    ...(temRegrasT3(t.numero)
+      ? {
+          batedores: (escolha?.batedores ?? []).map(String),
+          elenco: nomes.filter((n) => !n.banido).map((n) => ({ id: n.id, nome: n.apelido ?? `@${n.username}`, posicao: n.posicao })),
+        }
+      : {}),
   };
 }
 
@@ -238,7 +250,9 @@ export type Escolha =
   | { tipo: 'CANTO'; valor: Canto | null }
   | { tipo: 'PRESENCA' }
   | { tipo: 'POSTURA'; valor: Postura }
-  | { tipo: 'FORMACAO'; valor: Formacao };
+  | { tipo: 'FORMACAO'; valor: Formacao }
+  /** Batedores (ADR-0091): ids dos Jogadores do Time, em ordem; lista vazia volta à ordem automática. */
+  | { tipo: 'BATEDORES'; valor: string[] };
 
 export interface ResultadoDaEscolha {
   ok: boolean;
@@ -317,7 +331,35 @@ export async function aplicarEscolha(b: Banco, jogadorId: string, e: Escolha, ag
       );
       return { ok: true, mensagem: `Formação ${e.valor} no próximo jogo.` };
     }
+    case 'BATEDORES': {
+      // ADR-0091: mesma regra da Postura (só o Capitão, até o Corte), a partir da T3.
+      if (!temRegrasT3(t.numero)) return { ok: false, mensagem: 'Os Batedores chegam na Temporada 3.' };
+      const ids = Array.isArray(e.valor) ? e.valor.map(String) : [];
+      if (ids.length > QUANTIDADE_DE_BATEDORES) return { ok: false, mensagem: `Escolha no máximo ${QUANTIDADE_DE_BATEDORES} Batedores.` };
+      if (new Set(ids).size !== ids.length) return { ok: false, mensagem: 'Cada Jogador só pode aparecer uma vez na lista.' };
+      const p = await proximaPartidaDoTime(b, j.time_id, agora);
+      if (!p) return { ok: false, mensagem: 'Não há jogo do seu Time aberto para escolher os Batedores agora.' };
+      const capitao = await capitaoDaPartida(b, p.id, j.time_id, await comVinculo());
+      if (capitao !== jogadorId) return { ok: false, mensagem: 'Só o Capitão do Time escolhe os Batedores.' };
+      if (ids.length) {
+        const doTime = (await b.query<{ id: string }>(`SELECT id::text AS id FROM jogador WHERE time_id = $1 AND NOT banido AND id::text = ANY($2)`, [j.time_id, ids])).rows;
+        if (doTime.length !== ids.length) return { ok: false, mensagem: 'Só dá para escolher Jogadores do seu Time.' };
+      }
+      await b.query(
+        `INSERT INTO postura (partida_id, time_id, batedores, capitao_id, escolhida_em) VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (partida_id, time_id) DO UPDATE SET batedores = EXCLUDED.batedores, capitao_id = EXCLUDED.capitao_id, escolhida_em = EXCLUDED.escolhida_em`,
+        [p.id, j.time_id, JSON.stringify(ids), jogadorId, agora.toISOString()],
+      );
+      return { ok: true, mensagem: ids.length ? `${ids.length === 1 ? 'Batedor salvo' : `${ids.length} Batedores salvos`} para o próximo jogo.` : 'Ordem automática dos pênaltis no próximo jogo.' };
+    }
   }
+}
+
+/** Batedores de cada Time na Partida (ADR-0091; sem escolha, lista vazia e vale a ordem automática). */
+export async function batedoresDaPartida(b: Banco, partidaId: number, mandante: TimeId, visitante: TimeId): Promise<{ mandante: string[]; visitante: string[] }> {
+  const linhas = (await b.query<{ time_id: TimeId; batedores: string[] | null }>(`SELECT time_id, batedores FROM postura WHERE partida_id = $1`, [partidaId])).rows;
+  const de = (t: TimeId) => (linhas.find((l) => l.time_id === t)?.batedores ?? []).map(String);
+  return { mandante: de(mandante), visitante: de(visitante) };
 }
 
 /** Tamanho de cada Elenco (Jogadores não banidos), para a Arquibancada da T2 (ADR-0019). */
