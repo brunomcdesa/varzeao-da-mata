@@ -5,9 +5,8 @@
  *
  * A sessão é um segredo que só este navegador guarda (localStorage); a borda guarda o hash.
  */
-import { CANTOS, DESCRICAO_DA_ESPECIALIZACAO, DESCRICAO_DA_FORMACAO, ESPECIALIZACOES, FORMACOES, FORMACAO_PADRAO, HABILIDADES, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, POSTURAS, ehFormacao, type Canto, type Especializacao, type Formacao, type HabilidadeId, type Postura } from '@liga/shared';
-import { desenhoDaFormacao } from './formacao.js';
-import { NOME_DA_POSTURA, capitaniaAindaVale, type Capitania } from './planoDoTime.js';
+import { CANTOS, DESCRICAO_DA_ESPECIALIZACAO, ESPECIALIZACOES, FORMACAO_PADRAO, HABILIDADES, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, POSTURAS, ehFormacao, type Canto, type Especializacao, type Formacao, type HabilidadeId, type Postura } from '@liga/shared';
+import { NOME_DA_POSTURA, capitaniaAindaVale, formulariosDoCapitao, nomesDosBatedores, valorDoFormulario, type Capitania } from './planoDoTime.js';
 import { linhaDaPresenca } from './presenca.js';
 import { pedidoValido } from './pedidoDoSite.js';
 import { APELIDO_MAX, apelidoLiberaEm, podeTrocarApelido, CABELOS, NOME_DO_PENTEADO, validarApelido, PELES, PENTEADOS, TIMES, type Aparencia, type JogadorPublico, type Penteado, type Posicao, type TimeId } from '@liga/shared';
@@ -131,6 +130,30 @@ export async function capitaniaDoVinculo(): Promise<{ jogadorId: string; capitan
   if (!g || !BASE_API) return null;
   const r = await pedirEstado(g);
   return r?.status === 200 && r.dados.capitania ? { jogadorId: g.jogadorId, capitania: r.dados.capitania } : null;
+}
+
+/**
+ * Escolha do Capitão feita fora do painel (página do Time, ADR-0091): manda pela borda e, se a
+ * Liga aplicou na hora, guarda no estado deste navegador para a página já mostrar o plano novo.
+ */
+export async function enviarEscolhaDoVinculo(tipo: 'POSTURA' | 'FORMACAO' | 'BATEDORES', valor: string | string[] | null): Promise<{ ok: boolean; aplicada: boolean; mensagem: string }> {
+  const g = ler<Guardado>(CHAVE);
+  if (!g || !BASE_API) return { ok: false, aplicada: false, mensagem: 'Vincule o seu personagem para escolher.' };
+  const r = await api<{ ok?: boolean; erro?: string; pedido?: { resultado?: string; mensagem?: string; processadoEm?: string } }>('escolha', { sessao: g.sessao, tipo, valor }).catch(() => null);
+  if (r?.status === 401) return { ok: false, aplicada: false, mensagem: 'O vínculo deste navegador expirou. Vincule de novo no seu painel.' };
+  const p = r?.dados.pedido;
+  if (!r?.dados.ok) return { ok: false, aplicada: false, mensagem: r?.dados.erro ?? 'Não deu para enviar agora. Tente de novo.' };
+  if (!p?.processadoEm) return { ok: true, aplicada: false, mensagem: 'Enviado. A Liga aplica em 1 ou 2 minutos.' };
+  const ok = p.resultado !== 'RECUSADO';
+  if (ok) {
+    ajustarEstadoGuardado(g.jogadorId, (e) => {
+      if (!e.capitania) return;
+      if (tipo === 'POSTURA' && typeof valor === 'string') e.capitania.postura = valor;
+      if (tipo === 'FORMACAO' && typeof valor === 'string') e.capitania.formacao = valor;
+      if (tipo === 'BATEDORES' && Array.isArray(valor)) e.capitania.batedores = valor;
+    });
+  }
+  return { ok, aplicada: ok, mensagem: p.mensagem ?? (ok ? 'Pronto!' : 'Não deu.') };
 }
 
 /** O Jogador vinculado neste navegador, se houver (os Avisos já vêm com o Time dele marcado). */
@@ -315,11 +338,6 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
   let especializacao: Especializacao | null = j.especializacao ?? null;
   let treino: HabilidadeId | null = j.treino ?? null;
   let canto: Canto | null = null;
-  const DESCRICAO_DA_POSTURA: Record<Postura, string> = {
-    OFENSIVA: 'O Time ataca mais e deixa a defesa mais exposta.',
-    EQUILIBRADA: 'Sem mudar nada (é a Postura quando o Capitão não escolhe).',
-    DEFENSIVA: 'O Time se fecha atrás e ataca menos.',
-  };
   const NOME_DO_CANTO: Record<Canto, string> = { ESQUERDA: 'Esquerda', MEIO: 'Meio', DIREITA: 'Direita' };
 
   function blocoEscolhas() {
@@ -380,26 +398,11 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
     const formacao: Formacao = ehFormacao(c.formacao) ? c.formacao : FORMACAO_PADRAO;
     if (!c.eu) {
       const agora = html`${NOME_DA_POSTURA[atual]}, no ${formacao}`;
-      return html`<p class="legenda capitania">${c.capitao ? html`Capitão do ${curto(j.time)} no próximo jogo: <strong>@${c.capitao}</strong>. Só ele escolhe a Postura e a Formação (agora: ${agora}).` : html`Postura e Formação do ${curto(j.time)} no próximo jogo: ${agora}.`}</p>`;
+      // T3 (ADR-0091): quem é do Time também vê os Batedores.
+      const batedores = c.elenco ? nomesDosBatedores(c) : null;
+      return html`<p class="legenda capitania">${c.capitao ? html`Capitão do ${curto(j.time)} no próximo jogo: <strong>@${c.capitao}</strong>. Só ele escolhe a Postura e a Formação (agora: ${agora}).` : html`Postura e Formação do ${curto(j.time)} no próximo jogo: ${agora}.`}${batedores ? html` Batedores: ${batedores.length ? batedores.join(', ') : 'ordem automática'}.` : ''}</p>`;
     }
-    const radio = (valor: Postura) =>
-      html`<label class="opcao-t2"><input type="radio" name="valor" value="${valor}" ${valor === atual ? 'checked' : ''} /><span><strong>${NOME_DA_POSTURA[valor]}</strong><small>${DESCRICAO_DA_POSTURA[valor]}</small></span></label>`;
-    const opcaoFormacao = (f: Formacao) => {
-      const d = DESCRICAO_DA_FORMACAO[f];
-      return html`<label class="opcao-t2 opcao-formacao"><input type="radio" name="valor" value="${f}" ${f === formacao ? 'checked' : ''} />${desenhoDaFormacao(f)}<span><strong>${d.nome}${d.jogada ? html` <em class="jogada-formacao">${d.jogada}</em>` : ''}</strong><small>${d.linha}</small></span></label>`;
-    };
-    return html`<form class="escolha-t2" data-tipo="POSTURA">
-      <p><strong>Você é o Capitão do ${curto(j.time)}</strong> no próximo jogo. Escolha como o Time joga; dá para mudar até o Corte.</p>
-      <fieldset class="opcoes-t2">${POSTURAS.map(radio)}</fieldset>
-      <p><button type="submit" class="botao">Escolher a Postura</button></p>
-      <p class="estado-escolha" role="status" aria-live="polite"></p>
-    </form>
-    <form class="escolha-t2" data-tipo="FORMACAO">
-      <p><strong>Formação</strong>: quantos jogam atrás, no meio e na frente. Quem ficar fora porque a Formação cortou a vaga passa na frente no jogo seguinte. Faltando gente numa Posição, alguém de outra joga fora de posição.</p>
-      <fieldset class="opcoes-t2 formacoes">${FORMACOES.map(opcaoFormacao)}</fieldset>
-      <p><button type="submit" class="botao">Escolher a Formação</button></p>
-      <p class="estado-escolha" role="status" aria-live="polite"></p>
-    </form>`;
+    return formulariosDoCapitao(c, curto(j.time));
   }
 
   /** O próximo jogo do Time (vem com a capitania), para a linha do selo de Presença. */
@@ -462,7 +465,7 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
     void pedirEstado(g).then((r) => {
       if (r?.status === 200) aplicarEstado(r.dados);
     });
-    const enviar = async (tipo: string, valor: string | null, estado: HTMLElement) => {
+    const enviar = async (tipo: string, valor: string | string[] | null, estado: HTMLElement) => {
       estado.textContent = 'Enviando...';
       estado.className = 'estado-escolha';
       const r = await api<{ ok?: boolean; erro?: string; pedido?: { resultado?: string; mensagem?: string; processadoEm?: string } }>('escolha', { sessao: g.sessao, tipo, valor }).catch(() => null);
@@ -489,10 +492,11 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
       if (tipo === 'CANTO') canto = (valor as Canto | null) ?? null;
       // A próxima página (a do Time, por exemplo) já abre com o que acabou de ser salvo.
       ajustarEstadoGuardado(g.jogadorId, (e) => {
-        if (e.capitania && tipo === 'POSTURA' && valor) e.capitania.postura = valor;
-        if (e.capitania && tipo === 'FORMACAO' && valor) e.capitania.formacao = valor;
+        if (e.capitania && tipo === 'POSTURA' && typeof valor === 'string') e.capitania.postura = valor;
+        if (e.capitania && tipo === 'FORMACAO' && typeof valor === 'string') e.capitania.formacao = valor;
+        if (e.capitania && tipo === 'BATEDORES' && Array.isArray(valor)) e.capitania.batedores = valor;
         if (e.capitania && tipo === 'PRESENCA') e.capitania.presenca = true;
-        if (tipo === 'CANTO') e.CANTO = { escolha: { valor }, resultado: p.resultado ?? 'SALVO' };
+        if (tipo === 'CANTO') e.CANTO = { escolha: { valor: typeof valor === 'string' ? valor : null }, resultado: p.resultado ?? 'SALVO' };
       });
       if (tipo === 'PRESENCA') return mostrarPresenca();
       if (tipo === 'ESPECIALIZACAO' || tipo === 'TREINO') ajustarLocalmente(j.id, { especializacao, treino });
@@ -507,8 +511,7 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
       if (bloco instanceof HTMLFormElement) {
         bloco.addEventListener('submit', (e) => {
           e.preventDefault();
-          const v = new FormData(bloco).get('valor');
-          void enviar(tipo, v ? String(v) : null, estado);
+          void enviar(tipo, valorDoFormulario(bloco), estado);
         });
       } else bloco.querySelector('[data-enviar]')?.addEventListener('click', () => void enviar(tipo, null, estado));
     }

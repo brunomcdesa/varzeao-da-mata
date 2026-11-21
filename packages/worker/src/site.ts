@@ -7,7 +7,7 @@
  * aparecem depois do Apito (o lance a lance) ou do fim do Ao Vivo (placar, tabela, Card).
  * Escalações aparecem assim que existem (a partir do Corte).
  */
-import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Grupo, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2, timesQueCaem, GRUPOS, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
+import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Grupo, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2, temRegrasT3, perfilDoJuiz, timesQueCaem, GRUPOS, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
 import { fundadorDe } from './rebalanceamento.js';
 import { comSeloT1, subiramPeloPiso } from './recompensaT1.js';
 import { ajustesDeOvr } from './aMao.js';
@@ -617,6 +617,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
             : brigaDaPartida(linhaParaBriga(p), daSerie, timesDaSerie(p.temporada_id, p.serie), comSeries(p.temporada_id) ? p.serie : null);
         return b ? { briga: b } : {};
       })(),
+      // Perfil do Juiz (T3, ADR-0094): aparece com a Escalação; sai do id da Partida, igual na simulação.
+      ...(linhas && temRegrasT3(temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0) ? { juiz: perfilDoJuiz(p.id) } : {}),
       // Arquibancada (T2): só nas Partidas simuladas com as regras da Temporada 2.
       ...(revelada(p) && (p.resultado as { postura?: unknown } | null)?.postura != null
         ? { torcida: { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 } }

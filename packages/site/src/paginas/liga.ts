@@ -2,8 +2,8 @@
 import { FALA_DO_TIME, GRUPOS, IDENTIDADE, NOME_DO_GRUPO, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, foraDoMataMata, forcaProvavel, inscritosAteNoProximoJogo, nomeDaRodada, type Formacao, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
 import { avisoDaPreTemporada, diaLongo, jogadores, liga, preTemporada, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos, gruposAtivos, formaDosTimes } from '../dados.js';
 import { bonecoImg, campinho, curto, escudoImg, forcaHtml, formaHtml, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa } from '../ui.js';
-import { capitaniaDoVinculo, capitaniaGuardada, jogadorVinculado } from '../meuPersonagem.js';
-import { blocoDoPlano, planoDaCapitania, type Capitania } from '../planoDoTime.js';
+import { capitaniaDoVinculo, capitaniaGuardada, enviarEscolhaDoVinculo, jogadorVinculado } from '../meuPersonagem.js';
+import { blocoDoPlano, planoDaCapitania, valorDoFormulario, type Capitania } from '../planoDoTime.js';
 import { chaveamento } from './chave.js';
 import { linhaDePartida, tabelaDeClassificacao } from './comum.js';
 import type { Pagina } from './tipos.js';
@@ -223,9 +223,36 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
     const chave = JSON.stringify(r.capitania);
     if (chave === mostrado) return;
     mostrado = chave;
-    lugar.outerHTML = html`<div data-plano>${blocoDoPlano(r.capitania, r.jogadorId)}</div>`.s;
+    const aberto = lugar.querySelector<HTMLDetailsElement>('.escolhas-no-time')?.open ?? false;
+    lugar.outerHTML = html`<div data-plano>${blocoDoPlano(r.capitania, r.jogadorId, new Date(), curto(t))}</div>`.s;
     const prov = main.querySelector<HTMLElement>('[data-provavel]');
     if (prov) prov.innerHTML = provavel(planoDaCapitania(r.capitania).formacao).s;
+    // O Capitão também escolhe aqui (ADR-0091): Postura, Formação e Batedores.
+    const novo = main.querySelector<HTMLElement>('[data-plano]');
+    const dobra = novo?.querySelector<HTMLDetailsElement>('.escolhas-no-time');
+    if (dobra) dobra.open = aberto;
+    for (const form of novo?.querySelectorAll<HTMLFormElement>('form.escolha-t2') ?? []) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const estado = form.querySelector<HTMLElement>('.estado-escolha')!;
+        estado.textContent = 'Enviando...';
+        estado.className = 'estado-escolha';
+        void enviarEscolhaDoVinculo(form.dataset.tipo as 'POSTURA' | 'FORMACAO' | 'BATEDORES', valorDoFormulario(form)).then((res) => {
+          if (res.aplicada) {
+            mostrado = null;
+            mostrar(capitaniaGuardada());
+            const depois = main.querySelector<HTMLElement>(`[data-plano] form[data-tipo="${form.dataset.tipo}"] .estado-escolha`);
+            if (depois) {
+              depois.textContent = res.mensagem;
+              depois.className = 'estado-escolha sucesso';
+            }
+            return;
+          }
+          estado.textContent = res.mensagem;
+          estado.className = `estado-escolha ${res.ok ? '' : 'erro'}`;
+        });
+      });
+    }
   };
   mostrar(capitaniaGuardada());
   void capitaniaDoVinculo().then(mostrar);

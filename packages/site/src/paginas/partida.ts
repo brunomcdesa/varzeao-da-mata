@@ -1,5 +1,5 @@
 /** Partida: escalações a partir do Corte, transmissão ao vivo ou replay, lances e Notas. */
-import { IDENTIDADE, TAMANHO_ESCALACAO, duracaoAoVivoMs, forcaDaEscalacao, nomeDaEtapa, type EscalacaoPublica, type PartidaPublica } from '@liga/shared';
+import { IDENTIDADE, NOME_DO_PERFIL_DO_JUIZ, TAMANHO_ESCALACAO, duracaoAoVivoMs, forcaDaEscalacao, nomeDaEtapa, type EscalacaoPublica, type PartidaPublica } from '@liga/shared';
 import type { Desempenho, Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { contagem, diaLongo, hora, jogadores, partida, situacaoAgora } from '../dados.js';
 import { DURACAO_JOGO, narradorDa, ocupanteNoLance, resultadoDaCobranca, todosDaEscalacao } from '@liga/renderer';
@@ -233,6 +233,7 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
               p.escalacoes.visitante.jogadores.map((j) => ({ posicao: j.posicao, time: p.visitante, username: j.username, apelido: j.apelido ?? null, ovr: j.ovr, ...(j.jogadorId ? { href: `#/jogador/${j.jogadorId}` } : {}) })),
             )}
             <div class="escalacoes">${escalacao(p.escalacoes.mandante, 'mandante', mostrarFinal ? r : null, camisas)}${escalacao(p.escalacoes.visitante, 'visitante', mostrarFinal ? r : null, camisas)}</div>
+            ${p.juiz ? html`<p class="juiz-da-partida juiz-${p.juiz.toLowerCase()}">Juiz: <strong>${NOME_DO_PERFIL_DO_JUIZ[p.juiz]}</strong> <small>${p.juiz === 'RIGOROSO' ? 'marca mais faltas e dá mais cartões' : p.juiz === 'DEIXA_JOGAR' ? 'deixa o jogo correr: menos faltas e cartões' : 'arbitragem normal'}</small></p>` : ''}
             ${mostrarFinal ? html`<p class="legenda">● gol · ▲▼ OVR depois do jogo · Nota de 0 a 10, comparada ao que se espera do OVR.</p>` : html`<p class="legenda">OVR antes do jogo. Vaga sem inscrito é completada pela Base (OVR 55).</p>`}`
         : html`<section class="placa vazio"><p>A escalação sai no Corte, ${CORTE_MIN} minutos antes do apito: quem tem menos jogos entra primeiro.</p></section>`}
 

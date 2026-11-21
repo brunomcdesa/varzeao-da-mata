@@ -72,3 +72,33 @@ describe('capitania guardada no navegador (ADR-0094)', () => {
     expect(capitaniaAindaVale(null, 0)).toBe(false);
   });
 });
+
+describe('Batedores e escolhas na página do Time (ADR-0091)', () => {
+  const agora = new Date('2026-11-30T12:00:00.000Z');
+  const jogo = { apito: '2026-11-30T18:00:00.000Z', adversario: 'ONC' as const };
+  const elenco = [
+    { id: '1', nome: 'Bruninho', posicao: 'ATA' as const },
+    { id: '2', nome: '@zag_10', posicao: 'ZAG' as const },
+    { id: '3', nome: 'Paredão', posicao: 'GOL' as const },
+  ];
+
+  it('quem é do Time vê os Batedores em ordem; sem escolha, a ordem automática', () => {
+    const com = blocoDoPlano({ eu: false, capitao: 'fulano', postura: 'EQUILIBRADA', jogo, elenco, batedores: ['2', '1', '99'] }, 'x', agora, 'Capivara').s;
+    expect(com).toContain('Batedores <strong>1.\u00a0@zag_10 · 2.\u00a0Bruninho</strong>');
+    expect(com).not.toContain('data-tipo="BATEDORES"');
+    const sem = blocoDoPlano({ eu: false, capitao: 'fulano', postura: 'EQUILIBRADA', jogo, elenco, batedores: [] }, 'x', agora).s;
+    expect(sem).toContain('Batedores <strong>ordem automática</strong>');
+  });
+
+  it('o Capitão escolhe ali mesmo: Postura, Formação e Batedores (cinco listas, com o escolhido marcado)', () => {
+    const s = blocoDoPlano({ eu: true, capitao: 'eu', postura: 'OFENSIVA', formacao: '3-2-1', jogo, elenco, batedores: ['3'] }, 'x', agora, 'Capivara').s;
+    expect(s).toContain('Você é o Capitão do Capivara');
+    for (const tipo of ['POSTURA', 'FORMACAO', 'BATEDORES']) expect(s).toContain(`data-tipo="${tipo}"`);
+    expect(s.match(/name="batedor"/g)).toHaveLength(5);
+    expect(s).toContain('<option value="3" selected>Paredão (GOL)</option>');
+    // Na T2 (sem Elenco na capitania) não há Batedores.
+    const t2 = blocoDoPlano({ eu: true, capitao: 'eu', postura: 'OFENSIVA', jogo }, 'x', agora).s;
+    expect(t2).not.toContain('data-tipo="BATEDORES"');
+    expect(t2).not.toContain('Batedores');
+  });
+});
