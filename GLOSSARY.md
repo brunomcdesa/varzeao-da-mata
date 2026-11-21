@@ -400,6 +400,10 @@ _Avoid_: hino, música, cântico
 O boneco que apita as Partidas da T2: acompanha o lance, apita a falta e mostra o Cartão. É só visual e não tem nome escrito.
 _Avoid_: árbitro, apitador
 
+**Perfil do Juiz**:
+O jeito de apitar do Juiz, a partir da T3: Rigoroso, Normal ou Deixa jogar, sorteado para cada Partida. Muda a chance de Falta e de Cartão; aparece na Escalação e o Narrador comenta no Apito Inicial (ADR-0094).
+_Avoid_: humor do juiz, critério
+
 **Clima**:
 O tempo da Partida (sol, chuva ou lama), sorteado para cada Partida. Muda o visual e a fala do Narrador, e não decide nenhum lance.
 _Avoid_: tempo, condição do campo
@@ -445,3 +449,27 @@ _Avoid_: aposta, bolão, chute
 **Conquista**:
 Marco da Carreira ganho uma vez só (primeiro gol, hat-trick, 20 gols etc.), que vira selo na página de Carreira e paga 5, 10 ou 20 Moedas conforme a dificuldade. O que foi feito na T1 e na T2 dá só o selo (ADR-0090).
 _Avoid_: troféu, medalha, achievement, Título
+
+**Trave**:
+O chute que bate no poste ou no travessão e não entra, a partir da T3 (ADR-0094).
+_Avoid_: poste, bola no ferro
+
+**Rebote**:
+A bola que o goleiro defende e solta, a partir da T3. Um atacante disputa com um zagueiro: se o atacante vence, chuta de novo; se o zagueiro vence, afasta (ADR-0094).
+_Avoid_: sobra, segunda bola
+
+**Chute de longe**:
+O chute de fora da área do meia ou, mais raro, do zagueiro, sem Duelo com o zagueiro rival: Finalização contra Goleiro. Existe de verdade a partir da T3; antes era só um jeito de desenhar o lance (ADR-0094).
+_Avoid_: bomba, chute de fora
+
+**Pressão final**:
+Nos últimos 15 minutos, o Time que perde por 1 ou 2 gols (ou, no Mata-mata e na Copa, está empatado) se lança ao ataque: mais lances dele e mais Contra-ataques do rival. A partir da T3 (ADR-0094).
+_Avoid_: abafa, blitz, desespero
+
+**Acréscimos**:
+Os 1 a 4 minutos a mais no fim do segundo tempo, a partir da T3, mostrados na tela e anunciados pelo Narrador (ADR-0094).
+_Avoid_: tempo extra, prorrogação
+
+**Gol de placa**:
+O gol com drible no marcador que ainda vence a Cobertura, ou o Chute de longe muito acima do Goleiro, a partir da T3. Ganha câmera lenta e fala especial; o primeiro de cada Jogador é uma Conquista (ADR-0094).
+_Avoid_: golaço, pintura
