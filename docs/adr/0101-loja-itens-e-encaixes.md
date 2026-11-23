@@ -34,4 +34,11 @@ Não muda a simulação: a VERSAO_SIM continua a mesma.
 
 - Migração 028: `item_do_jogador`, `jogador.itens` e `escalacao.itens`.
 - As escolhas COMPRA, EQUIPAR e TIRAR passam pelo mesmo caminho das outras escolhas do site, e a Carteira passa a trazer a Loja do dono.
-- A segunda fase (penteados e barba novos e a Comemoração de gol) entra no mesmo catálogo, com `fase: 2`, quando abrir no meio da T3.
+- A segunda fase entra no mesmo catálogo, com `fase: 2` (abaixo).
+
+## Segunda fase (aprovada em 23/11/2026)
+
+- Abre no dia da Rodada 4 da Fase de Liga da T3 (horário de Brasília) e fica aberta dali em diante. O Reels "Loja nova" sai nesse dia, às 10h.
+- Três Encaixes de desenho, além dos de cor: Penteado (cabelo longo, raspado, tranças e topete), Barba (bigode, cavanhaque e barba cheia) e Comemoração de gol (aviãozinho, mortal, joelhada e dancinha).
+- Penteado e Barba são básicos (20 Moedas) e usam a cor de cabelo que o dono já escolheu na Aparência. O Penteado da Loja equipado vale no lugar do penteado grátis. A Barba aparece de frente e de lado.
+- A Comemoração é rara (100 Moedas). Dura cerca de 1 s no começo do destaque do gol, só em quem marcou e só em gol de jogo (não na disputa de pênaltis). Aparece no Ao Vivo, no Replay e no Reels, porque todos usam o mesmo desenho.

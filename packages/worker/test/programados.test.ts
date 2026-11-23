@@ -137,7 +137,7 @@ describe('Reels Programados (ADR-0051)', () => {
   });
 
   it('T3 (ADR-0092): Abertura sábado 21h e as quatro novidades no domingo, véspera da Copa', () => {
-    const t3 = REELS_PROGRAMADOS.filter((p) => p.id.endsWith('-t3') || p.id.startsWith('novidades-t3-'));
+    const t3 = REELS_PROGRAMADOS.filter((p) => p.id.endsWith('-t3') || (p.id.startsWith('novidades-t3-') && p.id !== 'novidades-t3-loja2'));
     expect(t3.map((p) => [p.id, p.publicarEm])).toEqual([
       ['abertura-t3', '2026-11-29T00:00:00Z'],
       ['novidades-t3-campo', '2026-11-29T15:00:00Z'],
@@ -156,5 +156,13 @@ describe('Reels Programados (ADR-0051)', () => {
     expect(ab).toContain('Série A: Capivara e Onça');
     expect(ab).toContain('A Copa começa segunda, 30/11. A Fase de Liga começa quinta, 03/12');
     expect(ab).toContain('40 Moedas');
+  });
+
+  it('a segunda fase da Loja sai no dia da Rodada 4 da T3, às 10h, sem a chamada da Copa', () => {
+    const p = REELS_PROGRAMADOS.find((x) => x.id === 'novidades-t3-loja2')!;
+    expect(p.publicarEm).toBe('2026-12-06T13:00:00Z');
+    const l = legendaDasNovidadesT3(p.id, '2026-11-30', p.publicarEm);
+    expect(l).toContain('aviãozinho, mortal, joelhada ou dancinha');
+    expect(l).not.toContain('Copa começa');
   });
 });

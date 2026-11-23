@@ -5,12 +5,12 @@
  * Linguagem visual: várzea em pixel art. Placar de tábua com plaquinhas penduradas,
  * campo com terrão e cal, mata em volta e faixa de torcida no gol.
  */
-import { FALA_DO_TIME, IDENTIDADE, coresDosItens, NOME_DO_GRUPO, NOME_DO_PERFIL_DO_JUIZ, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type ItensEquipados, type Posicao, type SituacaoNaBriga, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, NOME_DO_PERFIL_DO_JUIZ, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type ItensEquipados, type Posicao, type SituacaoNaBriga, type TimeId } from '@liga/shared';
 import type { Lado } from '@liga/sim';
 import { CAMPO, cenario } from './cenario.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste, ruido } from './pixel.js';
 import { ALTURA_DAS_ESTRELAS, ALTURA_ESCUDO, LARGURA_ESCUDO, escudo, estrelasDoEscudo } from './escudos.js';
-import { ALTURA_SPRITE, LARGURA_SPRITE, MAO_DO_APITO, aparencia, escolherPose, espelharNoSprite, itensDe, sprite, type Pose, type Visual } from './sprites.js';
+import { ALTURA_SPRITE, LARGURA_SPRITE, MAO_DO_APITO, aparencia, escolherPose, espelharNoSprite, itensDe, quadroDaComemoracao, sprite, vestir, type Pose, type Visual } from './sprites.js';
 import type { CartaoNoJogo, EstadoQuadro, JogadorNoQuadro, Ponto } from './timeline.js';
 import { visualDoJuiz, type JuizNoQuadro } from './juiz.js';
 import { desenharArquibancada, desenharCartao, desenharClimaNoAr, desenharClimaNoChao, desenharCloseDaTorcida } from './arquibancada.js';
@@ -136,7 +136,7 @@ function visualDe(j: JogadorNoQuadro, o: OpcoesDesenho, e?: EstadoQuadro): Visua
   const v = {
     ...visualDoJogador(o.times[j.slot.lado], j.posicao, nome),
     numero: o.numeros?.[j.slot.lado][quem] ?? null,
-    ...(o.itens ? { itens: coresDosItens(o.itens[j.slot.lado][quem], j.posicao === 'GOL') } : {}),
+    ...(o.itens ? vestir(o.itens[j.slot.lado][quem], j.posicao === 'GOL') : {}),
   };
   // T2: o visitante usa o segundo uniforme quando as camisas se confundem (o goleiro não muda).
   if (e?.t2?.segundoUniforme === j.slot.lado && j.posicao !== 'GOL') {
@@ -156,16 +156,20 @@ export function visualDoJogador(time: TimeId, posicao: Posicao, nome: string): V
     calcao: goleiro ? '#2B2B2B' : id.secundaria,
     meiao: goleiro ? id.secundaria : id.primaria,
     ...aparencia(nome),
-    itens: itensDe(nome, goleiro),
+    ...itensDe(nome, goleiro),
   };
 }
 
 function desenharJogador(pin: Pincel, j: JogadorNoQuadro, o: OpcoesDesenho, fase: number, e?: EstadoQuadro): void {
   const p = noCampo(j.pos);
   const olhar = { x: j.olhar.x - j.pos.x, y: j.olhar.y - j.pos.y };
+  const visual = visualDe(j, o, e);
+  // Comemoração de gol da Loja (ADR-0101): só quem marcou, no começo do destaque do gol.
+  const gol = e?.destaque?.tipo === 'GOL' && !e.destaque.penalti ? e.destaque : null;
+  const comemora = visual.comemoracao && gol && j.acao === 'COMEMORANDO' && gol.protagonista.lado === j.slot.lado && gol.protagonista.indice === j.slot.indice && gol.progresso < FIM_DA_COMEMORACAO;
+  if (comemora) return desenharComemoracao(pin, j, visual, gol.progresso / FIM_DA_COMEMORACAO);
   const escolha = escolherPose(j.acao, j.vel, olhar, fase + j.slot.indice);
   const { pose, pulo } = escolha;
-  const visual = visualDe(j, o, e);
   // De costas, com número, o sprite já vem virado: espelhar o canvas inverteria o número.
   const noSprite = espelharNoSprite(pose, visual.numero, escolha.espelhar);
   const espelhar = escolha.espelhar && !noSprite;
@@ -183,6 +187,24 @@ function desenharJogador(pin: Pincel, j: JogadorNoQuadro, o: OpcoesDesenho, fase
   } else {
     c.drawImage(img, x, y, LARGURA_SPRITE * s, ALTURA_SPRITE * s);
   }
+  c.restore();
+}
+
+/** Parte do destaque do gol que a comemoração da Loja ocupa (o destaque dura 75 s de jogo: uns 20 s, cerca de 1 s no vídeo). */
+const FIM_DA_COMEMORACAO = 0.27;
+
+function desenharComemoracao(pin: Pincel, j: JogadorNoQuadro, visual: Visual, f: number): void {
+  const q = quadroDaComemoracao(visual.comemoracao!, f);
+  const p = noCampo(j.pos);
+  const img = sprite(q.pose, visual);
+  const s = pin.px * ESCALA_BONECO;
+  const c = pin.ctx;
+  c.save();
+  // Gira em volta do meio do boneco, que fica no lugar de sempre (o pé em `p`).
+  c.translate(Math.round(p.x * pin.px), Math.round((p.y + 1) * pin.px - (ALTURA_SPRITE / 2) * s - q.pulo * s));
+  if (q.angulo) c.rotate(q.angulo);
+  if (q.espelhar) c.scale(-1, 1);
+  c.drawImage(img, (-LARGURA_SPRITE / 2) * s, (-ALTURA_SPRITE / 2) * s, LARGURA_SPRITE * s, ALTURA_SPRITE * s);
   c.restore();
 }
 

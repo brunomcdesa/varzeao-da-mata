@@ -5,7 +5,7 @@
  * legenda embaixo); o resto em cartelas, no estilo dos outros Reels de anúncio. Cada Reels tem o
  * seu Narrador; no de dentro de campo, os cinco Narradores se apresentam com a própria voz.
  */
-import { ESPECIALIZACOES, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, coresDosItens, type ItensEquipados, type Posicao, type TimeId } from '@liga/shared';
+import { ESPECIALIZACOES, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, coresDosItens, type ComemoracaoDaLoja, type ItensEquipados, type Posicao, type TimeId } from '@liga/shared';
 import { boneco, uniforme } from './apresentacao.js';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro } from './desenho.js';
@@ -13,34 +13,36 @@ import type { EventoSonoro, Fala } from './narracao.js';
 import { NARRADORES } from './narradores.js';
 import { COLUNAS, COR, LINHAS, Pincel } from './pixel.js';
 import type { Segmento } from './roteiro.js';
-import type { Pose } from './sprites.js';
+import { quadroDaComemoracao, sprite, type Pose, type Visual } from './sprites.js';
 import { Timeline } from './timeline.js';
 import { DURACAO_DO_CARTAO, cameraQueSegue, closeNoJuiz, desenharCartaoGigante, desenharEscudoDaLiga, tempoComPausa, veu, type MomentoDoCartao, type PartidaParaVideo } from './video.js';
 import { desenharEstrelaSolta } from './escudos.js';
 
-export type ReelsDeNovidades = 'CAMPO' | 'CAPITAO' | 'JOGADOR' | 'SITE' | 'T3_CAMPO' | 'T3_LOJA' | 'T3_PALPITE' | 'T3_CAPITAO';
+export type ReelsDeNovidades = 'CAMPO' | 'CAPITAO' | 'JOGADOR' | 'SITE' | 'T3_CAMPO' | 'T3_LOJA' | 'T3_PALPITE' | 'T3_CAPITAO' | 'T3_LOJA2';
 /** As séries de Reels de cada Temporada: a T2 (ADR-0063) e a T3 (ADR-0092). */
 export const SERIE_DE_NOVIDADES: Record<2 | 3, readonly ReelsDeNovidades[]> = {
   2: ['CAMPO', 'CAPITAO', 'JOGADOR', 'SITE'],
   3: ['T3_CAMPO', 'T3_LOJA', 'T3_PALPITE', 'T3_CAPITAO'],
 };
-export const REELS_DE_NOVIDADES: readonly ReelsDeNovidades[] = [...SERIE_DE_NOVIDADES[2], ...SERIE_DE_NOVIDADES[3]];
+/** Fora das séries: o anúncio da segunda fase da Loja, no meio da T3 (ADR-0101). */
+export const REELS_DE_NOVIDADES: readonly ReelsDeNovidades[] = [...SERIE_DE_NOVIDADES[2], ...SERIE_DE_NOVIDADES[3], 'T3_LOJA2'];
 export const temporadaDasNovidades = (r: ReelsDeNovidades): 2 | 3 => (r.startsWith('T3_') ? 3 : 2);
 const serieDe = (r: ReelsDeNovidades) => SERIE_DE_NOVIDADES[temporadaDasNovidades(r)];
 /** O id do Reels Programado (e do vídeo) de cada um. */
 export const ID_DAS_NOVIDADES: Record<ReelsDeNovidades, string> = {
   CAMPO: 'novidades-campo', CAPITAO: 'novidades-capitao', JOGADOR: 'novidades-jogador', SITE: 'novidades-site',
   T3_CAMPO: 'novidades-t3-campo', T3_LOJA: 'novidades-t3-loja', T3_PALPITE: 'novidades-t3-palpite', T3_CAPITAO: 'novidades-t3-capitao',
+  T3_LOJA2: 'novidades-t3-loja2',
 };
 /** Narrador de cada Reels. */
 export const NARRADOR_DAS_NOVIDADES: Record<ReelsDeNovidades, string> = {
   CAMPO: 'RITA', CAPITAO: 'TURBO', JOGADOR: 'BETO', SITE: 'ZE',
-  T3_CAMPO: 'TURBO', T3_LOJA: 'ZE', T3_PALPITE: 'BETO', T3_CAPITAO: 'RITA',
+  T3_CAMPO: 'TURBO', T3_LOJA: 'ZE', T3_PALPITE: 'BETO', T3_CAPITAO: 'RITA', T3_LOJA2: 'ZE',
 };
 /** Hora (Brasília) de cada um; o Reels anterior chama o seguinte. */
 export const HORA_DAS_NOVIDADES: Record<ReelsDeNovidades, number> = {
   CAMPO: 12, CAPITAO: 14, JOGADOR: 16, SITE: 18,
-  T3_CAMPO: 12, T3_LOJA: 14, T3_PALPITE: 16, T3_CAPITAO: 18,
+  T3_CAMPO: 12, T3_LOJA: 14, T3_PALPITE: 16, T3_CAPITAO: 18, T3_LOJA2: 10,
 };
 
 /** Os trechos de jogo que os Reels usam (achados nas Partidas de exemplo pelo script de gravação). */
@@ -76,7 +78,9 @@ type CartelaId =
   | 'VINCULO' | 'APELIDO' | 'CAMISA' | 'ESPECIALIZACAO' | 'TREINO' | 'PRESENCA' | 'RESENHA' | 'SELECAO'
   | 'APP' | 'AVISOS' | 'AO_VIVO' | 'CARREIRA' | 'ESTRELA'
   /** T3 (ADRs 0087 a 0091 e 0101). */
-  | 'JUIZ' | 'MOEDAS' | 'LOJA' | 'PALPITE' | 'CONQUISTAS' | 'BATEDORES';
+  | 'JUIZ' | 'MOEDAS' | 'LOJA' | 'PALPITE' | 'CONQUISTAS' | 'BATEDORES'
+  /** Segunda fase da Loja (ADR-0101). */
+  | 'CORTES' | 'COMEMORACOES';
 
 export interface CenaNovidade {
   id: string;
@@ -95,12 +99,12 @@ export interface CenaNovidade {
 
 const TITULO: Record<ReelsDeNovidades, string> = {
   CAMPO: 'Dentro de campo', CAPITAO: 'O Capitão', JOGADOR: 'Seu Jogador', SITE: 'Site e App',
-  T3_CAMPO: 'Dentro de campo', T3_LOJA: 'Salário e Loja', T3_PALPITE: 'Palpite e Conquistas', T3_CAPITAO: 'Capitão e Batedores',
+  T3_CAMPO: 'Dentro de campo', T3_LOJA: 'Salário e Loja', T3_PALPITE: 'Palpite e Conquistas', T3_CAPITAO: 'Capitão e Batedores', T3_LOJA2: 'Loja nova',
 };
 /** Como o Reels anterior chama o seguinte ("às duas da tarde, tem mais: ..."). */
 const CHAMADA_DO_PROXIMO: Record<ReelsDeNovidades, string> = {
   CAMPO: '', CAPITAO: 'o capitão', JOGADOR: 'o seu jogador', SITE: 'o site e o app',
-  T3_CAMPO: '', T3_LOJA: 'o salário e a loja', T3_PALPITE: 'o palpite e as conquistas', T3_CAPITAO: 'o capitão e os batedores',
+  T3_CAMPO: '', T3_LOJA: 'o salário e a loja', T3_PALPITE: 'o palpite e as conquistas', T3_CAPITAO: 'o capitão e os batedores', T3_LOJA2: '',
 };
 const HORA_FALADA: Record<number, string> = { 10: 'às dez da manhã', 11: 'às onze', 12: 'ao meio-dia', 13: 'à uma da tarde', 14: 'às duas da tarde', 15: 'às três da tarde', 16: 'às quatro da tarde', 17: 'às cinco da tarde', 18: 'às seis da tarde', 19: 'às sete da noite', 20: 'às oito da noite', 21: 'às nove da noite' };
 const DIA_DA_SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
@@ -121,7 +125,8 @@ export function quandoEstreia(d: Pick<DadosDasNovidades, 'estreia' | 'publicadoE
 /** As cenas de cada Reels, na ordem, com o texto falado. Cenas de jogo sem trecho saem. */
 export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
   const serie = serieDe(d.reels);
-  const proximo = serie[serie.indexOf(d.reels) + 1];
+  // Fora da série (a Loja nova), não chama ninguém.
+  const proximo = serie.includes(d.reels) ? serie[serie.indexOf(d.reels) + 1] : undefined;
   const chamaProximo = proximo ? ` E ${HORA_FALADA[HORA_DAS_NOVIDADES[proximo]]}, tem mais: ${CHAMADA_DO_PROXIMO[proximo]}!` : '';
   const estreia = quandoEstreia(d).falado;
   const c = (id: string, base: number, fala: string, visual: CenaNovidade['visual'], tom: CenaNovidade['tom'] = 'normal', narrador?: string): CenaNovidade => ({ id, base, fala, visual, tom, ...(narrador ? { narrador } : {}) });
@@ -323,6 +328,18 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
         c('chamada', 5, `A temporada três começa ${estreia}, com a Copa! Entra no site e confere tudo. Link na bio!`, { cartela: 'CHAMADA' }, 'animado'),
       ];
       break;
+    case 'T3_LOJA2':
+      cenas = [
+        c('abertura', 4.5, 'Chegou a segunda fase da loja! Tem visual novo pro seu jogador.', { cartela: 'ABERTURA' }, 'animado'),
+        c('cortes', 9, 'Quatro penteados novos: cabelo longo, raspado, tranças e topete. E três barbas: bigode, cavanhaque e barba cheia. Cada um custa vinte moedas, e fica na cor do cabelo que você já escolheu.', { cartela: 'CORTES' }),
+        c('comemoracoes', 10, 'E agora o seu jogador comemora do jeito dele! Aviãozinho, mortal, joelhada ou dancinha. É item raro: cem moedas. Aparece no gol, no ao vivo, no replay e no Reels.', { cartela: 'COMEMORACOES' }),
+        lista('como', 'Na Loja', [
+          ['A sacola no topo', 'No site e no App, com Vínculo.'],
+          ['Vale do próximo jogo', 'A Escalação guarda o que estava\nequipado no Corte.'],
+        ], 'Tá tudo na loja, na sacola no topo do site e do app, com o vínculo. E vale a partir do próximo jogo.', undefined, 6.5),
+        c('chamada', 4.5, 'Corre lá e deixa o seu jogador com a sua cara! Link na bio.', { cartela: 'CHAMADA' }, 'animado'),
+      ];
+      break;
   }
   return cenas.filter((x) => !('clipe' in x.visual) || d.clipes[x.visual.clipe]);
 }
@@ -505,7 +522,8 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
   const selo = () => {
     // "Novidades da T2 · 2/4" no canto de cima das cartelas.
     const serie = serieDe(d.reels);
-    pin.texto(`Novidades da T${temporadaDasNovidades(d.reels)} · ${serie.indexOf(d.reels) + 1}/${serie.length}`, COLUNAS / 2, 14, 10, texto, VERDE, { peso: 700 });
+    const k = serie.indexOf(d.reels);
+    pin.texto(`Novidades da T${temporadaDasNovidades(d.reels)}${k >= 0 ? ` · ${k + 1}/${serie.length}` : ''}`, COLUNAS / 2, 14, 10, texto, VERDE, { peso: 700 });
   };
   const corre = (k: number): Pose => ((passo + k) % 2 ? 'FRENTE_CORRE_A' : 'FRENTE_CORRE_B');
   const cartao = (x: number, y: number, cor: string, esc = 1) => {
@@ -586,7 +604,7 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
       surge(entre(t, 1.6, 2.0), () => {
         const serie = serieDe(d.reels);
         const k = serie.indexOf(d.reels);
-        serie.forEach((r, i) => {
+        if (k >= 0) serie.forEach((r, i) => {
           const x = COLUNAS / 2 - 54 + i * 36;
           pin.r(x - 1, 335, 26, 14, COR.contorno);
           pin.r(x, 336, 24, 12, i === k ? COR.amarelo : i < k ? VERDE : '#55452F');
@@ -640,6 +658,15 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
     }
 
     case 'CHAMADA': {
+      if (d.reels === 'T3_LOJA2') {
+        // A Loja nova sai no meio da Temporada: sem estreia, só o convite.
+        surge(entre(t, 0, 0.5), () => escudoLiga(COLUNAS / 2, 96, 80));
+        surge(entre(t, 0.3, 0.8), () => {
+          pin.texto('A Loja já abriu', COLUNAS / 2, 172, pin.caber('A Loja já abriu', 240, 30, display), display, COR.amarelo, { contorno: COR.contorno, espessura: 1.5 });
+          pin.texto('Link na bio', COLUNAS / 2, 210, 22, display, COR.placa, { contorno: COR.contorno });
+        });
+        break;
+      }
       const q2 = quandoEstreia(d);
       surge(entre(t, 0, 0.5), () => escudoLiga(COLUNAS / 2, 96, 80));
       surge(entre(t, 0.3, 0.8), () => {
@@ -659,7 +686,7 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
         }
       });
       const serieDaChamada = serieDe(d.reels);
-      const proximo = serieDaChamada[serieDaChamada.indexOf(d.reels) + 1];
+      const proximo = serieDaChamada.includes(d.reels) ? serieDaChamada[serieDaChamada.indexOf(d.reels) + 1] : undefined;
       surge(entre(t, 1.6, 2.0), () => {
         if (proximo) {
           pin.tabua(34, 318, 202, 58);
@@ -851,6 +878,61 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
       });
       surge(entre(t, 3.4, 3.8), () => linha('Com a Formação e a Postura', 372, 13, COR.placa, 226));
       surge(entre(t, 4.2, 4.6), () => linha('Só o Capitão · até o Corte', 396, 13, VERDE, 226));
+      break;
+    }
+    case 'CORTES': {
+      titulo('Penteados e barbas');
+      const cortes: [string, Partial<Pick<Visual, 'corte' | 'barba'>>, string, string][] = [
+        ['Longo', { corte: 'LONGO' }, '#7A4A22', '#C68B59'],
+        ['Raspado', { corte: 'RASPADO' }, '#1C130D', '#E0AC7E'],
+        ['Tranças', { corte: 'TRANCAS' }, '#1C130D', '#6E4426'],
+        ['Topete', { corte: 'TOPETE' }, '#B98A3E', '#F3CDA8'],
+        ['Bigode', { barba: 'BIGODE' }, '#1C130D', '#C68B59'],
+        ['Cavanhaque', { barba: 'CAVANHAQUE' }, '#2E1D12', '#9A6238'],
+        ['Barba cheia', { barba: 'CHEIA' }, '#4A2E19', '#E0AC7E'],
+      ];
+      cortes.forEach(([nome, estilo, cabelo, pele], k) => {
+        const linha = k < 4 ? 0 : 1;
+        const coluna = linha === 0 ? k : k - 4;
+        const porLinha = linha === 0 ? 4 : 3;
+        const x = COLUNAS / 2 - (porLinha * 62) / 2 + coluna * 62;
+        const y = 82 + linha * 150;
+        const de = 0.3 + k * 0.7;
+        surge(entre(t, de, de + 0.4), () => {
+          pin.tabua(x + 2, y, 58, 138);
+          boneco(pin, linha === 0 && k % 2 ? 'COSTAS_PARADO' : 'FRENTE_PARADO', { ...uniforme('CAP', 'MEI', `corte-${k}`), cabelo, pele, ...estilo }, x + 7, y + 10, 4);
+          pin.texto(nome, x + 31, y + 120, pin.caber(nome, 54, 12, display), display, COR.placa, { contorno: COR.contorno });
+        });
+      });
+      surge(entre(t, 5.4, 5.8), () => linha('20 Moedas cada · na cor do seu cabelo', 400, 13, VERDE, 226));
+      break;
+    }
+    case 'COMEMORACOES': {
+      titulo('Comemoração de gol');
+      const lista4: [string, ComemoracaoDaLoja][] = [['Aviãozinho', 'AVIAOZINHO'], ['Mortal', 'MORTAL'], ['Joelhada', 'JOELHADA'], ['Dancinha', 'DANCINHA']];
+      lista4.forEach(([nome, com], k) => {
+        const x = 16 + (k % 2) * 122;
+        const y = 80 + Math.floor(k / 2) * 150;
+        const de = 0.4 + k * 1.4;
+        surge(entre(t, de, de + 0.4), () => {
+          pin.placa(x, y, 116, 140, { fundo: '#5C4613', luz: '#F2C14E', sombra: COR.contorno });
+          // A comemoração em loop: 1 s, mais uma pausa curta.
+          const f = Math.min(1, (t % 1.4) / 1);
+          const q = quadroDaComemoracao(com, f);
+          const img = sprite(q.pose, { ...uniforme('ONC', 'ATA', `com-${k}`), comemoracao: com });
+          const esc = 4 * pin.px;
+          const c = pin.ctx;
+          c.save();
+          c.translate((x + 58) * pin.px, (y + 66 - q.pulo * 4) * pin.px);
+          if (q.angulo) c.rotate(q.angulo);
+          if (q.espelhar) c.scale(-1, 1);
+          c.drawImage(img as CanvasImageSource, -6 * esc, -8 * esc, 12 * esc, 16 * esc);
+          c.restore();
+          pin.texto(nome, x + 58, y + 124, pin.caber(nome, 104, 16, display), display, DOURADO, { contorno: COR.contorno });
+        });
+      });
+      surge(entre(t, 6.4, 6.8), () => linha('Item raro: 100 Moedas', 392, 15, DOURADO, 226));
+      surge(entre(t, 7.2, 7.6), () => linha('No gol: Ao Vivo, Replay e Reels', 418, 13, VERDE, 226));
       break;
     }
     case 'ESTRELA': {

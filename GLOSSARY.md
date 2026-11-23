@@ -451,7 +451,7 @@ Peça visual comprada na Loja (Chuteira colorida, Acessório, penteado ou barba 
 _Avoid_: skin, cosmético, acessório (para o conjunto)
 
 **Encaixe**:
-O lugar do boneco onde vai um Item: Chuteira, Munhequeira, Faixa na cabeça ou Luva do goleiro. Só um Item equipado por Encaixe; a Luva só aparece no goleiro (ADR-0101).
+O lugar do boneco onde vai um Item: Chuteira, Munhequeira, Faixa na cabeça e Luva do goleiro (Itens de cor) e, na segunda fase, Penteado, Barba e Comemoração de gol (Itens de desenho). Só um Item equipado por Encaixe; a Luva só aparece no goleiro (ADR-0101).
 _Avoid_: slot, espaço, categoria
 
 **Comemoração de gol**:

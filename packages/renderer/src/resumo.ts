@@ -685,7 +685,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
           calcao: goleiro ? '#2B2B2B' : id.secundaria,
           meiao: goleiro ? id.secundaria : id.primaria,
           ...aparencia(`@${c.username}`),
-          itens: itensDe(`@${c.username}`, goleiro),
+          ...itensDe(`@${c.username}`, goleiro),
         };
         const pose = k === 0 && fase % 2 === 0 ? 'FRENTE_COMEMORA' : 'FRENTE_PARADO';
         pin.ctx.drawImage(sprite(pose, visual), 23 * pin.px, (y + 8) * pin.px, 36 * pin.px, 48 * pin.px);
@@ -776,7 +776,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
         calcao: c.posicao === 'GOL' ? '#2B2B2B' : id.secundaria,
         meiao: c.posicao === 'GOL' ? id.secundaria : id.primaria,
         ...aparencia(`@${c.username}`),
-        itens: itensDe(`@${c.username}`, c.posicao === 'GOL'),
+        ...itensDe(`@${c.username}`, c.posicao === 'GOL'),
       };
       const pose = Math.floor(tVideo * 3) % 2 === 0 ? 'FRENTE_COMEMORA' : 'FRENTE_PARADO';
       pin.ctx.drawImage(sprite(pose, visual), 105 * pin.px, (100 - (1 - a) * 10) * pin.px, 60 * pin.px, 80 * pin.px);
@@ -832,7 +832,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
           calcao: goleiro ? '#2B2B2B' : id.secundaria,
           meiao: goleiro ? id.secundaria : id.primaria,
           ...aparencia(`@${j.username}`),
-          itens: itensDe(`@${j.username}`, goleiro),
+          ...itensDe(`@${j.username}`, goleiro),
         };
         const pose = Math.floor(tVideo * 3) % 2 === 0 ? 'FRENTE_COMEMORA' : 'FRENTE_PARADO';
         pin.ctx.drawImage(sprite(pose, visual), 48 * pin.px, (y + 38) * pin.px, 48 * pin.px, 64 * pin.px);
@@ -873,7 +873,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
           calcao: goleiro ? '#2B2B2B' : id.secundaria,
           meiao: goleiro ? id.secundaria : id.primaria,
           ...aparencia(`@${j.username}`),
-          itens: itensDe(`@${j.username}`, goleiro),
+          ...itensDe(`@${j.username}`, goleiro),
         };
         const pose = (fase + k) % 2 === 0 ? 'FRENTE_COMEMORA' : 'FRENTE_PARADO';
         pin.ctx.drawImage(sprite(pose, visual), 23 * pin.px, (y + 19) * pin.px, 36 * pin.px, 48 * pin.px);

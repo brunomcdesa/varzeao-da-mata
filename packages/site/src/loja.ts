@@ -16,7 +16,9 @@ export interface EstadoDaLoja {
   fase: 1 | 2;
 }
 
-export const encaixesDaLoja = (goleiro: boolean): Encaixe[] => ENCAIXES.filter((e) => goleiro || e !== ENCAIXE_SO_DO_GOLEIRO);
+/** Encaixes que aparecem: a Luva só para o goleiro, e só os que já têm Item na fase aberta. */
+export const encaixesDaLoja = (goleiro: boolean, fase: 1 | 2 = 1): Encaixe[] =>
+  ENCAIXES.filter((e) => (goleiro || e !== ENCAIXE_SO_DO_GOLEIRO) && ITENS.some((i) => i.encaixe === e && i.fase <= fase));
 
 /** O que o botão faz com o Item selecionado. */
 export type AcaoDaLoja = { tipo: 'COMPRAR'; preco: number; podePagar: boolean } | { tipo: 'EQUIPAR' } | { tipo: 'TIRAR' };
@@ -43,12 +45,15 @@ export function corpoDaLoja(e: EstadoDaLoja, selecionado: string | null) {
         ${e.saldo === null ? '' : html`<p class="saldo-moedas"><span class="moeda" aria-hidden="true"></span><strong>${e.saldo}</strong> Moedas</p>`}
       </div>
       <div class="loja-encaixes">
-        ${encaixesDaLoja(e.goleiro).map(
+        ${encaixesDaLoja(e.goleiro, e.fase).map(
           (encaixe) => html`<fieldset><legend>${NOME_DO_ENCAIXE[encaixe]}</legend><div class="amostras">${ITENS.filter((i) => i.encaixe === encaixe && i.fase <= e.fase).map((i) => {
             const meu = e.donos.includes(i.codigo);
             const usando = e.equipados[encaixe] === i.codigo;
             const rotulo = `${i.nome}${usando ? ', equipado' : meu ? ', já é seu' : `, ${PRECO_DO_ITEM[i.raridade]} Moedas`}`;
-            return html`<button type="button" class="amostra item ${i.raridade === 'RARO' ? 'raro' : ''} ${meu ? 'meu' : ''} ${usando ? 'usando' : ''}" data-item="${i.codigo}" style="--amostra:${i.cor}" aria-pressed="${String(i.codigo === selecionado)}" aria-label="${rotulo}" title="${rotulo}"></button>`;
+            // Itens de desenho (corte, barba, comemoração) são botões com o nome; os de cor, amostras.
+            return i.estilo
+              ? html`<button type="button" class="item-nome item ${i.raridade === 'RARO' ? 'raro' : ''} ${meu ? 'meu' : ''} ${usando ? 'usando' : ''}" data-item="${i.codigo}" aria-pressed="${String(i.codigo === selecionado)}" aria-label="${rotulo}" title="${rotulo}">${i.nome}</button>`
+              : html`<button type="button" class="amostra item ${i.raridade === 'RARO' ? 'raro' : ''} ${meu ? 'meu' : ''} ${usando ? 'usando' : ''}" data-item="${i.codigo}" style="--amostra:${i.cor}" aria-pressed="${String(i.codigo === selecionado)}" aria-label="${rotulo}" title="${rotulo}"></button>`;
           })}</div></fieldset>`,
         )}
       </div>
@@ -59,6 +64,6 @@ export function corpoDaLoja(e: EstadoDaLoja, selecionado: string | null) {
           <button type="button" class="botao" data-acao-loja="${acao.tipo}" ${acao.tipo === 'COMPRAR' && !acao.podePagar ? 'disabled' : ''}>${textoDoBotao(item, acao)}</button>
           ${faltam ? html`<p class="legenda">Faltam ${faltam} Moedas: o Salário entra todo dia de jogo.</p>` : ''}
         </div>`
-      : html`<p class="legenda">Toque num Item para ver no boneco. Básico custa ${PRECO_DO_ITEM.BASICO} Moedas e raro (dourado), ${PRECO_DO_ITEM.RARO}. O Item é seu para sempre e dá para trocar sem pagar de novo. A Escalação guarda o que estava equipado no Corte.</p>`}
+      : html`<p class="legenda">Toque num Item para ver no boneco. Básico custa ${PRECO_DO_ITEM.BASICO} Moedas e raro (dourado${e.fase >= 2 ? ' e comemoração' : ''}), ${PRECO_DO_ITEM.RARO}. O Item é seu para sempre e dá para trocar sem pagar de novo. A Escalação guarda o que estava equipado no Corte.</p>`}
     <p class="estado-loja" role="status" aria-live="polite"></p>`;
 }

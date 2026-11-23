@@ -72,7 +72,7 @@ export async function carteiraDoJogador(b: Banco, jogadorId: string, agora: Date
       [jogadorId],
     ),
   ]);
-  const loja = await lojaDoJogador(b, jogadorId);
+  const loja = await lojaDoJogador(b, jogadorId, agora);
   return {
     saldo: await saldo(b, jogadorId, agora),
     ...(loja ? { loja } : {}),

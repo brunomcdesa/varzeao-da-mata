@@ -51,6 +51,21 @@ describe('Loja (ADR-0101)', () => {
     expect(await itensEquipadosAtuais(banco)).toEqual({ comprador: { FAIXA: 'FAIXA_BRANCA', CHUTEIRA: 'CHUTEIRA_AZUL' } });
   });
 
+  it('a segunda fase (cortes, barbas e comemorações) só abre no dia da Rodada 4 da Liga da T3', async () => {
+    const t = await criarTemporada(banco, { numero: 3, primeiraRodada: '2026-11-30', seed: 4, series });
+    const id = await inscrever('CAP', 'ATA', 'estiloso');
+    await dar(id, 200);
+    const dia = (await banco.query<{ d: string }>(`SELECT to_char(data, 'YYYY-MM-DD') AS d FROM rodada WHERE temporada_id = $1 AND fase = 'LIGA' AND numero = 4`, [t])).rows[0]!.d;
+    const comprar = (codigo: string, quando: Date) => aplicarEscolha(banco, id, { tipo: 'COMPRA', valor: codigo }, quando, async () => new Set());
+    expect((await comprar('CORTE_TRANCAS', agora)).mensagem).toBe('Esse Item não está na Loja.');
+    // 10h de Brasília do dia da Rodada 4.
+    const naRodada4 = new Date(`${dia}T13:00:00Z`);
+    expect((await comprar('CORTE_TRANCAS', naRodada4)).ok).toBe(true);
+    expect((await comprar('COMEMORACAO_MORTAL', naRodada4)).ok).toBe(true);
+    expect(await saldo(banco, id, naRodada4)).toBe(80);
+    expect((await carteiraDoJogador(banco, id, naRodada4)).loja?.fase).toBe(2);
+  });
+
   it('antes da T3 a Loja não abre', async () => {
     await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-30', seed: 4, series });
     const id = await inscrever('CAP', 'ATA', 'cedo');

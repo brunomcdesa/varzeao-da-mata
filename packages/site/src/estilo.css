@@ -4314,3 +4314,19 @@ a.jogo:hover {
 .perfil-do-time small {
   opacity: 0.85;
 }
+/* Loja, segunda fase: Itens de desenho são botões com o nome */
+.item-nome.item {
+  position: relative;
+  padding: 6px 10px;
+  border: 2px solid var(--contorno);
+  background: var(--placa);
+  color: var(--tinta);
+  font: 700 0.8125rem var(--texto);
+  cursor: pointer;
+}
+.item-nome.item[aria-pressed='true'] {
+  background: var(--amarelo);
+}
+.item-nome.item.raro {
+  border-color: #b07a12;
+}

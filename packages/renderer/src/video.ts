@@ -3,7 +3,7 @@
  * mais as cartelas de abertura e de fim e o escurecimento dos cortes.
  */
 import { ocupanteDoDesempenho } from './substituicao.js';
-import { FALA_DO_TIME, IDENTIDADE, NOME_DO_PERFIL_DO_JUIZ, coresDosItens, TAMANHO_ESCALACAO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type ItensEquipados, type MataMataDaPartida, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, NOME_DO_PERFIL_DO_JUIZ, TAMANHO_ESCALACAO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type ItensEquipados, type MataMataDaPartida, type TimeId } from '@liga/shared';
 import type { Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, faixaDeTorcida, noCampo, plaquinha, rotulo, type Camera, type OpcoesDesenho } from './desenho.js';
@@ -11,7 +11,7 @@ import type { EstadoQuadro, Timeline } from './timeline.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
 import { LARGURA_ESCUDO } from './escudos.js';
 import type { OpcoesRoteiro, QuadroRoteiro, Roteiro, Segmento } from './roteiro.js';
-import { aparencia, itensDe, sprite } from './sprites.js';
+import { aparencia, itensDe, sprite, vestir } from './sprites.js';
 import { narradorDa } from './narradores.js';
 
 export interface OpcoesVideo extends OpcoesDesenho {
@@ -458,7 +458,7 @@ function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number
       meiao: goleiro ? id.secundaria : id.primaria,
       ...aparencia(arroba),
       // Itens da Escalação (ADR-0101): o Craque aparece como jogou.
-      itens: o.itens ? coresDosItens(o.itens[melhor.slot.lado][quem], goleiro) : itensDe(arroba, goleiro),
+      ...(o.itens ? vestir(o.itens[melhor.slot.lado][quem], goleiro) : itensDe(arroba, goleiro)),
     };
     const escala = 5;
     const pulo = Math.floor(tVideo * 4) % 2 === 0 ? 0 : 2;

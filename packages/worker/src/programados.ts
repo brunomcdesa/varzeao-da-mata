@@ -47,6 +47,7 @@ const ESTREIA_PREVISTA: Record<string, { temporada: number; estreia: string }> =
   'novidades-t3-loja': { temporada: 3, estreia: '2026-11-30' },
   'novidades-t3-palpite': { temporada: 3, estreia: '2026-11-30' },
   'novidades-t3-capitao': { temporada: 3, estreia: '2026-11-30' },
+  'novidades-t3-loja2': { temporada: 3, estreia: '2026-11-30' },
 };
 
 /** Legenda de cada Programado. */
@@ -215,6 +216,14 @@ export function legendaDasNovidadesT3(id: string, estreia: string, publicarEm: s
       '',
       'Às 18h: Capitão e Batedores.',
     ],
+    'novidades-t3-loja2': [
+      '✂️ Chegou a segunda fase da Loja do Varzeão!',
+      '',
+      `Penteados novos: cabelo longo, raspado, tranças e topete. Barbas: bigode, cavanhaque e barba cheia. ${PRECO_DO_ITEM.BASICO} Moedas cada, na cor do cabelo que você já escolheu.`,
+      `🎉 Comemoração de gol: aviãozinho, mortal, joelhada ou dancinha. Item raro, ${PRECO_DO_ITEM.RARO} Moedas. Aparece no gol, no Ao Vivo, no Replay e no Reels.`,
+      '',
+      'Tá tudo na sacola no topo do site e do App, com Vínculo. Vale a partir do próximo jogo.',
+    ],
     'novidades-t3-capitao': [
       '©️ Novidades da Temporada 3 (4/4): Capitão e Batedores!',
       '',
@@ -225,6 +234,8 @@ export function legendaDasNovidadesT3(id: string, estreia: string, publicarEm: s
   };
   const linhas = corpo[id];
   if (!linhas) throw new Error(`Novidades sem legenda: ${id}`);
+  // A Loja nova sai no meio da Temporada: sem a chamada da Copa.
+  if (id === 'novidades-t3-loja2') return [...linhas, '', 'Link na bio.', '', '#futebol #varzea #jogo #liga'].join('\n');
   return [...linhas, ...fim].join('\n');
 }
 

@@ -17,6 +17,9 @@ describe('Loja (ADR-0101)', () => {
     expect(encaixesDaLoja(false)).toEqual(['CHUTEIRA', 'MUNHEQUEIRA', 'FAIXA']);
     expect(encaixesDaLoja(true)).toContain('LUVA');
   });
+  it('a segunda fase traz corte, barba e comemoração (ADR-0101)', () => {
+    expect(encaixesDaLoja(false, 2)).toEqual(['CHUTEIRA', 'MUNHEQUEIRA', 'FAIXA', 'CORTE', 'BARBA', 'COMEMORACAO']);
+  });
 });
 
 describe('Atalho da Loja no topo (ADR-0101)', async () => {

@@ -3,8 +3,8 @@
  * de prévia; tocar num Item mostra no boneco e o botão compra, equipa ou tira. Sem Vínculo: os
  * Itens à mostra num boneco de exemplo e o convite para vincular.
  */
-import { ITEM_POR_CODIGO, coresDosItens, temMoedas, type Carteira, type ItensEquipados, type JogadorPublico } from '@liga/shared';
-import { ALTURA_SPRITE, LARGURA_SPRITE, sprite, visualDoJogador, type Pose } from '@liga/renderer';
+import { ITEM_POR_CODIGO, temMoedas, type Carteira, type ItensEquipados, type JogadorPublico } from '@liga/shared';
+import { ALTURA_SPRITE, LARGURA_SPRITE, quadroDaComemoracao, sprite, vestir, visualDoJogador, type Pose } from '@liga/renderer';
 import { atualizarCarteiraDoTopo } from '../carteiraDoTopo.js';
 import { jogadores, liga } from '../dados.js';
 import { temporadaDoApp } from '../instalacao.js';
@@ -40,8 +40,23 @@ export const paginaLoja: Pagina = async (main) => {
     const item = selecionado ? ITEM_POR_CODIGO.get(selecionado) : null;
     const equipados: ItensEquipados = item ? { ...estado.equipados, [item.encaixe]: item.codigo } : estado.equipados;
     const base = eu ? visualDoJogador(eu.time, eu.posicao, `@${eu.username}`) : visualDoJogador(EXEMPLO.time, EXEMPLO.posicao, EXEMPLO.username);
-    const pose = POSES[quadro % POSES.length]!;
-    const v = { ...base, ...(eu?.numero ? { numero: eu.numero } : {}), itens: coresDosItens(equipados, estado.goleiro) };
+    const v = { ...base, ...(eu?.numero ? { numero: eu.numero } : {}), ...vestir(equipados, estado.goleiro) };
+    // Com uma comemoração selecionada, o boneco faz ela em loop (1 s, e uma pausa).
+    if (item?.encaixe === 'COMEMORACAO' && v.comemoracao) {
+      const f = (quadro % 14) / 10;
+      const q = quadroDaComemoracao(v.comemoracao, Math.min(1, f));
+      const s = canvas.width / LARGURA_SPRITE;
+      c.save();
+      c.translate(canvas.width / 2, canvas.height / 2 - q.pulo * s * 0.5);
+      // Encolhe um pouco para o giro e o pulo caberem no quadro.
+      c.scale(0.8, 0.8);
+      if (q.angulo) c.rotate(q.angulo);
+      if (q.espelhar) c.scale(-1, 1);
+      c.drawImage(sprite(q.pose, v) as CanvasImageSource, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
+      c.restore();
+      return;
+    }
+    const pose = POSES[Math.floor(quadro / 10) % POSES.length]!;
     c.drawImage(sprite(pose, v) as CanvasImageSource, 0, 0, canvas.width, canvas.height);
   };
 
@@ -96,9 +111,10 @@ export const paginaLoja: Pagina = async (main) => {
   const girar = () => {
     quadro++;
     desenhar();
-    timer = window.setTimeout(girar, 1100);
+    timer = window.setTimeout(girar, 110);
   };
-  timer = window.setTimeout(girar, 1100);
+  // 10 quadros por pose (1,1 s, como antes); a comemoração usa os quadros um a um.
+  timer = window.setTimeout(girar, 110);
   return () => {
     clearTimeout(timer);
     main.removeEventListener('click', aoClicar);

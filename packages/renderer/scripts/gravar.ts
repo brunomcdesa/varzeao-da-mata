@@ -41,6 +41,8 @@ const { values: args } = parseArgs({
     /** Partida com as regras da Temporada 2 (ADR-0019 a 0024). Com --vitrine, procura uma com falta, cartão, pênalti e barreira. */
     t2: { type: 'boolean' },
     vitrine: { type: 'boolean' },
+    /** Prévia da segunda fase da Loja: todos os Jogadores com corte, barba e comemoração. */
+    loja: { type: 'boolean' },
     /** Com --t2: a primeira Partida a partir de --seed com Substituição no intervalo (ADR-0061). */
     troca: { type: 'boolean' },
     /**
@@ -121,6 +123,14 @@ async function main(): Promise<void> {
       ],
     };
     partida.subtitulo ??= 'Última Rodada, jogo das 14h';
+  }
+  if (args.loja) {
+    // Prévia da Loja (ADR-0101): todos com Itens, as quatro comemorações espalhadas pelo Time.
+    const com = ['COMEMORACAO_AVIAOZINHO', 'COMEMORACAO_MORTAL', 'COMEMORACAO_JOELHADA', 'COMEMORACAO_DANCINHA'];
+    const cortes = ['CORTE_LONGO', 'CORTE_RASPADO', 'CORTE_TRANCAS', 'CORTE_TOPETE'];
+    const barbas = ['BARBA_BIGODE', 'BARBA_CAVANHAQUE', 'BARBA_CHEIA'];
+    const de = (n: number) => Array.from({ length: n }, (_, k) => ({ COMEMORACAO: com[k % 4]!, CORTE: cortes[(k + 1) % 4]!, ...(k % 2 ? { BARBA: barbas[k % 3]! } : {}), CHUTEIRA: 'CHUTEIRA_AZUL' }));
+    partida.itens = { mandante: de(12), visitante: de(12) };
   }
   await gravarReels(partida, {
     saida: resolve(process.cwd(), args.saida!),

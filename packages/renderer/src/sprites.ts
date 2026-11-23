@@ -7,7 +7,7 @@
  *          B calção · M meião · L luva/mão do goleiro (cor da camisa)
  *          Itens da Loja (ADR-0101): P chuteira · W munhequeira · F faixa · G luva do goleiro
  */
-import { CABELOS, PELES, coresDosItens, type Aparencia, type Encaixe, type ItensEquipados, type Penteado } from '@liga/shared';
+import { CABELOS, PELES, coresDosItens, estilosDosItens, type Aparencia, type BarbaDaLoja, type ComemoracaoDaLoja, type CorteDaLoja, type Encaixe, type ItensEquipados, type Penteado } from '@liga/shared';
 import type { AcaoJogador } from './jogada.js';
 import { contraste } from './pixel.js';
 
@@ -201,6 +201,8 @@ export interface Visual {
   /** Corte e barba da Loja (segunda fase). */
   corte?: CorteDaLoja;
   barba?: BarbaDaLoja;
+  /** Comemoração de gol da Loja: só muda o desenho de quem marcou, na hora do gol. */
+  comemoracao?: ComemoracaoDaLoja;
 }
 
 
@@ -217,9 +219,13 @@ export function definirItens(lista: Record<string, ItensEquipados>): void {
   itensAtuais.clear();
   for (const [nome, i] of Object.entries(lista)) itensAtuais.set(chaveDoNome(nome), i);
 }
-/** Cores dos Itens equipados agora pelo dono do @ (a Luva só no goleiro). */
-export function itensDe(nome: string, goleiro: boolean): Partial<Record<Encaixe, string>> {
-  return coresDosItens(itensAtuais.get(chaveDoNome(nome)), goleiro);
+/** O que os Itens mudam no Visual: as cores (a Luva só no goleiro), o corte, a barba e a comemoração. */
+export function vestir(itens: ItensEquipados | null | undefined, goleiro: boolean): Pick<Visual, 'itens' | 'corte' | 'barba' | 'comemoracao'> {
+  return { itens: coresDosItens(itens, goleiro), ...estilosDosItens(itens) };
+}
+/** Os Itens equipados agora pelo dono do @, prontos para espalhar no Visual. */
+export function itensDe(nome: string, goleiro: boolean): Pick<Visual, 'itens' | 'corte' | 'barba' | 'comemoracao'> {
+  return vestir(itensAtuais.get(chaveDoNome(nome)), goleiro);
 }
 
 /** Pele e cabelo do Jogador: os que o dono escolheu, ou os sorteados pelo @ (sempre os mesmos). */
@@ -298,10 +304,7 @@ function noRosto(grade: string[], x: number, y: number): boolean {
   return x > l.indexOf('K') && x < l.lastIndexOf('K');
 }
 
-/** Cortes da Loja (ADR-0087, segunda fase): por cima da grade, nas 7 linhas da cabeça. */
-export type CorteDaLoja = 'LONGO' | 'RASPADO' | 'TRANCAS' | 'TOPETE';
-/** Barbas da Loja (segunda fase): na cor do cabelo, só de frente e de lado. */
-export type BarbaDaLoja = 'BIGODE' | 'CAVANHAQUE' | 'CHEIA';
+/** Cortes (por cima da grade, nas 7 linhas da cabeça) e barbas (na cor do cabelo, de frente e de lado) da Loja, segunda fase (ADR-0101). */
 
 const familia = (pose: Pose): 'FRENTE' | 'COSTAS' | 'LADO' | 'OUTRA' =>
   pose.startsWith('COSTAS') ? 'COSTAS' : pose.startsWith('LADO') ? 'LADO' : pose === 'MERGULHO' ? 'OUTRA' : 'FRENTE';
@@ -362,6 +365,33 @@ export function comBarba(grade: string[], barba: BarbaDaLoja | undefined, pose: 
     else { pinta(g, 5, 5, 'H', 'S'); pinta(g, 5, 6, 'H', 'S'); }
   }
   return g.map((l) => l.join(''));
+}
+
+/**
+ * Quadro da comemoração de gol da Loja (ADR-0101), com f de 0 a 1 ao longo de cerca de 1 s:
+ * a pose, o giro (radianos), o pulo (pixels do boneco) e se espelha. O deslocamento no campo
+ * continua sendo o da corrida de comemoração.
+ */
+export function quadroDaComemoracao(c: ComemoracaoDaLoja, f: number): { pose: Pose; angulo: number; pulo: number; espelhar: boolean } {
+  const x = Math.min(1, Math.max(0, f));
+  switch (c) {
+    case 'AVIAOZINHO':
+      // Braços abertos, balançando as asas.
+      return { pose: 'FRENTE_AVIAO', angulo: Math.sin(x * Math.PI * 4) * 0.25, pulo: Math.abs(Math.sin(x * Math.PI * 4)) * 1, espelhar: false };
+    case 'MORTAL': {
+      // Pula e dá uma volta inteira; aterrissa de braços para cima.
+      const noAr = x > 0.15 && x < 0.85;
+      return { pose: noAr ? 'FRENTE_PARADO' : 'FRENTE_COMEMORA', angulo: noAr ? ((x - 0.15) / 0.7) * Math.PI * 2 : 0, pulo: Math.sin(x * Math.PI) * 9, espelhar: false };
+    }
+    case 'JOELHADA':
+      // Cai de joelhos e desliza.
+      return { pose: x < 0.2 ? 'FRENTE_CORRE_A' : 'JOELHADA', angulo: 0, pulo: 0, espelhar: false };
+    case 'DANCINHA': {
+      // Troca de pose e de lado no ritmo, com um pulinho.
+      const passo = Math.floor(x * 8);
+      return { pose: passo % 2 ? 'FRENTE_COMEMORA' : 'FRENTE_PARADO', angulo: 0, pulo: passo % 2 ? 1 : 0, espelhar: passo % 4 >= 2 };
+    }
+  }
 }
 
 const CONTORNO = '#15110E';

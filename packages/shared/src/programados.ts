@@ -39,6 +39,8 @@ export const REELS_PROGRAMADOS: readonly ReelsProgramado[] = [
   { id: 'novidades-t3-loja', ref: 2011, publicarEm: '2026-11-29T17:00:00Z' },
   { id: 'novidades-t3-palpite', ref: 2012, publicarEm: '2026-11-29T19:00:00Z' },
   { id: 'novidades-t3-capitao', ref: 2013, publicarEm: '2026-11-29T21:00:00Z' },
+  // Segunda fase da Loja (ADR-0101): abre no dia da Rodada 4 da Liga da T3 (domingo 06/12), às 10h.
+  { id: 'novidades-t3-loja2', ref: 2014, publicarEm: '2026-12-06T13:00:00Z' },
 ];
 
 /** O job grava a partir de 2 h antes e ainda tenta até 1 h depois do horário. */

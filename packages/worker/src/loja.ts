@@ -7,8 +7,22 @@ import { ENCAIXES, ENCAIXE_SO_DO_GOLEIRO, ITEM_POR_CODIGO, NOME_DO_ENCAIXE, PREC
 import type { Banco } from './banco.js';
 import { lancar, saldo } from './carteira.js';
 
-/** Fase da Loja aberta (ADR-0087): a segunda fase (penteados, barba, Comemoração) ainda não abriu. */
-export const FASE_DA_LOJA: 1 | 2 = 1;
+/**
+ * Fase da Loja aberta (ADRs 0087 e 0101): a segunda (cortes, barbas e comemorações) abre no dia da
+ * Rodada 4 da Fase de Liga da T3 (horário de Brasília) e fica aberta dali em diante.
+ */
+export async function faseDaLoja(b: Banco, agora: Date): Promise<1 | 2> {
+  const r = (
+    await b.query<{ numero: number; dia: string | null }>(
+      `SELECT t.numero, (SELECT to_char(r.data, 'YYYY-MM-DD') FROM rodada r WHERE r.temporada_id = t.id AND r.fase = 'LIGA' AND r.numero = 4) AS dia
+         FROM temporada t WHERE t.numero >= 3 ORDER BY t.numero DESC LIMIT 1`,
+    )
+  ).rows[0];
+  if (!r) return 1;
+  if (r.numero > 3) return 2;
+  const hoje = new Date(agora.getTime() - 3 * 3600_000).toISOString().slice(0, 10);
+  return r.dia !== null && r.dia <= hoje ? 2 : 1;
+}
 
 interface Resultado {
   ok: boolean;
@@ -36,7 +50,7 @@ async function salvarEquipados(b: Banco, jogadorId: string, itens: ItensEquipado
 /** Compra o Item e já equipa. Recusa sem Moedas, Item repetido, fora da fase e Luva de quem não é goleiro. */
 export async function comprarItem(b: Banco, jogadorId: string, codigo: string, agora: Date): Promise<Resultado> {
   const item = ITEM_POR_CODIGO.get(codigo);
-  if (!item || item.fase > FASE_DA_LOJA) return { ok: false, mensagem: 'Esse Item não está na Loja.' };
+  if (!item || item.fase > (await faseDaLoja(b, agora))) return { ok: false, mensagem: 'Esse Item não está na Loja.' };
   return b.transacao(async (t) => {
     // Trava o Jogador: duas compras ao mesmo tempo não passam do saldo.
     const j = await jogadorDaLoja(t, jogadorId, true);
@@ -49,7 +63,7 @@ export async function comprarItem(b: Banco, jogadorId: string, codigo: string, a
     await t.query(`INSERT INTO item_do_jogador (jogador_id, codigo, comprado_em) VALUES ($1, $2, $3)`, [jogadorId, codigo, agora.toISOString()]);
     await lancar(t, { jogadorId, tipo: 'COMPRA', referencia: codigo, valor: -preco, descricao: item.nome, visivelEm: agora });
     await salvarEquipados(t, jogadorId, { ...lerEquipados(j.itens), [item.encaixe]: codigo });
-    return { ok: true, mensagem: `${item.nome} comprada e equipada. Vale a partir do próximo jogo.` };
+    return { ok: true, mensagem: `Compra feita: ${item.nome}. Já está equipado e vale a partir do próximo jogo.` };
   });
 }
 
@@ -61,7 +75,7 @@ export async function equiparItem(b: Banco, jogadorId: string, codigo: string): 
   if (!j || j.banido) return { ok: false, mensagem: 'Jogador não encontrado.' };
   if (!(await donos(b, jogadorId)).includes(codigo)) return { ok: false, mensagem: 'Esse Item ainda não é seu.' };
   await salvarEquipados(b, jogadorId, { ...lerEquipados(j.itens), [item.encaixe]: codigo });
-  return { ok: true, mensagem: `${item.nome} equipada. Vale a partir do próximo jogo.` };
+  return { ok: true, mensagem: `Equipado: ${item.nome}. Vale a partir do próximo jogo.` };
 }
 
 /** Tira o Item de um Encaixe (ele continua sendo do Jogador). */
@@ -72,14 +86,14 @@ export async function tirarItem(b: Banco, jogadorId: string, encaixe: string): P
   const itens = lerEquipados(j.itens);
   delete itens[encaixe as Encaixe];
   await salvarEquipados(b, jogadorId, itens);
-  return { ok: true, mensagem: `Sem ${NOME_DO_ENCAIXE[encaixe as Encaixe].toLowerCase()} a partir do próximo jogo.` };
+  return { ok: true, mensagem: `Tirado: ${NOME_DO_ENCAIXE[encaixe as Encaixe].toLowerCase()}. Vale a partir do próximo jogo.` };
 }
 
 /** O que a Loja do dono mostra: Itens dele, os equipados, se é goleiro e a fase aberta. */
-export async function lojaDoJogador(b: Banco, jogadorId: string): Promise<LojaDoJogador | null> {
+export async function lojaDoJogador(b: Banco, jogadorId: string, agora: Date): Promise<LojaDoJogador | null> {
   const j = await jogadorDaLoja(b, jogadorId);
   if (!j) return null;
-  return { donos: await donos(b, jogadorId), equipados: lerEquipados(j.itens), goleiro: j.posicao === 'GOL', fase: FASE_DA_LOJA };
+  return { donos: await donos(b, jogadorId), equipados: lerEquipados(j.itens), goleiro: j.posicao === 'GOL', fase: await faseDaLoja(b, agora) };
 }
 
 /** Itens equipados agora por @ (sem @, minúsculo), para os cards e o Resumo. */
