@@ -191,6 +191,27 @@ describe('Vínculo pela DM (ADR-0013)', () => {
     expect(await r!.json()).toMatchObject({ ok: true, pedido: { resultado: 'SALVO' } });
     expect(pedidos).toEqual([{ tipo: 'ESCOLHA', jogadorId: '7', escolha: { tipo: 'BATEDORES', valor: ['12', '7'] } }]);
   });
+
+  it('a Loja (ADR-0099) manda o código do Item ou o Encaixe, só com letras maiúsculas', async () => {
+    const t = montar([]);
+    const sessao = 'f'.repeat(43);
+    const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sessao)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+    await t.AGENDA.put(`vinculo/sessao/${h}`, JSON.stringify({ jogadorId: '7', username: 'Fulano_10', vinculadoEm: agora.toISOString() }));
+    const pedidos: unknown[] = [];
+    const aplicar = async (p: unknown) => {
+      pedidos.push(p);
+      return { resultado: 'SALVO', mensagem: 'Chuteira azul comprada e equipada.' };
+    };
+    const enviar = (tipo: string, valor: unknown) => rotasDoVinculo(new Request('https://borda/escolha', { method: 'POST', body: JSON.stringify({ sessao, tipo, valor }) }), t.env, agora, async () => ({}) as never, async () => true, aplicar);
+    expect((await enviar('COMPRA', 'chuteira; DROP'))!.status).toBe(400);
+    expect((await enviar('TIRAR', null))!.status).toBe(400);
+    expect((await enviar('COMPRA', 'CHUTEIRA_AZUL'))!.status).toBe(200);
+    expect((await enviar('TIRAR', 'CHUTEIRA'))!.status).toBe(200);
+    expect(pedidos).toEqual([
+      { tipo: 'ESCOLHA', jogadorId: '7', escolha: { tipo: 'COMPRA', valor: 'CHUTEIRA_AZUL' } },
+      { tipo: 'ESCOLHA', jogadorId: '7', escolha: { tipo: 'TIRAR', valor: 'CHUTEIRA' } },
+    ]);
+  });
 });
 
 describe('Lista de quem tem Vínculo (ADR-0094)', () => {

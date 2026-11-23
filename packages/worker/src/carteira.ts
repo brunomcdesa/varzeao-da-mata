@@ -4,6 +4,7 @@
  */
 import { CORTE_MINUTOS, NOME_DO_LANCAMENTO, duracaoAoVivoMs, lerPalpite, temMoedas, type Carteira, type TimeId, type TipoDeLancamento } from '@liga/shared';
 import type { Banco } from './banco.js';
+import { lojaDoJogador } from './loja.js';
 
 export interface Lancamento {
   jogadorId: string;
@@ -71,8 +72,10 @@ export async function carteiraDoJogador(b: Banco, jogadorId: string, agora: Date
       [jogadorId],
     ),
   ]);
+  const loja = await lojaDoJogador(b, jogadorId);
   return {
     saldo: await saldo(b, jogadorId, agora),
+    ...(loja ? { loja } : {}),
     extrato: extrato.rows.map((l) => ({ tipo: l.tipo, valor: l.valor, descricao: l.descricao || NOME_DO_LANCAMENTO[l.tipo], em: new Date(l.em).toISOString() })),
     conquistas: conquistas.rows,
     palpites: palpites.rows.map((x) => ({

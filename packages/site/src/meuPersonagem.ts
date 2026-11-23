@@ -138,7 +138,7 @@ export async function capitaniaDoVinculo(): Promise<{ jogadorId: string; capitan
  * Escolha do Capitão feita fora do painel (página do Time, ADR-0091): manda pela borda e, se a
  * Liga aplicou na hora, guarda no estado deste navegador para a página já mostrar o plano novo.
  */
-export async function enviarEscolhaDoVinculo(tipo: 'POSTURA' | 'FORMACAO' | 'BATEDORES' | 'PALPITE', valor: string | string[] | null): Promise<{ ok: boolean; aplicada: boolean; mensagem: string }> {
+export async function enviarEscolhaDoVinculo(tipo: 'POSTURA' | 'FORMACAO' | 'BATEDORES' | 'PALPITE' | 'COMPRA' | 'EQUIPAR' | 'TIRAR', valor: string | string[] | null): Promise<{ ok: boolean; aplicada: boolean; mensagem: string }> {
   const g = ler<Guardado>(CHAVE);
   if (!g || !BASE_API) return { ok: false, aplicada: false, mensagem: 'Vincule o seu personagem para escolher.' };
   const r = await api<{ ok?: boolean; erro?: string; pedido?: { resultado?: string; mensagem?: string; processadoEm?: string } }>('escolha', { sessao: g.sessao, tipo, valor }).catch(() => null);
@@ -156,6 +156,14 @@ export async function enviarEscolhaDoVinculo(tipo: 'POSTURA' | 'FORMACAO' | 'BAT
     });
   }
   return { ok, aplicada: ok, mensagem: p.mensagem ?? (ok ? 'Pronto!' : 'Não deu.') };
+}
+
+/** A Carteira (e a Loja) do Jogador vinculado neste navegador; null sem Vínculo ou sem resposta. */
+export async function carteiraDoVinculo(): Promise<(Carteira & { jogadorId: string }) | null> {
+  const g = ler<Guardado>(CHAVE);
+  if (!g || !BASE_API) return null;
+  const r = await api<Carteira & { erro?: string }>('carteira', { sessao: g.sessao }).catch(() => null);
+  return r?.status === 200 && typeof r.dados.saldo === 'number' ? { ...r.dados, jogadorId: g.jogadorId } : null;
 }
 
 /** O Jogador vinculado neste navegador, se houver (os Avisos já vêm com o Time dele marcado). */

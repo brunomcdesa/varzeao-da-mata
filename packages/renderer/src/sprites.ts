@@ -5,9 +5,9 @@
  *
  * Legenda: . vazio · K contorno · H cabelo · S pele · C camisa · c detalhe da camisa
  *          B calção · M meião · L luva/mão do goleiro (cor da camisa)
- *          Itens da Loja (ADR-0095): P chuteira · W munhequeira · F faixa · G luva do goleiro
+ *          Itens da Loja (ADR-0099): P chuteira · W munhequeira · F faixa · G luva do goleiro
  */
-import { CABELOS, PELES, type Aparencia, type Encaixe, type Penteado } from '@liga/shared';
+import { CABELOS, PELES, coresDosItens, type Aparencia, type Encaixe, type ItensEquipados, type Penteado } from '@liga/shared';
 import type { AcaoJogador } from './jogada.js';
 import { contraste } from './pixel.js';
 
@@ -165,7 +165,7 @@ export interface Visual {
   penteado?: Penteado;
   /** Número da camisa escolhido pelo dono (1 a 99): só aparece de costas. Sem ele, camisa lisa. */
   numero?: number | null;
-  /** Cores dos Itens equipados (ADR-0095), já sem a Luva de quem não é goleiro. */
+  /** Cores dos Itens equipados (ADR-0099), já sem a Luva de quem não é goleiro. */
   itens?: Partial<Record<Encaixe, string>>;
 }
 
@@ -175,6 +175,17 @@ const escolhidas = new Map<string, Aparencia>();
 const chaveDoNome = (nome: string) => nome.replace(/^@/, '').toLowerCase();
 export function definirAparencias(lista: Record<string, Aparencia>): void {
   for (const [nome, a] of Object.entries(lista)) escolhidas.set(chaveDoNome(nome), a);
+}
+
+/** Itens equipados agora (ADR-0099), pelo @: valem nos cards e no Resumo. O jogo usa os da Escalação. */
+const itensAtuais = new Map<string, ItensEquipados>();
+export function definirItens(lista: Record<string, ItensEquipados>): void {
+  itensAtuais.clear();
+  for (const [nome, i] of Object.entries(lista)) itensAtuais.set(chaveDoNome(nome), i);
+}
+/** Cores dos Itens equipados agora pelo dono do @ (a Luva só no goleiro). */
+export function itensDe(nome: string, goleiro: boolean): Partial<Record<Encaixe, string>> {
+  return coresDosItens(itensAtuais.get(chaveDoNome(nome)), goleiro);
 }
 
 /** Pele e cabelo do Jogador: os que o dono escolheu, ou os sorteados pelo @ (sempre os mesmos). */
@@ -211,7 +222,7 @@ function comPenteado(grade: string[], penteado: Penteado | undefined, pose: Pose
 }
 
 /**
- * Veste os Itens na grade (ADR-0095). A regra vale para todas as poses, sem desenho novo:
+ * Veste os Itens na grade (ADR-0099). A regra vale para todas as poses, sem desenho novo:
  * - Chuteira: o contorno logo abaixo do meião (o pé) ganha a cor da chuteira.
  * - Munhequeira: no braço (pele fora do rosto com pele logo abaixo), o pixel do
  *   pulso, que é o de cima com o braço para baixo e o de baixo com o braço levantado.

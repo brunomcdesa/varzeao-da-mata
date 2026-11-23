@@ -48,8 +48,10 @@ export type EscolhaDaT2 =
   /** T3 (ADR-0091): ids dos Batedores, em ordem (até 5). */
   | { tipo: 'BATEDORES'; valor: string[] }
   /** T3 (ADR-0089): Palpite, "partida:mandante-visitante". */
-  | { tipo: 'PALPITE'; valor: string };
-const TIPOS_DE_ESCOLHA = ['ESPECIALIZACAO', 'TREINO', 'CANTO', 'PRESENCA', 'POSTURA', 'FORMACAO', 'BATEDORES', 'PALPITE'] as const;
+  | { tipo: 'PALPITE'; valor: string }
+  /** Loja (ADR-0099): código do Item (comprar ou equipar) ou o Encaixe (tirar). */
+  | { tipo: 'COMPRA' | 'EQUIPAR' | 'TIRAR'; valor: string };
+const TIPOS_DE_ESCOLHA = ['ESPECIALIZACAO', 'TREINO', 'CANTO', 'PRESENCA', 'POSTURA', 'FORMACAO', 'BATEDORES', 'PALPITE', 'COMPRA', 'EQUIPAR', 'TIRAR'] as const;
 /** A Carteira de Moedas (ADR-0087): saldo e extrato só para o dono, pelo Vínculo. */
 export type ConsultarCarteira = (jogadorId: string) => Promise<unknown | null>;
 
@@ -381,6 +383,7 @@ export async function rotasDoVinculo(
     if (tipo === 'POSTURA' && !valor) return json({ erro: 'Escolha a Postura' }, 400);
     if (tipo === 'FORMACAO' && !valor) return json({ erro: 'Escolha a Formação' }, 400);
     if (tipo === 'PALPITE' && !/^\d{1,9}:\d{1,2}-\d{1,2}$/.test(valor ?? '')) return json({ erro: 'Palpite inválido' }, 400);
+    if ((tipo === 'COMPRA' || tipo === 'EQUIPAR' || tipo === 'TIRAR') && !/^[A-Z_]{3,30}$/.test(valor ?? '')) return json({ erro: 'Item inválido' }, 400);
     const escolha = (tipo === 'PRESENCA' ? { tipo } : batedores ? { tipo, valor: batedores } : { tipo, valor }) as EscolhaDaT2;
     const base = { jogadorId: s.jogadorId, escolha, pedidoEm: agora.toISOString() };
     const feito = await aplicar({ tipo: 'ESCOLHA', jogadorId: s.jogadorId, escolha }).catch(() => null);

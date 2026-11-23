@@ -3,7 +3,7 @@
  * lance a lance de uma Partida que acabou de começar vem do worker na borda (liga-api),
  * porque os arquivos estáticos só são regerados de hora em hora.
  */
-import { definirAparencias, definirEstrelas } from '@liga/renderer';
+import { definirAparencias, definirEstrelas, definirItens } from '@liga/renderer';
 import { duracaoAoVivoMs, gruposDaLiga, tabelaDaPreTemporada, timesDaLiga, type Grupo, type JogadorPublico, type LigaPublica, type LinhaTabelaPublica, type PartidaNoCalendario, type PartidaPublica, type Serie, type SituacaoPartida, type TimeId } from '@liga/shared';
 
 const meta = (nome: string) => document.querySelector<HTMLMetaElement>(`meta[name="${nome}"]`)?.content.trim() ?? '';
@@ -198,6 +198,8 @@ export const jogadores = async (fresco = false): Promise<JogadorPublico[]> => {
   const lista = comAjustes(await buscar<JogadorPublico[]>(`${BASE_DADOS}jogadores.json`, fresco));
   // O boneco de cada um como o dono escolheu (ADR-0013); sem escolha, o sorteado pelo @.
   definirAparencias(Object.fromEntries(lista.filter((j) => j.visual).map((j) => [j.username, j.visual!])));
+  // Itens da Loja equipados agora (ADR-0099): aparecem nos cards e no painel.
+  definirItens(Object.fromEntries(lista.filter((j) => j.itens).map((j) => [j.username, j.itens!])));
   return lista;
 };
 

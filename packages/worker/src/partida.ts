@@ -4,7 +4,7 @@
  * uma Partida simulada nunca é simulada de novo (o resultado é o que está no banco).
  */
 import { aparenciasEscolhidas } from './perfil.js';
-import type { Aparencia, Estrelas } from '@liga/shared';
+import type { Aparencia, Estrelas, ItensEquipados } from '@liga/shared';
 import { randomInt } from 'node:crypto';
 import { mataMataDaPartida, type EtapaDaCopa, nomeDaEtapa, perfilDoJuiz, temRegrasT3, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
 import { brigaDe } from './briga.js';
@@ -26,6 +26,8 @@ export interface DadosDoVideo {
   apelidos?: Record<Lado, (string | null)[]>;
   /** Número da camisa na hora da Escalação (ADR-0075); null = camisa lisa. */
   numeros?: Record<Lado, (number | null)[]>;
+  /** Itens equipados na hora da Escalação (ADR-0099). */
+  itens?: Record<Lado, (ItensEquipados | null)[]>;
   subtitulo?: string;
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
@@ -193,6 +195,8 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
     nomes: { mandante: [...escalada.nomes.mandante, ...(escalada.banco?.mandante.map((x) => x.nome) ?? [])], visitante: [...escalada.nomes.visitante, ...(escalada.banco?.visitante.map((x) => x.nome) ?? [])] },
     apelidos: { mandante: [...escalada.apelidos.mandante, ...(escalada.banco?.mandante.map((x) => x.apelido) ?? [])], visitante: [...escalada.apelidos.visitante, ...(escalada.banco?.visitante.map((x) => x.apelido) ?? [])] },
     numeros: { mandante: [...escalada.numeros.mandante, ...(escalada.banco?.mandante.map((x) => x.numero) ?? [])], visitante: [...escalada.numeros.visitante, ...(escalada.banco?.visitante.map((x) => x.numero) ?? [])] },
+    // Itens da Loja (ADR-0099): os equipados no Corte, do jeito que a Escalação guardou.
+    itens: { mandante: [...escalada.itens.mandante, ...(escalada.banco?.mandante.map((x) => x.itens ?? null) ?? [])], visitante: [...escalada.itens.visitante, ...(escalada.banco?.visitante.map((x) => x.itens ?? null) ?? [])] },
     subtitulo: subtituloDaPartida(p.rodada, p.fase, new Date(p.apito_inicial), briga !== null, p.copa_etapa),
     aparencias: await aparenciasEscolhidas(banco),
     estrelas: await estrelasNoBanco(banco),

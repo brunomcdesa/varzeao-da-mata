@@ -4118,7 +4118,7 @@ a.jogo:hover {
   padding-top: 24px;
 }
 
-/* Loja (ADR-0095): Itens por Encaixe, com o boneco de prévia */
+/* Loja (ADR-0099): Itens por Encaixe, com o boneco de prévia */
 .loja-grade {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -4195,4 +4195,82 @@ a.jogo:hover {
     grid-template-columns: 1fr;
     justify-items: center;
   }
+}
+
+/* Atalho da Loja no canto do topo (ADR-0099): saldo e sacola */
+.carteira-topo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding: 4px 6px 4px 10px;
+  background: var(--placa);
+  color: var(--tinta);
+  clip-path: var(--canto);
+  text-decoration: none;
+  font: 700 1rem var(--texto);
+}
+.carteira-topo[hidden] {
+  display: none;
+}
+.carteira-topo .moeda {
+  width: 14px;
+  height: 14px;
+}
+.carteira-topo .sacola {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  background: var(--amarelo);
+  clip-path: var(--canto);
+}
+.carteira-topo .sacola svg {
+  width: 20px;
+  height: 20px;
+}
+.carteira-topo[aria-current='page'] {
+  outline: 3px solid var(--amarelo);
+  outline-offset: -3px;
+}
+@media (max-width: 719px) {
+  .topo-interno {
+    column-gap: 8px;
+  }
+  .topo-interno .menu {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .carteira-topo {
+    padding: 3px 4px 3px 8px;
+    gap: 6px;
+    font-size: 0.9375rem;
+  }
+  .carteira-topo .sacola {
+    width: 26px;
+    height: 26px;
+  }
+  .carteira-topo .sacola svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+@media (min-width: 720px) {
+  .topo-interno .carteira-topo {
+    margin-left: 8px;
+  }
+}
+/* Só com o atalho à mostra o nome encolhe um pouco, para caber na mesma linha. */
+@media (max-width: 420px) {
+  .topo-interno:has(.carteira-topo:not([hidden])) .marca {
+    font-size: 1.5rem;
+    gap: 8px;
+  }
+  .topo-interno:has(.carteira-topo:not([hidden])) .marca img {
+    width: 34px;
+    height: 34px;
+  }
+}
+.loja-pagina h1 {
+  margin: 0 0 4px;
 }

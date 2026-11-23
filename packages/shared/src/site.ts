@@ -4,6 +4,7 @@ import type { MomentosDoAoVivo } from './avisos.js';
  * Regra: nada que revele o resultado de uma Partida antes do seu Apito Inicial.
  */
 import type { Aparencia } from './aparencia.js';
+import type { ItensEquipados } from './itens.js';
 import type { Estrelas } from './estrelas.js';
 import type { Especializacao, Grupo, Posicao, Serie, TimeId } from './index.js';
 import { TIMES_FUNDADORES } from './index.js';
@@ -207,6 +208,8 @@ export interface JogadorPublico {
   visual: Aparencia | null;
   /** Número da camisa escolhido pelo dono. */
   numero: number | null;
+  /** Itens da Loja equipados agora (ADR-0099); o saldo nunca aparece. */
+  itens?: ItensEquipados;
   /** Fundador de um Time da Série B (ADR-0036): só existe a partir da Temporada 2. */
   fundador?: { time: TimeId; temporada: number };
   /** Selo da Temporada 1 (ADR-0047): se inscreveu na T1. Só aparece no site a partir da T2. */
@@ -263,9 +266,9 @@ export interface EscalacaoPublica {
   time: TimeId;
   /** `capitao`: faixa de Capitão nesta Partida (só na T2, ADR-0020). */
   /** `numero`: número da camisa na hora da Escalação (ADR-0075); sem ele, camisa lisa. */
-  jogadores: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; numero?: number | null; ovr: number; habilidades: Habilidades; capitao?: true }[];
+  jogadores: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; numero?: number | null; itens?: ItensEquipados; ovr: number; habilidades: Habilidades; capitao?: true }[];
   /** Banco (T2, ADR-0061): os reservas, nos lugares depois dos titulares (7 e 8). */
-  banco?: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; numero?: number | null; ovr: number; habilidades: Habilidades }[];
+  banco?: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; numero?: number | null; itens?: ItensEquipados; ovr: number; habilidades: Habilidades }[];
 }
 
 export interface PartidaPublica {

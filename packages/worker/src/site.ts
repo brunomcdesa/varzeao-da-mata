@@ -7,7 +7,8 @@
  * aparecem depois do Apito (o lance a lance) ou do fim do Ao Vivo (placar, tabela, Card).
  * Escalações aparecem assim que existem (a partir do Corte).
  */
-import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Grupo, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, type EtapaDaCopa, temMoedas, temRegrasT2, temRegrasT3, perfilDoJuiz, timesQueCaem, GRUPOS, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
+import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Grupo, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, type EtapaDaCopa, temMoedas, temRegrasT2, temRegrasT3, perfilDoJuiz, timesQueCaem, GRUPOS, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque, type ItensEquipados } from '@liga/shared';
+import { lerItens } from './escalacao.js';
 import { fundadorDe } from './rebalanceamento.js';
 import { comSeloT1, subiramPeloPiso } from './recompensaT1.js';
 import { ajustesDeOvr } from './aMao.js';
@@ -41,6 +42,12 @@ interface LinhaPartida {
   copa_etapa: EtapaDaCopa | null;
 }
 
+/** Itens da Escalação (ADR-0099) para a página pública da Partida. */
+const itensDaLinha = (e: { itens: ItensEquipados | string | null }) => {
+  const i = lerItens(e.itens);
+  return i ? { itens: i } : {};
+};
+
 interface LinhaEscalacao {
   partida_id: number;
   time_id: TimeId;
@@ -54,6 +61,8 @@ interface LinhaEscalacao {
   apelido: string | null;
   /** Número da camisa na hora da Escalação (ADR-0075). */
   numero: number | null;
+  /** Itens equipados na hora da Escalação (ADR-0099). */
+  itens: ItensEquipados | string | null;
   /** Capitão em campo (T2, ADR-0020). */
   capitao: boolean;
   /** Banco (ADR-0061). */
@@ -147,7 +156,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
 
   const escalacoes = (
     await banco.query<LinhaEscalacao>(
-      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.numero, e.capitao, e.reserva
+      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.numero, e.itens, e.capitao, e.reserva
        FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id ORDER BY e.partida_id, e.lugar`,
     )
   ).rows;
@@ -256,8 +265,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
 
   // ---- jogadores
   const jogadores = (
-    await banco.query<{ id: string; username: string; time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; inscrito_em: string | Date; visual: Aparencia | string | null; numero: number | null; apelido: string | null; apelido_em: string | Date | null; especializacao: Especializacao | null; treino: HabilidadeId | null }>(
-      `SELECT id::text AS id, username, time_id, posicao, ovr, habilidades, inscrito_em, visual, numero, apelido, apelido_em, especializacao, treino FROM jogador WHERE NOT banido ORDER BY id`,
+    await banco.query<{ id: string; username: string; time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; inscrito_em: string | Date; visual: Aparencia | string | null; numero: number | null; itens: ItensEquipados | string | null; apelido: string | null; apelido_em: string | Date | null; especializacao: Especializacao | null; treino: HabilidadeId | null }>(
+      `SELECT id::text AS id, username, time_id, posicao, ovr, habilidades, inscrito_em, visual, numero, itens, apelido, apelido_em, especializacao, treino FROM jogador WHERE NOT banido ORDER BY id`,
     )
   ).rows;
   // Só a Transferência da Temporada conta: a troca da Janela não gasta (ADR-0022, ADR-0096).
@@ -308,6 +317,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       transferenciaUsada: transferiram.has(j.id),
       visual: j.visual ? (typeof j.visual === 'string' ? (JSON.parse(j.visual) as Aparencia) : j.visual) : null,
       numero: j.numero ?? null,
+      ...(lerItens(j.itens) ? { itens: lerItens(j.itens)! } : {}),
       // Temporada 2 (ADR-0023): só aparece quando a Temporada atual tem as regras novas.
       ...(comRegrasT2 ? { especializacao: j.especializacao ?? null, treino: j.treino ?? null } : {}),
       ...(fundadores.has(j.id) ? { fundador: fundadores.get(j.id)! } : {}),
@@ -618,12 +628,12 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     const linhas = escalacoesDe.get(p.id);
     const de = (time: TimeId): EscalacaoPublica => {
       const doTime = (linhas ?? []).filter((e) => e.time_id === time);
-      const banco = doTime.filter((e) => e.reserva).map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes) }));
+      const banco = doTime.filter((e) => e.reserva).map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ...itensDaLinha(e), ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes) }));
       return {
         time,
         jogadores: doTime
           .filter((e) => !e.reserva)
-          .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes), ...(e.capitao ? { capitao: true as const } : {}) })),
+          .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ...itensDaLinha(e), ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes), ...(e.capitao ? { capitao: true as const } : {}) })),
         ...(banco.length ? { banco } : {}),
       };
     };

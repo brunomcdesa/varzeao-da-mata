@@ -4,13 +4,13 @@
  * narrada pelo Locutor da Liga; cada cartela estica até a sua fala caber inteira.
  */
 import { desenharCompartilhe } from './anuncio.js';
-import { CLASSIFICAM_POR_GRUPO, DESTAQUE_DA_POSICAO, FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, TIMES_QUE_TROCAM_DE_SERIE, type Grupo, doTime, nomeDaRodada, type Posicao, type Serie, type TimeId, type Aparencia, type Estrelas } from '@liga/shared';
+import { CLASSIFICAM_POR_GRUPO, DESTAQUE_DA_POSICAO, FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, TIMES_QUE_TROCAM_DE_SERIE, type Grupo, doTime, nomeDaRodada, type Posicao, type Serie, type TimeId, type Aparencia, type Estrelas, type ItensEquipados } from '@liga/shared';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, plaquinha } from './desenho.js';
 import { apelidoFalavel, type Fala } from './narracao.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
 import type { Segmento } from './roteiro.js';
-import { aparencia, sprite } from './sprites.js';
+import { aparencia, itensDe, sprite } from './sprites.js';
 import { desenharEscudoDaLiga, veu } from './video.js';
 
 export interface DadosDoResumo {
@@ -69,6 +69,8 @@ export interface DadosDoResumo {
   destaques?: { posicao: Posicao; serie?: Serie; username: string; time: TimeId; nota: number; numero: { valor: number; legenda: string } }[];
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
+  /** Itens equipados agora pelos donos (ADR-0099), pelo @. */
+  itens?: Record<string, ItensEquipados>;
   /** Estrelas de Título nos escudos (ADR-0060). */
   estrelas?: Partial<Record<TimeId, Estrelas>>;
 }
@@ -551,6 +553,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
           calcao: goleiro ? '#2B2B2B' : id.secundaria,
           meiao: goleiro ? id.secundaria : id.primaria,
           ...aparencia(`@${c.username}`),
+          itens: itensDe(`@${c.username}`, goleiro),
         };
         const pose = k === 0 && fase % 2 === 0 ? 'FRENTE_COMEMORA' : 'FRENTE_PARADO';
         pin.ctx.drawImage(sprite(pose, visual), 23 * pin.px, (y + 8) * pin.px, 36 * pin.px, 48 * pin.px);
@@ -641,6 +644,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
         calcao: c.posicao === 'GOL' ? '#2B2B2B' : id.secundaria,
         meiao: c.posicao === 'GOL' ? id.secundaria : id.primaria,
         ...aparencia(`@${c.username}`),
+        itens: itensDe(`@${c.username}`, c.posicao === 'GOL'),
       };
       const pose = Math.floor(tVideo * 3) % 2 === 0 ? 'FRENTE_COMEMORA' : 'FRENTE_PARADO';
       pin.ctx.drawImage(sprite(pose, visual), 105 * pin.px, (100 - (1 - a) * 10) * pin.px, 60 * pin.px, 80 * pin.px);
@@ -696,6 +700,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
           calcao: goleiro ? '#2B2B2B' : id.secundaria,
           meiao: goleiro ? id.secundaria : id.primaria,
           ...aparencia(`@${j.username}`),
+          itens: itensDe(`@${j.username}`, goleiro),
         };
         const pose = Math.floor(tVideo * 3) % 2 === 0 ? 'FRENTE_COMEMORA' : 'FRENTE_PARADO';
         pin.ctx.drawImage(sprite(pose, visual), 48 * pin.px, (y + 38) * pin.px, 48 * pin.px, 64 * pin.px);
@@ -736,6 +741,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
           calcao: goleiro ? '#2B2B2B' : id.secundaria,
           meiao: goleiro ? id.secundaria : id.primaria,
           ...aparencia(`@${j.username}`),
+          itens: itensDe(`@${j.username}`, goleiro),
         };
         const pose = (fase + k) % 2 === 0 ? 'FRENTE_COMEMORA' : 'FRENTE_PARADO';
         pin.ctx.drawImage(sprite(pose, visual), 23 * pin.px, (y + 19) * pin.px, 36 * pin.px, 48 * pin.px);

@@ -5,12 +5,12 @@
  * Linguagem visual: várzea em pixel art. Placar de tábua com plaquinhas penduradas,
  * campo com terrão e cal, mata em volta e faixa de torcida no gol.
  */
-import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, NOME_DO_PERFIL_DO_JUIZ, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type Posicao, type SituacaoNaBriga, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, coresDosItens, NOME_DO_GRUPO, NOME_DO_PERFIL_DO_JUIZ, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type ItensEquipados, type Posicao, type SituacaoNaBriga, type TimeId } from '@liga/shared';
 import type { Lado } from '@liga/sim';
 import { CAMPO, cenario } from './cenario.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste, ruido } from './pixel.js';
 import { ALTURA_DAS_ESTRELAS, ALTURA_ESCUDO, LARGURA_ESCUDO, escudo, estrelasDoEscudo } from './escudos.js';
-import { ALTURA_SPRITE, LARGURA_SPRITE, MAO_DO_APITO, aparencia, escolherPose, espelharNoSprite, sprite, type Pose, type Visual } from './sprites.js';
+import { ALTURA_SPRITE, LARGURA_SPRITE, MAO_DO_APITO, aparencia, escolherPose, espelharNoSprite, itensDe, sprite, type Pose, type Visual } from './sprites.js';
 import type { CartaoNoJogo, EstadoQuadro, JogadorNoQuadro, Ponto } from './timeline.js';
 import { visualDoJuiz, type JuizNoQuadro } from './juiz.js';
 import { desenharArquibancada, desenharCartao, desenharClimaNoAr, desenharClimaNoChao, desenharCloseDaTorcida } from './arquibancada.js';
@@ -24,6 +24,8 @@ export interface OpcoesDesenho {
   apelidos?: Record<Lado, (string | null)[]>;
   /** Número da camisa de cada lugar, escolhido pelo dono (null = camisa lisa). Só aparece de costas. */
   numeros?: Record<Lado, (number | null)[]>;
+  /** Itens equipados de cada lugar na hora da Escalação (ADR-0099). Sem isso, os de agora. */
+  itens?: Record<Lado, (ItensEquipados | null)[]>;
   /** Fonte dos números e letreiros (precisa estar carregada na página). Padrão: Jersey 10. */
   fonteDisplay?: string;
   /** Fonte dos nomes. Padrão: Pixelify Sans. */
@@ -131,7 +133,11 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
 function visualDe(j: JogadorNoQuadro, o: OpcoesDesenho, e?: EstadoQuadro): Visual {
   const quem = j.ocupante ?? j.slot.indice;
   const nome = o.nomes[j.slot.lado][quem] ?? `base-${j.slot.lado}-${quem}`;
-  const v = { ...visualDoJogador(o.times[j.slot.lado], j.posicao, nome), numero: o.numeros?.[j.slot.lado][quem] ?? null };
+  const v = {
+    ...visualDoJogador(o.times[j.slot.lado], j.posicao, nome),
+    numero: o.numeros?.[j.slot.lado][quem] ?? null,
+    ...(o.itens ? { itens: coresDosItens(o.itens[j.slot.lado][quem], j.posicao === 'GOL') } : {}),
+  };
   // T2: o visitante usa o segundo uniforme quando as camisas se confundem (o goleiro não muda).
   if (e?.t2?.segundoUniforme === j.slot.lado && j.posicao !== 'GOL') {
     const rival = o.times[j.slot.lado === 'mandante' ? 'visitante' : 'mandante'];
@@ -150,6 +156,7 @@ export function visualDoJogador(time: TimeId, posicao: Posicao, nome: string): V
     calcao: goleiro ? '#2B2B2B' : id.secundaria,
     meiao: goleiro ? id.secundaria : id.primaria,
     ...aparencia(nome),
+    itens: itensDe(nome, goleiro),
   };
 }
 

@@ -1,12 +1,13 @@
 /**
- * Loja no painel do dono (ADR-0087 e ADR-0095): os Itens por Encaixe, com o boneco de prévia.
+ * Loja no painel do dono (ADR-0087 e ADR-0099): os Itens por Encaixe, com o boneco de prévia.
  * Tocar num Item mostra no boneco; o botão compra (se ainda não é do Jogador), equipa ou tira.
  */
 import { ENCAIXES, ENCAIXE_SO_DO_GOLEIRO, ITENS, ITEM_POR_CODIGO, NOME_DO_ENCAIXE, PRECO_DO_ITEM, type Encaixe, type Item, type ItensEquipados } from '@liga/shared';
 import { html } from './ui.js';
 
 export interface EstadoDaLoja {
-  saldo: number;
+  /** null sem Vínculo: o saldo não aparece e nada se compra. */
+  saldo: number | null;
   /** Códigos dos Itens que já são do Jogador. */
   donos: readonly string[];
   equipados: ItensEquipados;
@@ -14,12 +15,6 @@ export interface EstadoDaLoja {
   /** Fase da Loja aberta agora (1 na abertura da T3, 2 no meio). */
   fase: 1 | 2;
 }
-
-export const blocoDaLoja = (aberta: boolean) =>
-  html`<details class="dobra loja" data-dobra="loja" ${aberta ? 'open' : ''}>
-    <summary>Loja <small data-loja-resumo>Itens para o boneco</small></summary>
-    <div data-loja><p class="legenda">Carregando...</p></div>
-  </details>`;
 
 export const encaixesDaLoja = (goleiro: boolean): Encaixe[] => ENCAIXES.filter((e) => goleiro || e !== ENCAIXE_SO_DO_GOLEIRO);
 
@@ -29,7 +24,7 @@ export function acaoDoItem(item: Item, e: EstadoDaLoja): AcaoDaLoja {
   if (e.equipados[item.encaixe] === item.codigo) return { tipo: 'TIRAR' };
   if (e.donos.includes(item.codigo)) return { tipo: 'EQUIPAR' };
   const preco = PRECO_DO_ITEM[item.raridade];
-  return { tipo: 'COMPRAR', preco, podePagar: e.saldo >= preco };
+  return { tipo: 'COMPRAR', preco, podePagar: e.saldo !== null && e.saldo >= preco };
 }
 
 export function textoDoBotao(item: Item, a: AcaoDaLoja): string {
@@ -41,11 +36,11 @@ export function textoDoBotao(item: Item, a: AcaoDaLoja): string {
 export function corpoDaLoja(e: EstadoDaLoja, selecionado: string | null) {
   const item = selecionado ? ITEM_POR_CODIGO.get(selecionado) ?? null : null;
   const acao = item ? acaoDoItem(item, e) : null;
-  const faltam = acao?.tipo === 'COMPRAR' && !acao.podePagar ? acao.preco - e.saldo : 0;
+  const faltam = acao?.tipo === 'COMPRAR' && !acao.podePagar && e.saldo !== null ? acao.preco - e.saldo : 0;
   return html`<div class="loja-grade">
       <div class="loja-vitrine">
         <canvas class="pixel previa-boneco" width="96" height="128" aria-label="Como o boneco fica com o Item"></canvas>
-        <p class="saldo-moedas"><span class="moeda" aria-hidden="true"></span><strong>${e.saldo}</strong> Moedas</p>
+        ${e.saldo === null ? '' : html`<p class="saldo-moedas"><span class="moeda" aria-hidden="true"></span><strong>${e.saldo}</strong> Moedas</p>`}
       </div>
       <div class="loja-encaixes">
         ${encaixesDaLoja(e.goleiro).map(

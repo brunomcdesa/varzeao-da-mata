@@ -3,6 +3,7 @@
  * Loja; começam a contar na Pré-temporada da T3, com a Copa.
  */
 import { PRIMEIRA_TEMPORADA_COM_REGRAS_T3 } from './temporada3.js';
+import type { ItensEquipados } from './itens.js';
 
 export const PRIMEIRA_TEMPORADA_COM_MOEDAS = PRIMEIRA_TEMPORADA_COM_REGRAS_T3;
 export function temMoedas(numeroDaTemporada: number): boolean {
@@ -119,8 +120,17 @@ export const CONQUISTAS: readonly Conquista[] = [
 export const CONQUISTA_POR_CODIGO: ReadonlyMap<string, Conquista> = new Map(CONQUISTAS.map((c) => [c.codigo, c]));
 
 /** A Carteira que o dono vê pelo Vínculo (saldo e extrato são privados; ADR-0087). */
+/** A Loja do dono (ADR-0099): Itens dele, os equipados agora, se é goleiro e a fase aberta. */
+export interface LojaDoJogador {
+  donos: string[];
+  equipados: ItensEquipados;
+  goleiro: boolean;
+  fase: 1 | 2;
+}
+
 export interface Carteira {
   saldo: number;
+  loja?: LojaDoJogador;
   extrato: { tipo: TipoDeLancamento; valor: number; descricao: string; em: string }[];
   conquistas: { codigo: string; temporada: number; pagou: boolean }[];
   palpites: { partidaId: number; mandante: number; visitante: number; pontos: number | null }[];

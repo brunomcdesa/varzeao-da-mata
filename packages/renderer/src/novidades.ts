@@ -362,6 +362,7 @@ function opcoesDoJogo(p: PartidaParaVideo, o: OpcoesNovidades) {
     nomes: p.nomes,
     ...(p.apelidos ? { apelidos: p.apelidos } : {}),
     ...(p.numeros ? { numeros: p.numeros } : {}),
+    ...(p.itens ? { itens: p.itens } : {}),
     ...(o.fonteDisplay ? { fonteDisplay: o.fonteDisplay } : {}),
     ...(o.fonteTexto ? { fonteTexto: o.fonteTexto } : {}),
   };

@@ -8,7 +8,11 @@ import { paginaPartida } from './paginas/partida.js';
 import { paginaCarreira } from './paginas/carreira.js';
 import { paginaTemporada } from './paginas/temporada.js';
 import { paginaAvisos } from './paginas/avisos.js';
-import { adiantarEstadoDasEscolhas, paginaVincular } from './meuPersonagem.js';
+import { paginaLoja } from './paginas/loja.js';
+import { mostrarCarteiraDoTopo } from './carteiraDoTopo.js';
+import { temMoedas } from '@liga/shared';
+import { temporadaDoApp } from './instalacao.js';
+import { adiantarEstadoDasEscolhas, carteiraDoVinculo, jogadorVinculado, paginaVincular } from './meuPersonagem.js';
 import type { Pagina } from './paginas/tipos.js';
 import { html } from './ui.js';
 import { prepararApp } from './appInstalavel.js';
@@ -27,6 +31,7 @@ const ROTAS: { padrao: RegExp; pagina: Pagina; secao: string; titulo: string }[]
   { padrao: /^\/partida\/(\d+)$/, pagina: paginaPartida, secao: 'jogos', titulo: 'Partida' },
   { padrao: /^\/historia$/, pagina: paginaHistoria, secao: 'historia', titulo: 'História' },
   { padrao: /^\/avisos$/, pagina: paginaAvisos, secao: 'avisos', titulo: 'Avisos de jogo' },
+  { padrao: /^\/loja$/, pagina: paginaLoja, secao: 'loja', titulo: 'Loja' },
   { padrao: /^\/vincular(?:\/([A-Za-z0-9_-]+))?$/, pagina: paginaVincular, secao: 'jogadores', titulo: 'Vincular' },
 ];
 
@@ -45,7 +50,7 @@ async function navegar(): Promise<void> {
   limpar?.();
   limpar = undefined;
   const minha = ++versao;
-  for (const a of document.querySelectorAll<HTMLAnchorElement>('.menu a')) {
+  for (const a of document.querySelectorAll<HTMLAnchorElement>('.menu a, .carteira-topo')) {
     if (rota && a.dataset.secao === rota.secao) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   }
@@ -81,6 +86,17 @@ document.addEventListener('submit', (e) => e.preventDefault());
 adiantarEstadoDasEscolhas();
 void navegar();
 void prepararApp();
+
+// Loja (ADR-0099): a sacola no canto do topo, a partir da T3; com Vínculo, o saldo junto.
+void liga()
+  .then(async (l) => {
+    if (!temMoedas(temporadaDoApp(l) ?? 0)) return;
+    mostrarCarteiraDoTopo(null);
+    if (!jogadorVinculado()) return;
+    const c = await carteiraDoVinculo();
+    if (c) mostrarCarteiraDoTopo(c.saldo);
+  })
+  .catch(() => {});
 
 // Rodapé: quando os dados foram gerados.
 void liga()

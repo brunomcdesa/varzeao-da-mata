@@ -15,6 +15,7 @@ import {
   ehFormacao,
   temRegrasT2,
   temRegrasT3,
+  temMoedas,
   QUANTIDADE_DE_BATEDORES,
   type Canto,
   type Formacao,
@@ -26,6 +27,7 @@ import {
 } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { registrarPalpite } from './carteira.js';
+import { comprarItem, equiparItem, tirarItem } from './loja.js';
 import { CORTE_MINUTOS } from './escalacao.js';
 import type { Agenda } from './nuvem.js';
 
@@ -255,7 +257,11 @@ export type Escolha =
   /** Batedores (ADR-0091): ids dos Jogadores do Time, em ordem; lista vazia volta à ordem automática. */
   | { tipo: 'BATEDORES'; valor: string[] }
   /** Palpite (ADR-0089): "partida:mandante-visitante", até o Corte. */
-  | { tipo: 'PALPITE'; valor: string };
+  | { tipo: 'PALPITE'; valor: string }
+  /** Loja (ADR-0099): comprar (e equipar) ou equipar pelo código do Item; tirar pelo Encaixe. */
+  | { tipo: 'COMPRA'; valor: string }
+  | { tipo: 'EQUIPAR'; valor: string }
+  | { tipo: 'TIRAR'; valor: string };
 
 export interface ResultadoDaEscolha {
   ok: boolean;
@@ -336,6 +342,14 @@ export async function aplicarEscolha(b: Banco, jogadorId: string, e: Escolha, ag
     }
     case 'PALPITE':
       return registrarPalpite(b, jogadorId, String(e.valor ?? ''), agora);
+    case 'COMPRA':
+    case 'EQUIPAR':
+    case 'TIRAR': {
+      if (!temMoedas(t.numero)) return { ok: false, mensagem: 'A Loja abre na Temporada 3.' };
+      const valor = String(e.valor ?? '');
+      if (e.tipo === 'COMPRA') return comprarItem(b, jogadorId, valor, agora);
+      return e.tipo === 'EQUIPAR' ? equiparItem(b, jogadorId, valor) : tirarItem(b, jogadorId, valor);
+    }
     case 'BATEDORES': {
       // ADR-0091: mesma regra da Postura (só o Capitão, até o Corte), a partir da T3.
       if (!temRegrasT3(t.numero)) return { ok: false, mensagem: 'Os Batedores chegam na Temporada 3.' };
