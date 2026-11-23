@@ -92,6 +92,12 @@ export const PARAMETROS = {
  */
 export const VERSAO_SIM_T1 = 12;
 
+/**
+ * Temporada 3 (ADRs 0091 e 0094): Trave, Rebote, Chute de longe, Pressão final, Acréscimos,
+ * Perfil do Juiz, Gol de placa e Batedores. Só com `entrada.t3`; a T2 segue na VERSAO_SIM.
+ */
+export const VERSAO_SIM_T3 = 19;
+
 export const PARAMETROS_T2 = {
   /**
    * Substituição (ADR-0061, VERSAO_SIM 17): no intervalo, sai quem tem Nota parcial abaixo deste
@@ -211,4 +217,48 @@ export const PESOS_NOTA = {
   golSofridoZagueiro: -0.2,
   vitoria: 0.5,
   derrota: -0.5,
+} as const;
+
+/**
+ * Temporada 3 (ADR-0094), calibrado por `scripts/calibrar-t3.ts` para a média de gols e de
+ * Goleadas ficar perto da T2.
+ */
+export const PARAMETROS_T3 = {
+  /** Trave: parte dos chutes que vão para fora bate no poste (só o desenho e a fala; não muda o placar). */
+  chanceTrave: 0.2,
+  /** Rebote: chance de a defesa do goleiro (em jogada) soltar a bola. */
+  chanceRebote: 0.28,
+  /** Rebote: atacante (Finalização) contra zagueiro (Defesa) na sobra, e o chute de quem ganhou. */
+  baseDisputaRebote: 0.42,
+  baseChuteRebote: 0.42,
+  /**
+   * Chute de longe: chance de quem criou arriscar em vez de seguir a jogada, mais a Postura e a
+   * Finalização (por ponto acima de 60), entre os limites. Parte dos chutes é de um zagueiro.
+   */
+  chanceChuteDeLonge: 0.1,
+  chuteDeLongePorPonto: 0.003,
+  chuteDeLongeMinimo: 0.03,
+  chuteDeLongeMaximo: 0.22,
+  chuteDeLongePostura: { OFENSIVA: 0.04, EQUILIBRADA: 0, DEFENSIVA: -0.03 },
+  chanceZagueiroArrisca: 0.15,
+  /** Chute de longe contra o goleiro, e quanto a mais vai para fora. */
+  baseChuteDeLonge: 0.27,
+  foraNoChuteDeLonge: 0.1,
+  /** Gol de placa: Chute de longe que entrou com chance de passar do goleiro até este valor. */
+  placaAte: 0.24,
+  /** Gol de placa: parte dos gols de quem driblou a marcação dupla. */
+  placaNaDobra: 0.35,
+  /** Pressão final: a partir deste minuto, quem perde por 1 ou 2 (ou empata no Mata-mata) se lança. */
+  pressaoDesde: 75,
+  pressaoDeficitMaximo: 2,
+  /** Soma à posse de quem pressiona (metade na Postura Defensiva) e ao ataque dele. */
+  pressaoPosse: 0.12,
+  pressaoAtaque: 0.03,
+  /** Contra-ataque contra quem pressiona: chance a mais e um adiantado a mais. */
+  pressaoContra: 0.12,
+  /** Acréscimos: de 1 a 4 minutos; um lance do Ritmo a cada 2 minutos (arredondado) passa para eles. */
+  acrescimosMaximo: 4,
+  /** Perfil do Juiz: multiplica a chance de Falta e a de Cartão. */
+  juizFalta: { RIGOROSO: 1.3, NORMAL: 1, DEIXA_JOGAR: 0.7 },
+  juizCartao: { RIGOROSO: 1.45, NORMAL: 1, DEIXA_JOGAR: 0.55 },
 } as const;

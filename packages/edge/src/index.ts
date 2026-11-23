@@ -18,6 +18,7 @@ import { marcarPendencia } from './pendencias.js';
 import { transferirJogador } from '../../worker/src/coletar.js';
 import { aplicarPerfil } from '../../worker/src/perfil.js';
 import { aplicarEscolha, capitaniaDoJogador, type Escolha } from '../../worker/src/temporada2.js';
+import { carteiraDoJogador } from '../../worker/src/carteira.js';
 import { bancoDeLeitura, comBanco } from './banco.js';
 import { completarMetadadosDasSessoes, jogadoresVinculados, rotasDoVinculo, sessaoDe } from './vinculo.js';
 import { rotaDoWebhook, type EnvWebhook } from './webhook.js';
@@ -195,6 +196,7 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
       );
     },
     async (jogadorId) => (env.DATABASE_URL ? capitaniaDoJogador(bancoDeLeitura(env.DATABASE_URL), jogadorId, agora, () => comVinculo(env)) : null),
+    async (jogadorId) => (env.DATABASE_URL ? carteiraDoJogador(bancoDeLeitura(env.DATABASE_URL), jogadorId, agora) : null),
   ).catch((e: Error) => json({ erro: `Não deu agora: ${e.message.slice(0, 200)}` }, 502));
   if (vinculo) return vinculo;
   if (req.method !== 'GET' && req.method !== 'HEAD') return json({ erro: 'método não permitido' }, 405);

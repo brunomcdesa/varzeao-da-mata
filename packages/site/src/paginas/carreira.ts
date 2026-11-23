@@ -4,7 +4,7 @@
  * Só existe a partir da Temporada 2: na T1 a Carreira é uma Temporada só, e a página do
  * Jogador já mostra tudo.
  */
-import { FALA_DO_TIME, IDENTIDADE, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, nomeVisivel, temRegrasT2, temporadaDoApp, type JogadorPublico, type TipoTrofeu } from '@liga/shared';
+import { CONQUISTA_POR_CODIGO, FALA_DO_TIME, IDENTIDADE, NOME_DA_ESPECIALIZACAO, NOME_DA_HABILIDADE, nomeVisivel, temRegrasT2, temporadaDoApp, type JogadorPublico, type TipoTrofeu } from '@liga/shared';
 import { jogadores, liga } from '../dados.js';
 import { bonecoImg, curto, escudoImg, html, nota, NOME_DA_POSICAO, type Html } from '../ui.js';
 import type { Pagina } from './tipos.js';
@@ -12,6 +12,7 @@ import { temporadasDaCarreira, type TemporadaDaCarreira } from '../carreira.js';
 
 const NOME_DO_TROFEU: Record<TipoTrofeu, [string, string]> = {
   CAMPEAO: ['Título', 'Títulos'],
+  CAMPEAO_COPA: ['Título da Copa', 'Títulos da Copa'],
   CRAQUE_TEMPORADA: ['Craque da Temporada', 'Craque da Temporada'],
   SELECAO_TEMPORADA: ['Seleção da Temporada', 'vezes na Seleção da Temporada'],
   CRAQUE_RODADA: ['Craque da Rodada', 'Craques da Rodada'],
@@ -24,6 +25,12 @@ function seloFundador(f: NonNullable<JogadorPublico['fundador']>, completo: bool
   const id = IDENTIDADE[f.time];
   const nome = FALA_DO_TIME[f.time];
   return html`<span class="selo-fundador" style="--fundador-cor: ${id.primaria}; --fundador-borda: ${id.secundaria}">${escudoImg(f.time, 1)}<span>${completo ? `Fundador ${nome.artigo === 'a' ? 'da' : 'do'} ${nome.curto}` : 'Fundador'}</span></span>`;
+}
+
+/** Conquista (ADR-0090): selo público na Carreira, na cor do nível (fácil, média, difícil). */
+function seloConquista(codigo: string): Html {
+  const q = CONQUISTA_POR_CODIGO.get(codigo);
+  return q ? html`<span class="selo-conquista nivel-${q.nivel.toLowerCase()}" title="${q.descricao}">${q.nome}</span>` : html``;
 }
 
 /** Selo da Temporada 1 (ADR-0047): quem se inscreveu na primeira Temporada da Liga. */
@@ -76,6 +83,7 @@ export const paginaCarreira: Pagina = async (main, [id]) => {
         <h1><a href="#/jogador/${j.id}">${nomeVisivel(j)}</a></h1>
         ${j.seloT1 ? html`<p class="linha-fundador">${seloT1()} <small>na Liga desde o começo</small></p>` : ''}
         ${j.fundador ? html`<p class="linha-fundador">${seloFundador(j.fundador, true)} <small>desde a Temporada ${j.fundador.temporada}</small></p>` : ''}
+        ${j.conquistas?.length ? html`<p class="selos-conquista" aria-label="Conquistas">${j.conquistas.map((x) => seloConquista(x.codigo))}</p>` : ''}
         <p>${NOME_DA_POSICAO[j.posicao]} do ${curto(j.time)} · OVR ${j.ovr} · ${j.temporadas} ${j.temporadas === 1 ? 'Temporada' : 'Temporadas'} · ${j.jogos} jogos, ${j.gols} gols</p>
         ${j.especializacao || j.treino
           ? html`<p class="legenda">${j.especializacao ? `Especialização: ${NOME_DA_ESPECIALIZACAO[j.especializacao]}` : ''}${j.especializacao && j.treino ? ' · ' : ''}${j.treino ? `Treino: ${NOME_DA_HABILIDADE[j.treino]}` : ''}</p>`

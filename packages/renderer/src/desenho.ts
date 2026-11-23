@@ -5,12 +5,12 @@
  * Linguagem visual: várzea em pixel art. Placar de tábua com plaquinhas penduradas,
  * campo com terrão e cal, mata em volta e faixa de torcida no gol.
  */
-import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type Posicao, type SituacaoNaBriga, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, NOME_DO_PERFIL_DO_JUIZ, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type ItensEquipados, type Posicao, type SituacaoNaBriga, type TimeId } from '@liga/shared';
 import type { Lado } from '@liga/sim';
 import { CAMPO, cenario } from './cenario.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste, ruido } from './pixel.js';
 import { ALTURA_DAS_ESTRELAS, ALTURA_ESCUDO, LARGURA_ESCUDO, escudo, estrelasDoEscudo } from './escudos.js';
-import { ALTURA_SPRITE, LARGURA_SPRITE, MAO_DO_APITO, aparencia, escolherPose, espelharNoSprite, sprite, type Pose, type Visual } from './sprites.js';
+import { ALTURA_SPRITE, LARGURA_SPRITE, MAO_DO_APITO, aparencia, escolherPose, espelharNoSprite, itensDe, quadroDaComemoracao, sprite, vestir, type Pose, type Visual } from './sprites.js';
 import type { CartaoNoJogo, EstadoQuadro, JogadorNoQuadro, Ponto } from './timeline.js';
 import { visualDoJuiz, type JuizNoQuadro } from './juiz.js';
 import { desenharArquibancada, desenharCartao, desenharClimaNoAr, desenharClimaNoChao, desenharCloseDaTorcida } from './arquibancada.js';
@@ -24,6 +24,8 @@ export interface OpcoesDesenho {
   apelidos?: Record<Lado, (string | null)[]>;
   /** Número da camisa de cada lugar, escolhido pelo dono (null = camisa lisa). Só aparece de costas. */
   numeros?: Record<Lado, (number | null)[]>;
+  /** Itens equipados de cada lugar na hora da Escalação (ADR-0101). Sem isso, os de agora. */
+  itens?: Record<Lado, (ItensEquipados | null)[]>;
   /** Fonte dos números e letreiros (precisa estar carregada na página). Padrão: Jersey 10. */
   fonteDisplay?: string;
   /** Fonte dos nomes. Padrão: Pixelify Sans. */
@@ -131,7 +133,11 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
 function visualDe(j: JogadorNoQuadro, o: OpcoesDesenho, e?: EstadoQuadro): Visual {
   const quem = j.ocupante ?? j.slot.indice;
   const nome = o.nomes[j.slot.lado][quem] ?? `base-${j.slot.lado}-${quem}`;
-  const v = { ...visualDoJogador(o.times[j.slot.lado], j.posicao, nome), numero: o.numeros?.[j.slot.lado][quem] ?? null };
+  const v = {
+    ...visualDoJogador(o.times[j.slot.lado], j.posicao, nome),
+    numero: o.numeros?.[j.slot.lado][quem] ?? null,
+    ...(o.itens ? vestir(o.itens[j.slot.lado][quem], j.posicao === 'GOL') : {}),
+  };
   // T2: o visitante usa o segundo uniforme quando as camisas se confundem (o goleiro não muda).
   if (e?.t2?.segundoUniforme === j.slot.lado && j.posicao !== 'GOL') {
     const rival = o.times[j.slot.lado === 'mandante' ? 'visitante' : 'mandante'];
@@ -150,15 +156,20 @@ export function visualDoJogador(time: TimeId, posicao: Posicao, nome: string): V
     calcao: goleiro ? '#2B2B2B' : id.secundaria,
     meiao: goleiro ? id.secundaria : id.primaria,
     ...aparencia(nome),
+    ...itensDe(nome, goleiro),
   };
 }
 
 function desenharJogador(pin: Pincel, j: JogadorNoQuadro, o: OpcoesDesenho, fase: number, e?: EstadoQuadro): void {
   const p = noCampo(j.pos);
   const olhar = { x: j.olhar.x - j.pos.x, y: j.olhar.y - j.pos.y };
+  const visual = visualDe(j, o, e);
+  // Comemoração de gol da Loja (ADR-0101): só quem marcou, no começo do destaque do gol.
+  const gol = e?.destaque?.tipo === 'GOL' && !e.destaque.penalti ? e.destaque : null;
+  const comemora = visual.comemoracao && gol && j.acao === 'COMEMORANDO' && gol.protagonista.lado === j.slot.lado && gol.protagonista.indice === j.slot.indice && gol.progresso < FIM_DA_COMEMORACAO;
+  if (comemora) return desenharComemoracao(pin, j, visual, gol.progresso / FIM_DA_COMEMORACAO);
   const escolha = escolherPose(j.acao, j.vel, olhar, fase + j.slot.indice);
   const { pose, pulo } = escolha;
-  const visual = visualDe(j, o, e);
   // De costas, com número, o sprite já vem virado: espelhar o canvas inverteria o número.
   const noSprite = espelharNoSprite(pose, visual.numero, escolha.espelhar);
   const espelhar = escolha.espelhar && !noSprite;
@@ -176,6 +187,24 @@ function desenharJogador(pin: Pincel, j: JogadorNoQuadro, o: OpcoesDesenho, fase
   } else {
     c.drawImage(img, x, y, LARGURA_SPRITE * s, ALTURA_SPRITE * s);
   }
+  c.restore();
+}
+
+/** Parte do destaque do gol que a comemoração da Loja ocupa (o destaque dura 75 s de jogo: uns 20 s, cerca de 1 s no vídeo). */
+const FIM_DA_COMEMORACAO = 0.27;
+
+function desenharComemoracao(pin: Pincel, j: JogadorNoQuadro, visual: Visual, f: number): void {
+  const q = quadroDaComemoracao(visual.comemoracao!, f);
+  const p = noCampo(j.pos);
+  const img = sprite(q.pose, visual);
+  const s = pin.px * ESCALA_BONECO;
+  const c = pin.ctx;
+  c.save();
+  // Gira em volta do meio do boneco, que fica no lugar de sempre (o pé em `p`).
+  c.translate(Math.round(p.x * pin.px), Math.round((p.y + 1) * pin.px - (ALTURA_SPRITE / 2) * s - q.pulo * s));
+  if (q.angulo) c.rotate(q.angulo);
+  if (q.espelhar) c.scale(-1, 1);
+  c.drawImage(img, (-LARGURA_SPRITE / 2) * s, (-ALTURA_SPRITE / 2) * s, LARGURA_SPRITE * s, ALTURA_SPRITE * s);
   c.restore();
 }
 
@@ -429,9 +458,47 @@ function desenharPlacar(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, display:
     desenharMarcasDePenalti(pin, e, display, texto);
     return;
   }
-  const rotulo = e.encerrada ? 'Fim de jogo' : `${e.minuto}'`;
+  // T3: nos Acréscimos o relógio mostra 90+n (ADR-0094).
+  const rotulo = e.encerrada ? 'Fim de jogo' : e.acrescimo ? `90+${e.acrescimo}'` : `${e.minuto}'`;
   pin.texto(rotulo, COLUNAS / 2, 52, 9, texto, COR.amarelo, { contorno: COR.mata, peso: 700 });
+  if (!e.encerrada) desenharMarcasDaT3(pin, e, texto);
   if (o.briga) desenharBriga(pin, o.briga, e, o, texto);
+}
+
+/**
+ * T3 (ADR-0094): a placa dos Acréscimos (o "+3" luminoso ao lado do relógio), a Pressão final
+ * (embaixo do placar, do lado de quem se lança) e o Perfil do Juiz no começo da Partida.
+ */
+function desenharMarcasDaT3(pin: Pincel, e: EstadoQuadro, texto: string): void {
+  const placa = e.placaDosAcrescimos;
+  if (placa) {
+    const sobe = Math.min(1, placa.progresso / 0.08);
+    const desce = placa.progresso > 0.9 ? (placa.progresso - 0.9) / 0.1 : 0;
+    const y = 46 + Math.round((1 - suave(sobe)) * 8 + suave(desce) * 8);
+    if (sobe > 0.2 && desce < 0.8) {
+      const x = COLUNAS / 2 + 22;
+      pin.r(x - 1, y - 1, 30, 14, COR.contorno);
+      pin.r(x, y, 28, 12, '#1E2A22');
+      pin.texto(`+${placa.minutos}`, x + 14, y + 6.5, 9, texto, '#3DDC64', { peso: 700 });
+    }
+  }
+  for (const lado of e.pressao ?? []) {
+    const x = COLUNAS / 2 + (lado === 'mandante' ? -62 : 62);
+    pin.texto('pressão!', x, 52, 7.5, texto, '#FF9F43', { contorno: COR.mata, peso: 700 });
+  }
+  const juiz = e.placaDoJuiz;
+  if (juiz) {
+    const entra = Math.min(1, juiz.progresso / 0.08);
+    const sai = juiz.progresso > 0.88 ? (juiz.progresso - 0.88) / 0.12 : 0;
+    if (entra > 0.3 && sai < 0.7) {
+      const rotulo = `Juiz: ${NOME_DO_PERFIL_DO_JUIZ[juiz.perfil]}`;
+      const w = 104;
+      const x = COLUNAS / 2 - w / 2;
+      const y = 60 - Math.round(suave(sai) * 8);
+      pin.tabua(x, y, w, 16);
+      pin.texto(rotulo, COLUNAS / 2, y + 8, 8.5, texto, juiz.perfil === 'RIGOROSO' ? '#FF6B5B' : juiz.perfil === 'DEIXA_JOGAR' ? '#3DDC64' : COR.placa, { peso: 700 });
+    }
+  }
 }
 
 export type TipoDaPlaquinhaDaBriga = 'GARANTIDO' | 'ELIMINADO' | 'DEPENDE';
@@ -564,6 +631,7 @@ const TITULO_PENALTI = { GOL: 'Converteu!', DEFESA: 'Pegou!', BLOQUEIO: 'Bloqueo
 
 /** Letreiro de um destaque menor (T2: falta, cartão, pênalti e barreira têm o seu). */
 function tituloDoDestaque(d: NonNullable<EstadoQuadro['destaque']>): string {
+  if (d.trave) return 'Na trave!';
   if (d.tipo === 'FALTA') return d.cartao === 'VERMELHO' ? 'Expulso!' : d.cartao === 'AMARELO' ? 'Amarelo!' : 'Falta!';
   if (d.bolaParada === 'PENALTI') return d.tipo === 'DEFESA' ? 'Pegou o pênalti!' : d.tipo === 'FORA' ? 'Pênalti pra fora!' : TITULO_PENALTI[d.tipo];
   if (d.bolaParada === 'FALTA_DIRETA' && d.tipo === 'BLOQUEIO') return 'Na barreira!';
@@ -633,7 +701,8 @@ function desenharDestaque(pin: Pincel, e: EstadoQuadro, o: OpcoesDesenho, displa
     const fase = p * 38;
     const onda = faixaDeTorcida(pin, y, 66, id, fase, abre);
     if (abre >= 0.6) {
-      const titulo = TITULO.GOL;
+      // T3: o Gol de placa ganha letreiro próprio (ADR-0094).
+      const titulo = d.golDePlaca ? 'Gol de placa!' : TITULO.GOL;
       const tam = pin.caber(titulo, 240, 58, display);
       pin.ctx.font = `400 ${tam * pin.px}px ${display}`;
       const larguras = [...titulo].map((ch) => pin.ctx.measureText(ch).width / pin.px);

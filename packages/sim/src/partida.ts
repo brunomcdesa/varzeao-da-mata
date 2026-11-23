@@ -6,6 +6,7 @@ import {
   TAMANHO_ESCALACAO,
   ehClassico,
   ovrDasHabilidades,
+  QUANTIDADE_DE_BATEDORES,
   type Canto,
   type Escalacao,
   type Formacao,
@@ -17,7 +18,7 @@ import {
 import { duelo, probabilidadeDuelo } from './duelo.js';
 import { ACOES, evoluir, valorDaAcao, zeradas, type Acao } from './evolucao.js';
 import { notaDaPartida } from './nota.js';
-import { ESPECIALIZACAO, PARAMETROS, PARAMETROS_T2, VERSAO_SIM, VERSAO_SIM_T1 } from './parametros.js';
+import { ESPECIALIZACAO, PARAMETROS, PARAMETROS_T2, PARAMETROS_T3, VERSAO_SIM, VERSAO_SIM_T1, VERSAO_SIM_T3 } from './parametros.js';
 import { criarRng, type Rng } from './rng.js';
 import type { Cobranca, Desempenho, EntradaPartida, Lado, Lance, LocalDaFalta, ResultadoPartida, SlotRef, Substituicao } from './tipos.js';
 
@@ -108,6 +109,15 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
   // sorteios da T2 são próprios e os ajustes valem zero, então a T1 sai igual à versão 5.
   const t2 = entrada.t2;
   const rngT2 = criarRng(((entrada.seed >>> 0) ^ 0x68e31da4) >>> 0);
+  // Regras da Temporada 3 (ADR-0094): só junto com as da T2, com sorteio próprio. Sem
+  // `entrada.t3`, nada daqui muda a Partida (sai igual à VERSAO_SIM da T2).
+  const t3 = t2 ? entrada.t3 : undefined;
+  const rngT3 = criarRng(((entrada.seed >>> 0) ^ 0x7feb352d) >>> 0);
+  const juiz = t3?.juiz ?? 'NORMAL';
+  const fatorFalta = t3 ? PARAMETROS_T3.juizFalta[juiz] : 1;
+  const fatorCartao = t3 ? PARAMETROS_T3.juizCartao[juiz] : 1;
+  /** Pressão final (T3): os Times que estão se lançando no lance da vez. */
+  let pressionando: ReadonlySet<Lado> = new Set<Lado>();
   const chave = (s: SlotRef) => `${s.lado}:${s.indice}`;
   /** Expulsos (T2): o lugar fica vazio até o fim (a expulsão não é compensada). */
   const expulsos = new Set<string>();
@@ -139,7 +149,8 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     const defesa = outro(ataque);
     return (
       limitarTatico(PARAMETROS_T2.posturaAtaque[posturaDe(ataque)] + PARAMETROS_T2.formacaoAtaque[formacaoDe(ataque)]) +
-      limitarTatico(PARAMETROS_T2.posturaDefesa[posturaDe(defesa)] + PARAMETROS_T2.formacaoDefesa[formacaoDe(defesa)])
+      limitarTatico(PARAMETROS_T2.posturaDefesa[posturaDe(defesa)] + PARAMETROS_T2.formacaoDefesa[formacaoDe(defesa)]) +
+      (pressionando.has(ataque) ? PARAMETROS_T3.pressaoAtaque : 0)
     );
   };
   /** Jogadas da Formação (ADR-0044) têm sorteio próprio: o 2-2-2 sai igual à VERSAO_SIM 10. */
@@ -202,7 +213,8 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
       return;
     }
     const zagueiroSubiu = [l.criador, l.finalizador].some((s) => s && posicaoDe(s) === 'ZAG');
-    recuperou = { lado: outro(l.ataque), adiantados: l.bolaParada === 'ESCANTEIO' ? 6 : zagueiroSubiu ? 4 : 3 };
+    // Pressão final (T3): quem se lançou deixa um a mais lá na frente.
+    recuperou = { lado: outro(l.ataque), adiantados: (l.bolaParada === 'ESCANTEIO' ? 6 : zagueiroSubiu ? 4 : 3) + (pressionando.has(l.ataque) ? 1 : 0) };
   };
 
   /**
@@ -301,8 +313,8 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     acao(autor, 'cometeuFalta');
     let cartao: 'AMARELO' | 'VERMELHO' | undefined;
     let segundoAmarelo = false;
-    if (local === 'AREA' && rngT2.chance(PARAMETROS_T2.chanceVermelhoNoPenalti)) cartao = 'VERMELHO';
-    else if (rngT2.chance(local === 'AREA' ? PARAMETROS_T2.chanceAmareloNoPenalti : PARAMETROS_T2.chanceAmarelo)) {
+    if (local === 'AREA' && rngT2.chance(PARAMETROS_T2.chanceVermelhoNoPenalti * fatorCartao)) cartao = 'VERMELHO';
+    else if (rngT2.chance((local === 'AREA' ? PARAMETROS_T2.chanceAmareloNoPenalti : PARAMETROS_T2.chanceAmarelo) * fatorCartao)) {
       const n = (amarelosDe.get(chaveJ(autor)) ?? 0) + 1;
       amarelosDe.set(chaveJ(autor), n);
       cartao = n >= 2 ? 'VERMELHO' : 'AMARELO';
@@ -426,6 +438,90 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     empurrar({ ...base, tipo: 'GOL', defensor: goleiro });
   };
 
+  /** T3: Trave em parte dos chutes para fora (sorteio próprio; não muda o placar). */
+  const naTrave = (): Pick<Lance, 'trave'> => (t3 && rngT3.chance(PARAMETROS_T3.chanceTrave) ? { trave: true } : {});
+
+  /**
+   * T3: depois de uma defesa do goleiro em jogada, às vezes ele solta a bola (Rebote); senão, o
+   * escanteio de sempre.
+   */
+  const depoisDaDefesa = (numero: number, minuto: number, ataque: Lado, goleiro: SlotRef): void => {
+    if (t3 && rngT3.chance(PARAMETROS_T3.chanceRebote)) rebote(numero, minuto, ataque, lances[lances.length - 1]!.finalizador!, goleiro);
+    else talvezEscanteio(numero, minuto, ataque);
+  };
+
+  /**
+   * T3 (ADR-0094): Rebote. Um atacante (Finalização) disputa a sobra com um zagueiro (Defesa);
+   * se ganha, chuta de novo contra o goleiro. Gol de rebote não tem assistência.
+   */
+  const rebote = (numero: number, minuto: number, ataque: Lado, chutou: SlotRef, goleiro: SlotRef): void => {
+    const defesa = outro(ataque);
+    const atacante = rngT3.pick(frente(ataque));
+    const zagueiro = rngT3.pick(zaga(defesa));
+    const base = { numero, minuto, ataque, criador: chutou, finalizador: atacante, marcador: zagueiro, rebote: true as const };
+    if (!duelo(rngT3, hab(atacante, 'FIN'), hab(zagueiro, 'DEF'), PARAMETROS_T3.baseDisputaRebote)) {
+      conta(zagueiro).desarmes++;
+      acao(zagueiro, 'desarme');
+      empurrar({ ...base, tipo: 'DESARME', defensor: zagueiro });
+      return;
+    }
+    if (!duelo(rngT3, hab(atacante, 'FIN'), hab(goleiro, 'GOL'), PARAMETROS_T3.baseChuteRebote + mod(goleiro, 'contraChuteApertado'))) {
+      conta(goleiro).defesas++;
+      acao(goleiro, 'defesa');
+      acao(atacante, 'chuteDefendido');
+      empurrar({ ...base, tipo: 'DEFESA', defensor: goleiro });
+      talvezEscanteio(numero, minuto, ataque);
+      return;
+    }
+    if (rngT3.chance(chanceDeFora(hab(atacante, 'FIN')))) {
+      acao(atacante, 'chuteFora');
+      empurrar({ ...base, tipo: 'FORA', defensor: goleiro, ...naTrave() });
+      return;
+    }
+    marcarGol(ataque, atacante, null, goleiro);
+    empurrar({ ...base, tipo: 'GOL', defensor: goleiro });
+  };
+
+  /**
+   * T3 (ADR-0094): Chute de longe. Quem criou arrisca de fora da área (ou toca para um zagueiro
+   * que subiu), sem Duelo com o marcador: Finalização contra o goleiro. Entrou com pouca chance
+   * de passar do goleiro, é Gol de placa.
+   */
+  const chutarDeLonge = (numero: number, minuto: number, ataque: Lado, criador: SlotRef, extra: Partial<Lance>): void => {
+    const defesa = outro(ataque);
+    const zagueiroChuta = rngT3.chance(PARAMETROS_T3.chanceZagueiroArrisca);
+    const chutador = zagueiroChuta ? rngT3.pick(zaga(ataque)) : criador;
+    const goleiro = slotsDa(defesa, 'GOL')[0]!;
+    const base = { numero, minuto, ataque, criador, finalizador: chutador, defensor: goleiro, chuteDeLonge: true as const, ...extra };
+    const p = probabilidadeDuelo(hab(chutador, 'FIN'), hab(goleiro, 'GOL'), PARAMETROS_T3.baseChuteDeLonge + mod(goleiro, 'contraChuteApertado'));
+    if (!rngT3.chance(p)) {
+      conta(goleiro).defesas++;
+      acao(goleiro, 'defesa');
+      acao(chutador, 'chuteDefendido');
+      empurrar({ ...base, tipo: 'DEFESA' });
+      depoisDaDefesa(numero, minuto, ataque, goleiro);
+      return;
+    }
+    if (rngT3.chance(chanceDeFora(hab(chutador, 'FIN')) + PARAMETROS_T3.foraNoChuteDeLonge)) {
+      acao(chutador, 'chuteFora');
+      empurrar({ ...base, tipo: 'FORA', ...naTrave() });
+      return;
+    }
+    marcarGol(ataque, chutador, zagueiroChuta ? criador : null, goleiro);
+    empurrar({ ...base, tipo: 'GOL', ...(p <= PARAMETROS_T3.placaAte ? { golDePlaca: true as const } : {}) });
+  };
+
+  /** T3: quem está na Pressão final neste minuto (perde por 1 ou 2; no Mata-mata, também o empate). */
+  const quemPressiona = (minuto: number): ReadonlySet<Lado> => {
+    if (!t3 || minuto <= PARAMETROS_T3.pressaoDesde) return new Set();
+    const s = new Set<Lado>();
+    for (const lado of LADOS) {
+      const deficit = gols[outro(lado)] - gols[lado];
+      if ((deficit >= 1 && deficit <= PARAMETROS_T3.pressaoDeficitMaximo) || (deficit === 0 && entrada.fase === 'MATA_MATA')) s.add(lado);
+    }
+    return s;
+  };
+
   /**
    * Substituição no intervalo (ADR-0061): em cada Time com Banco, sai quem está com Nota parcial
    * abaixo de `notaParaSair` (piores primeiro, até `trocasPorTime`), sem o lugar de um expulso.
@@ -489,219 +585,258 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
         Math.max(PARAMETROS.ritmoMinimo, ritmoDaPartida(entrada.seed) + PARAMETROS_T2.posturaRitmo[posturaDe('mandante')] + PARAMETROS_T2.posturaRitmo[posturaDe('visitante')]),
       )
     : ritmoDaPartida(entrada.seed);
+  // Acréscimos (T3, ADR-0094): de 1 a 4 minutos (sorteio próprio). Um dos lances do Ritmo a
+  // cada 2 minutos passa para os Acréscimos: a Partida tem o mesmo número de lances de sempre.
+  const acrescimos = t3 ? 1 + rngT3.int(PARAMETROS_T3.acrescimosMaximo) : 0;
+  const lancesNosAcrescimos = Math.min(Math.round(acrescimos / 2), totalDeLances - 1);
+  const lancesNoTempo = totalDeLances - lancesNosAcrescimos;
+
+  const jogarLance = (numero: number, minuto: number): void => {
+      // 1. Posse: o meia com a bola (Passe) contra o meia rival (Defesa). Depois de gol, quem
+      // sofreu dá a saída (VERSAO_SIM 12/13, ADR-0045), mas ainda pode perder a bola no duelo.
+      // O sorteio de antes continua sendo feito, para o resto da Partida não mudar.
+      const sorteado: Lado = rng.chance(0.5) ? 'mandante' : 'visitante';
+      const ultimo = lances[lances.length - 1];
+      const comBola: Lado = ultimo?.tipo === 'GOL' ? outro(ultimo.ataque) : sorteado;
+      const meiaComBola = rng.pick(meio(comBola));
+      const meiaRival = rng.pick(meio(outro(comBola)));
+      let criador: SlotRef;
+      const basePosse = ultimo?.tipo === 'GOL' ? PARAMETROS.basePosseNaSaida : PARAMETROS.basePosse;
+      const ajustePosse = t2 ? PARAMETROS_T2.formacaoPosse[formacaoDe(comBola)] - PARAMETROS_T2.formacaoPosse[formacaoDe(outro(comBola))] : 0;
+      // Pressão final (T3): quem se lança fica mais com a bola (metade, na Postura Defensiva).
+      const empurrao = (lado: Lado) => (pressionando.has(lado) && !pressionando.has(outro(lado)) ? PARAMETROS_T3.pressaoPosse * (posturaDe(lado) === 'DEFENSIVA' ? 0.5 : 1) : 0);
+      const ajustePressao = empurrao(comBola) - empurrao(outro(comBola));
+      if (duelo(rng, hab(meiaComBola, 'PAS'), hab(meiaRival, 'DEF'), basePosse + mod(meiaRival, 'defesaPosse') + ajustePosse + ajustePressao)) {
+        criador = meiaComBola;
+        acao(meiaComBola, 'ganhouPosse');
+        acao(meiaRival, 'superadoNaPosse');
+      } else {
+        criador = meiaRival;
+        acao(meiaRival, 'roubouPosse');
+        acao(meiaComBola, 'perdeuPosse');
+      }
+      const ataque = criador.lado;
+      const defesa = outro(ataque);
+      // 3 zagueiros (ADR-0044): um fica na sobra (a Cobertura do 3-2-1); os outros dois jogam como antes.
+      const zagaInteira = zaga(defesa);
+      const sobra = zagaInteira.length > 2 ? rngF.pick(zagaInteira) : undefined;
+      const [zagueiro1, zagueiro2] = embaralharDois(rng, sobra ? zagaInteira.filter((z) => z.indice !== sobra.indice) : zagaInteira);
+
+      // Contra-ataque: quem acabou de recuperar a bola sai rápido; a defesa rival recompõe?
+      let contraAtaque: Lance['contraAtaque'];
+      const r0 = recuperou as { lado: Lado; adiantados: number } | null;
+      if (r0 && r0.lado === ataque && rngCA.chance(PARAMETROS.chanceContraAtaque + PARAMETROS.chanceContraPorAdiantado * (r0.adiantados - 3) + (pressionando.has(defesa) ? PARAMETROS_T3.pressaoContra : 0))) {
+        const recomposto = duelo(rngCA, hab(zagueiro1, 'DEF'), hab(criador, 'DRI'), PARAMETROS.baseRecomposicao - PARAMETROS.recomposicaoPorAdiantado * (r0.adiantados - 3));
+        contraAtaque = { recomposto, adiantados: r0.adiantados };
+      }
+      const semZagueiro1 = contraAtaque !== undefined && !contraAtaque.recomposto;
+      const semMarcador = semZagueiro1 && contraAtaque!.adiantados >= PARAMETROS.adiantadosSemMarcador;
+      const ca = contraAtaque ? { contraAtaque } : {};
+      const fechar = (l: Lance) => {
+        lances.push(l);
+        depoisDoLance(l);
+      };
+
+      // Jogada da Formação na criação (ADR-0044): Ligação direta (3-1-2, fora do contra-ataque) ou
+      // Tabela (2-3-1). Os sorteios são do rngF; a criação continua com o mesmo sorteio de sempre.
+      let jogada: Pick<Lance, 'jogadaDaFormacao' | 'apoio' | 'cobertura'> = {};
+      let bonusCriacao = 0;
+      let baseCriacao: number = PARAMETROS.baseCriacao;
+      if (jogaNa(ataque, '3-1-2') && !contraAtaque && rngF.chance(PARAMETROS_T2.chanceLigacao)) {
+        // O zagueiro lança: ele vira o criador (e leva a assistência), e o lançamento é mais difícil.
+        criador = rngF.pick(zaga(ataque));
+        baseCriacao = PARAMETROS_T2.baseLigacao;
+        jogada = { jogadaDaFormacao: 'LIGACAO_DIRETA' };
+      } else if (jogaNa(ataque, '2-3-1')) {
+        const parceiros = meio(ataque).filter((m) => m.indice !== criador.indice);
+        if (parceiros.length && rngF.chance(PARAMETROS_T2.chanceTabela)) {
+          jogada = { jogadaDaFormacao: 'TABELA', apoio: rngF.pick(parceiros) };
+          bonusCriacao = PARAMETROS_T2.bonusTabela;
+        }
+      }
+      const ligacao = jogada.jogadaDaFormacao === 'LIGACAO_DIRETA';
+
+      // 2. Criação: meia (Passe) contra o 1º zagueiro (Defesa). No contra-ataque sem
+      //    recomposição o zagueiro ficou para trás (o sorteio acontece igual, para não mexer no resto).
+      const criou = duelo(rng, hab(criador, 'PAS'), hab(zagueiro1, 'DEF'), baseCriacao + bonusCriacao + ajustePostura(ataque) + ajusteVantagem(ataque) + mod(criador, 'criacao') + mod(zagueiro1, 'contraCriacao'));
+      if (!criou && !semZagueiro1) {
+        // T2: às vezes o desarme é falta (ADR-0024). Lançamento interceptado não é falta.
+        if (t2 && !ligacao && rngT2.chance(PARAMETROS_T2.chanceFaltaNaCriacao * fatorFalta)) {
+          cometerFalta(numero, minuto, ataque, criador, zagueiro1, rngT2.chance(PARAMETROS_T2.criacaoNaEntrada) ? 'ENTRADA' : 'LONGE', undefined, ca);
+          return;
+        }
+        conta(zagueiro1).desarmes++;
+        acao(zagueiro1, 'desarme');
+        acao(criador, 'desarmadoNaCriacao');
+        fechar({ numero, minuto, ataque, tipo: 'DESARME', criador, defensor: zagueiro1, ...ca, ...jogada });
+        return;
+      }
+      if (!semZagueiro1) acao(zagueiro1, 'superadoNaCriacao');
+
+      // T3 (ADR-0094): Chute de longe. Quem criou arrisca de fora da área, mais com Finalização
+      // alta e Postura Ofensiva. Não na Ligação direta nem no contra-ataque sem zagueiro.
+      if (t3 && !ligacao && !semZagueiro1) {
+        const { chanceChuteDeLonge, chuteDeLongePorPonto, chuteDeLongeMinimo, chuteDeLongeMaximo, chuteDeLongePostura } = PARAMETROS_T3;
+        const chance = chanceChuteDeLonge + chuteDeLongePostura[posturaDe(ataque)] + (hab(criador, 'FIN') - 60) * chuteDeLongePorPonto;
+        if (rngT3.chance(Math.min(chuteDeLongeMaximo, Math.max(chuteDeLongeMinimo, chance)))) {
+          chutarDeLonge(numero, minuto, ataque, criador, { ...ca, ...jogada });
+          return;
+        }
+      }
+
+      // 3. Atacante × zagueiro: drible ou chute marcado.
+      //    Na Ligação direta a bola vai direto para os atacantes (nenhum meia finaliza).
+      const outrosMeias = ligacao ? [] : slotsDa(ataque, 'MEI').filter((s) => s.indice !== criador.indice);
+      const chanceMeia =
+        PARAMETROS.chanceMeiaFinaliza +
+        (t2 ? Math.max(0, ...outrosMeias.map((m) => mod(m, 'chanceMeiaFinaliza'))) : 0) +
+        (jogaNa(ataque, '2-3-1') ? PARAMETROS_T2.meiaFinalizaNoTresMeias : 0);
+      let finalizador =
+        outrosMeias.length > 0 && rng.chance(chanceMeia)
+          ? rng.pick(outrosMeias)
+          : t2
+            ? escolherComPeso(rng, frente(ataque), (s) => mod(s, 'pesoFinalizador') || 1)
+            : rng.pick(slotsDa(ataque, 'ATA'));
+      const bonusMarcador = ligacao ? PARAMETROS_T2.bonusLigacao : 0;
+      const marcador = zagueiro2;
+      const goleiro = rng.pick(slotsDa(defesa, 'GOL'));
+      const drible = rng.chance(limitar01(chanceDeDriblar(hab(finalizador, 'DRI'), hab(finalizador, 'FIN')) + mod(finalizador, 'escolhaDrible')));
+
+      let baseChute: number;
+      // Marcação dupla (VERSAO_SIM 12/13, ADR-0045): às vezes o 1º zagueiro volta e dobra a
+      // marcação no finalizador. O duelo fica mais difícil (vale a melhor Defesa dos dois), mas
+      // um companheiro fica livre: se o finalizador acha o passe, quem chuta é ele, sem marcador.
+      // Sorteio próprio, para o resto da Partida não mudar quando não há dobra.
+      const podeDobrar = !semZagueiro1 && !semMarcador && zagueiro1.indice !== zagueiro2.indice && !expulsos.has(chave(zagueiro1));
+      const dobrou = podeDobrar && rngDobra.chance(PARAMETROS.chanceMarcacaoDupla);
+      const naDobra = dobrou && hab(zagueiro1, 'DEF') > hab(zagueiro2, 'DEF') ? zagueiro1 : marcador;
+      const ajusteDobra = dobrou ? -PARAMETROS.penalidadeMarcacaoDupla : 0;
+      // Sem marcador (escanteio desfeito em contra-ataque): o duelo é sorteado, mas não vale.
+      let venceuMarcador = drible
+        ? duelo(rng, hab(finalizador, 'DRI'), hab(naDobra, 'DEF'), PARAMETROS.baseDrible + bonusMarcador + ajusteDobra + ajustePostura(ataque) + ajusteVantagem(ataque) + mod(finalizador, 'drible') + mod(naDobra, 'contraDrible'))
+        : duelo(rng, hab(finalizador, 'FIN'), hab(naDobra, 'DEF'), PARAMETROS.baseChuteMarcado + bonusMarcador + ajusteDobra + ajustePostura(ataque) + ajusteVantagem(ataque) + mod(finalizador, 'chuteMarcado') + mod(naDobra, 'contraChuteMarcado'));
+      let dobra: Lance['dobra'];
+      let assistente = criador;
+      if (dobrou) {
+        const livres = [...slotsDa(ataque, 'ATA'), ...slotsDa(ataque, 'MEI')].filter((x) => x.indice !== finalizador.indice && x.indice !== criador.indice && !expulsos.has(chave(x)));
+        const saiu = livres.length > 0 && duelo(rngDobra, hab(finalizador, 'PAS'), hab(naDobra, 'DEF'), PARAMETROS.baseSaidaDaDobra);
+        dobra = { zagueiro: zagueiro1, sobre: finalizador };
+        if (saiu) {
+          // Tocou para quem ficou livre: o duelo com a zaga não acontece e o chute sai livre.
+          const companheiro = rngDobra.pick(livres.filter((x) => posicaoDe(x) === 'ATA').length ? livres.filter((x) => posicaoDe(x) === 'ATA') : livres);
+          dobra.passe = true;
+          assistente = finalizador;
+          finalizador = companheiro;
+          venceuMarcador = true;
+        }
+      }
+      /** Quem duelou com o finalizador: o marcador, ou o melhor da dobra. */
+      const Z = naDobra;
+      const comDobra = dobra ? { dobra } : {};
+      let livre = true;
+      if (semMarcador || dobra?.passe) {
+        baseChute = PARAMETROS.baseChuteLivre;
+      } else if (drible) {
+        if (!venceuMarcador) {
+          // T2: o desarme no drible pode ser falta, dentro da área (pênalti) ou na entrada dela.
+          if (t2 && rngT2.chance(PARAMETROS_T2.chanceFaltaNoDrible * fatorFalta)) {
+            cometerFalta(numero, minuto, ataque, criador, Z, rngT2.chance(PARAMETROS_T2.dribleNaArea) ? 'AREA' : 'ENTRADA', finalizador, ca);
+            return;
+          }
+          conta(Z).desarmes++;
+          acao(Z, 'desarme');
+          acao(finalizador, 'desarmadoNoDrible');
+          fechar({ numero, minuto, ataque, tipo: 'DESARME', criador, finalizador, defensor: Z, marcador: Z, drible: true, ...comDobra, ...ca, ...jogada });
+          return;
+        }
+        conta(finalizador).dribles++;
+        acao(finalizador, 'driblou');
+        acao(Z, 'foiDriblado');
+        baseChute = PARAMETROS.baseChuteLivre;
+        // Cobertura (3-2-1, ADR-0044): o zagueiro da sobra chega para mais um Duelo com o driblador.
+        if (sobra && jogaNa(defesa, '3-2-1') && rngF.chance(PARAMETROS_T2.chanceCobertura)) {
+          // A Jogada do ataque (Tabela ou Ligação) continua no nome; `cobertura` marca a sobra.
+          jogada = { jogadaDaFormacao: jogada.jogadaDaFormacao ?? 'COBERTURA', ...jogada, cobertura: sobra };
+          const desarmou = !duelo(rngF, hab(finalizador, 'DRI'), hab(sobra, 'DEF'), PARAMETROS_T2.baseCobertura + mod(finalizador, 'drible') + mod(sobra, 'contraDrible'));
+          if (desarmou) {
+            conta(sobra).desarmes++;
+            acao(sobra, 'desarme');
+            acao(finalizador, 'desarmadoNoDrible');
+            fechar({ numero, minuto, ataque, tipo: 'DESARME', criador, finalizador, defensor: sobra, marcador, drible: true, ...ca, ...jogada });
+            return;
+          }
+          acao(sobra, 'foiDriblado');
+        }
+      } else {
+        if (!venceuMarcador) {
+          conta(Z).bloqueios++;
+          acao(Z, 'bloqueio');
+          acao(finalizador, 'chuteBloqueado');
+          fechar({ numero, minuto, ataque, tipo: 'BLOQUEIO', criador, finalizador, defensor: Z, marcador: Z, drible: false, ...comDobra, ...ca, ...jogada });
+          talvezEscanteio(numero, minuto, ataque);
+          return;
+        }
+        acao(finalizador, 'venceuChuteMarcado');
+        baseChute = PARAMETROS.baseChuteApertado;
+        livre = false;
+      }
+      baseChute += mod(finalizador, 'finalizacao') + mod(goleiro, livre ? 'contraChuteLivre' : 'contraChuteApertado');
+
+      // 4. Finalização (Finalização) contra o goleiro (Goleiro).
+      const base = { numero, minuto, ataque, criador, finalizador, defensor: goleiro, ...(semMarcador || dobra?.passe ? {} : { marcador: naDobra, drible }), ...(dobra ? { dobra } : {}), ...ca, ...jogada };
+      if (!duelo(rng, hab(finalizador, 'FIN'), hab(goleiro, 'GOL'), baseChute)) {
+        conta(goleiro).defesas++;
+        acao(goleiro, 'defesa');
+        acao(finalizador, 'chuteDefendido');
+        fechar({ ...base, tipo: 'DEFESA' });
+        depoisDaDefesa(numero, minuto, ataque, goleiro);
+        return;
+      }
+      if (rng.chance(chanceDeFora(hab(finalizador, 'FIN')) + mod(finalizador, 'fora'))) {
+        acao(finalizador, 'chuteFora');
+        fechar({ ...base, tipo: 'FORA', ...naTrave() });
+        return;
+      }
+
+      gols[ataque]++;
+      conta(finalizador).gols++;
+      conta(assistente).assistencias++;
+      acao(finalizador, 'gol');
+      acao(assistente, 'assistencia');
+      acao(goleiro, 'golSofridoGoleiro');
+      for (const z of slotsDa(defesa, 'ZAG')) acao(z, 'golSofridoZagueiro');
+      for (const s of [goleiro, ...slotsDa(defesa, 'ZAG')]) conta(s).golsSofridos++;
+      golsEmOrdem.push({ lado: ataque, autor: finalizador, jogador: quem(finalizador) });
+      // T3: Gol de placa. Driblou o marcador e ainda passou da Cobertura, ou passou driblando pela
+      // marcação dupla (nem toda vira pintura: `placaNaDobra`).
+      const placa =
+        t3 !== undefined && drible && !semMarcador && !dobra?.passe && (jogada.cobertura !== undefined || (dobra !== undefined && rngT3.chance(PARAMETROS_T3.placaNaDobra)));
+      fechar({ ...base, tipo: 'GOL', ...(placa ? { golDePlaca: true as const } : {}) });
+  };
+
   for (let numero = 1; numero <= totalDeLances; numero++) {
-    // Cada lance cai em algum ponto da sua fatia dos 90 minutos, então o último pode sair até
-    // o 90' (ADR-0045; antes os lances paravam entre o 76' e o 88'). Mesmo sorteio de antes.
-    const posicaoNaFatia = (rng.int(3) + 0.5) / 3;
-    const minuto = Math.min(90, Math.floor(((numero - 1 + posicaoNaFatia) * 90) / totalDeLances) + 1);
+    const noAcrescimo = numero > lancesNoTempo;
+    let minuto = 90;
+    if (!noAcrescimo) {
+      // Cada lance cai em algum ponto da sua fatia dos 90 minutos, então o último pode sair até
+      // o 90' (ADR-0045; antes os lances paravam entre o 76' e o 88'). Mesmo sorteio de antes.
+      const posicaoNaFatia = (rng.int(3) + 0.5) / 3;
+      minuto = Math.min(90, Math.floor(((numero - 1 + posicaoNaFatia) * 90) / lancesNoTempo) + 1);
+    }
     // Intervalo (ADR-0061): antes do primeiro lance do 2º tempo.
     if (!intervaloFeito && minuto > 45) {
       intervaloFeito = true;
       substituir(45, numero - 1);
     }
-
-    // 1. Posse: o meia com a bola (Passe) contra o meia rival (Defesa). Depois de gol, quem
-    // sofreu dá a saída (VERSAO_SIM 12/13, ADR-0045), mas ainda pode perder a bola no duelo.
-    // O sorteio de antes continua sendo feito, para o resto da Partida não mudar.
-    const sorteado: Lado = rng.chance(0.5) ? 'mandante' : 'visitante';
-    const ultimo = lances[lances.length - 1];
-    const comBola: Lado = ultimo?.tipo === 'GOL' ? outro(ultimo.ataque) : sorteado;
-    const meiaComBola = rng.pick(meio(comBola));
-    const meiaRival = rng.pick(meio(outro(comBola)));
-    let criador: SlotRef;
-    const basePosse = ultimo?.tipo === 'GOL' ? PARAMETROS.basePosseNaSaida : PARAMETROS.basePosse;
-    const ajustePosse = t2 ? PARAMETROS_T2.formacaoPosse[formacaoDe(comBola)] - PARAMETROS_T2.formacaoPosse[formacaoDe(outro(comBola))] : 0;
-    if (duelo(rng, hab(meiaComBola, 'PAS'), hab(meiaRival, 'DEF'), basePosse + mod(meiaRival, 'defesaPosse') + ajustePosse)) {
-      criador = meiaComBola;
-      acao(meiaComBola, 'ganhouPosse');
-      acao(meiaRival, 'superadoNaPosse');
-    } else {
-      criador = meiaRival;
-      acao(meiaRival, 'roubouPosse');
-      acao(meiaComBola, 'perdeuPosse');
+    pressionando = quemPressiona(minuto);
+    const antes = lances.length;
+    jogarLance(numero, minuto);
+    // Marca os lances que acabaram de sair: Pressão final e minuto dos Acréscimos (90+n).
+    const acrescimo = noAcrescimo ? Math.min(acrescimos, Math.ceil(((numero - lancesNoTempo) * acrescimos) / lancesNosAcrescimos)) : 0;
+    for (const l of lances.slice(antes)) {
+      if (pressionando.has(l.ataque)) l.pressao = true;
+      if (acrescimo) l.acrescimo = acrescimo;
     }
-    const ataque = criador.lado;
-    const defesa = outro(ataque);
-    // 3 zagueiros (ADR-0044): um fica na sobra (a Cobertura do 3-2-1); os outros dois jogam como antes.
-    const zagaInteira = zaga(defesa);
-    const sobra = zagaInteira.length > 2 ? rngF.pick(zagaInteira) : undefined;
-    const [zagueiro1, zagueiro2] = embaralharDois(rng, sobra ? zagaInteira.filter((z) => z.indice !== sobra.indice) : zagaInteira);
-
-    // Contra-ataque: quem acabou de recuperar a bola sai rápido; a defesa rival recompõe?
-    let contraAtaque: Lance['contraAtaque'];
-    const r0 = recuperou as { lado: Lado; adiantados: number } | null;
-    if (r0 && r0.lado === ataque && rngCA.chance(PARAMETROS.chanceContraAtaque + PARAMETROS.chanceContraPorAdiantado * (r0.adiantados - 3))) {
-      const recomposto = duelo(rngCA, hab(zagueiro1, 'DEF'), hab(criador, 'DRI'), PARAMETROS.baseRecomposicao - PARAMETROS.recomposicaoPorAdiantado * (r0.adiantados - 3));
-      contraAtaque = { recomposto, adiantados: r0.adiantados };
-    }
-    const semZagueiro1 = contraAtaque !== undefined && !contraAtaque.recomposto;
-    const semMarcador = semZagueiro1 && contraAtaque!.adiantados >= PARAMETROS.adiantadosSemMarcador;
-    const ca = contraAtaque ? { contraAtaque } : {};
-    const fechar = (l: Lance) => {
-      lances.push(l);
-      depoisDoLance(l);
-    };
-
-    // Jogada da Formação na criação (ADR-0044): Ligação direta (3-1-2, fora do contra-ataque) ou
-    // Tabela (2-3-1). Os sorteios são do rngF; a criação continua com o mesmo sorteio de sempre.
-    let jogada: Pick<Lance, 'jogadaDaFormacao' | 'apoio' | 'cobertura'> = {};
-    let bonusCriacao = 0;
-    let baseCriacao: number = PARAMETROS.baseCriacao;
-    if (jogaNa(ataque, '3-1-2') && !contraAtaque && rngF.chance(PARAMETROS_T2.chanceLigacao)) {
-      // O zagueiro lança: ele vira o criador (e leva a assistência), e o lançamento é mais difícil.
-      criador = rngF.pick(zaga(ataque));
-      baseCriacao = PARAMETROS_T2.baseLigacao;
-      jogada = { jogadaDaFormacao: 'LIGACAO_DIRETA' };
-    } else if (jogaNa(ataque, '2-3-1')) {
-      const parceiros = meio(ataque).filter((m) => m.indice !== criador.indice);
-      if (parceiros.length && rngF.chance(PARAMETROS_T2.chanceTabela)) {
-        jogada = { jogadaDaFormacao: 'TABELA', apoio: rngF.pick(parceiros) };
-        bonusCriacao = PARAMETROS_T2.bonusTabela;
-      }
-    }
-    const ligacao = jogada.jogadaDaFormacao === 'LIGACAO_DIRETA';
-
-    // 2. Criação: meia (Passe) contra o 1º zagueiro (Defesa). No contra-ataque sem
-    //    recomposição o zagueiro ficou para trás (o sorteio acontece igual, para não mexer no resto).
-    const criou = duelo(rng, hab(criador, 'PAS'), hab(zagueiro1, 'DEF'), baseCriacao + bonusCriacao + ajustePostura(ataque) + ajusteVantagem(ataque) + mod(criador, 'criacao') + mod(zagueiro1, 'contraCriacao'));
-    if (!criou && !semZagueiro1) {
-      // T2: às vezes o desarme é falta (ADR-0024). Lançamento interceptado não é falta.
-      if (t2 && !ligacao && rngT2.chance(PARAMETROS_T2.chanceFaltaNaCriacao)) {
-        cometerFalta(numero, minuto, ataque, criador, zagueiro1, rngT2.chance(PARAMETROS_T2.criacaoNaEntrada) ? 'ENTRADA' : 'LONGE', undefined, ca);
-        continue;
-      }
-      conta(zagueiro1).desarmes++;
-      acao(zagueiro1, 'desarme');
-      acao(criador, 'desarmadoNaCriacao');
-      fechar({ numero, minuto, ataque, tipo: 'DESARME', criador, defensor: zagueiro1, ...ca, ...jogada });
-      continue;
-    }
-    if (!semZagueiro1) acao(zagueiro1, 'superadoNaCriacao');
-
-    // 3. Atacante × zagueiro: drible ou chute marcado.
-    //    Na Ligação direta a bola vai direto para os atacantes (nenhum meia finaliza).
-    const outrosMeias = ligacao ? [] : slotsDa(ataque, 'MEI').filter((s) => s.indice !== criador.indice);
-    const chanceMeia =
-      PARAMETROS.chanceMeiaFinaliza +
-      (t2 ? Math.max(0, ...outrosMeias.map((m) => mod(m, 'chanceMeiaFinaliza'))) : 0) +
-      (jogaNa(ataque, '2-3-1') ? PARAMETROS_T2.meiaFinalizaNoTresMeias : 0);
-    let finalizador =
-      outrosMeias.length > 0 && rng.chance(chanceMeia)
-        ? rng.pick(outrosMeias)
-        : t2
-          ? escolherComPeso(rng, frente(ataque), (s) => mod(s, 'pesoFinalizador') || 1)
-          : rng.pick(slotsDa(ataque, 'ATA'));
-    const bonusMarcador = ligacao ? PARAMETROS_T2.bonusLigacao : 0;
-    const marcador = zagueiro2;
-    const goleiro = rng.pick(slotsDa(defesa, 'GOL'));
-    const drible = rng.chance(limitar01(chanceDeDriblar(hab(finalizador, 'DRI'), hab(finalizador, 'FIN')) + mod(finalizador, 'escolhaDrible')));
-
-    let baseChute: number;
-    // Marcação dupla (VERSAO_SIM 12/13, ADR-0045): às vezes o 1º zagueiro volta e dobra a
-    // marcação no finalizador. O duelo fica mais difícil (vale a melhor Defesa dos dois), mas
-    // um companheiro fica livre: se o finalizador acha o passe, quem chuta é ele, sem marcador.
-    // Sorteio próprio, para o resto da Partida não mudar quando não há dobra.
-    const podeDobrar = !semZagueiro1 && !semMarcador && zagueiro1.indice !== zagueiro2.indice && !expulsos.has(chave(zagueiro1));
-    const dobrou = podeDobrar && rngDobra.chance(PARAMETROS.chanceMarcacaoDupla);
-    const naDobra = dobrou && hab(zagueiro1, 'DEF') > hab(zagueiro2, 'DEF') ? zagueiro1 : marcador;
-    const ajusteDobra = dobrou ? -PARAMETROS.penalidadeMarcacaoDupla : 0;
-    // Sem marcador (escanteio desfeito em contra-ataque): o duelo é sorteado, mas não vale.
-    let venceuMarcador = drible
-      ? duelo(rng, hab(finalizador, 'DRI'), hab(naDobra, 'DEF'), PARAMETROS.baseDrible + bonusMarcador + ajusteDobra + ajustePostura(ataque) + ajusteVantagem(ataque) + mod(finalizador, 'drible') + mod(naDobra, 'contraDrible'))
-      : duelo(rng, hab(finalizador, 'FIN'), hab(naDobra, 'DEF'), PARAMETROS.baseChuteMarcado + bonusMarcador + ajusteDobra + ajustePostura(ataque) + ajusteVantagem(ataque) + mod(finalizador, 'chuteMarcado') + mod(naDobra, 'contraChuteMarcado'));
-    let dobra: Lance['dobra'];
-    let assistente = criador;
-    if (dobrou) {
-      const livres = [...slotsDa(ataque, 'ATA'), ...slotsDa(ataque, 'MEI')].filter((x) => x.indice !== finalizador.indice && x.indice !== criador.indice && !expulsos.has(chave(x)));
-      const saiu = livres.length > 0 && duelo(rngDobra, hab(finalizador, 'PAS'), hab(naDobra, 'DEF'), PARAMETROS.baseSaidaDaDobra);
-      dobra = { zagueiro: zagueiro1, sobre: finalizador };
-      if (saiu) {
-        // Tocou para quem ficou livre: o duelo com a zaga não acontece e o chute sai livre.
-        const companheiro = rngDobra.pick(livres.filter((x) => posicaoDe(x) === 'ATA').length ? livres.filter((x) => posicaoDe(x) === 'ATA') : livres);
-        dobra.passe = true;
-        assistente = finalizador;
-        finalizador = companheiro;
-        venceuMarcador = true;
-      }
-    }
-    /** Quem duelou com o finalizador: o marcador, ou o melhor da dobra. */
-    const Z = naDobra;
-    const comDobra = dobra ? { dobra } : {};
-    let livre = true;
-    if (semMarcador || dobra?.passe) {
-      baseChute = PARAMETROS.baseChuteLivre;
-    } else if (drible) {
-      if (!venceuMarcador) {
-        // T2: o desarme no drible pode ser falta, dentro da área (pênalti) ou na entrada dela.
-        if (t2 && rngT2.chance(PARAMETROS_T2.chanceFaltaNoDrible)) {
-          cometerFalta(numero, minuto, ataque, criador, Z, rngT2.chance(PARAMETROS_T2.dribleNaArea) ? 'AREA' : 'ENTRADA', finalizador, ca);
-          continue;
-        }
-        conta(Z).desarmes++;
-        acao(Z, 'desarme');
-        acao(finalizador, 'desarmadoNoDrible');
-        fechar({ numero, minuto, ataque, tipo: 'DESARME', criador, finalizador, defensor: Z, marcador: Z, drible: true, ...comDobra, ...ca, ...jogada });
-        continue;
-      }
-      conta(finalizador).dribles++;
-      acao(finalizador, 'driblou');
-      acao(Z, 'foiDriblado');
-      baseChute = PARAMETROS.baseChuteLivre;
-      // Cobertura (3-2-1, ADR-0044): o zagueiro da sobra chega para mais um Duelo com o driblador.
-      if (sobra && jogaNa(defesa, '3-2-1') && rngF.chance(PARAMETROS_T2.chanceCobertura)) {
-        // A Jogada do ataque (Tabela ou Ligação) continua no nome; `cobertura` marca a sobra.
-        jogada = { jogadaDaFormacao: jogada.jogadaDaFormacao ?? 'COBERTURA', ...jogada, cobertura: sobra };
-        const desarmou = !duelo(rngF, hab(finalizador, 'DRI'), hab(sobra, 'DEF'), PARAMETROS_T2.baseCobertura + mod(finalizador, 'drible') + mod(sobra, 'contraDrible'));
-        if (desarmou) {
-          conta(sobra).desarmes++;
-          acao(sobra, 'desarme');
-          acao(finalizador, 'desarmadoNoDrible');
-          fechar({ numero, minuto, ataque, tipo: 'DESARME', criador, finalizador, defensor: sobra, marcador, drible: true, ...ca, ...jogada });
-          continue;
-        }
-        acao(sobra, 'foiDriblado');
-      }
-    } else {
-      if (!venceuMarcador) {
-        conta(Z).bloqueios++;
-        acao(Z, 'bloqueio');
-        acao(finalizador, 'chuteBloqueado');
-        fechar({ numero, minuto, ataque, tipo: 'BLOQUEIO', criador, finalizador, defensor: Z, marcador: Z, drible: false, ...comDobra, ...ca, ...jogada });
-        talvezEscanteio(numero, minuto, ataque);
-        continue;
-      }
-      acao(finalizador, 'venceuChuteMarcado');
-      baseChute = PARAMETROS.baseChuteApertado;
-      livre = false;
-    }
-    baseChute += mod(finalizador, 'finalizacao') + mod(goleiro, livre ? 'contraChuteLivre' : 'contraChuteApertado');
-
-    // 4. Finalização (Finalização) contra o goleiro (Goleiro).
-    const base = { numero, minuto, ataque, criador, finalizador, defensor: goleiro, ...(semMarcador || dobra?.passe ? {} : { marcador: naDobra, drible }), ...(dobra ? { dobra } : {}), ...ca, ...jogada };
-    if (!duelo(rng, hab(finalizador, 'FIN'), hab(goleiro, 'GOL'), baseChute)) {
-      conta(goleiro).defesas++;
-      acao(goleiro, 'defesa');
-      acao(finalizador, 'chuteDefendido');
-      fechar({ ...base, tipo: 'DEFESA' });
-      talvezEscanteio(numero, minuto, ataque);
-      continue;
-    }
-    if (rng.chance(chanceDeFora(hab(finalizador, 'FIN')) + mod(finalizador, 'fora'))) {
-      acao(finalizador, 'chuteFora');
-      fechar({ ...base, tipo: 'FORA' });
-      continue;
-    }
-
-    gols[ataque]++;
-    conta(finalizador).gols++;
-    conta(assistente).assistencias++;
-    acao(finalizador, 'gol');
-    acao(assistente, 'assistencia');
-    acao(goleiro, 'golSofridoGoleiro');
-    for (const z of slotsDa(defesa, 'ZAG')) acao(z, 'golSofridoZagueiro');
-    for (const s of [goleiro, ...slotsDa(defesa, 'ZAG')]) conta(s).golsSofridos++;
-    golsEmOrdem.push({ lado: ataque, autor: finalizador, jogador: quem(finalizador) });
-    fechar({ ...base, tipo: 'GOL' });
   }
 
   // Numeração final (com os escanteios no meio) e laterais: alguns lances começam com a
@@ -709,7 +844,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
   lances.forEach((l, i) => {
     l.numero = i + 1;
     const antes = lances[i - 1];
-    if (!antes || antes.tipo === 'GOL' || antes.tipo === 'FALTA' || l.bolaParada || l.contraAtaque || lances[i + 1]?.bolaParada === 'ESCANTEIO' || antes.bolaParada === 'ESCANTEIO') return;
+    if (!antes || antes.tipo === 'GOL' || antes.tipo === 'FALTA' || l.bolaParada || l.contraAtaque || l.rebote || lances[i + 1]?.bolaParada === 'ESCANTEIO' || antes.bolaParada === 'ESCANTEIO') return;
     if (!rngBP.chance(PARAMETROS.chanceLateral)) return;
     const jaSaiu = (indice: number) => (expulsoNoLance.get(`${l.criador.lado}:${indice}`) ?? Infinity) < i;
     const companheiros = escalacoes[l.criador.lado].jogadores.flatMap((j, indice) => ((j.posicao === 'MEI' || j.posicao === 'ZAG') && indice !== l.criador.indice && !jaSaiu(indice) ? [{ lado: l.criador.lado, indice }] : []));
@@ -722,13 +857,29 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     for (const g of slotsDa(lado, 'GOL')) if (conta(g).golsSofridos === 0) acao(g, 'semSofrerGol');
   }
 
+  /**
+   * Batedores (T3, ADR-0091): os escolhidos pelo Capitão que estão em campo no fim, em ordem.
+   * Quem foi expulso é pulado; depois deles, a ordem automática.
+   */
+  const batedoresEscolhidos = (lado: Lado): SlotRef[] => {
+    const ids = t3?.batedores?.[lado] ?? [];
+    const emCampo = escalacoes[lado].jogadores.map((_, indice): SlotRef => ({ lado, indice })).filter((x) => !expulsos.has(chave(x)));
+    const usados = new Set<number>();
+    return ids.slice(0, QUANTIDADE_DE_BATEDORES).flatMap((id) => {
+      const x = emCampo.find((y) => jogadorEm(y).jogadorId === id && !usados.has(y.indice));
+      if (!x) return [];
+      usados.add(x.indice);
+      return [x];
+    });
+  };
+
   // Desempate: no Mata-mata, empate vai para os pênaltis.
   let vencedor: Lado | null = gols.mandante > gols.visitante ? 'mandante' : gols.visitante > gols.mandante ? 'visitante' : null;
   let penaltis: ResultadoPartida['penaltis'];
   let decisivoPenalti: SlotRef | null = null;
 
   if (vencedor === null && entrada.fase === 'MATA_MATA') {
-    const disputa = t2 ? disputarPenaltisT2(rng, rngT2, slotsDa, hab, cantoDe, mod) : disputarPenaltis(rng, slotsDa, hab);
+    const disputa = t2 ? disputarPenaltisT2(rng, rngT2, slotsDa, hab, cantoDe, mod, batedoresEscolhidos) : disputarPenaltis(rng, slotsDa, hab);
     penaltis = { placar: disputa.placar, cobrancas: disputa.cobrancas };
     vencedor = disputa.vencedor;
     decisivoPenalti = disputa.decisivo;
@@ -806,7 +957,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
   };
 
   return {
-    versaoSim: t2 ? VERSAO_SIM : VERSAO_SIM_T1,
+    versaoSim: t3 ? VERSAO_SIM_T3 : t2 ? VERSAO_SIM : VERSAO_SIM_T1,
     seed: entrada.seed,
     times: { mandante: entrada.mandante.time, visitante: entrada.visitante.time },
     classico,
@@ -821,6 +972,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     ...(t2 ? { postura: { mandante: posturaDe('mandante'), visitante: posturaDe('visitante') }, ritmo: totalDeLances } : {}),
     ...(t2?.formacao ? { formacao: { mandante: formacaoDe('mandante'), visitante: formacaoDe('visitante') } } : {}),
     ...(substituicoes.length ? { substituicoes } : {}),
+    ...(t3 ? { juiz, acrescimos } : {}),
   };
 }
 
@@ -931,15 +1083,18 @@ function disputarPenaltisT2(
   hab: (s: SlotRef, h: HabilidadeId) => number,
   cantoDe: (s: SlotRef) => Canto,
   mod: (s: SlotRef, campo: string) => number,
+  escolhidos: (lado: Lado) => SlotRef[] = () => [],
 ): { placar: Record<Lado, number>; cobrancas: Cobranca[]; vencedor: Lado; decisivo: SlotRef } {
+  /** Os Batedores escolhidos primeiro (T3), depois a ordem automática sem repetir ninguém. */
   const ordemDe = (lado: Lado): SlotRef[] => {
-    const usados = new Set<number>();
-    return ORDEM_COBRANCA.flatMap((posicao) => {
+    const primeiros = escolhidos(lado);
+    const usados = new Set<number>(primeiros.map((x) => x.indice));
+    return [...primeiros, ...ORDEM_COBRANCA.flatMap((posicao) => {
       const slot = slotsDa(lado, posicao).find((x) => !usados.has(x.indice));
       if (!slot) return [];
       usados.add(slot.indice);
       return [slot];
-    });
+    })];
   };
   const ordem: Record<Lado, SlotRef[]> = { mandante: ordemDe('mandante'), visitante: ordemDe('visitante') };
   const placar: Record<Lado, number> = { mandante: 0, visitante: 0 };

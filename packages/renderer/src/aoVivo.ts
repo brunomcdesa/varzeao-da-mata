@@ -304,7 +304,7 @@ function momento(
   const artigo = (l: Lado) => cap(FALA_DO_TIME[time(l)].artigo);
   const mm = o.mataMata;
   if (o.emPenaltis) {
-    const vale = mm ? [mm.etapa === 'FINAL' ? `O título vai ser decidido nos pênaltis!` : `A vaga na Final vai ser decidida nos pênaltis!`] : [];
+    const vale = mm ? [mm.copa ? (mm.copa === 'FINAL' ? `A taça da Copa vai ser decidida nos pênaltis!` : `A vaga na Copa vai ser decidida nos pênaltis!`) : mm.etapa === 'FINAL' ? `O título vai ser decidido nos pênaltis!` : `A vaga na Final vai ser decidida nos pênaltis!`] : [];
     return { primeiro: [], doMomento: [], contexto: [`Tensão total na marca do pênalti.`, `A torcida não respira!`, `Quem vai bater agora?`, `Goleiro se ajeita na linha.`, `Silêncio na Mata...`, ...vale] };
   }
   const minuto = Math.min(90, Math.max(1, Math.round(o.tJogo / 60)));
@@ -384,7 +384,7 @@ function momento(
   if (minuto >= 87) doMomento.push(`Acréscimos no Varzeão!`, `O juiz já olha o relógio...`, `Última chance pra alguém!`);
   // Mata-mata (ADR-0048): o que está em jogo. A tela mostra "Semifinal" ou "Final" no topo.
   if (mm) {
-    contexto.push(...(mm.etapa === 'SEMIFINAL' ? [`Quem perder tá fora!`, `Vale vaga na Final!`, `É Semifinal, ninguém quer voltar pra casa.`] : [`Vale a taça!`, `É Final, cada lance vale ouro!`, `Noventa minutos pra entrar na história da Temporada ${mm.temporada}.`]));
+    contexto.push(...(mm.copa && mm.copa !== 'FINAL' ? [`Quem perder tá fora da Copa!`, `É Copa: noventa minutos e acabou.`, `Ninguém quer cair cedo na Copa.`] : mm.copa ? [`Vale a taça da Copa!`, `É a Final da Copa, cada lance vale ouro!`] : mm.etapa === 'SEMIFINAL' ? [`Quem perder tá fora!`, `Vale vaga na Final!`, `É Semifinal, ninguém quer voltar pra casa.`] : [`Vale a taça!`, `É Final, cada lance vale ouro!`, `Noventa minutos pra entrar na história da Temporada ${mm.temporada}.`]));
     if (minuto >= 80 && placar.mandante === placar.visitante) doMomento.push(`Se ficar assim, vai pros pênaltis!`);
   }
 

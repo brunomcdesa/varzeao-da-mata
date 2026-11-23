@@ -4,7 +4,7 @@
  * não muda nada (idempotência pelo ig_comment_id).
  */
 import type { Habilidades, Posicao, TimeId } from '@liga/shared';
-import { CANDIDATOS_POR_SERIE, TIMES_POR_SERIE, doTime, numeroDoCandidato, ovrDasHabilidades, temRegrasT2, type Serie } from '@liga/shared';
+import { CANDIDATOS_POR_SERIE, TIMES_DA_EXPANSAO, TIMES_POR_SERIE, doTime, numeroDoCandidato, ovrDasHabilidades, temRegrasT2, type Serie } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { soltarFaixa } from './aMao.js';
 import { CONTA_DA_LIGA, citacoes, interpretar, type Comando } from './comandos.js';
@@ -14,6 +14,7 @@ import { aplicarEscolha } from './temporada2.js';
 import { FOLGA_DE_ELENCO, FORMACAO, OVR_INICIAL, OVR_INICIAL_DEPOIS_DA_T1, REALOCAR_QUANDO_CHEIO, habilidadesDe, perfilNaPosicao, sortearHabilidadesIniciais, type FaixaDoOvr } from './regras.js';
 import { normalizar } from './vocabulario.js';
 import { CORTE_MINUTOS } from './escalacao.js';
+import { marcarFundador, temporadaDeFundacao } from './expansao.js';
 
 const CORTE_MS = CORTE_MINUTOS * 60_000;
 
@@ -247,6 +248,8 @@ function destinoDoNovato(
   desempate: number,
   naPosicaoDaA: ReadonlyMap<string, number> | null,
   limite: number,
+  /** T3 em diante (A e B de 8): quantos cada Time ativo tem na Posição pedida (ADR-0080). */
+  naPosicaoDeTodos: ReadonlyMap<string, number> | null = null,
 ): { time: TimeId; motivo: Motivo } {
   const maisVazio = (times: readonly TimeId[], ideal?: TimeId): TimeId => {
     const menor = Math.min(...times.map((t) => contagem.get(t) ?? 0));
@@ -255,7 +258,8 @@ function destinoDoNovato(
     return vazios[desempate % vazios.length]!;
   };
   // A Série A de 16 (T2, ADR-0058 e ADR-0062): Limite por Posição entre os Times da A.
-  const comAGrande = series.A.length > TIMES_POR_SERIE.A;
+  // A Série A de 16 sem B é só a T2; Séries de 10 (Expansão, ADR-0093) seguem a regra das duas Séries.
+  const comAGrande = series.A.length > TIMES_POR_SERIE.A && !series.B.length;
   if (comAGrande && series.A.includes(pedido) && naPosicaoDaA) {
     const na = (t: TimeId) => naPosicaoDaA.get(t) ?? 0;
     if (na(pedido) < limite) return { time: pedido, motivo: 'PEDIDO' };
@@ -280,10 +284,27 @@ function destinoDoNovato(
   }
   const daSerie = comAGrande ? series.B : [...series.A, ...series.B];
   const time = maisVazio(daSerie, pedido);
+  // Limite por Posição com A e B de 8 (T3, ADR-0080): Posição cheia no Time escolhido, vai para o
+  // Time com vaga nela que tem menos gente na Posição, primeiro na mesma Série, depois na outra.
+  // Sem vaga em nenhum, fica onde estava (não acontece antes da Expansão, ADR-0093).
+  if (naPosicaoDeTodos && (naPosicaoDeTodos.get(time) ?? 0) >= limite) {
+    const na = (t: TimeId) => naPosicaoDeTodos.get(t) ?? 0;
+    const mesma = series.A.includes(time) ? series.A : series.B;
+    const outra = mesma === series.A ? series.B : series.A;
+    for (const grupo of [mesma, outra]) {
+      const comVaga = grupo.filter((t) => na(t) < limite);
+      if (!comVaga.length) continue;
+      const menor = Math.min(...comVaga.map(na));
+      const menores = comVaga.filter((t) => na(t) === menor);
+      const elenco = Math.min(...menores.map((t) => contagem.get(t) ?? 0));
+      const empatados = menores.filter((t) => (contagem.get(t) ?? 0) === elenco);
+      return { time: empatados[desempate % empatados.length]!, motivo: 'OUTRO_TIME' };
+    }
+  }
   return { time, motivo: time === pedido ? 'PEDIDO' : 'EQUILIBRIO' };
 }
 
-type Motivo = 'PEDIDO' | 'EQUILIBRIO' | 'OUTRO_DA_A' | 'SERIE_B';
+type Motivo = 'PEDIDO' | 'EQUILIBRIO' | 'OUTRO_DA_A' | 'SERIE_B' | 'OUTRO_TIME';
 
 /** Quantos Jogadores cada Time tem numa Posição. */
 async function naPosicaoPorTime(b: Banco, times: readonly TimeId[], posicao: Posicao, menos?: string): Promise<Map<string, number>> {
@@ -310,30 +331,43 @@ async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posica
   const noPedido = pedida ?? (await posicaoMaisVazia(b, pedido));
   if (!ctx.forcar) {
     const naPosicaoDaA = series.A.includes(pedido) ? await naPosicaoPorTime(b, series.A, noPedido) : null;
-    const d = destinoDoNovato(pedido, series, contagem, hashSimples(c.igCommentId), naPosicaoDaA, LIMITE_POR_POSICAO[noPedido]);
+    // A e B de 8 (T3 em diante): o Limite por Posição vale em todos os Times (ADR-0080).
+    const comDuasDeOito = series.B.length > 0;
+    const naPosicaoDeTodos = comDuasDeOito ? await naPosicaoPorTime(b, ativos, noPedido) : null;
+    const d = destinoDoNovato(pedido, series, contagem, hashSimples(c.igCommentId), naPosicaoDaA, LIMITE_POR_POSICAO[noPedido], naPosicaoDeTodos);
     if (d.motivo === 'EQUILIBRIO' && !(ctx.realocar ?? REALOCAR_QUANDO_CHEIO)) return 'TIME_CHEIO';
     ({ time, motivo } = d);
   }
   // Mudou por Posição cheia (outro da A ou a B): segue na mesma Posição; realocado por
   // equilíbrio, a pedida ou a mais vazia do Time novo.
-  const posicao = motivo === 'SERIE_B' || motivo === 'OUTRO_DA_A' ? noPedido : (pedida ?? (time === pedido ? noPedido : await posicaoMaisVazia(b, time)));
+  const posicao = motivo === 'SERIE_B' || motivo === 'OUTRO_DA_A' || motivo === 'OUTRO_TIME' ? noPedido : (pedida ?? (time === pedido ? noPedido : await posicaoMaisVazia(b, time)));
 
   const { ovr, habilidades } = sortearHabilidadesIniciais(c.igCommentId, posicao as Posicao, await faixaDoOvrInicial(b));
-  await b.query(
-    `INSERT INTO jogador (ig_user_id, username, time_id, posicao, ovr, habilidades, inscrito_em) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [c.igUserId, c.username, time, posicao, ovr, JSON.stringify(habilidades), c.comentadoEm.toISOString()],
-  );
+  const novo = (
+    await b.query<{ id: string }>(
+      `INSERT INTO jogador (ig_user_id, username, time_id, posicao, ovr, habilidades, inscrito_em) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id::text AS id`,
+      [c.igUserId, c.username, time, posicao, ovr, JSON.stringify(habilidades), c.comentadoEm.toISOString()],
+    )
+  ).rows[0]!.id;
+  // Entrou num Time da Expansão antes do primeiro jogo dele: Fundador (ADR-0093).
+  const fundacao = await temporadaDeFundacao(b, time, c.comentadoEm, CORTE_MS);
+  if (fundacao) await marcarFundador(b, novo, time, fundacao);
+  const fundador = fundacao ? ` Você é Fundador ${doTime(time)}, um dos Times novos da Liga!` : '';
   // Resposta no comentário: a pessoa fica sabendo que entrou (e onde, se foi realocada).
   const vaga = `${NOME_DA_POSICAO_FALADO[posicao]} ${doTime(time)}, OVR ${ovr}`;
   await ctx.responder?.(
     c.igCommentId,
     motivo === 'PEDIDO'
-      ? `@${c.username} você entrou no Varzeão da Mata! Agora é ${vaga}. Seu boneco já está no site (link na bio). ⚽`
+      ? `@${c.username} você entrou no Varzeão da Mata! Agora é ${vaga}.${fundador} Seu boneco já está no site (link na bio). ⚽`
+      : motivo === 'OUTRO_TIME'
+        ? `@${c.username} as vagas de ${NOME_DA_POSICAO_FALADO[posicao]} ${doTime(pedido)} já estão completas, então você entrou no time ${doTime(time)}, da Série ${series.A.includes(time) ? 'A' : 'B'}. Agora é ${vaga}. Bem-vindo ao Varzeão! ⚽`
       : motivo === 'OUTRO_DA_A'
         ? `@${c.username} as vagas de ${NOME_DA_POSICAO_FALADO[posicao]} ${doTime(pedido)} já estão completas, então você entrou no time ${doTime(time)}, também da Série A. Agora é ${vaga}. Bem-vindo ao Varzeão! ⚽`
         : motivo === 'SERIE_B'
         ? `@${c.username} as vagas de ${NOME_DA_POSICAO_FALADO[posicao]} estão completas em todos os times da Série A, então você começa na Série B, no time ${doTime(time)}. Agora é ${vaga}. Dá para subir com o time ou transferir na próxima Janela. Bem-vindo ao Varzeão! ⚽`
-        : `@${c.username} o time ${doTime(pedido)} encheu, então você entrou no time ${doTime(time)} para equilibrar a Liga. Agora é ${vaga}. Bem-vindo ao Varzeão! ⚽`,
+        : TIMES_DA_EXPANSAO.includes(time)
+          ? `@${c.username} o time ${doTime(pedido)} encheu, então você entrou no time ${doTime(time)}, um dos Times novos da Liga. Agora é ${vaga}.${fundador} Bem-vindo ao Varzeão! ⚽`
+          : `@${c.username} o time ${doTime(pedido)} encheu, então você entrou no time ${doTime(time)} para equilibrar a Liga. Agora é ${vaga}. Bem-vindo ao Varzeão! ⚽`,
   );
   return time === pedido ? 'INSCRITO' : 'REALOCADO';
 }
@@ -401,8 +435,11 @@ export async function transferirJogador(
   }
   // Janela de Transferências (T2, ADR-0022): na Pré-temporada, a troca não gasta a da Temporada.
   const janela = await emJanela(b, temporada, o.quando);
-  const usada = (await b.query(`SELECT 1 FROM transferencia WHERE jogador_id = $1 AND temporada_id = $2 AND janela = $3`, [jogadorId, temporada, janela])).rows[0];
-  if (usada) {
+  // Para um Time da Expansão antes do primeiro jogo dele (ADR-0093): de graça e vira Fundador.
+  const fundacao = destino !== j.time_id ? await temporadaDeFundacao(b, destino, o.quando, CORTE_MS) : null;
+  const gratis = fundacao !== null;
+  const usada = (await b.query(`SELECT 1 FROM transferencia WHERE jogador_id = $1 AND temporada_id = $2 AND janela = $3 AND NOT gratis`, [jogadorId, temporada, janela])).rows[0];
+  if (usada && !gratis) {
     return janela
       ? { resultado: 'TRANSFERENCIA_USADA', mensagem: 'você já trocou de time nesta Janela. Durante a temporada ainda vale uma transferência. ⚽' }
       : { resultado: 'TRANSFERENCIA_USADA', mensagem: 'você já usou a transferência desta temporada. Dá para transferir de novo na próxima. ⚽' };
@@ -453,13 +490,14 @@ export async function transferirJogador(
   await b.query(`UPDATE jogador SET time_id = $2, posicao = $3, ovr = $4, habilidades = $5${perdeCamisa ? ', numero = NULL' : ''} WHERE id = $1`, [jogadorId, destino, posicao, ovr, JSON.stringify(habilidades)]);
   if (destino !== j.time_id) await soltarFaixa(b, jogadorId);
   await b.query(
-    `INSERT INTO transferencia (jogador_id, temporada_id, de_time, para_time, de_posicao, para_posicao, ig_comment_id, feita_em, janela) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, ${janela ? 'true' : 'false'})`,
-    [jogadorId, temporada, j.time_id, destino, j.posicao, posicao, o.ref, o.quando.toISOString()],
+    `INSERT INTO transferencia (jogador_id, temporada_id, de_time, para_time, de_posicao, para_posicao, ig_comment_id, feita_em, janela, gratis) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, ${janela ? 'true' : 'false'}, $9)`,
+    [jogadorId, temporada, j.time_id, destino, j.posicao, posicao, o.ref, o.quando.toISOString(), gratis],
   );
+  if (fundacao) await marcarFundador(b, jogadorId, destino, fundacao);
   const vaga = `${NOME_DA_POSICAO_FALADO[posicao]} ${doTime(destino)}, OVR ${ovr}`;
   return {
     resultado: 'TRANSFERIDO',
-    mensagem: `${destino === j.time_id ? 'mudança de posição feita' : 'transferência feita'}! Agora você é ${vaga}. Vale a partir do próximo jogo escalado. ${janela ? 'Foi a troca da Janela: durante a temporada ainda vale uma transferência.' : 'Esta foi a sua transferência da temporada.'}${perdeCamisa ? ` A camisa ${camisa} já tem dono ${doTime(destino)}: escolha outro número no site.` : ''} ⚽`,
+    mensagem: `${destino === j.time_id ? 'mudança de posição feita' : 'transferência feita'}! Agora você é ${vaga}. Vale a partir do próximo jogo escalado. ${gratis ? `Foi de graça: a troca para um Time novo não gasta a da Janela nem a da temporada. Você é Fundador ${doTime(destino)}!` : janela ? 'Foi a troca da Janela: durante a temporada ainda vale uma transferência.' : 'Esta foi a sua transferência da temporada.'}${perdeCamisa ? ` A camisa ${camisa} já tem dono ${doTime(destino)}: escolha outro número no site.` : ''} ⚽`,
   };
 }
 

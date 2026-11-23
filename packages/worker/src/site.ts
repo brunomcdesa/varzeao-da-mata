@@ -7,7 +7,8 @@
  * aparecem depois do Apito (o lance a lance) ou do fim do Ao Vivo (placar, tabela, Card).
  * Escalações aparecem assim que existem (a partir do Corte).
  */
-import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Grupo, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, temRegrasT2, timesQueCaem, GRUPOS, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque } from '@liga/shared';
+import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Grupo, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, type EtapaDaCopa, temMoedas, temRegrasT2, temRegrasT3, perfilDoJuiz, timesQueCaem, GRUPOS, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque, type ItensEquipados } from '@liga/shared';
+import { lerItens } from './escalacao.js';
 import { perfisDosTimes } from './perfilDoTime.js';
 import { fundadorDe } from './rebalanceamento.js';
 import { comSeloT1, subiramPeloPiso } from './recompensaT1.js';
@@ -40,7 +41,14 @@ interface LinhaPartida {
   narracao_url: string | null;
   vantagem_do_empate: 'mandante' | 'visitante' | null;
   serie: Serie;
+  copa_etapa: EtapaDaCopa | null;
 }
+
+/** Itens da Escalação (ADR-0101) para a página pública da Partida. */
+const itensDaLinha = (e: { itens: ItensEquipados | string | null }) => {
+  const i = lerItens(e.itens);
+  return i ? { itens: i } : {};
+};
 
 interface LinhaEscalacao {
   partida_id: number;
@@ -55,6 +63,8 @@ interface LinhaEscalacao {
   apelido: string | null;
   /** Número da camisa na hora da Escalação (ADR-0075). */
   numero: number | null;
+  /** Itens equipados na hora da Escalação (ADR-0101). */
+  itens: ItensEquipados | string | null;
   /** Capitão em campo (T2, ADR-0020). */
   capitao: boolean;
   /** Banco (ADR-0061). */
@@ -74,6 +84,7 @@ interface LinhaTemporada {
   status: string;
   inicio: string | Date;
   campeao_id: TimeId | null;
+  campeao_copa_id: TimeId | null;
   craque_jogador_id: string | null;
   craque_b_jogador_id: string | null;
   craque_revelado_em: string | Date | null;
@@ -89,7 +100,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   const arquivos = new Map<string, unknown>();
   const temporadas = (
     await banco.query<LinhaTemporada>(
-      `SELECT id, numero, status, inicio, campeao_id, craque_jogador_id::text AS craque_jogador_id, craque_b_jogador_id::text AS craque_b_jogador_id, craque_revelado_em FROM temporada ORDER BY numero`,
+      `SELECT id, numero, status, inicio, campeao_id, campeao_copa_id, craque_jogador_id::text AS craque_jogador_id, craque_b_jogador_id::text AS craque_b_jogador_id, craque_revelado_em FROM temporada ORDER BY numero`,
     )
   ).rows;
   // As Séries de cada Temporada (ADR-0017); Temporada sem Série B mostra tudo como antes.
@@ -135,7 +146,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   // Todas as Partidas de todas as Temporadas: a carreira dos Jogadores atravessa Temporadas.
   const todas = (
     await banco.query<LinhaPartida & { temporada_id: number; resumo_status: string }>(
-      `SELECT p.id, p.rodada_id, r.temporada_id, r.numero AS rodada, r.fase, r.data, r.resumo_status, p.apito_inicial, p.mandante_id, p.visitante_id, p.status, p.resultado, p.video_url, p.narracao_url, p.vantagem_do_empate, p.serie
+      `SELECT p.id, p.rodada_id, r.temporada_id, r.numero AS rodada, r.fase, r.data, r.resumo_status, p.apito_inicial, p.mandante_id, p.visitante_id, p.status, p.resultado, p.video_url, p.narracao_url, p.vantagem_do_empate, p.serie, p.copa_etapa
        FROM partida p JOIN rodada r ON r.id = p.rodada_id ORDER BY p.apito_inicial, p.serie`,
     )
   ).rows;
@@ -150,7 +161,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
 
   const escalacoes = (
     await banco.query<LinhaEscalacao>(
-      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.numero, e.capitao, e.reserva, e.posicao_de_origem
+      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.numero, e.itens, e.capitao, e.reserva, e.posicao_de_origem
        FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id ORDER BY e.partida_id, e.lugar`,
     )
   ).rows;
@@ -197,6 +208,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       ...(r && p.fase === 'MATA_MATA' && r.vencedor ? { classificado: r.times[r.vencedor] } : {}),
       ...(r ? { placar: placarDe(r) } : {}),
       ...(temporada && comSeries(temporada.id) ? { serie: p.serie } : {}),
+      ...(p.copa_etapa ? { copa: p.copa_etapa } : {}),
     };
   });
   const tabelaDa = (ps: LinhaPartida[], temporadaId: number, serie: Serie = 'A') =>
@@ -214,7 +226,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     const doDia = todas.filter((p) => p.rodada_id === base.rodada_id);
     const daTemporada = todas.filter((p) => p.temporada_id === base.temporada_id);
     const ehAFinal = etapaDa(base.fase, base.rodada) === 'FINAL';
-    const proximaRodada = daTemporada.find((p) => p.rodada === base.rodada + 1);
+    // A Rodada seguinte pela data (a Copa numera 101 a 103 e vem antes da Rodada 1).
+    const proximaRodada = daTemporada.find((p) => diaTexto(p.data) > diaTexto(base.data));
     const votacaoFechada = !ehAFinal && (proximaRodada ? apito(proximaRodada).getTime() <= agora.getTime() : false);
     const candidatos = doDia.every(encerrada)
       ? (
@@ -257,8 +270,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
 
   // ---- jogadores
   const jogadores = (
-    await banco.query<{ id: string; username: string; time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; inscrito_em: string | Date; visual: Aparencia | string | null; numero: number | null; apelido: string | null; apelido_em: string | Date | null; especializacao: Especializacao | null; treino: HabilidadeId | null }>(
-      `SELECT id::text AS id, username, time_id, posicao, ovr, habilidades, inscrito_em, visual, numero, apelido, apelido_em, especializacao, treino FROM jogador WHERE NOT banido ORDER BY id`,
+    await banco.query<{ id: string; username: string; time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; inscrito_em: string | Date; visual: Aparencia | string | null; numero: number | null; itens: ItensEquipados | string | null; apelido: string | null; apelido_em: string | Date | null; especializacao: Especializacao | null; treino: HabilidadeId | null }>(
+      `SELECT id::text AS id, username, time_id, posicao, ovr, habilidades, inscrito_em, visual, numero, itens, apelido, apelido_em, especializacao, treino FROM jogador WHERE NOT banido ORDER BY id`,
     )
   ).rows;
   // Só a Transferência da Temporada conta: a troca da Janela não gasta (ADR-0022, ADR-0096).
@@ -275,6 +288,15 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   // Selo da Temporada 1 (ADR-0047): também só no site da T2.
   const seloT1 = comRegrasT2 ? await comSeloT1(banco) : new Set<string>();
   const pisoT1 = comRegrasT2 ? await subiramPeloPiso(banco) : new Map<string, { antes: number; depois: number }>();
+  // Conquistas (ADR-0090): selos públicos, só do que já apareceu (fim do Ao Vivo), a partir da T3.
+  const conquistasDe = new Map<string, { codigo: string; temporada: number }[]>();
+  if (temporada && temMoedas(temporada.numero)) {
+    for (const c of (await banco.query<{ jogador_id: string; codigo: string; temporada: number }>(`SELECT jogador_id::text AS jogador_id, codigo, temporada FROM conquista WHERE em <= $1 ORDER BY em`, [agora.toISOString()])).rows) {
+      const l = conquistasDe.get(c.jogador_id) ?? [];
+      l.push({ codigo: c.codigo, temporada: c.temporada });
+      conquistasDe.set(c.jogador_id, l);
+    }
+  }
   const ajustes = await ajustesDeOvr(banco, agora);
   const porJogador = new Map<string, JogadorPublico>();
   const resumido = (id: string): JogadorResumido | null => {
@@ -301,10 +323,12 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       transferenciaUsada: transferiram.has(j.id),
       visual: j.visual ? (typeof j.visual === 'string' ? (JSON.parse(j.visual) as Aparencia) : j.visual) : null,
       numero: j.numero ?? null,
+      ...(lerItens(j.itens) ? { itens: lerItens(j.itens)! } : {}),
       // Temporada 2 (ADR-0023): só aparece quando a Temporada atual tem as regras novas.
       ...(comRegrasT2 ? { especializacao: j.especializacao ?? null, treino: j.treino ?? null } : {}),
       ...(fundadores.has(j.id) ? { fundador: fundadores.get(j.id)! } : {}),
       ...(seloT1.has(j.id) ? { seloT1: true as const } : {}),
+      ...(conquistasDe.has(j.id) ? { conquistas: conquistasDe.get(j.id)! } : {}),
       ...(pisoT1.has(j.id) ? { pisoT1: pisoT1.get(j.id)! } : {}),
       ...estatisticasVazias(),
       vezesCandidato: 0,
@@ -479,6 +503,21 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       return craque;
     };
     const { final, rf, campeao, vice } = desfecho('A');
+    // Copa (ADR-0088): o Título é de quem entrou em campo pelo campeão na Copa.
+    const finalDaCopa = ps.find((p) => p.copa_etapa === 'FINAL');
+    const rfCopa = finalDaCopa && encerrada(finalDaCopa) ? finalDaCopa.resultado : null;
+    const campeaoCopa = rfCopa?.vencedor ? rfCopa.times[rfCopa.vencedor] : null;
+    if (campeaoCopa) {
+      const naCopa = new Set(
+        ps.filter((p) => p.copa_etapa && encerrada(p)).flatMap((p) => p.resultado!.desempenhos.filter((d) => d.jogadorId && p.resultado!.times[d.slot.lado] === campeaoCopa).map((d) => d.jogadorId!)),
+      );
+      for (const id of naCopa) {
+        const j = porJogador.get(id);
+        if (!j) continue;
+        j.titulos++;
+        j.trofeus.push({ tipo: 'CAMPEAO_COPA', temporada: t.numero, time: campeaoCopa, partidaId: finalDaCopa!.id });
+      }
+    }
     const craque = craqueDa('A', t.craque_jogador_id);
     const b = comSeries(t.id) ? desfecho('B') : null;
     const craqueB = b ? craqueDa('B', t.craque_b_jogador_id) : null;
@@ -526,6 +565,15 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       artilheiro,
       goleiro,
       tabela: tabelaDa(ps, t.id, 'A'),
+      ...(finalDaCopa
+        ? {
+            copa: {
+              campeao: campeaoCopa,
+              vice: rfCopa?.vencedor ? rfCopa.times[rfCopa.vencedor === 'mandante' ? 'visitante' : 'mandante'] : null,
+              final: rfCopa ? { partidaId: finalDaCopa.id, mandante: finalDaCopa.mandante_id, visitante: finalDaCopa.visitante_id, placar: placarDe(rfCopa) } : null,
+            },
+          }
+        : {}),
       ...(b
         ? {
             serieB: {
@@ -567,12 +615,14 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       : {}),
     ...(atual?.serieB && temporada ? { tabelaB: atual.serieB.tabela, series: { A: [...seriesDe.get(temporada.id)!.A], B: [...seriesDe.get(temporada.id)!.B] } } : {}),
     calendario,
+    // Ranking de Palpites (ADR-0089): só Partidas já encerradas (o fim do Ao Vivo passou).
+    ...(temporada && temMoedas(temporada.numero) ? { palpites: await rankingDePalpites(banco, temporada.id, agora) } : {}),
     rodadas: temporada ? (rodadasPorTemporada.get(temporada.id) ?? []) : [],
     campeao: atual?.campeao ?? null,
     craqueDaTemporada: atual?.craque ?? null,
     ...(atual?.serieB ? { campeaoB: atual.serieB.campeao, craqueDaTemporadaB: atual.serieB.craque } : {}),
     temporadas: [...historia].reverse(),
-    estrelas: estrelasDosTimes(historia.map((h) => ({ numero: h.numero, campeao: h.campeao, campeaoB: h.serieB?.campeao ?? null }))),
+    estrelas: estrelasDosTimes(historia.map((h) => ({ numero: h.numero, campeao: h.campeao, campeaoB: h.serieB?.campeao ?? null, campeaoCopa: h.copa?.campeao ?? null }))),
     proximaTemporada: seguinte ? { numero: seguinte.numero, inicio: inicioDe(seguinte) } : null,
     ativa,
   };
@@ -585,12 +635,12 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     const linhas = escalacoesDe.get(p.id);
     const de = (time: TimeId): EscalacaoPublica => {
       const doTime = (linhas ?? []).filter((e) => e.time_id === time);
-      const banco = doTime.filter((e) => e.reserva).map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ovr: ovrPelasHabilidades(e.posicao, e.ovr_antes, e.habilidades_antes), habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes) }));
+      const banco = doTime.filter((e) => e.reserva).map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ...itensDaLinha(e), ovr: ovrPelasHabilidades(e.posicao, e.ovr_antes, e.habilidades_antes), habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes) }));
       return {
         time,
         jogadores: doTime
           .filter((e) => !e.reserva)
-          .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ovr: ovrPelasHabilidades(e.posicao, e.ovr_antes, e.habilidades_antes), habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes), ...(e.capitao ? { capitao: true as const } : {}) })),
+          .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ...itensDaLinha(e), ovr: ovrPelasHabilidades(e.posicao, e.ovr_antes, e.habilidades_antes), habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes), ...(e.capitao ? { capitao: true as const } : {}) })),
         ...(banco.length ? { banco } : {}),
       };
     };
@@ -609,7 +659,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       video: encerrada(p) && p.video_url?.startsWith('http') ? p.video_url : null,
       narracao: revelada(p) && p.narracao_url?.startsWith('http') ? p.narracao_url : null,
       ...(() => {
-        const mm = mataMataDaPartida({ fase: p.fase, rodada: p.rodada, temporada: temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0, serie: p.serie, comSeries: comSeries(p.temporada_id) });
+        const mm = mataMataDaPartida({ fase: p.fase, rodada: p.rodada, temporada: temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0, serie: p.serie, comSeries: comSeries(p.temporada_id), copa: p.copa_etapa });
         return mm ? { mataMata: mm } : {};
       })(),
       // Última Rodada (ADR-0053): só depois do Apito, junto com o Ao Vivo.
@@ -625,6 +675,10 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
             : brigaDaPartida(linhaParaBriga(p), daSerie, timesDaSerie(p.temporada_id, p.serie), comSeries(p.temporada_id) ? p.serie : null);
         return b ? { briga: b } : {};
       })(),
+      ...(p.copa_etapa ? { copa: p.copa_etapa } : {}),
+      ...(temMoedas(temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0) ? { palpite: true as const } : {}),
+      // Perfil do Juiz (T3, ADR-0094): aparece com a Escalação; sai do id da Partida, igual na simulação.
+      ...(linhas && temRegrasT3(temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0) ? { juiz: perfilDoJuiz(p.id) } : {}),
       // Arquibancada (T2): só nas Partidas simuladas com as regras da Temporada 2.
       ...(revelada(p) && (p.resultado as { postura?: unknown } | null)?.postura != null
         ? { torcida: { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 } }
@@ -647,6 +701,26 @@ export async function escreverSite(exportacao: ExportacaoDoSite, pasta: string):
     escritos.push(caminho);
   }
   return escritos;
+}
+
+/** Os 20 melhores Palpiteiros da Temporada: pontos somados (além do teto do dia) e acertos. */
+async function rankingDePalpites(banco: Banco, temporadaId: number, agora: Date): Promise<NonNullable<LigaPublica['palpites']>> {
+  const linhas = (
+    await banco.query<{ jogador_id: string; username: string; apelido: string | null; pontos: string; acertos: string; apito: Date | string; fase: 'LIGA' | 'MATA_MATA' }>(
+      `SELECT x.jogador_id::text AS jogador_id, j.username, j.apelido, x.pontos::text AS pontos, (x.pontos > 0)::int::text AS acertos, p.apito_inicial AS apito, r.fase
+       FROM palpite x JOIN partida p ON p.id = x.partida_id JOIN rodada r ON r.id = p.rodada_id JOIN jogador j ON j.id = x.jogador_id
+       WHERE r.temporada_id = $1 AND x.pontos IS NOT NULL AND NOT j.banido`,
+      [temporadaId],
+    )
+  ).rows.filter((l) => new Date(l.apito).getTime() + duracaoAoVivoMs(l.fase) <= agora.getTime());
+  const soma = new Map<string, { jogadorId: string; username: string; apelido: string | null; pontos: number; acertos: number }>();
+  for (const l of linhas) {
+    const a = soma.get(l.jogador_id) ?? { jogadorId: l.jogador_id, username: l.username, apelido: l.apelido, pontos: 0, acertos: 0 };
+    a.pontos += Number(l.pontos);
+    a.acertos += Number(l.acertos);
+    soma.set(l.jogador_id, a);
+  }
+  return [...soma.values()].filter((a) => a.pontos > 0).sort((a, b) => b.pontos - a.pontos || b.acertos - a.acertos || Number(a.jogadorId) - Number(b.jogadorId)).slice(0, 20);
 }
 
 /**

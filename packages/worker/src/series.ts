@@ -7,7 +7,8 @@
  * `grupo`); no fim dela, os 4 últimos de cada Grupo caem e formam a B da T3, que tem 8 Times em
  * cada Série (ADR-0062 e ADR-0064).
  */
-import { CAEM_POR_GRUPO, GRUPOS, GRUPOS_DA_A_DE_16, SERIES, sqlRodadaDaFinal, TIMES_FUNDADORES, TIMES_NOVOS, TIMES_POR_SERIE, TIMES_QUE_TROCAM_DE_SERIE, type Grupo, type Serie, type TimeId } from '@liga/shared';
+import { temExpansao } from './expansao.js';
+import { CAEM_POR_GRUPO, GRUPOS, GRUPOS_DA_A_DE_16, SERIES, sqlRodadaDaFinal, TIMES_DA_EXPANSAO, TIMES_FUNDADORES, TIMES_NOVOS, TIMES_POR_SERIE, TIMES_QUE_TROCAM_DE_SERIE, type Grupo, type Serie, type TimeId } from '@liga/shared';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 
@@ -134,14 +135,23 @@ export async function seriesDaProximaTemporada(
   }
 
   const ordemA = await classificacaoDaLiga('A');
+  const finalistasDaB = await finalistas(banco, anteriorId, 'B');
+  if (finalistasDaB.length !== TIMES_QUE_TROCAM_DE_SERIE) throw new Error(`A Final da Série B da Temporada ${anteriorId} ainda não existe`);
+  // Expansão (ADR-0093): ninguém cai da A, os 2 finalistas da B sobem e os 4 Times novos
+  // entram na B. As duas Séries ficam com 10.
+  if (await temExpansao(banco, anteriorId)) {
+    const A = [...s.A, ...finalistasDaB];
+    const B = [...s.B.filter((t) => !finalistasDaB.includes(t)), ...TIMES_DA_EXPANSAO];
+    if (A.length !== B.length) throw new Error(`Expansão desequilibrada: A ${A.length}, B ${B.length}`);
+    return { A: A.sort(), B: B.sort() };
+  }
 
   const rebaixados = ordemA.slice(-TIMES_QUE_TROCAM_DE_SERIE);
-  const finalistasB = await finalistas(banco, anteriorId, 'B');
-  if (finalistasB.length !== TIMES_QUE_TROCAM_DE_SERIE) throw new Error(`A Final da Série B da Temporada ${anteriorId} ainda não existe`);
+  const finalistasB = finalistasDaB;
 
   const A = [...s.A.filter((t) => !rebaixados.includes(t)), ...finalistasB];
   const B = [...s.B.filter((t) => !finalistasB.includes(t)), ...rebaixados];
-  if (A.length !== TIMES_POR_SERIE.A || B.length !== TIMES_POR_SERIE.B) throw new Error(`Séries desequilibradas: A ${A.length}, B ${B.length}`);
+  if (A.length !== s.A.length || B.length !== s.B.length) throw new Error(`Séries desequilibradas: A ${A.length}, B ${B.length}`);
   return { A: A.sort(), B: B.sort() };
 }
 

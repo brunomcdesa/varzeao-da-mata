@@ -4,12 +4,12 @@ export { Roteiro, type OpcoesRoteiro, type QuadroRoteiro, type Segmento, type Ti
 export { desenharCapa, desenharQuadroVideo, type OpcoesVideo, type PartidaParaVideo } from './video.js';
 export { RoteiroResumo, desenharQuadroResumo, narracaoDoResumo, type DadosDoResumo, type Cartela } from './resumo.js';
 export { DADOS_PADRAO as DADOS_DA_APRESENTACAO, RoteiroApresentacao, desenharQuadroApresentacao, narracaoDaApresentacao, type DadosDaApresentacao } from './apresentacao.js';
-export { DADOS_DA_ABERTURA_T2, RoteiroAberturaDaTemporada, desenharQuadroAbertura, narracaoDaAbertura, type DadosDaAberturaDaTemporada } from './aberturaTemporada.js';
+export { DADOS_DA_ABERTURA_T2, dadosDaAberturaT3, RoteiroAberturaDaTemporada, desenharQuadroAbertura, narracaoDaAbertura, type DadosDaAberturaDaTemporada } from './aberturaTemporada.js';
 export { RoteiroAgradecimentoT1, desenharQuadroAgradecimentoT1, narracaoDoAgradecimentoT1, type DadosDoAgradecimentoT1 } from './agradecimentoT1.js';
 export { RoteiroRebalanceamentoT2, desenharQuadroRebalanceamentoT2, narracaoDoRebalanceamentoT2, type DadosDoRebalanceamentoT2 } from './rebalanceamentoT2.js';
 export { visualDoJogador, FONTE_DISPLAY, FONTE_TEXTO } from './desenho.js';
 export { escudo, estrelasDoEscudo, definirEstrelas, filaDeEstrelas, larguraDasEstrelas, LARGURA_ESCUDO, ALTURA_ESCUDO, ALTURA_DAS_ESTRELAS } from './escudos.js';
-export { sprite, definirAparencias, aparencia, LARGURA_SPRITE, ALTURA_SPRITE, type Pose, type Visual } from './sprites.js';
+export { sprite, definirAparencias, definirItens, itensDe, vestir, quadroDaComemoracao, aparencia, LARGURA_SPRITE, ALTURA_SPRITE, type Pose, type Visual } from './sprites.js';
 export { COR } from './pixel.js';
 export * from './penaltis.js';
 export { NARRADORES, narradorDa, type Narrador } from './narradores.js';

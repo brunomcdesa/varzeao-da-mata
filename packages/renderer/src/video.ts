@@ -3,7 +3,7 @@
  * mais as cartelas de abertura e de fim e o escurecimento dos cortes.
  */
 import { ocupanteDoDesempenho } from './substituicao.js';
-import { FALA_DO_TIME, IDENTIDADE, TAMANHO_ESCALACAO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type MataMataDaPartida, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, NOME_DO_PERFIL_DO_JUIZ, TAMANHO_ESCALACAO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type ItensEquipados, type MataMataDaPartida, type TimeId } from '@liga/shared';
 import type { Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, faixaDeTorcida, noCampo, plaquinha, rotulo, type Camera, type OpcoesDesenho } from './desenho.js';
@@ -11,7 +11,7 @@ import type { EstadoQuadro, Timeline } from './timeline.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
 import { LARGURA_ESCUDO } from './escudos.js';
 import type { OpcoesRoteiro, QuadroRoteiro, Roteiro, Segmento } from './roteiro.js';
-import { aparencia, sprite } from './sprites.js';
+import { aparencia, itensDe, sprite, vestir } from './sprites.js';
 import { narradorDa } from './narradores.js';
 
 export interface OpcoesVideo extends OpcoesDesenho {
@@ -33,6 +33,10 @@ export interface PartidaParaVideo {
   apelidos?: Record<Lado, (string | null)[]>;
   /** Número da camisa de cada lugar (null = camisa lisa). Partidas antigas não têm. */
   numeros?: Record<Lado, (number | null)[]>;
+  /** Itens equipados de cada lugar na hora da Escalação (ADR-0101). Partidas antigas não têm. */
+  itens?: Record<Lado, (ItensEquipados | null)[]>;
+  /** Itens de agora pelo @ (para quem não está na Escalação); o jogo usa `itens`. */
+  itensAtuais?: Record<string, ItensEquipados>;
   subtitulo?: string;
   roteiro?: OpcoesRoteiro;
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
@@ -376,6 +380,8 @@ function desenharAbertura(pin: Pincel, r: ResultadoPartida, p: number, tVideo: n
     pin.texto('x', COLUNAS / 2, 273, 20, display, COR.tinta);
     // Quem narra esta Partida (sorteado pela semente).
     pin.texto(`Narração: ${narradorDa(r.seed).nome}`, COLUNAS / 2, 372, 10, texto, COR.placa, { peso: 600 });
+    // T3 (ADR-0094): o Perfil do Juiz da Partida, como na Escalação.
+    if (r.juiz) pin.texto(`Juiz: ${NOME_DO_PERFIL_DO_JUIZ[r.juiz]}`, COLUNAS / 2, 386, 10, texto, r.juiz === 'RIGOROSO' ? '#FF6B5B' : r.juiz === 'DEIXA_JOGAR' ? '#3DDC64' : COR.placa, { peso: 600 });
   }
   pin.ctx.restore();
 }
@@ -407,11 +413,12 @@ function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number
   if (mm?.etapa === 'FINAL' && vencedor) confete(pin, vencedor, tVideo);
 
   desenharTabuaDoPlacar(pin, COLUNAS / 2, 22, 1.12, r.times, r.gols, display);
-  const titulo = mm && vencedor ? (mm.etapa === 'FINAL' ? 'Campeão!' : `${FALA_DO_TIME[vencedor].curto} na Final!`) : 'Fim de jogo';
+  const titulo = mm && vencedor ? (mm.etapa === 'FINAL' ? (mm.copa ? 'Campeão da Copa!' : 'Campeão!') : mm.copa && mm.copa !== 'SEMIFINAL' ? `${FALA_DO_TIME[vencedor].curto} avança!` : `${FALA_DO_TIME[vencedor].curto} na Final!`) : 'Fim de jogo';
   pin.texto(titulo, COLUNAS / 2, mm?.etapa === 'FINAL' ? 82 : 78, pin.caber(titulo, 240, mm?.etapa === 'FINAL' ? 32 : 22, display), display, COR.amarelo, { contorno: COR.mata });
   const detalhes = [
     ...(o.briga ? desfechoDaBrigaNaTela(o.briga, r) : []),
     ...(mm?.serie && mm.etapa === 'SEMIFINAL' ? [`Final da Série ${mm.serie}`] : []),
+    ...(mm?.copa && mm.copa !== 'FINAL' ? [mm.copa === 'SEMIFINAL' ? 'Final da Copa' : 'Copa do Varzeão'] : []),
     ...(r.penaltis ? [`${mm ? 'nos' : 'Nos'} pênaltis, ${r.penaltis.placar.mandante} a ${r.penaltis.placar.visitante}`] : []),
   ];
   const linha = detalhes.join(' · ');
@@ -425,7 +432,7 @@ function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number
     desenharEscudo(pin, vencedor, COLUNAS / 2 - (LARGURA_ESCUDO * escala) / 2, 116 - (1 - a) * 16, escala);
     const nome = IDENTIDADE[vencedor].nome;
     pin.texto(nome, COLUNAS / 2, 236, pin.caber(nome, 230, 30, display), display, COR.placa, { contorno: COR.contorno });
-    pin.texto(`Campeão${mm.serie ? ` da Série ${mm.serie}` : ''} da Temporada ${mm.temporada}`, COLUNAS / 2, 260, 10, texto, COR.amarelo, { peso: 700 });
+    pin.texto(mm.copa ? `Campeão da Copa da Temporada ${mm.temporada}` : `Campeão${mm.serie ? ` da Série ${mm.serie}` : ''} da Temporada ${mm.temporada}`, COLUNAS / 2, 260, 10, texto, COR.amarelo, { peso: 700 });
   }
 
   // Melhor em campo: maior Nota da Partida, com o boneco grande.
@@ -450,6 +457,8 @@ function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number
       calcao: goleiro ? '#2B2B2B' : id.secundaria,
       meiao: goleiro ? id.secundaria : id.primaria,
       ...aparencia(arroba),
+      // Itens da Escalação (ADR-0101): o Craque aparece como jogou.
+      ...(o.itens ? vestir(o.itens[melhor.slot.lado][quem], goleiro) : itensDe(arroba, goleiro)),
     };
     const escala = 5;
     const pulo = Math.floor(tVideo * 4) % 2 === 0 ? 0 : 2;

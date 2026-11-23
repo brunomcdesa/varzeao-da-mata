@@ -97,7 +97,8 @@ export function inscritosAteNoProximoJogo(calendario: readonly JogoDoCalendario[
   const doTime = calendario.filter((p) => p.mandante === time || p.visitante === time).sort((a, b) => a.apito.localeCompare(b.apito));
   const proximo = doTime.find((p) => p.situacao !== 'ENCERRADA');
   const ultimo = doTime.filter((p) => p.situacao === 'ENCERRADA').at(-1);
-  const noMataMata = proximo ? proximo.fase === 'MATA_MATA' : !!ultimo && ultimo.classificado === time && etapaDa(ultimo.fase, ultimo.rodada) === 'SEMIFINAL';
+  // A Copa (ADR-0088) vem antes da Fase de Liga: nela joga o Elenco todo.
+  const noMataMata = proximo ? proximo.fase === 'MATA_MATA' && etapaDa(proximo.fase, proximo.rodada) !== 'COPA' : !!ultimo && ultimo.classificado === time && etapaDa(ultimo.fase, ultimo.rodada) === 'SEMIFINAL';
   if (!noMataMata) return null;
   const ultimoDaLiga = doTime.filter((p) => p.fase === 'LIGA').at(-1);
   return ultimoDaLiga ? new Date(Date.parse(ultimoDaLiga.apito) - CORTE_MINUTOS * 60_000).toISOString() : null;

@@ -4,7 +4,7 @@ import { dispararProgramadosAgora, programadosDaVez, type ReelsProgramado } from
 import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
 import { AgendaNaMemoria, PastaLocal, type ItemDaAgenda } from '../src/nuvem.js';
-import { jobProgramados, legendaDaAbertura, legendaDasNovidades } from '../src/programados.js';
+import { jobProgramados, legendaDaAbertura, legendaDaAberturaT3, legendaDasNovidades, legendaDasNovidadesT3 } from '../src/programados.js';
 import { REELS_PROGRAMADOS } from '@liga/shared';
 import { dadosDoPerfilDoTime, legendaDoPerfilDoTime, legendaDoRebalanceamentoT2 } from '../src/programados.js';
 import { definirPerfilDoTime } from '../src/perfilDoTime.js';
@@ -84,7 +84,7 @@ describe('Reels Programados (ADR-0051)', () => {
   });
 
   it('Novidades da T2 (ADR-0063): quatro Reels na quarta, cada um com a sua legenda', () => {
-    const novidades = REELS_PROGRAMADOS.filter((p) => p.id.startsWith('novidades-'));
+    const novidades = REELS_PROGRAMADOS.filter((p) => p.id.startsWith('novidades-') && !p.id.startsWith('novidades-t3-'));
     expect(novidades.map((p) => p.id)).toEqual(['novidades-campo', 'novidades-capitao', 'novidades-jogador', 'novidades-site']);
     expect(new Set(REELS_PROGRAMADOS.map((p) => p.ref)).size).toBe(REELS_PROGRAMADOS.length);
     for (const p of novidades) {
@@ -134,5 +134,35 @@ describe('Reels Programados (ADR-0051)', () => {
     const l = legendaDoPerfilDoTime(d);
     expect(l).toContain('👉 Jacaré: @jacareacc');
     expect(l).toContain('Um perfil por Time: vale o primeiro que pedir.');
+  });
+
+  it('T3 (ADR-0092): Abertura sábado 21h e as quatro novidades no domingo, véspera da Copa', () => {
+    const t3 = REELS_PROGRAMADOS.filter((p) => p.id.endsWith('-t3') || (p.id.startsWith('novidades-t3-') && p.id !== 'novidades-t3-loja2'));
+    expect(t3.map((p) => [p.id, p.publicarEm])).toEqual([
+      ['abertura-t3', '2026-11-29T00:00:00Z'],
+      ['novidades-t3-campo', '2026-11-29T15:00:00Z'],
+      ['novidades-t3-loja', '2026-11-29T17:00:00Z'],
+      ['novidades-t3-palpite', '2026-11-29T19:00:00Z'],
+      ['novidades-t3-capitao', '2026-11-29T21:00:00Z'],
+    ]);
+    for (const p of t3.slice(1)) {
+      const l = legendaDasNovidadesT3(p.id, '2026-11-30', p.publicarEm);
+      expect(l.length).toBeLessThan(2200);
+      expect(l).toContain('A Copa começa amanhã, segunda, 30/11. A Fase de Liga, quinta, 03/12.');
+      expect(l).not.toMatch(/undefined|NaN|@/);
+    }
+    expect(legendaDasNovidadesT3('novidades-t3-loja', '2026-11-30', t3[2]!.publicarEm)).toContain('10 Moedas por rodada');
+    const ab = legendaDaAberturaT3(['CAP', 'ONC'], ['TAM', 'SUC'], '2026-11-30');
+    expect(ab).toContain('Série A: Capivara e Onça');
+    expect(ab).toContain('A Copa começa segunda, 30/11. A Fase de Liga começa quinta, 03/12');
+    expect(ab).toContain('40 Moedas');
+  });
+
+  it('a segunda fase da Loja sai no dia da Rodada 4 da T3, às 10h, sem a chamada da Copa', () => {
+    const p = REELS_PROGRAMADOS.find((x) => x.id === 'novidades-t3-loja2')!;
+    expect(p.publicarEm).toBe('2026-12-06T13:00:00Z');
+    const l = legendaDasNovidadesT3(p.id, '2026-11-30', p.publicarEm);
+    expect(l).toContain('aviãozinho, mortal, joelhada ou dancinha');
+    expect(l).not.toContain('Copa começa');
   });
 });

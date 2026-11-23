@@ -14,7 +14,7 @@ import type { VarzeaApi } from './api.js';
 import { RoteiroResumo, desenharQuadroResumo, type DadosDoResumo } from '../src/resumo.js';
 import { RoteiroApresentacao, desenharQuadroApresentacao, type DadosDaApresentacao } from '../src/apresentacao.js';
 import { RoteiroAberturaDaTemporada, desenharQuadroAbertura, type DadosDaAberturaDaTemporada } from '../src/aberturaTemporada.js';
-import { definirAparencias } from '../src/sprites.js';
+import { definirAparencias, definirItens } from '../src/sprites.js';
 import telaBusca from './telas/1-busca.png';
 import telaConvite from './telas/2-convite.png';
 import telaCodigo from './telas/3-codigo.png';
@@ -131,6 +131,7 @@ async function preparar(dados: PartidaParaVideo, quadrosPorSegundo = 30): Promis
   rebalanceamento = null;
   perfilDoTime = null;
   definirAparencias(dados.aparencias ?? {});
+  definirItens(dados.itensAtuais ?? {});
   definirEstrelas(dados.estrelas ?? {});
   roteiro = new Roteiro(new Timeline(dados.resultado, dados.escalacoes), dados.roteiro);
   opcoes = {
@@ -138,6 +139,7 @@ async function preparar(dados: PartidaParaVideo, quadrosPorSegundo = 30): Promis
     nomes: dados.nomes,
     ...(dados.apelidos ? { apelidos: dados.apelidos } : {}),
     ...(dados.numeros ? { numeros: dados.numeros } : {}),
+    ...(dados.itens ? { itens: dados.itens } : {}),
     escudo,
     ...(dados.subtitulo ? { subtitulo: dados.subtitulo } : {}),
     ...(dados.mataMata ? { mataMata: dados.mataMata } : {}),
@@ -163,6 +165,7 @@ async function prepararResumo(
   rebalanceamento = null;
   perfilDoTime = null;
   definirAparencias(dados.aparencias ?? {});
+  definirItens(dados.itens ?? {});
   definirEstrelas(dados.estrelas ?? {});
   resumo = new RoteiroResumo(dados, minimos);
   return { duracao: resumo.duracao, totalQuadros: resumo.totalQuadros(fps) };

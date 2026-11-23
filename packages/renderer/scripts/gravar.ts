@@ -12,8 +12,10 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import type { TimeId } from '@liga/shared';
+import type { PerfilDoJuiz, TimeId } from '@liga/shared';
 import type { PartidaParaVideo } from '../src/video.js';
+import { Roteiro } from '../src/roteiro.js';
+import { Timeline } from '../src/timeline.js';
 import { exportarEscudos, gravarReels, partidaDeTeste } from './gravacao.js';
 
 try {
@@ -39,8 +41,15 @@ const { values: args } = parseArgs({
     /** Partida com as regras da Temporada 2 (ADR-0019 a 0024). Com --vitrine, procura uma com falta, cartão, pênalti e barreira. */
     t2: { type: 'boolean' },
     vitrine: { type: 'boolean' },
+    /** Prévia da segunda fase da Loja: todos os Jogadores com corte, barba e comemoração. */
+    loja: { type: 'boolean' },
     /** Com --t2: a primeira Partida a partir de --seed com Substituição no intervalo (ADR-0061). */
     troca: { type: 'boolean' },
+    /**
+     * Partida com as regras da Temporada 3 (ADR-0094), com o Juiz informado (RIGOROSO, NORMAL ou
+     * DEIXA_JOGAR). Com --vitrine, procura uma com Trave, Rebote, Chute de longe, Pressão e Gol de placa.
+     */
+    t3: { type: 'string' },
     /** Na prévia, instantes extras em segundos, separados por vírgula. */
     instantes: { type: 'string' },
     /** Mata-mata (ADR-0048): semifinal ou final, com --temporada N e, se houver Séries, --serie A|B. */
@@ -61,6 +70,21 @@ async function main(): Promise<void> {
     do partida = partidaDeTeste(s++, args.mandante as TimeId, args.visitante as TimeId, args.subtitulo ?? 'Final', 'MATA_MATA');
     while (!partida.resultado.penaltis);
     console.log(`seed ${s - 1}: ${partida.resultado.gols.mandante}x${partida.resultado.gols.visitante}, pênaltis ${partida.resultado.penaltis.placar.mandante}x${partida.resultado.penaltis.placar.visitante}`);
+  } else if (args.t3) {
+    const juiz = args.t3.toUpperCase() as PerfilDoJuiz;
+    let s = Number(args.seed ?? 1);
+    const tem = (p: PartidaParaVideo) => {
+      const ls = p.resultado.lances;
+      if (!args.vitrine) return true;
+      if (!(ls.some((l) => l.trave) && ls.some((l) => l.rebote && l.tipo === 'GOL') && ls.some((l) => l.chuteDeLonge && l.tipo !== 'DESARME') && ls.some((l) => l.golDePlaca) && ls.filter((l) => l.tipo === 'GOL').length <= 6)) return false;
+      // A Trave e um lance de Pressão final precisam entrar nos melhores momentos.
+      const ro = new Roteiro(new Timeline(p.resultado, p.escalacoes));
+      const no = ro.segmentos.flatMap((x) => (x.lance === undefined ? [] : [ls[x.lance]!]));
+      return no.some((l) => l.trave) && no.some((l) => l.pressao);
+    };
+    do partida = partidaDeTeste(s++, args.mandante as TimeId, args.visitante as TimeId, args.subtitulo, 'LIGA', true, juiz);
+    while (!tem(partida));
+    console.log(`seed ${s - 1}: ${partida.resultado.gols.mandante}x${partida.resultado.gols.visitante}, juiz ${partida.resultado.juiz}, acréscimos ${partida.resultado.acrescimos}`);
   } else if (args.t2 && args.vitrine) {
     // A primeira Partida da T2 a partir de --seed com pênalti, chute direto, cartão e gol.
     let s = Number(args.seed ?? 1);
@@ -99,6 +123,14 @@ async function main(): Promise<void> {
       ],
     };
     partida.subtitulo ??= 'Última Rodada, jogo das 14h';
+  }
+  if (args.loja) {
+    // Prévia da Loja (ADR-0101): todos com Itens, as quatro comemorações espalhadas pelo Time.
+    const com = ['COMEMORACAO_AVIAOZINHO', 'COMEMORACAO_MORTAL', 'COMEMORACAO_JOELHADA', 'COMEMORACAO_DANCINHA'];
+    const cortes = ['CORTE_LONGO', 'CORTE_RASPADO', 'CORTE_TRANCAS', 'CORTE_TOPETE'];
+    const barbas = ['BARBA_BIGODE', 'BARBA_CAVANHAQUE', 'BARBA_CHEIA'];
+    const de = (n: number) => Array.from({ length: n }, (_, k) => ({ COMEMORACAO: com[k % 4]!, CORTE: cortes[(k + 1) % 4]!, ...(k % 2 ? { BARBA: barbas[k % 3]! } : {}), CHUTEIRA: 'CHUTEIRA_AZUL' }));
+    partida.itens = { mandante: de(12), visitante: de(12) };
   }
   await gravarReels(partida, {
     saida: resolve(process.cwd(), args.saida!),

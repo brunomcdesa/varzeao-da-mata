@@ -14,7 +14,8 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, IDENTIDADE, doTime, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, TIMES_DA_EXPANSAO, doTime, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { temExpansao } from './expansao.js';
 import { colaboradoresDaPartida, perfisDosTimes } from './perfilDoTime.js';
 import { momentosDoAoVivo } from '@liga/renderer';
 import { recompensarT1 } from './recompensaT1.js';
@@ -26,6 +27,8 @@ import { CORTE_MINUTOS } from './escalacao.js';
 import { Instagram, ErroInstagram } from './instagram.js';
 import { CHAVE_TOKEN, gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
 import { avancarMataMata, estrelasNoBanco, estruturaDaTemporada } from './mataMata.js';
+import { avancarCopaPendente } from './copa.js';
+import { pagarRodada, pagarTitulos } from './moedas.js';
 import { rebalancear } from './rebalanceamento.js';
 import { destaquesDaTemporadaNoBanco } from './destaques.js';
 import { SQL_RODADA_DA_FINAL, seriesDaTemporada } from './series.js';
@@ -37,6 +40,7 @@ import { contextoDaVotacao, importarVotosDoSite, sincronizarVotacao } from './vo
 import { processarPedidosDoSite } from './pedidosSite.js';
 import { tomarPendencias } from './pendencias.js';
 import { aparenciasEscolhidas } from './perfil.js';
+import { itensEquipadosAtuais } from './loja.js';
 
 export interface ContextoDoJob {
   banco: Banco;
@@ -332,7 +336,7 @@ async function agendar(c: ContextoDoJob, o: { tipo: ItemDaAgenda['tipo']; ref: n
 
 /** O Craque da Rodada anterior da mesma Série, que tem a vaga garantida na Escalação (ADR-0017). */
 async function craqueDaVez(banco: Banco, p: LinhaJob): Promise<{ id: string } | null> {
-  const anterior = (await banco.query<{ id: number }>(`SELECT s.id FROM rodada s JOIN rodada r ON r.temporada_id = s.temporada_id AND s.numero = r.numero - 1 WHERE r.id = $1`, [p.rodada_id])).rows[0];
+  const anterior = (await banco.query<{ id: number }>(`SELECT s.id FROM rodada s JOIN rodada r ON r.temporada_id = s.temporada_id AND s.data = (SELECT max(x.data) FROM rodada x WHERE x.temporada_id = r.temporada_id AND x.data < r.data) WHERE r.id = $1`, [p.rodada_id])).rows[0];
   return anterior ? craqueDaRodada(banco, anterior.id, p.serie) : null;
 }
 
@@ -383,6 +387,9 @@ async function etapaDoCorte(c: ContextoDoJob, pendentes: LinhaJob[], p: LinhaJob
  * grava os Reels depois e, se este job não tiver rodado, faz a etapa do Corte ele mesmo.
  */
 export async function jobEscalar(c: ContextoDoJob, o: { janelaMin?: number; esperarCorte?: boolean } = {}): Promise<number[]> {
+  // Copa (ADR-0088): a etapa seguinte nasce assim que a anterior termina (Semifinais no mesmo dia das Quartas).
+  const copa = await avancarCopaPendente(c.banco);
+  if (copa !== 'NADA') logDe(c)(`Copa: ${copa}.`);
   const pendentes = await partidasPendentes(c.banco, agoraDe(c), o.janelaMin ?? 60);
   const p = pendentes.find((q) => q.status === 'PENDENTE');
   if (!p) {
@@ -667,7 +674,7 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
     const pasta = await mkdtemp(join(tmpdir(), 'varzea-craque-'));
     try {
       const saida = join(pasta, 'craque.mp4');
-      await c.gravarResumo({ ...dados, aparencias: await aparenciasEscolhidas(c.banco), estrelas: await estrelasNoBanco(c.banco) }, saida);
+      await c.gravarResumo({ ...dados, aparencias: await aparenciasEscolhidas(c.banco), itens: await itensEquipadosAtuais(c.banco), estrelas: await estrelasNoBanco(c.banco) }, saida);
       const chave = `videos/${randomUUID()}.mp4`;
       await c.armazenamento.enviar('publico', chave, new Uint8Array(await readFile(saida)), { tipo: 'video/mp4', cache: 'public, max-age=31536000, immutable' });
       item = await agendar(c, {
@@ -675,7 +682,7 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
         ref: t.id,
         videoUrl: c.armazenamento.urlPublica(chave),
         capaEmMs: CAPA_DO_RESUMO_MS,
-        legenda: legendaDoFimDaTemporada(t.numero, historia, { username: s.username, time: s.time_id, jogos: Number(s.jogos), gols, media: Number(s.media), votos: Number(s.votos) }, proxima, craqueB),
+        legenda: legendaDoFimDaTemporada(t.numero, historia, { username: s.username, time: s.time_id, jogos: Number(s.jogos), gols, media: Number(s.media), votos: Number(s.votos) }, proxima, craqueB, await temExpansao(c.banco, t.id)),
         containerAtual: null,
         publicarEm,
         salvarContainer: async () => {},
@@ -738,6 +745,8 @@ export function legendaDoFimDaTemporada(
   craque: { username: string; time: TimeId; jogos: number; gols: number; media: number; votos: number },
   proxima: { numero: number; inicio: string },
   craqueB: { username: string; time: TimeId } | null = null,
+  /** A Temporada marcou a Expansão (ADR-0093): a legenda anuncia os 4 Times novos. */
+  expansao = false,
 ): string {
   const nome = (t: TimeId) => FALA_DO_TIME[t].curto;
   const [, mes, dia] = proxima.inicio.split('-');
@@ -749,6 +758,10 @@ export function legendaDoFimDaTemporada(
     craqueB ? `Craque da Temporada (Série B): @${craqueB.username} (${nome(craqueB.time)})` : '',
     h?.artilheiro ? `Artilheiro: ${h.artilheiro.username} (${nome(h.artilheiro.time)}), ${h.artilheiro.gols} ${h.artilheiro.gols === 1 ? 'gol' : 'gols'}` : '',
     h?.goleiro ? `Melhor goleiro: ${h.goleiro.username} (${nome(h.goleiro.time)}), nota média ${h.goleiro.notaMedia.toFixed(1).replace('.', ',')}` : '',
+    '',
+    expansao
+      ? `🐾 A Liga cresceu! Na Temporada ${proxima.numero} entram 4 Times novos na Série B: ${TIMES_DA_EXPANSAO.map((t) => IDENTIDADE[t].nome).join(', ').replace(/, ([^,]*)$/, ' e $1')}. Desta vez ninguém cai da A, 2 sobem da B, e as duas Séries ficam com 10 Times. Quem começar num Time novo vira Fundador, e quem já joga pode trocar para eles de graça na Janela.`
+      : '',
     '',
     `🏁 A Temporada ${proxima.numero} começa em ${dia}/${mes}. Quer jogar? Comente ENTRO + Time + posição.`,
     O_QUE_E,
@@ -811,6 +824,9 @@ export async function jobResumo(c: ContextoDoJob): Promise<number | null> {
   const log = logDe(c);
   const agora = agoraDe(c);
   if (await jobCraqueDaTemporada(c)) return null;
+  // Copa (ADR-0088): avança antes de escolher a Rodada, para o Resumo do dia das Quartas sair com as Semifinais.
+  const copa = await avancarCopaPendente(c.banco);
+  if (copa !== 'NADA') log(`Copa: ${copa}.`);
   // A Rodada mais recente com todas as Partidas simuladas e o Resumo ainda não agendado.
   const r = (
     await c.banco.query<{ id: number; temporada_id: number; numero: number; data: string | Date; resumo_status: string }>(
@@ -826,9 +842,12 @@ export async function jobResumo(c: ContextoDoJob): Promise<number | null> {
     return null;
   }
   await fecharRodada(c.banco, r.id);
+  // Moedas (ADR-0087): Salário do dia, Seleção da Rodada e o Craque da Rodada anterior.
+  await c.banco.transacao((b) => pagarRodada(b, r.id));
   // Depois da 7ª Rodada cria as Semifinais; depois delas, a Final; depois dela, encerra.
   const passo = await avancarMataMata(c.banco, r.temporada_id);
   if (passo !== 'NADA') log(`Mata-mata: ${passo}.`);
+  if (passo === 'TEMPORADA_ENCERRADA') await c.banco.transacao((b) => pagarTitulos(b, r.temporada_id));
   const dados = await dadosDoResumo(c.banco, r.id);
   const dia = typeof r.data === 'string' ? r.data.slice(0, 10) : r.data.toISOString().slice(0, 10);
   const [a, m, d] = dia.split('-').map(Number) as [number, number, number];
@@ -841,7 +860,7 @@ export async function jobResumo(c: ContextoDoJob): Promise<number | null> {
   const pasta = await mkdtemp(join(tmpdir(), 'varzea-resumo-'));
   try {
     const saida = join(pasta, 'resumo.mp4');
-    await c.gravarResumo({ ...dados, aparencias: await aparenciasEscolhidas(c.banco), estrelas: await estrelasNoBanco(c.banco) }, saida);
+    await c.gravarResumo({ ...dados, aparencias: await aparenciasEscolhidas(c.banco), itens: await itensEquipadosAtuais(c.banco), estrelas: await estrelasNoBanco(c.banco) }, saida);
     const chave = `videos/${randomUUID()}.mp4`;
     await c.armazenamento.enviar('publico', chave, new Uint8Array(await readFile(saida)), { tipo: 'video/mp4', cache: 'public, max-age=31536000, immutable' });
     await c.banco.query(`UPDATE rodada SET resumo_status = 'RENDERIZADO' WHERE id = $1`, [r.id]);

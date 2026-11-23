@@ -44,3 +44,25 @@ describe('Reels de Abertura da Temporada', () => {
     expect(longo.segmentos[1]!.fim - longo.segmentos[1]!.inicio).toBeCloseTo(12.6);
   });
 });
+
+describe('Abertura da T3 (ADR-0088)', async () => {
+  const { dadosDaAberturaT3 } = await import('../src/aberturaTemporada.js');
+  const t3 = new RoteiroAberturaDaTemporada(
+    dadosDaAberturaT3({ serieA: ['CAP', 'ONC', 'TAT', 'JAC', 'PRE', 'SAG', 'ARA', 'BOT'], serieB: ['TAM', 'SUC', 'LOB', 'LEA', 'TUC', 'COR', 'BES', 'TAR'], estreia: '2026-11-28', estreiaDaLiga: '2026-12-01' }),
+  );
+  it('tem a cartela da Copa logo depois do Sobe e desce', () => {
+    expect(t3.segmentos.map((s) => s.cartela)).toEqual(['ABERTURA', 'SERIES', 'ACESSO', 'COPA', 'NOVIDADES', 'ENTRAR', 'AGENDA', 'CHAMADA']);
+  });
+  it('fala as duas Séries, a Copa com o prêmio e as duas datas', () => {
+    const falas = narracaoDaAbertura(t3).map((f) => f.texto).join(' ');
+    expect(falas).toContain('Na Série A: Capivara');
+    expect(falas).toContain('E estreia a Série B, com Tamanduá');
+    expect(falas).toContain('os dois últimos da Série A caem, e os dois finalistas da Série B sobem');
+    expect(falas).toContain('As oitavas são clássicos, como Onça contra Leão');
+    expect(falas).toContain('estrela de bronze no escudo e quarenta moedas');
+    expect(falas).toContain('A Copa começa no sábado, dia vinte e oito');
+    expect(falas).toContain('a fase de liga começa na terça, dia primeiro');
+    expect(falas).toContain('salário e loja, palpite e conquistas');
+    expect(falas).not.toContain('@');
+  });
+});

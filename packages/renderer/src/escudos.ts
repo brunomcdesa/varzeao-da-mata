@@ -398,6 +398,14 @@ const BICHOS: Record<TimeId, string[]> = {
     '....KUK.KUK...',
     '....KK..KK....',
   ],
+  // Gato preto de frente: orelhas pontudas, olhos verdes e bigodes (Expansão, ADR-0093).
+  GAT: ['.KK........KK.','.K1K......K1K.','.K11K....K11K.','.K111KKKK111K.','.K1111111111K.','K111111111111K','K112K2112K211K','K111111111111K','KK1111EE1111KK','K11111KK11111K','.K1111111111K.','..K11111111K..','...KKKKKKKK...','..............'],
+  // Rato de frente: orelhonas redondas rosadas e focinho pontudo.
+  RAT: ['.KKK......KKK.','K3EEK....KEE3K','K3EE3KKKK3EE3K','.K3333333333K.','..K33333333K..','..K3K3333K3K..','..K33333333K..','KK.K333333K.KK','...K333333K...','..K.K3333K.K..','.....K33K.....','.....KEEK.....','......KK......','..............'],
+  // Escorpião visto de cima: pinças abertas, corpo em gomos e o ferrão no fim.
+  ESC: ['KK..........KK','K4K........K4K','K44K......K44K','.K4K......K4K.','..K4KKKKKK4K..','...K444444K...','K.K45444454K.K','.KK44444444KK.','K.K45444454K.K','.KK44444444KK.','...K444444K...','....K4444K....','.....K44K.....','......K5K.....'],
+  // Aranha vista de cima: oito pernas e a marca vermelha nas costas.
+  ARN: ['..............','K...K....K...K','.K...K..K...K.','..K..K66K..K..','KK.KK6666KK.KK','..KK667766KK..','...K677776K...','KKKK667766KKKK','...K666666K...','..KK666666KK..','KK.K666666K.KK','..K.K6666K.K..','.K...KKKK...K.','K............K'],
   // Bugio de frente: cara escura no meio da juba ruiva.
   BUG: [
     '...KKKKKKKK...',
@@ -466,6 +474,14 @@ const PALETAS: Record<string, string> = {
   X: '#6E5E44',
   Y: '#B9471E',
   Z: '#3A2418',
+  // Times da Expansão (ADR-0093): algarismos.
+  '1': '#3A3646', // gato
+  '2': '#9BE15D',
+  '3': '#9AA0A6', // rato
+  '4': '#D9932F', // escorpião
+  '5': '#5A3218',
+  '6': '#2A2230', // aranha
+  '7': '#D8322A',
 };
 
 /** Fundo do medalhão por Time; null = o bicho fica direto na cor do Time. */
@@ -494,6 +510,10 @@ const MEDALHAO: Record<TimeId, string | null> = {
   ANT: '#EADFC4',
   SER: null,
   BUG: '#EADFC4',
+  GAT: '#EADFC4',
+  RAT: '#EADFC4',
+  ESC: '#EADFC4',
+  ARN: '#EADFC4',
 };
 
 /** Forma do brasão (20×24): P = fundo (primária), S = borda/faixa (secundária), K = contorno. */
@@ -583,7 +603,7 @@ const LADO_DA_ESTRELA = 7;
 const PASSO_DA_ESTRELA = 6;
 /** Altura da faixa de estrelas acima do escudo, em pixels do escudo (estrela + 1 de folga). */
 export const ALTURA_DAS_ESTRELAS = 8;
-const MIOLO = { ouro: '#F2C230', prata: '#C8CDD6' } as const;
+const MIOLO = { ouro: '#F2C230', prata: '#C8CDD6', bronze: '#C9803F' } as const;
 
 const estrelasDe = new Map<TimeId, Estrelas>();
 const cacheDasEstrelas = new Map<string, HTMLCanvasElement | OffscreenCanvas>();
@@ -591,14 +611,15 @@ const cacheDasEstrelas = new Map<string, HTMLCanvasElement | OffscreenCanvas>();
 /** Estrelas de cada Time (estrelasDosTimes). Time fora da lista fica sem estrela. */
 export function definirEstrelas(lista: Partial<Record<TimeId, Estrelas>>): void {
   estrelasDe.clear();
-  for (const [t, e] of Object.entries(lista)) if (e && e.ouro + e.prata > 0) estrelasDe.set(t as TimeId, e);
+  for (const [t, e] of Object.entries(lista)) if (e && e.ouro + e.prata + (e.bronze ?? 0) > 0) estrelasDe.set(t as TimeId, e);
 }
 
 /** A fila de estrelas do Time, da esquerda para a direita (no máximo MAXIMO_DE_ESTRELAS). */
-export function filaDeEstrelas(time: TimeId): ('ouro' | 'prata')[] {
+export function filaDeEstrelas(time: TimeId): ('ouro' | 'prata' | 'bronze')[] {
   const e = estrelasDe.get(time);
   if (!e) return [];
-  return [...Array<'ouro'>(e.ouro).fill('ouro'), ...Array<'prata'>(e.prata).fill('prata')].slice(0, MAXIMO_DE_ESTRELAS);
+  // Ouro (Série A), prata (Série B) e bronze (Copa, ADR-0088), nessa ordem.
+  return [...Array<'ouro'>(e.ouro).fill('ouro'), ...Array<'prata'>(e.prata).fill('prata'), ...Array<'bronze'>(e.bronze ?? 0).fill('bronze')].slice(0, MAXIMO_DE_ESTRELAS);
 }
 
 /** Largura da fila em pixels do escudo (0 sem estrela). Pode passar da largura do escudo. */
@@ -632,7 +653,7 @@ export function estrelasDoEscudo(time: TimeId): HTMLCanvasElement | OffscreenCan
 }
 
 /** Uma estrela solta (cartelas de exemplo, ADR-0063), do mesmo desenho das do escudo. */
-export function desenharEstrelaSolta(ctx: CanvasRenderingContext2D, tipo: 'ouro' | 'prata', x: number, y: number, tamanhoDoPixel: number): void {
+export function desenharEstrelaSolta(ctx: CanvasRenderingContext2D, tipo: 'ouro' | 'prata' | 'bronze', x: number, y: number, tamanhoDoPixel: number): void {
   ESTRELA.forEach((linha, yy) => {
     for (let xx = 0; xx < linha.length; xx++) {
       const ch = linha[xx];

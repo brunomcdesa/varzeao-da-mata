@@ -1,5 +1,5 @@
 /** Jogadores: busca e ranking, o Card de cada um e a comparação lado a lado. */
-import { DESTAQUE_DA_POSICAO, IDENTIDADE, ORDEM_DOS_TROFEUS, nomeVisivel, temporadaDoApp, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId, temRegrasT2 } from '@liga/shared';
+import { temMoedas, DESTAQUE_DA_POSICAO, IDENTIDADE, ORDEM_DOS_TROFEUS, nomeVisivel, temporadaDoApp, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId, temRegrasT2 } from '@liga/shared';
 import { jogadores, liga, timesAtivos } from '../dados.js';
 import { bonecoImg, comCamisa, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html, faixaC } from '../ui.js';
 import type { Pagina } from './tipos.js';
@@ -125,6 +125,7 @@ function medalhas(j: JogadorPublico): [string, number][] {
 
 const NOME_DO_TROFEU: Record<TipoTrofeu, string> = {
   CAMPEAO: 'Campeão',
+  CAMPEAO_COPA: 'Campeão da Copa',
   CRAQUE_TEMPORADA: 'Craque da Temporada',
   SELECAO_TEMPORADA: 'Seleção da Temporada',
   CRAQUE_RODADA: 'Craque da Rodada',
@@ -137,13 +138,13 @@ function salaDeTrofeus(j: JogadorPublico): Html {
   const tipos = ORDEM_DOS_TROFEUS.filter((t) => j.trofeus.some((x) => x.tipo === t));
   const quando = (t: Trofeu) =>
     (t.posicao ? `${DESTAQUE_DA_POSICAO[t.posicao]} · ` : '') +
-    (t.tipo === 'CAMPEAO' || t.tipo === 'CRAQUE_TEMPORADA' || t.tipo === 'SELECAO_TEMPORADA' ? `Temporada ${t.temporada}` : `${t.rodada && t.fase ? nomeDaEtapa(t.fase, t.rodada) : ''}, T${t.temporada}`);
+    (t.tipo === 'CAMPEAO' || t.tipo === 'CAMPEAO_COPA' || t.tipo === 'CRAQUE_TEMPORADA' || t.tipo === 'SELECAO_TEMPORADA' ? `Temporada ${t.temporada}` : `${t.rodada && t.fase ? nomeDaEtapa(t.fase, t.rodada) : ''}, T${t.temporada}`);
   return html`<section class="sala" aria-labelledby="titulo-sala">
     <h2 id="titulo-sala" class="secao">Sala de troféus</h2>
     <ul class="sala-lista">${tipos.map((tipo) => {
       const deste = j.trofeus.filter((t) => t.tipo === tipo);
       return html`<li class="sala-item sala-${tipo.toLowerCase()}">
-        <span class="sala-icone">${tipo === 'CAMPEAO' ? taca(30, 'trofeu') : html`<span class="estrela" aria-hidden="true"></span>`}</span>
+        <span class="sala-icone">${tipo === 'CAMPEAO' || tipo === 'CAMPEAO_COPA' ? taca(30, 'trofeu') : html`<span class="estrela" aria-hidden="true"></span>`}</span>
         <span class="sala-nome">${NOME_DO_TROFEU[tipo]}<b>${deste.length}</b></span>
         <span class="sala-quando">${deste.map((t) => (t.partidaId ? html`<a href="#/partida/${t.partidaId}">${quando(t)}</a>` : html`<span>${quando(t)}</span>`))}</span>
       </li>`;
@@ -301,7 +302,7 @@ export const paginaJogador: Pagina = async (main, [id]) => {
     if (v) location.hash = `#/comparar/${j.id}/${v}`;
   });
   // Transferência só para os Times que jogam a Temporada (com a Série B, os 16).
-  return ligarMeuPersonagem(main, j, todos, timesAtivos(l), temRegrasT2(temporadaDoApp(l) ?? 0));
+  return ligarMeuPersonagem(main, j, todos, timesAtivos(l), temRegrasT2(temporadaDoApp(l) ?? 0), temMoedas(temporadaDoApp(l) ?? 0));
 };
 
 function numeros(e: Estatisticas, j: JogadorPublico): Html {

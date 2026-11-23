@@ -4,6 +4,7 @@ import type { MomentosDoAoVivo } from './avisos.js';
  * Regra: nada que revele o resultado de uma Partida antes do seu Apito Inicial.
  */
 import type { Aparencia } from './aparencia.js';
+import type { ItensEquipados } from './itens.js';
 import type { Estrelas } from './estrelas.js';
 import type { Especializacao, Grupo, Posicao, Serie, TimeId } from './index.js';
 import { TIMES_FUNDADORES } from './index.js';
@@ -53,6 +54,8 @@ export interface PartidaNoCalendario {
   classificado?: TimeId;
   /** A Série da Partida (ADR-0017). Sem o campo, é a A. */
   serie?: Serie;
+  /** Copa (ADR-0088): a etapa da Partida; sem o campo, não é da Copa. */
+  copa?: import('./copa.js').EtapaDaCopa;
 }
 
 export interface RodadaPublica {
@@ -77,6 +80,8 @@ export interface RodadaPublica {
 }
 
 export interface LigaPublica {
+  /** Ranking de Palpites da Temporada (ADR-0089): pontos somados, mesmo além do teto do dia. */
+  palpites?: { jogadorId: string; username: string; apelido: string | null; pontos: number; acertos: number }[];
   atualizadoEm: string;
   temporada: { numero: number; status: string } | null;
   times: TimePublico[];
@@ -133,6 +138,12 @@ export interface TemporadaNaHistoria {
   goleiro: (JogadorResumido & { notaMedia: number; jogos: number; defesas: number; golsSofridos: number }) | null;
   /** Tabela da Fase de Liga (parcial enquanto a Temporada corre). Com duas Séries, a da A. */
   tabela: LinhaTabelaPublica[];
+  /** Copa (ADR-0088): campeão, vice e Final. */
+  copa?: {
+    campeao: TimeId | null;
+    vice: TimeId | null;
+    final: { partidaId: number; mandante: TimeId; visitante: TimeId; placar: { mandante: number; visitante: number; penaltis?: { mandante: number; visitante: number } } } | null;
+  };
   /** Série B (ADR-0017): campeão, vice, Final, Craque e tabela. */
   serieB?: {
     campeao: TimeId | null;
@@ -159,9 +170,9 @@ export interface Estatisticas {
   derrotas: number;
 }
 
-export type TipoTrofeu = 'CAMPEAO' | 'CRAQUE_TEMPORADA' | 'SELECAO_TEMPORADA' | 'CRAQUE_RODADA' | 'SELECAO_RODADA' | 'REI_DO_CLASSICO';
+export type TipoTrofeu = 'CAMPEAO' | 'CAMPEAO_COPA' | 'CRAQUE_TEMPORADA' | 'SELECAO_TEMPORADA' | 'CRAQUE_RODADA' | 'SELECAO_RODADA' | 'REI_DO_CLASSICO';
 /** Ordem em que os troféus aparecem no site. */
-export const ORDEM_DOS_TROFEUS: readonly TipoTrofeu[] = ['CAMPEAO', 'CRAQUE_TEMPORADA', 'SELECAO_TEMPORADA', 'CRAQUE_RODADA', 'SELECAO_RODADA', 'REI_DO_CLASSICO'];
+export const ORDEM_DOS_TROFEUS: readonly TipoTrofeu[] = ['CAMPEAO', 'CAMPEAO_COPA', 'CRAQUE_TEMPORADA', 'SELECAO_TEMPORADA', 'CRAQUE_RODADA', 'SELECAO_RODADA', 'REI_DO_CLASSICO'];
 
 export interface Trofeu {
   tipo: TipoTrofeu;
@@ -199,10 +210,14 @@ export interface JogadorPublico {
   visual: Aparencia | null;
   /** Número da camisa escolhido pelo dono. */
   numero: number | null;
+  /** Itens da Loja equipados agora (ADR-0101); o saldo nunca aparece. */
+  itens?: ItensEquipados;
   /** Fundador de um Time da Série B (ADR-0036): só existe a partir da Temporada 2. */
   fundador?: { time: TimeId; temporada: number };
   /** Selo da Temporada 1 (ADR-0047): se inscreveu na T1. Só aparece no site a partir da T2. */
   seloT1?: true;
+  /** Conquistas (ADR-0090): selos da Carreira, a partir da T3 (código e Temporada em que saiu). */
+  conquistas?: { codigo: string; temporada: number }[];
   /** Piso da Temporada 1 (ADR-0047): o OVR antes e depois, só para quem subiu. Marca o degrau no gráfico do OVR (ADR-0078). */
   pisoT1?: { antes: number; depois: number };
   /** Base do OVR (ADR-0079): o último ajuste do dono. O '+N' e as barras do card partem daqui. */
@@ -253,9 +268,9 @@ export interface EscalacaoPublica {
   time: TimeId;
   /** `capitao`: faixa de Capitão nesta Partida (só na T2, ADR-0020). */
   /** `numero`: número da camisa na hora da Escalação (ADR-0075); sem ele, camisa lisa. */
-  jogadores: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; numero?: number | null; ovr: number; habilidades: Habilidades; capitao?: true }[];
+  jogadores: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; numero?: number | null; itens?: ItensEquipados; ovr: number; habilidades: Habilidades; capitao?: true }[];
   /** Banco (T2, ADR-0061): os reservas, nos lugares depois dos titulares (7 e 8). */
-  banco?: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; numero?: number | null; ovr: number; habilidades: Habilidades }[];
+  banco?: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; numero?: number | null; itens?: ItensEquipados; ovr: number; habilidades: Habilidades }[];
 }
 
 export interface PartidaPublica {
@@ -281,6 +296,12 @@ export interface PartidaPublica {
   briga?: import('./briga.js').BrigaPeloMataMata;
   /** Só no arquivo privado (job partida): quando cada gol aparece no Ao Vivo, para os Avisos do App (ADR-0042). */
   momentos?: MomentosDoAoVivo;
+  /** Copa (ADR-0088): a etapa da Partida. */
+  copa?: import('./copa.js').EtapaDaCopa;
+  /** T3 (ADR-0089): a Partida aceita Palpite (até o Corte, pelo Vínculo). */
+  palpite?: true;
+  /** T3 (ADR-0094): o Perfil do Juiz, que aparece junto com a Escalação. */
+  juiz?: import('./temporada3.js').PerfilDoJuiz;
 }
 
 /**

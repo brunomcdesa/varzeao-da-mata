@@ -16,6 +16,7 @@ const todos = (e: EscalacaoPublica) => [...[...e.jogadores].sort((a, b) => a.lug
 const nomesDe = (e: EscalacaoPublica) => todos(e).map((j) => (j.username ? `@${j.username}` : null));
 const apelidosDe = (e: EscalacaoPublica) => todos(e).map((j) => j.apelido ?? null);
 const numerosDe = (e: EscalacaoPublica) => todos(e).map((j) => j.numero ?? null);
+const itensDe = (e: EscalacaoPublica) => todos(e).map((j) => j.itens ?? null);
 
 export const montarTimeline = (p: PartidaPublica): Timeline | null => timelineDaPartida(p);
 
@@ -38,6 +39,8 @@ export function transmitir(
   const apelidos: Record<Lado, (string | null)[]> = { mandante: apelidosDe(p.escalacoes!.mandante), visitante: apelidosDe(p.escalacoes!.visitante) };
   // O número da camisa da época do jogo (ADR-0075), nas costas do boneco.
   const numeros: Record<Lado, (number | null)[]> = { mandante: numerosDe(p.escalacoes!.mandante), visitante: numerosDe(p.escalacoes!.visitante) };
+  // Os Itens da Loja da época do jogo (ADR-0101): a Escalação guardou os equipados no Corte.
+  const itens = { mandante: itensDe(p.escalacoes!.mandante), visitante: itensDe(p.escalacoes!.visitante) };
   const reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const FIM = timeline.duracao;
@@ -63,7 +66,7 @@ export function transmitir(
       marcar();
     }
     // Efeitos de momento do Reels (ADR-0095); quem pediu menos movimento fica sem tremor e clarão.
-    desenharQuadroDoSite(ctx, timeline, t, { times: timeline.resultado.times, nomes, apelidos, numeros, semMovimento: reduzido, ...(p.briga ? { briga: p.briga } : {}) });
+    desenharQuadroDoSite(ctx, timeline, t, { times: timeline.resultado.times, nomes, apelidos, numeros, itens, semMovimento: reduzido, ...(p.briga ? { briga: p.briga } : {}) });
     if (barra) barra.value = String(Math.round(t));
     o.aoMudar?.(t);
     if (t >= FIM && !acabou) {

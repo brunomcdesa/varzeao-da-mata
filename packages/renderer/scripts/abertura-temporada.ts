@@ -9,7 +9,7 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { DADOS_DA_ABERTURA_T2 } from '../src/aberturaTemporada.js';
+import { DADOS_DA_ABERTURA_T2, dadosDaAberturaT3 } from '../src/aberturaTemporada.js';
 import { gravarAberturaDaTemporada } from './gravacao.js';
 
 try {
@@ -25,6 +25,9 @@ const { values: args } = parseArgs({
     previa: { type: 'string' },
     instantes: { type: 'string' },
     crf: { type: 'string', default: '18' },
+    /** T3 (ADR-0088): o 1º dia da Copa é --estreia; a Rodada 1 da Liga é --liga. Séries de exemplo. */
+    t3: { type: 'boolean', default: false },
+    liga: { type: 'string' },
   },
 });
 
@@ -34,6 +37,8 @@ if (!/^\d{4}-\d{2}-\d{2}$/.test(args.estreia!)) {
 }
 const base = process.env.INIT_CWD ?? process.cwd();
 await gravarAberturaDaTemporada(
-  { ...DADOS_DA_ABERTURA_T2, estreia: args.estreia! },
+  args.t3
+    ? dadosDaAberturaT3({ serieA: ['CAP', 'ONC', 'TAT', 'JAC', 'PRE', 'SAG', 'ARA', 'BOT'], serieB: ['TAM', 'SUC', 'LOB', 'LEA', 'TUC', 'COR', 'BES', 'TAR'], estreia: args.estreia!, estreiaDaLiga: args.liga ?? args.estreia! })
+    : { ...DADOS_DA_ABERTURA_T2, estreia: args.estreia! },
   { saida: resolve(base, args.saida!), crf: Number(args.crf), ...(args.previa ? { previa: resolve(base, args.previa) } : {}), ...(args.instantes ? { instantes: args.instantes.split(',').map(Number) } : {}) },
 );

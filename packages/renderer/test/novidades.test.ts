@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { NARRADORES } from '../src/narradores.js';
-import { REELS_DE_NOVIDADES, RoteiroNovidades, cenasDasNovidades, narracaoDasNovidades, quandoEstreia, type ClipeId } from '../src/novidades.js';
+import { SERIE_DE_NOVIDADES, RoteiroNovidades, cenasDasNovidades, narracaoDasNovidades, quandoEstreia, type ClipeId } from '../src/novidades.js';
 import { dadosDasNovidades } from '../scripts/partidasDasNovidades.js';
 
 const quando = { estreia: '2026-11-19', publicadoEm: '2026-11-18T15:00:00Z' };
 
 describe('Novidades da T2 (ADR-0063)', () => {
-  const dados = Object.fromEntries(REELS_DE_NOVIDADES.map((r) => [r, dadosDasNovidades(r, quando)])) as Record<(typeof REELS_DE_NOVIDADES)[number], ReturnType<typeof dadosDasNovidades>>;
+  const dados = Object.fromEntries(SERIE_DE_NOVIDADES[2].map((r) => [r, dadosDasNovidades(r, quando)])) as Record<(typeof SERIE_DE_NOVIDADES)[2][number], ReturnType<typeof dadosDasNovidades>>;
 
   it('acha todos os trechos de jogo de cada Reels, sempre nos mesmos lances', () => {
     const esperados: Record<string, ClipeId[]> = {
@@ -35,7 +35,7 @@ describe('Novidades da T2 (ADR-0063)', () => {
   });
 
   it('cada Reels abre, termina na chamada e chama o próximo pelo horário', () => {
-    for (const r of REELS_DE_NOVIDADES) {
+    for (const r of SERIE_DE_NOVIDADES[2]) {
       const cenas = cenasDasNovidades(dados[r]);
       expect(cenas[0]!.id).toBe('abertura');
       expect(cenas.at(-1)!.id).toBe('chamada');
@@ -53,7 +53,7 @@ describe('Novidades da T2 (ADR-0063)', () => {
   });
 
   it('a narração estica as cenas e o Narrador nunca fala um @', () => {
-    for (const r of REELS_DE_NOVIDADES) {
+    for (const r of SERIE_DE_NOVIDADES[2]) {
       const base = new RoteiroNovidades(dados[r]);
       const longo = new RoteiroNovidades(dados[r], { 1: { antes: 20 } });
       expect(longo.duracao).toBeGreaterThan(base.duracao);
@@ -68,7 +68,7 @@ describe('Novidades da T2 (ADR-0063)', () => {
       JOGADOR: ['vínculo', 'código', 'DM', 'apelido', 'catorze letras', 'palavrão', 'uma vez por dia', 'especialização', 'artilheiro', 'pegador de pênalti', 'treino', 'cinquenta por cento', 'uma vez e meia', 'dois pontos', 'CONFIRMO', 'craque da rodada', 'dois jogos seguidos', 'resenha', 'clássico', 'canto', 'sorteado', 'seleção da rodada', 'muralha', 'matador', 'seleção da temporada'],
       SITE: ['app', 'sem loja', 'Android', 'iPhone', 'Instagram', 'avisos', 'escalação', 'apito inicial', 'gol', 'fim do jogo', 'ao vivo', 'melhores momentos', 'assistindo', 'reagir', 'replay', 'carreira', 'troféus', 'selo', 'estrela'],
     };
-    for (const r of REELS_DE_NOVIDADES) {
+    for (const r of SERIE_DE_NOVIDADES[2]) {
       const tudo = cenasDasNovidades(dados[r]).map((x) => x.fala).join(' ').toLowerCase();
       for (const e of essenciais[r]!) expect(tudo, `${r}: ${e}`).toContain(e.toLowerCase());
     }

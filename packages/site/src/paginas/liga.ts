@@ -2,9 +2,10 @@
 import { FALA_DO_TIME, GRUPOS, IDENTIDADE, NOME_DO_GRUPO, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, foraDoMataMata, forcaProvavel, inscritosAteNoProximoJogo, nomeDaRodada, type Formacao, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
 import { avisoDaPreTemporada, diaLongo, jogadores, liga, preTemporada, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos, gruposAtivos, formaDosTimes } from '../dados.js';
 import { bonecoImg, campinho, curto, escudoImg, forcaHtml, formaHtml, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa } from '../ui.js';
-import { capitaniaDoVinculo, capitaniaGuardada, jogadorVinculado } from '../meuPersonagem.js';
-import { blocoDoPlano, planoDaCapitania, type Capitania } from '../planoDoTime.js';
-import { chaveamento } from './chave.js';
+import { capitaniaDoVinculo, capitaniaGuardada, enviarEscolhaDoVinculo, jogadorVinculado } from '../meuPersonagem.js';
+import { blocoDoPlano, planoDaCapitania, valorDoFormulario, type Capitania } from '../planoDoTime.js';
+import { chaveDaCopa, chaveamento } from './chave.js';
+import { abaDosJogos } from '../abaDosJogos.js';
 import { linhaDePartida, tabelaDeClassificacao } from './comum.js';
 import type { Pagina } from './tipos.js';
 
@@ -55,13 +56,34 @@ function salaDoTime(l: LigaPublica, t: TimeId): ReturnType<typeof html> {
   </section>`;
 }
 
-export const paginaJogos: Pagina = async (main) => {
+export const paginaJogos: Pagina = async (main, params) => {
   const l = await liga();
   // O Mata-mata aparece só no chaveamento; a lista é da Fase de Liga.
-  const rodadas = [...new Set(l.calendario.filter((p) => p.fase === 'LIGA').map((p) => p.rodada))];
+  const rodadas = [...new Set(l.calendario.filter((p) => p.fase === 'LIGA' && !p.copa).map((p) => p.rodada))];
   const daVez = rodadaAtual(l);
+  const aba = abaDosJogos(l, params[0]);
+  const abas = aba
+    ? html`<nav class="sub-abas" aria-label="Competição">
+        <a href="#/jogos/liga" ${aba === 'LIGA' ? html`aria-current="page"` : ''}>Liga</a>
+        <a href="#/jogos/copa" ${aba === 'COPA' ? html`aria-current="page"` : ''}>Copa</a>
+      </nav>`
+    : '';
+  if (aba === 'COPA') {
+    main.innerHTML = html`<h1 class="titulo-pagina">Jogos da Temporada ${l.temporada?.numero ?? ''}</h1>
+      ${preTemporada(l) ? html`<p class="placa aviso-temporada">${avisoDaPreTemporada(l)}</p>` : ''}
+      ${abas}
+      ${chaveDaCopa(l)}`.s;
+    return;
+  }
   main.innerHTML = html`<h1 class="titulo-pagina">Jogos da Temporada ${l.temporada?.numero ?? ''}</h1>
     ${preTemporada(l) ? html`<p class="placa aviso-temporada">${avisoDaPreTemporada(l)}</p>` : ''}
+    ${abas}
+    ${l.palpites?.length
+      ? html`<section class="placa ranking-palpites" aria-labelledby="titulo-palpiteiros">
+          <h2 id="titulo-palpiteiros" class="secao">Palpiteiros da Temporada <small>pontos dos Palpites</small></h2>
+          <ol>${l.palpites.slice(0, 10).map((x) => html`<li><a href="#/jogador/${x.jogadorId}">${x.apelido || `@${x.username}`}</a><span>${x.acertos} ${x.acertos === 1 ? 'acerto' : 'acertos'}</span><strong>${x.pontos}</strong></li>`)}</ol>
+        </section>`
+      : ''}
     ${rodadas.length ? seriesDaLiga(l).map((serie) => chaveamento(l, { serie })) : ''}
     ${rodadas.length
       ? html`<div class="grade-rodadas">${rodadas.map((n) => {
@@ -85,7 +107,7 @@ export const paginaTabela: Pagina = async (main) => {
             <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(tabelaDaSerie(l, s), { serie: s, forma: formaDosTimes(l) })}</div>
           </section>`,
         )}
-        <p class="legenda"><a href="#/jogos">Ver o chaveamento do Mata-mata em Jogos</a></p>`.s
+        <p class="legenda"><a href="#/jogos/liga">Ver o chaveamento do Mata-mata em Jogos</a></p>`.s
     : l.grupos?.length
       ? html`<h1 class="titulo-pagina">${preTemporada(l) ? `Tabela da Temporada ${l.temporada?.numero}` : 'Tabela da Fase de Liga'}</h1>
         ${preTemporada(l) ? html`<p class="placa aviso-temporada">${avisoDaPreTemporada(l)}</p>` : ''}
@@ -95,10 +117,10 @@ export const paginaTabela: Pagina = async (main) => {
             <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(g.tabela, { ...(preTemporada(l) ? {} : { forma: formaDosTimes(l) }), classificam: 2, porGrupo: true, caem: l.caem ?? 0, semLegenda: k < l.grupos!.length - 1 })}</div>
           </section>`,
         )}
-        ${preTemporada(l) ? '' : html`<p class="legenda"><a href="#/jogos">Ver o chaveamento do Mata-mata em Jogos</a></p>`}`.s
+        ${preTemporada(l) ? '' : html`<p class="legenda"><a href="#/jogos/liga">Ver o chaveamento do Mata-mata em Jogos</a></p>`}`.s
     : html`<h1 class="titulo-pagina">Tabela da Fase de Liga</h1>
     <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(l.tabela, { forma: formaDosTimes(l), ...(l.caem ? { caem: l.caem } : {}) })}</div>
-    <p class="legenda"><a href="#/jogos">Ver o chaveamento do Mata-mata em Jogos</a></p>`.s;
+    <p class="legenda"><a href="#/jogos/liga">Ver o chaveamento do Mata-mata em Jogos</a></p>`.s;
 };
 
 export const paginaTimes: Pagina = async (main) => {
@@ -231,9 +253,36 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
     const chave = JSON.stringify(r.capitania);
     if (chave === mostrado) return;
     mostrado = chave;
-    lugar.outerHTML = html`<div data-plano>${blocoDoPlano(r.capitania, r.jogadorId)}</div>`.s;
+    const aberto = lugar.querySelector<HTMLDetailsElement>('.escolhas-no-time')?.open ?? false;
+    lugar.outerHTML = html`<div data-plano>${blocoDoPlano(r.capitania, r.jogadorId, new Date(), curto(t))}</div>`.s;
     const prov = main.querySelector<HTMLElement>('[data-provavel]');
     if (prov) prov.innerHTML = provavel(planoDaCapitania(r.capitania).formacao).s;
+    // O Capitão também escolhe aqui (ADR-0091): Postura, Formação e Batedores.
+    const novo = main.querySelector<HTMLElement>('[data-plano]');
+    const dobra = novo?.querySelector<HTMLDetailsElement>('.escolhas-no-time');
+    if (dobra) dobra.open = aberto;
+    for (const form of novo?.querySelectorAll<HTMLFormElement>('form.escolha-t2') ?? []) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const estado = form.querySelector<HTMLElement>('.estado-escolha')!;
+        estado.textContent = 'Enviando...';
+        estado.className = 'estado-escolha';
+        void enviarEscolhaDoVinculo(form.dataset.tipo as 'POSTURA' | 'FORMACAO' | 'BATEDORES', valorDoFormulario(form)).then((res) => {
+          if (res.aplicada) {
+            mostrado = null;
+            mostrar(capitaniaGuardada());
+            const depois = main.querySelector<HTMLElement>(`[data-plano] form[data-tipo="${form.dataset.tipo}"] .estado-escolha`);
+            if (depois) {
+              depois.textContent = res.mensagem;
+              depois.className = 'estado-escolha sucesso';
+            }
+            return;
+          }
+          estado.textContent = res.mensagem;
+          estado.className = `estado-escolha ${res.ok ? '' : 'erro'}`;
+        });
+      });
+    }
   };
   mostrar(capitaniaGuardada());
   void capitaniaDoVinculo().then(mostrar);

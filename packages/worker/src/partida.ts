@@ -4,9 +4,9 @@
  * uma Partida simulada nunca é simulada de novo (o resultado é o que está no banco).
  */
 import { aparenciasEscolhidas } from './perfil.js';
-import type { Aparencia, Estrelas } from '@liga/shared';
+import type { Aparencia, Estrelas, ItensEquipados } from '@liga/shared';
 import { randomInt } from 'node:crypto';
-import { mataMataDaPartida, nomeDaEtapa, ovrDasHabilidades, type Posicao, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
+import { mataMataDaPartida, type EtapaDaCopa, nomeDaEtapa, ovrDasHabilidades, perfilDoJuiz, temRegrasT3, type Posicao, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
 import { brigaDe } from './briga.js';
 import { estrelasNoBanco } from './mataMata.js';
 import { simularPartida, type Desempenho, type Lado, type ResultadoPartida } from '@liga/sim';
@@ -14,7 +14,8 @@ import type { Banco } from './banco.js';
 import { FUSO_BRASILIA } from './calendario.js';
 import { seriesDaTemporada } from './series.js';
 import { escalarPartida, type PartidaEscalada } from './escalacao.js';
-import { formacoesDaPartida, partidaTemRegrasT2, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
+import { pagarPartida } from './moedas.js';
+import { batedoresDaPartida, formacoesDaPartida, partidaTemRegrasT2, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
 
 /** O que o renderer precisa para gravar o Reels (mesmo formato de PartidaParaVideo). */
 export interface DadosDoVideo {
@@ -25,6 +26,8 @@ export interface DadosDoVideo {
   apelidos?: Record<Lado, (string | null)[]>;
   /** Número da camisa na hora da Escalação (ADR-0075); null = camisa lisa. */
   numeros?: Record<Lado, (number | null)[]>;
+  /** Itens equipados na hora da Escalação (ADR-0101). */
+  itens?: Record<Lado, (ItensEquipados | null)[]>;
   subtitulo?: string;
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
@@ -59,13 +62,14 @@ interface LinhaPartida {
   serie: Serie;
   temporada_id: number;
   temporada: number;
+  copa_etapa: EtapaDaCopa | null;
 }
 
 async function lerPartida(b: Banco, id: number): Promise<LinhaPartida> {
   const p = (
     await b.query<LinhaPartida>(
       `SELECT p.id, p.status, p.mandante_id, p.visitante_id, p.apito_inicial, p.vantagem_do_empate, p.resultado, p.video_url,
-              r.fase, r.numero AS rodada, p.serie, r.temporada_id, t.numero AS temporada
+              r.fase, r.numero AS rodada, p.serie, r.temporada_id, t.numero AS temporada, p.copa_etapa
        FROM partida p JOIN rodada r ON r.id = p.rodada_id JOIN temporada t ON t.id = r.temporada_id WHERE p.id = $1`,
       [id],
     )
@@ -118,6 +122,8 @@ export async function simular(banco: Banco, partidaId: number, escalada: Partida
       fase: p.fase,
       ...(p.vantagem_do_empate ? { vantagemDoEmpate: p.vantagem_do_empate } : {}),
       ...(t2 ? { t2 } : {}),
+      // Regras da Temporada 3 (ADRs 0091 e 0094): Juiz sorteado pelo id da Partida e Batedores.
+      ...(t2 && temRegrasT3(p.temporada) ? { t3: { juiz: perfilDoJuiz(partidaId), batedores: await batedoresDaPartida(b, partidaId, p.mandante_id, p.visitante_id) } } : {}),
     });
 
     for (const d of resultado.desempenhos) {
@@ -152,6 +158,8 @@ export async function simular(banco: Banco, partidaId: number, escalada: Partida
         JSON.stringify(resultado),
       ],
     );
+    // Moedas (ADR-0087): gols, assistências, Palpites e Conquistas, visíveis no fim do Ao Vivo.
+    await pagarPartida(b, partidaId);
     return resultado;
   });
 }
@@ -160,13 +168,13 @@ export async function simular(banco: Banco, partidaId: number, escalada: Partida
 async function mataMataDe(banco: Banco, p: LinhaPartida): Promise<MataMataDaPartida | null> {
   if (p.fase !== 'MATA_MATA') return null;
   const comSeries = (await seriesDaTemporada(banco, p.temporada_id)).B.length > 0;
-  return mataMataDaPartida({ fase: p.fase, rodada: p.rodada, temporada: p.temporada, serie: p.serie, comSeries });
+  return mataMataDaPartida({ fase: p.fase, rodada: p.rodada, temporada: p.temporada, serie: p.serie, comSeries, copa: p.copa_etapa });
 }
 
 /** "Rodada 3, jogo das 14h" (ou "Semifinal…" no Mata-mata). `ultima`: última Rodada da Liga da Série. */
-export function subtituloDaPartida(rodada: number, fase: 'LIGA' | 'MATA_MATA', apito: Date, ultima = false): string {
+export function subtituloDaPartida(rodada: number, fase: 'LIGA' | 'MATA_MATA', apito: Date, ultima = false, copa: EtapaDaCopa | null = null): string {
   const hora = (apito.getUTCHours() + FUSO_BRASILIA + 24) % 24;
-  const nome = nomeDaEtapa(fase, rodada);
+  const nome = nomeDaEtapa(fase, rodada, copa);
   if (fase === 'LIGA' && ultima) return `Última Rodada, jogo das ${hora}h`;
   return fase === 'LIGA' ? `${nome}, jogo das ${hora}h` : nome;
 }
@@ -204,7 +212,9 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
     nomes: { mandante: [...escalada.nomes.mandante, ...(escalada.banco?.mandante.map((x) => x.nome) ?? [])], visitante: [...escalada.nomes.visitante, ...(escalada.banco?.visitante.map((x) => x.nome) ?? [])] },
     apelidos: { mandante: [...escalada.apelidos.mandante, ...(escalada.banco?.mandante.map((x) => x.apelido) ?? [])], visitante: [...escalada.apelidos.visitante, ...(escalada.banco?.visitante.map((x) => x.apelido) ?? [])] },
     numeros: { mandante: [...escalada.numeros.mandante, ...(escalada.banco?.mandante.map((x) => x.numero) ?? [])], visitante: [...escalada.numeros.visitante, ...(escalada.banco?.visitante.map((x) => x.numero) ?? [])] },
-    subtitulo: subtituloDaPartida(p.rodada, p.fase, new Date(p.apito_inicial), briga !== null),
+    // Itens da Loja (ADR-0101): os equipados no Corte, do jeito que a Escalação guardou.
+    itens: { mandante: [...escalada.itens.mandante, ...(escalada.banco?.mandante.map((x) => x.itens ?? null) ?? [])], visitante: [...escalada.itens.visitante, ...(escalada.banco?.visitante.map((x) => x.itens ?? null) ?? [])] },
+    subtitulo: subtituloDaPartida(p.rodada, p.fase, new Date(p.apito_inicial), briga !== null, p.copa_etapa),
     aparencias: await aparenciasEscolhidas(banco),
     estrelas: await estrelasNoBanco(banco),
   };

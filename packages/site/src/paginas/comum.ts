@@ -20,9 +20,9 @@ export function linhaDePartida(p: PartidaNoCalendario, o: { comDia?: boolean; de
       <span class="lado mandante"><span class="nome">${curto(p.mandante)}</span>${escudoImg(p.mandante, 1.5)}</span>
       <span class="placar">${placar}${penaltis}</span>
       <span class="lado visitante">${escudoImg(p.visitante, 1.5)}<span class="nome">${curto(p.visitante)}</span></span>
-      <span class="extra">${p.fase === 'MATA_MATA' ? html`<span class="etapa">${nomeDaEtapa(p.fase, p.rodada)}</span>` : ''}${
+      <span class="extra">${p.fase === 'MATA_MATA' ? html`<span class="etapa">${nomeDaEtapa(p.fase, p.rodada, p.copa)}</span>` : ''}${
         p.fase === 'MATA_MATA' && s !== 'ENCERRADA' ? html`<span>empate vai para os pênaltis</span>` : ''
-      }${s === 'ENCERRADA' && p.classificado ? html`<span class="avanca">${curto(p.classificado)} ${p.placar?.penaltis ? 'venceu nos pênaltis' : ''}${p.placar?.penaltis ? ', ' : ''}${etapaDa(p.fase, p.rodada) === 'FINAL' ? 'campeão' : 'na final'}</span>` : ''}${classico ? html`<span class="classico-nome">${classico}</span>` : ''}${
+      }${s === 'ENCERRADA' && p.classificado ? html`<span class="avanca">${curto(p.classificado)} ${p.placar?.penaltis ? 'venceu nos pênaltis' : ''}${p.placar?.penaltis ? ', ' : ''}${p.copa ? (p.copa === 'FINAL' ? 'campeão da Copa' : p.copa === 'SEMIFINAL' ? 'na final da Copa' : 'avança') : etapaDa(p.fase, p.rodada) === 'FINAL' ? 'campeão' : 'na final'}</span>` : ''}${classico ? html`<span class="classico-nome">${classico}</span>` : ''}${
         s === 'AGENDADA' ? html`<span class="falta">${p.escalada ? 'Escalação saiu' : contagem(p.apito)}</span>` : ''
       }</span>
     </a>

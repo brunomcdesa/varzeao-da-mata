@@ -7,12 +7,13 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, PISO_DA_TEMPORADA_1, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, REELS_PROGRAMADOS, RODADAS_DO_BONUS_T1, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, programadosDaVez, type ReelsProgramado, type TimeId } from '@liga/shared';
+import { DIAS_DA_COPA, MOEDAS, MOEDAS_DO_NIVEL, PRECO_DO_ITEM, FALA_DO_TIME, PISO_DA_TEMPORADA_1, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, REELS_PROGRAMADOS, RODADAS_DO_BONUS_T1, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, programadosDaVez, type ReelsProgramado, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
 import type { Instagram } from './instagram.js';
 import type { DadosDoAgradecimentoT1, DadosDoPerfilDoTime, DadosDoRebalanceamentoT2 } from '@liga/renderer';
 import { TIME_PRIMO } from './rebalanceamento.js';
+import { seriesDaTemporada } from './series.js';
 import { PARAMETROS_T2 } from '@liga/sim';
 import { numerosDaTemporada1 } from './recompensaT1.js';
 
@@ -40,12 +41,24 @@ const ESTREIA_PREVISTA: Record<string, { temporada: number; estreia: string }> =
   'novidades-site': { temporada: 2, estreia: '2026-11-19' },
   'rebalanceamento-t2': { temporada: 2, estreia: '2026-11-19' },
   'perfil-do-time': { temporada: 2, estreia: '2026-11-19' },
+  // T3 (ADR-0088): a estreia é o 1º dia da Copa (a Final da T2 é sexta 27/11; a T3 começa 3 dias depois).
+  'abertura-t3': { temporada: 3, estreia: '2026-11-30' },
+  'novidades-t3-campo': { temporada: 3, estreia: '2026-11-30' },
+  'novidades-t3-loja': { temporada: 3, estreia: '2026-11-30' },
+  'novidades-t3-palpite': { temporada: 3, estreia: '2026-11-30' },
+  'novidades-t3-capitao': { temporada: 3, estreia: '2026-11-30' },
+  'novidades-t3-loja2': { temporada: 3, estreia: '2026-11-30' },
 };
 
 /** Legenda de cada Programado. */
 async function legendaDe(banco: Banco, p: ReelsProgramado, temporada: number, estreia: string): Promise<string> {
   if (p.id === 'agradecimento-t1') return legendaDoAgradecimentoT1(await dadosDoAgradecimentoT1(banco, { publicarEm: p.publicarEm }));
+  if (p.id.startsWith('novidades-t3-')) return legendaDasNovidadesT3(p.id, estreia, p.publicarEm);
   if (p.id.startsWith('novidades-')) return legendaDasNovidades(p.id, estreia, p.publicarEm);
+  if (p.id === 'abertura-t3') {
+    const s = await seriesDaTemporadaPeloNumero(banco, 3);
+    return legendaDaAberturaT3(s.A, s.B, estreia);
+  }
   if (p.id === 'rebalanceamento-t2') return legendaDoRebalanceamentoT2(await dadosDoRebalanceamentoT2(banco, estreia));
   if (p.id === 'perfil-do-time') return legendaDoPerfilDoTime(await dadosDoPerfilDoTime(banco));
   return legendaDaAbertura(temporada, estreia);
@@ -117,6 +130,119 @@ export function legendaDasNovidades(id: string, estreia: string, publicarEm: str
 }
 
 const DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+
+/** "segunda, 30/11" e se é amanhã em relação ao post. */
+function diaEscrito(dia: string, publicarEm?: string): { texto: string; amanha: boolean } {
+  const [a, m, d] = dia.split('-').map(Number) as [number, number, number];
+  const semana = DIAS[new Date(Date.UTC(a, m - 1, d, 12)).getUTCDay()]!;
+  const post = publicarEm ? new Date(Date.parse(publicarEm) - 3 * 3600_000) : null;
+  const amanha = post !== null && Date.UTC(a, m - 1, d, 12) - Date.UTC(post.getUTCFullYear(), post.getUTCMonth(), post.getUTCDate(), 12) === 86_400_000;
+  return { texto: `${semana}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`, amanha };
+}
+
+/** As Séries de uma Temporada pelo número (a T3 já existe quando os Reels dela são gravados). */
+export async function seriesDaTemporadaPeloNumero(banco: Banco, numero: number): Promise<{ A: TimeId[]; B: TimeId[] }> {
+  const t = (await banco.query<{ id: number }>(`SELECT id FROM temporada WHERE numero = $1`, [numero])).rows[0];
+  if (!t) throw new Error(`A Temporada ${numero} ainda não existe`);
+  const s = await seriesDaTemporada(banco, t.id);
+  return { A: [...s.A], B: [...s.B] };
+}
+
+/** Legenda da Abertura da T3 (ADRs 0088 e 0092): as duas Séries, a Copa e as datas. */
+export function legendaDaAberturaT3(serieA: readonly TimeId[], serieB: readonly TimeId[], estreia: string): string {
+  const copa = diaEscrito(estreia);
+  const liga = diaEscrito(somarDiasISO(estreia, DIAS_DA_COPA));
+  return [
+    '⚽ Vem aí a Temporada 3 do Varzeão da Mata!',
+    '',
+    'Agora são duas séries de 8 times:',
+    `🥇 Série A: ${lista(serieA)}`,
+    `🥈 Série B: ${lista(serieB)}`,
+    'Todos contra todos em 7 rodadas. Os 4 primeiros vão pra semifinal. No fim, os 2 últimos da A caem e os 2 finalistas da B sobem.',
+    '',
+    '🏆 Mas antes tem Copa! Os 16 times juntos, em mata-mata, em 3 dias. As oitavas são clássicos. Jogo único, pênaltis no empate.',
+    `🥉 O campeão ganha a estrela de bronze no escudo e ${MOEDAS.TITULO_COPA} Moedas pra cada jogador que entrou em campo.`,
+    '',
+    'Pra jogar, comente:',
+    '👉 ENTRO + TIME + POSIÇÃO',
+    'Ex.: ENTRO CAPIVARA ATACANTE',
+    '',
+    `🏁 A Copa começa ${copa.texto}. A Fase de Liga começa ${liga.texto}: Série B das 11h às 14h e Série A das 15h às 18h.`,
+    'Amanhã sai um Reels pra cada novidade. Tabela e jogadores no link da bio.',
+    '',
+    '#futebol #varzea #jogo #liga',
+  ].join('\n');
+}
+
+/** Legendas dos Reels de Novidades da T3 (ADR-0092). */
+export function legendaDasNovidadesT3(id: string, estreia: string, publicarEm: string): string {
+  const copa = diaEscrito(estreia, publicarEm);
+  const liga = diaEscrito(somarDiasISO(estreia, DIAS_DA_COPA));
+  const fim = ['', `🏁 A Copa começa ${copa.amanha ? 'amanhã, ' : ''}${copa.texto}. A Fase de Liga, ${liga.texto}.`, 'Tabela, jogadores e o seu painel no link da bio.', '', '#futebol #varzea #jogo #liga'];
+  const corpo: Record<string, string[]> = {
+    'novidades-t3-campo': [
+      '⚽ Novidades da Temporada 3 (1/4): dentro de campo!',
+      '',
+      '🥅 Bola na trave',
+      '🔁 Rebote: o goleiro defende e começa a briga do atacante com o zagueiro',
+      '🚀 Chute de longe do meia e do zagueiro',
+      '✨ Gol de placa, em câmera lenta no Reels',
+      '⏱️ Pressão final nos 15 minutos finais para quem perde por 1 ou 2 (e no empate do mata-mata e da Copa)',
+      '➕ Acréscimos, de 1 a 4 minutos',
+      '🟥 Perfil do Juiz: Rigoroso, Normal ou Deixa jogar, mostrado na Escalação',
+      '',
+      'Às 14h: Salário e Loja.',
+    ],
+    'novidades-t3-loja': [
+      '💰 Novidades da Temporada 3 (2/4): Salário e Loja!',
+      '',
+      `Todo jogador do elenco recebe ${MOEDAS.SALARIO} Moedas por rodada, jogando ou não (sem Vínculo também acumula).`,
+      `Prêmios: gol ${MOEDAS.GOL}, assistência ${MOEDAS.ASSISTENCIA}, Seleção da Rodada ${MOEDAS.SELECAO_RODADA}, Craque da Rodada ${MOEDAS.CRAQUE_RODADA}, título ${MOEDAS.TITULO_A} (A), ${MOEDAS.TITULO_B} (B) e ${MOEDAS.TITULO_COPA} (Copa).`,
+      `Quem já jogou ganha ${MOEDAS.BONUS_POR_TEMPORADA} Moedas por temporada jogada.`,
+      '',
+      `🛍️ Na Loja (a sacola no topo do site e do App, com Vínculo): chuteira colorida, munhequeira, faixa na cabeça e luva do goleiro. Básico ${PRECO_DO_ITEM.BASICO}, dourado ${PRECO_DO_ITEM.RARO}.`,
+      'O item é seu para sempre e vale a partir do próximo jogo. Moeda só compra visual.',
+      'No meio da temporada: penteados, barba e comemoração de gol.',
+      '',
+      'Às 16h: Palpite e Conquistas.',
+    ],
+    'novidades-t3-palpite': [
+      '🎯 Novidades da Temporada 3 (3/4): Palpite e Conquistas!',
+      '',
+      `Palpite no placar, na página de cada partida, até o Corte: resultado certo ${MOEDAS.PALPITE_RESULTADO} Moedas, placar exato ${MOEDAS.PALPITE_EXATO} (até ${MOEDAS.TETO_DO_PALPITE_POR_DIA} por dia). Ranking dos Palpiteiros no site.`,
+      '',
+      `🏅 Conquistas: marcos da carreira que viram selo e pagam Moedas (fácil ${MOEDAS_DO_NIVEL.FACIL}, média ${MOEDAS_DO_NIVEL.MEDIA}, difícil ${MOEDAS_DO_NIVEL.DIFICIL}).`,
+      'O que você fez na T1 e na T2 dá o selo; Moedas, pelo que fizer da T3 em diante.',
+      '',
+      'Às 18h: Capitão e Batedores.',
+    ],
+    'novidades-t3-loja2': [
+      '✂️ Chegou a segunda fase da Loja do Varzeão!',
+      '',
+      `Penteados novos: cabelo longo, raspado, tranças e topete. Barbas: bigode, cavanhaque e barba cheia. ${PRECO_DO_ITEM.BASICO} Moedas cada, na cor do cabelo que você já escolheu.`,
+      `🎉 Comemoração de gol: aviãozinho, mortal, joelhada ou dancinha. Item raro, ${PRECO_DO_ITEM.RARO} Moedas. Aparece no gol, no Ao Vivo, no Replay e no Reels.`,
+      '',
+      'Tá tudo na sacola no topo do site e do App, com Vínculo. Vale a partir do próximo jogo.',
+    ],
+    'novidades-t3-capitao': [
+      '©️ Novidades da Temporada 3 (4/4): Capitão e Batedores!',
+      '',
+      'O Capitão escolhe a ordem dos 5 primeiros batedores da disputa de pênaltis, junto com a Formação e a Postura, até o Corte.',
+      'Quem não está em campo é pulado; depois dos 5, segue a ordem automática.',
+      'E agora dá para escolher tudo também na página do Time. Os companheiros com Vínculo veem o plano; os rivais, não.',
+    ],
+  };
+  const linhas = corpo[id];
+  if (!linhas) throw new Error(`Novidades sem legenda: ${id}`);
+  // A Loja nova sai no meio da Temporada: sem a chamada da Copa.
+  if (id === 'novidades-t3-loja2') return [...linhas, '', 'Link na bio.', '', '#futebol #varzea #jogo #liga'].join('\n');
+  return [...linhas, ...fim].join('\n');
+}
+
+const somarDiasISO = (dia: string, n: number) => {
+  const [a, m, d] = dia.split('-').map(Number) as [number, number, number];
+  return new Date(Date.UTC(a, m - 1, d + n, 12)).toISOString().slice(0, 10);
+};
 const marca = (id: string) => `programados/${id}`;
 
 const lista = (times: readonly TimeId[]) => {

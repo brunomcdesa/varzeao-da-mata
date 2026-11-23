@@ -4,7 +4,7 @@
  *
  * Regra do glossário: o Locutor fala dos Jogadores pela Posição e pelo Time, nunca pelo @.
  */
-import { FALA_DO_TIME, concordar, deQuemDepende, doTime, ehGoleada, listaDeTimes, necessidadeNaBriga, nomeDoClassico, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, NOME_DA_ETAPA_DA_COPA, type PerfilDoJuiz, concordar, deQuemDepende, doTime, ehGoleada, listaDeTimes, necessidadeNaBriga, nomeDoClassico, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, type Lado, type Lance, type SlotRef } from '@liga/sim';
 import { narradorDa } from './narradores.js';
 import { F_CHUTE_PENALTI, instanteDaCobranca, resultadoDaCobranca } from './penaltis.js';
@@ -162,7 +162,7 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
         : classico
           ? `${o.aoVivo ? 'É o' : 'Melhores momentos do'} ${classico}! ${curto('mandante')} contra ${curto('visitante')}!`
           : `${o.aoVivo ? 'Bola rolando no' : 'Melhores momentos do'} Varzeão da Mata! ${curto('mandante')} contra ${curto('visitante')}!`
-    }${o.briga ? ` ${aberturaDaBriga(o.briga)}` : ''}${tl.t2 ? ` ${FALA_DO_CLIMA[tl.t2.clima]}` : ''}`,
+    }${o.briga ? ` ${aberturaDaBriga(o.briga)}` : ''}${tl.t2 ? ` ${FALA_DO_CLIMA[tl.t2.clima]}` : ''}${r.juiz ? ` ${FALA_DO_JUIZ[r.juiz]}` : ''}`,
     inicio: 0.25,
     limite: segs[0]!.fim,
     tom: 'animado',
@@ -243,6 +243,21 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
     if (lance.tipo === 'DESARME' && lance.drible && lance.finalizador) {
       construcao.DESARME = [`${cap(c)} acha ${f}... vai pra cima!`, `${cap(f)} recebe e tenta o drible...`, `${cap(f)} parte pra cima do marcador...`];
     }
+    // T3 (ADR-0094): Rebote, Chute de longe de verdade e Pressão final, que aparecem na tela.
+    construcao.REBOTE = [`Soltou! A bola sobra na área...`, `Rebote! ${cap(f)} vai na sobra...`, `O goleiro não segura! Bola viva na área...`];
+    if (lance.chuteDeLonge && lance.finalizador) {
+      const mesmo = lance.finalizador.indice === lance.criador.indice;
+      const doZagueiro = esc[atq].jogadores[lance.finalizador.indice]?.posicao === 'ZAG';
+      construcao.CHUTE_DE_LONGE = doZagueiro
+        ? [`${cap(pc)} rola pro zagueiro que subiu... vai arriscar de longe!`, `Olha o zagueiro ${doTime(time(atq))} chegando de trás pra bater!`]
+        : mesmo
+          ? [`${cap(c)} ajeita... vai arriscar de longe!`, `Olha ${c}, de fora da área!`, `${cap(c)} carrega e solta a bomba!`]
+          : construcao.CHUTE_DE_LONGE!;
+    }
+    if (lance.pressao && !lance.contraAtaque && !lance.bolaParada && !lance.rebote) {
+      const pressao = [`${cap(FALA_DO_TIME[time(atq)].artigo)} ${curto(atq)} vai pra cima, pressão total!`, `Pressão ${doTime(time(atq))}! Todo mundo no ataque!`, `${cap(FALA_DO_TIME[time(atq)].artigo)} ${curto(atq)} se lança ao ataque...`];
+      construcao[plano.estilo] = [...pressao, ...(construcao[plano.estilo] ?? [])];
+    }
     // Jogada da Formação (ADR-0044): o Narrador diz o nome dela, porque ela aparece na tela.
     const dfs = doTime(time(atq === 'mandante' ? 'visitante' : 'mandante'));
     if (lance.jogadaDaFormacao === 'TABELA' && !lance.contraAtaque && lance.bolaParada !== 'LATERAL') {
@@ -256,6 +271,12 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
     if (lance.cobertura && lance.finalizador && !lance.contraAtaque && lance.bolaParada !== 'LATERAL') {
       const cobertura = [`${cap(f)} passa pelo marcador... olha a cobertura ${dfs}!`, `${cap(f)} limpa o primeiro... e vem a cobertura!`];
       for (const k of ['INDIVIDUAL', 'DESARME']) construcao[k] = cobertura;
+    }
+    // T3: o primeiro lance dos Acréscimos começa com a placa levantada; o Narrador avisa.
+    const primeiroDosAcrescimos = lance.acrescimo !== undefined && !r.lances[s.lance! - 1]?.acrescimo;
+    if (primeiroDosAcrescimos && r.acrescimos) {
+      const minutos = r.acrescimos === 1 ? 'um minuto' : `${['', '', 'dois', 'três', 'quatro'][r.acrescimos]} minutos`;
+      falas.push({ id: `acrescimos-${s.lance}`, texto: escolher(rng, [`Placa levantada: mais ${minutos} de acréscimo!`, `Vai ter mais ${minutos}!`]), inicio: s.inicio + 0.15, limite: s.resolucao! - 0.05, tom: 'normal', segmento: indice, parte: 'antes', opcional: true });
     }
     falas.push({
       id: `lance-${s.lance}-a`,
@@ -336,6 +357,14 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
       resolucao.FORA = [[`Cabeceou pra fora!`, 'animado'], [`Subiu sozinho... por cima!`, 'animado']];
       resolucao.GOL = [[`Gol de cabeça ${doTime(time(atq))}!`, 'grito'], [`Subiu e marcou! Gooool ${doTime(time(atq))}!`, 'grito']];
     }
+    // T3 (ADR-0094): Trave, Rebote, Chute de longe e Gol de placa.
+    if (lance.trave) resolucao.FORA = [[`Na trave! Que azar!`, 'grito'], [`Carimbou o poste!`, 'grito'], [`No ferro! Por pouco!`, 'grito']];
+    if (lance.rebote) {
+      resolucao.GOL = [[`No rebote! Gol ${doTime(time(atq))}!`, 'grito'], [`Pegou a sobra e marcou! Gooool!`, 'grito']];
+      resolucao.DESARME = [[`Afastou o rebote! ${cap(def)} chega antes.`, 'normal'], [`A zaga tira o rebote!`, 'normal']];
+    }
+    if (lance.chuteDeLonge) resolucao.GOL = [[`De fora da área! Gol ${doTime(time(atq))}!`, 'grito'], [`Que bomba! Gooool de longe!`, 'grito']];
+    if (lance.golDePlaca) resolucao.GOL = [[`Gol de placa ${doTime(time(atq))}!`, 'grito'], [`Que pintura! Gol de placa!`, 'grito']];
     if (lance.cobertura && lance.tipo === 'DESARME') {
       resolucao.DESARME = [[`Na cobertura! ${cap(def)} chega na sobra!`, 'animado'], [`Cobertura perfeita! ${cap(def)} desarma!`, 'animado']];
     }
@@ -354,7 +383,8 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
       // Só a primeira vez: se o rival diminuir e a Goleada voltar, não repete (4×1, 4×2, 5×2).
       const golDaGoleada = !goleou.has(atq) && ehGoleada(placar[atq], placar[rival]);
       if (golDaGoleada) goleou.add(atq);
-      const extras = golDaGoleada
+      const placaExtra = lance.golDePlaca ? [`Esse vai pra galeria! Que gol!`, `Coisa de cinema no Varzeão!`] : null;
+      const extras = placaExtra ?? (golDaGoleada
         ? nome
           ? [`${nome}! E é goleada ${doTime(time(atq))}!`, `${nome} de novo! Goleada ${doTime(time(atq))}!`]
           : [
@@ -370,7 +400,7 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
         `Explode a torcida ${doTime(time(atq))}!`,
         // Sem "Comemora…!": a comemoração já acabou na tela quando esta fala sai (ADR-0071).
         `Que golaço no Varzeão!`,
-      ];
+      ]);
       falas.push({ id: `lance-${s.lance}-c`, texto: escolher(rng, extras), inicio: s.resolucao! + 1.3, limite: s.fim - 0.05, tom: 'animado', segmento: indice, parte: 'depois' });
       // Reels, última Rodada: o gol mudou a situação de quem ainda briga (as plaquinhas mudam junto).
       if (briga && !o.aoVivo) {
@@ -554,6 +584,15 @@ export function aberturaDoMataMata(m: MataMataDaPartida, mandante: TimeId, visit
   const rng = criarRng(((seed >>> 0) ^ 0x27d4eb2f) >>> 0);
   const confronto = `${FALA_DO_TIME[mandante].curto} contra ${FALA_DO_TIME[visitante].curto}`;
   const classico = nomeDoClassico(mandante, visitante);
+  // Copa (ADR-0088): Times das duas Séries; perdeu, tá fora.
+  if (m.copa) {
+    const etapa = NOME_DA_ETAPA_DA_COPA[m.copa];
+    if (m.copa === 'FINAL') return classico ? `É o ${classico} na Final da Copa! ${confronto}, valendo a taça!` : `É a Final da Copa do Varzeão! ${confronto}, valendo a taça!`;
+    if (m.copa === 'OITAVAS') return `É Copa! Oitavas de Clássico: ${classico ? `o ${classico}, ` : ''}${confronto}! Perdeu, tá fora!`;
+    if (m.copa === 'CLASSICO') return `É Copa! Fase do Clássico: ${classico ? `o ${classico}, ` : ''}${confronto}! Perdeu, tá fora!`;
+    if (m.copa === 'REPESCAGEM') return `É a Repescagem da Copa: ${confronto}! Quem vencer pega as Quartas, quem perder volta pra casa!`;
+    return rng.pick([`É Copa! ${etapa}: ${confronto}! Quem perder volta pra casa!`, `${etapa} da Copa no Varzeão: ${confronto}!`]);
+  }
   if (m.etapa === 'SEMIFINAL') {
     if (classico) return `É o ${classico}, valendo vaga na Final${daSerie(m)}! ${confronto}!`;
     return rng.pick([
@@ -652,6 +691,7 @@ export function desfechoDaBriga(b: BrigaPeloMataMata, times: Times, placar: Plac
 /** O que a vitória vale, no fim da Partida do Mata-mata: vaga na Final ou o Título. */
 export function desfechoDoMataMata(m: MataMataDaPartida, vencedor: TimeId): string {
   const quem = `${cap(artigoDe(vencedor))} ${FALA_DO_TIME[vencedor].curto}`;
+  if (m.copa) return m.copa === 'FINAL' ? `${quem} é campeão da Copa do Varzeão da Mata!` : m.copa === 'SEMIFINAL' ? `${quem} está na Final da Copa!` : `${quem} avança na Copa!`;
   return m.etapa === 'SEMIFINAL' ? `${quem} está na Final${daSerie(m)}!` : `${quem} é campeão${daSerie(m)} da Temporada ${m.temporada} do Varzeão da Mata!`;
 }
 
@@ -690,3 +730,10 @@ export function montarEventos(roteiro: Roteiro): EventoSonoro[] {
   eventos.push({ tipo: 'APITO_FINAL', t: fim.inicio + 0.05 });
   return eventos.sort((a, b) => a.t - b.t);
 }
+
+/** T3 (ADR-0094): o Narrador comenta o Perfil do Juiz no Apito Inicial (a placa está na tela). */
+const FALA_DO_JUIZ: Record<PerfilDoJuiz, string> = {
+  RIGOROSO: 'Juiz rigoroso hoje: falta é falta e o cartão tá no bolso!',
+  NORMAL: 'Arbitragem tranquila hoje.',
+  DEIXA_JOGAR: 'O juiz de hoje deixa o jogo correr!',
+};
