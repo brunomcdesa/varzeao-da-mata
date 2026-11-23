@@ -1,5 +1,5 @@
 /**
- * Domínio próprio (ADR-0103): o site saiu de varzeao-da-mata.pages.dev para
+ * Domínio próprio (ADR-0104): o site saiu de varzeao-da-mata.pages.dev para
  * varzeaodamata.com.br. O navegador trata os dois como sites diferentes, então
  * App instalado, Vínculo e Avisos não passam sozinhos de um para o outro.
  * No endereço antigo o site mostra a placa "O Varzeão mudou de endereço".

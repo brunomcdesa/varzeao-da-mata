@@ -69,7 +69,7 @@ pnpm --filter @liga/edge exec wrangler pages project create varzeao-da-mata --pr
 
 O nome vai na variável `CF_PAGES_PROJETO`. O site fica em `https://varzeao-da-mata.pages.dev` e, com o domínio próprio, em `https://varzeaodamata.com.br`.
 
-### Domínio próprio (ADR-0103)
+### Domínio próprio (ADR-0104)
 
 1. Cloudflare → **Add a domain** → `varzeaodamata.com.br`, plano Free. Ela mostra dois servidores de nome.
 2. Registro.br → domínio → **Alterar servidores DNS** com os dois da Cloudflare. Esperar a delegação (o domínio sai de "pendente").

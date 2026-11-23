@@ -64,7 +64,7 @@ function conteudo(modo: Exclude<ComoInstalar, 'instalado' | null>): Html {
   }
 }
 
-/** No endereço antigo (ADR-0103) a placa de mudança toma o lugar do convite para instalar. Não tem "Agora não"; o link acompanha a página (desenhar roda a cada hashchange). */
+/** No endereço antigo (ADR-0104) a placa de mudança toma o lugar do convite para instalar. Não tem "Agora não"; o link acompanha a página (desenhar roda a cada hashchange). */
 function desenharMudanca(lugar: HTMLElement): void {
   const dominio = SITE_OFICIAL.replace('https://', '');
   lugar.innerHTML = html`<section class="placa instalar mudanca" aria-labelledby="instalar-titulo">
