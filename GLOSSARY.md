@@ -38,6 +38,10 @@ _Avoid_: overall, nível, rating, força
 Cada uma das cinco notas de 1 a 99 que descrevem o Jogador: Finalização, Passe, Drible, Defesa e Goleiro. São elas que decidem os Duelos e sobem ou descem com as ações do próprio Jogador na Partida (um gol sobe Finalização, ser driblado desce Defesa), no máximo 2 pontos por Habilidade por Partida (4 no Clássico); quem está alto sobe mais devagar e quem está baixo desce mais devagar. Quem não joga não perde nada.
 _Avoid_: atributo, status, stat
 
+**Proteção**:
+A partir da T2, as ações principais da Posição em que o Jogador jogou cancelam perdas de Habilidade da mesma Partida: gol e assistência (atacante, meia e zagueiro), desarme e bloqueio (zagueiro), defesa, pênalti pego e jogo sem sofrer gol (goleiro). A Proteção só apaga perdas, nunca vira ganho, e gasta primeiro na Habilidade que mais pesa no OVR da Posição (ADR-0104).
+_Avoid_: escudo, seguro
+
 **Drible**:
 A Habilidade de passar pelo zagueiro conduzindo a bola; também o lance em que o atacante (ou o meia que finaliza) vence o zagueiro e chuta livre.
 _Avoid_: finta, jogada individual
