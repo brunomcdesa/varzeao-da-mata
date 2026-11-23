@@ -436,5 +436,6 @@ export * from './pendencias.js';
 export * from './avisos.js';
 export * from './destaques.js';
 export * from './briga.js';
+export * from './chances.js';
 export * from './programados.js';
 export * from './estrelas.js';
