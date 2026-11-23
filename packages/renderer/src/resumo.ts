@@ -68,7 +68,7 @@ export interface DadosDoResumo {
    */
   destaques?: { posicao: Posicao; serie?: Serie; username: string; time: TimeId; nota: number; numero: { valor: number; legenda: string } }[];
   /**
-   * Chances da reta final (ADR-0098): da metade da Fase de Liga até a penúltima Rodada, a
+   * Chances da reta final (ADR-0099): da metade da Fase de Liga até a penúltima Rodada, a
    * chance de cada Time ir às Semifinais e de cair, um bloco por Grupo (ou por Série), na ordem
    * da tabela. Ganha a cartela "Chances", logo depois da tabela.
    */
@@ -333,7 +333,7 @@ function noBloco(b: NonNullable<DadosDoResumo['chances']>[number], varios: boole
 }
 
 /**
- * Fala da cartela das Chances (ADR-0098): só o que está na tela. Em cada bloco, quem tem mais
+ * Fala da cartela das Chances (ADR-0099): só o que está na tela. Em cada bloco, quem tem mais
  * chance de Semifinal e quem corre mais risco de cair, com o selo quando já é certo.
  */
 export function falaDasChances(blocos: NonNullable<DadosDoResumo['chances']>): string {

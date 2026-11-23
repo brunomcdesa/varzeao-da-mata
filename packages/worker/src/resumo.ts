@@ -167,7 +167,7 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
   const caem = timesQueCaem({ temSerieB: comSeries, porGrupo: !!grupos });
   // Seleção da Rodada (ADR-0041), a partir da T2.
   const destaques = await destaquesDaRodadaNoBanco(banco, rodadaId, r.temporada, comSeries);
-  // Chances da reta final (ADR-0098): da metade da Fase de Liga até a penúltima Rodada.
+  // Chances da reta final (ADR-0099): da metade da Fase de Liga até a penúltima Rodada.
   const chances = await chancesDoResumo(banco, r.temporada_id, r.fase, r.numero, { comSeries, caemNaA: caem });
   return {
     ...(final ? { votacao: 'TEMPORADA' as const } : {}),
@@ -193,7 +193,7 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
 }
 
 /**
- * Chances da reta final (ADR-0098) para o Resumo: um bloco por Grupo (T2) ou por Série. Na A,
+ * Chances da reta final (ADR-0099) para o Resumo: um bloco por Grupo (T2) ou por Série. Na A,
  * vão às Semifinais 2 por Grupo (ou 4 na Série) e caem os da zona de queda; na B, ninguém cai
  * pela tabela (sobem os finalistas do Mata-mata), então só conta a Semifinal. Vazio fora da reta.
  */

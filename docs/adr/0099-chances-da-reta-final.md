@@ -1,4 +1,4 @@
-# 0098 — Chances da reta final no Resumo da Rodada
+# 0099 — Chances da reta final no Resumo da Rodada
 
 - Status: aceito (aprovado pelo dono em 23/11/2026, com prévia)
 - Data: 2026-11-23

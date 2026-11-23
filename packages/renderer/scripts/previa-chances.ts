@@ -1,5 +1,5 @@
 /**
- * Prévia da cartela das Chances (ADR-0098) com uma tabela da T2 depois da Rodada 4 e os jogos
+ * Prévia da cartela das Chances (ADR-0099) com uma tabela da T2 depois da Rodada 4 e os jogos
  * que faltam: só os quadros-chave, sem voz.
  *
  *   pnpm --filter @liga/renderer exec tsx scripts/previa-chances.ts <pasta>

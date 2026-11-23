@@ -1,5 +1,5 @@
 /**
- * Chances da reta final (ADR-0098, ideia de um seguidor): no Resumo da Rodada, da metade da
+ * Chances da reta final (ADR-0099, ideia de um seguidor): no Resumo da Rodada, da metade da
  * Fase de Liga até a penúltima Rodada, a chance de cada Time ir às Semifinais e de cair.
  *
  * A conta é a "matemática" pura: os jogos que faltam são simulados muitas vezes, todo jogo com

@@ -12,7 +12,7 @@ const jogo = (s: string) => {
   return { mandante, visitante };
 };
 
-describe('Chances da reta final (ADR-0098)', () => {
+describe('Chances da reta final (ADR-0099)', () => {
   it('aparecem da metade da Fase de Liga até a penúltima Rodada', () => {
     expect(primeiraRodadaDasChances(7)).toBe(4);
     expect([1, 2, 3, 4, 5, 6, 7].filter((r) => resumoMostraChances('LIGA', r, 7))).toEqual([4, 5, 6]);

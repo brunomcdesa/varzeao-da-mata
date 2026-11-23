@@ -217,7 +217,7 @@ Na última Rodada da Fase de Liga, a situação de cada Time em relação às 4 
 _Avoid_: classificado matematicamente, G4
 
 **Chances**:
-Cartela do Resumo da Rodada, da metade da Fase de Liga (a Rodada 4 de 7) até a penúltima Rodada: a chance de cada Time ir às Semifinais e de cair, por Grupo (ou por Série). Os jogos que faltam são simulados 20 mil vezes, todos com chances iguais, com os desempates da tabela. Quando é certo de verdade, aparece o selo **Na semi**, **Fora**, **Caiu** ou **Salvo**; sem certeza, nunca 0% nem 100% ("<1%", ">99%"). ADR-0098.
+Cartela do Resumo da Rodada, da metade da Fase de Liga (a Rodada 4 de 7) até a penúltima Rodada: a chance de cada Time ir às Semifinais e de cair, por Grupo (ou por Série). Os jogos que faltam são simulados 20 mil vezes, todos com chances iguais, com os desempates da tabela. Quando é certo de verdade, aparece o selo **Na semi**, **Fora**, **Caiu** ou **Salvo**; sem certeza, nunca 0% nem 100% ("<1%", ">99%"). ADR-0099.
 _Avoid_: probabilidade, previsão, palpite (o Palpite é outra coisa)
 
 **Disputa de pênaltis**:
