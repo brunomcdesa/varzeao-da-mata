@@ -28,6 +28,17 @@ export const REELS_PROGRAMADOS: readonly ReelsProgramado[] = [
   { id: 'novidades-capitao', ref: 2004, publicarEm: '2026-11-18T17:00:00Z' },
   { id: 'novidades-jogador', ref: 2005, publicarEm: '2026-11-18T19:00:00Z' },
   { id: 'novidades-site', ref: 2006, publicarEm: '2026-11-18T21:00:00Z' },
+  // Perfil do Time (ADR-0100): segunda 23/11, 11h de Brasília, logo depois de aprovado (o dono pediu
+  // para postar assim que subisse; a gravação foi disparada à mão).
+  { id: 'perfil-do-time', ref: 2008, publicarEm: '2026-11-23T14:00:00Z' },
+  // Abertura da Temporada 3, com a Copa (ADRs 0088 e 0092): sábado 28/11, 21h de Brasília, depois
+  // do Resumo da Temporada 2 (19h). A T3 nasce na sexta à noite, quando sai o Craque da Temporada.
+  { id: 'abertura-t3', ref: 2009, publicarEm: '2026-11-29T00:00:00Z' },
+  // Novidades da T3 (ADR-0092): domingo 29/11, véspera da Copa, às 12h, 14h, 16h e 18h.
+  { id: 'novidades-t3-campo', ref: 2010, publicarEm: '2026-11-29T15:00:00Z' },
+  { id: 'novidades-t3-loja', ref: 2011, publicarEm: '2026-11-29T17:00:00Z' },
+  { id: 'novidades-t3-palpite', ref: 2012, publicarEm: '2026-11-29T19:00:00Z' },
+  { id: 'novidades-t3-capitao', ref: 2013, publicarEm: '2026-11-29T21:00:00Z' },
 ];
 
 /** O job grava a partir de 2 h antes e ainda tenta até 1 h depois do horário. */

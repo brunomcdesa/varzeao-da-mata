@@ -73,3 +73,19 @@ describe('Loja (ADR-0101)', () => {
     expect(de.itens[lado][lugar]).toEqual({ CHUTEIRA: 'CHUTEIRA_VERDE' });
   });
 });
+
+describe('Limite por Posição com A e B de 8 (T3, ADR-0080)', () => {
+  it('posição cheia no Time pedido: entra noutro da mesma Série, na mesma Posição', async () => {
+    await criarTemporada(banco, { numero: 3, primeiraRodada: '2026-11-30', seed: 4, series });
+    // Enche os atacantes da Capivara (4) e dá gente aos outros para o equilíbrio não pesar.
+    for (let k = 0; k < 4; k++) await inscrever('CAP', 'ATA', `ata${k}`);
+    for (const t of [...TIMES_FUNDADORES, ...TIMES_NOVOS]) if (t !== 'CAP') for (let k = 0; k < 3; k++) await inscrever(t as TimeId, 'MEI', `mei_${t}_${k}`);
+    const id = await inscrever('CAP', 'ATA', 'quinto');
+    const j = (await banco.query<{ time_id: TimeId; posicao: string }>(`SELECT time_id, posicao FROM jogador WHERE id = $1`, [id])).rows[0]!;
+    expect(j.posicao).toBe('ATA');
+    expect(j.time_id).not.toBe('CAP');
+    expect(TIMES_FUNDADORES.includes(j.time_id as never)).toBe(true);
+    const naCap = (await banco.query<{ n: string }>(`SELECT count(*) AS n FROM jogador WHERE time_id = 'CAP' AND posicao = 'ATA'`)).rows[0]!.n;
+    expect(Number(naCap)).toBe(4);
+  });
+});

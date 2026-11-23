@@ -11,7 +11,7 @@
  */
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AgendaNaMemoria, dadosDoAgradecimentoT1, dadosDoRebalanceamentoT2, estrelasNoBanco, Instagram, PastaLocal, conectar, jobBoasVindas, jobColetar, jobEscalar, postsDeInscricao, jobPartida, jobProgramados, jobResumo, nuvemDoAmbiente, prepararBanco, tokenGuardado, type ContextoDoJob } from '../src/index.js';
+import { AgendaNaMemoria, dadosDoAgradecimentoT1, dadosDoRebalanceamentoT2, dadosDoPerfilDoTime, estrelasNoBanco, Instagram, PastaLocal, conectar, jobBoasVindas, jobColetar, jobEscalar, postsDeInscricao, jobPartida, jobProgramados, jobResumo, nuvemDoAmbiente, prepararBanco, tokenGuardado, type ContextoDoJob } from '../src/index.js';
 import { bancoLocal } from './banco-local.js';
 import { REELS_PROGRAMADOS } from '@liga/shared';
 
@@ -81,16 +81,27 @@ try {
     }
     console.log(`${total} comentário(s) no total.`);
   } else if (qual === 'programados') {
-    const { DADOS_DA_ABERTURA_T2 } = await import('@liga/renderer');
+    const { DADOS_DA_ABERTURA_T2, dadosDaAberturaT3 } = await import('@liga/renderer');
+    const { DIAS_DA_COPA } = await import('@liga/shared');
+    const { seriesDaTemporadaPeloNumero } = await import('../src/programados.js');
     await jobProgramados({
       ...ctx,
       gravar: async (id, o, saida) => {
         if (id === 'abertura-t2') await gravacao!.gravarAberturaDaTemporada({ ...DADOS_DA_ABERTURA_T2, estreia: o.estreia, estrelas: await estrelasNoBanco(banco) }, { saida, crf: 18 });
+        else if (id === 'abertura-t3') {
+          // T3 (ADR-0088): as Séries de 8 do banco; a Fase de Liga começa depois dos dias da Copa.
+          const s = await seriesDaTemporadaPeloNumero(banco, 3);
+          const [a, m, d] = o.estreia.split('-').map(Number) as [number, number, number];
+          const estreiaDaLiga = new Date(Date.UTC(a, m - 1, d + DIAS_DA_COPA, 12)).toISOString().slice(0, 10);
+          await gravacao!.gravarAberturaDaTemporada(dadosDaAberturaT3({ serieA: s.A, serieB: s.B, estreia: o.estreia, estreiaDaLiga, estrelas: await estrelasNoBanco(banco) }), { saida, crf: 18 });
+        }
         else if (id === 'agradecimento-t1') await gravacao!.gravarAgradecimentoT1(await dadosDoAgradecimentoT1(banco), { saida, crf: 18 });
         else if (id === 'rebalanceamento-t2') await gravacao!.gravarRebalanceamentoT2(await dadosDoRebalanceamentoT2(banco, o.estreia), { saida, crf: 18 });
+        else if (id === 'perfil-do-time') await gravacao!.gravarPerfilDoTime(await dadosDoPerfilDoTime(banco), { saida, crf: 18 });
         else if (id.startsWith('novidades-')) {
-          // Novidades da T2 (ADR-0063): Partidas de exemplo, sempre as mesmas.
-          const reels = id.slice('novidades-'.length).toUpperCase() as 'CAMPO' | 'CAPITAO' | 'JOGADOR' | 'SITE';
+          // Novidades da T2 (ADR-0063) e da T3 (ADR-0092): Partidas de exemplo, sempre as mesmas.
+          // "novidades-t3-loja" vira o Reels T3_LOJA.
+          const reels = id.slice('novidades-'.length).toUpperCase().replace('-', '_') as 'CAMPO' | 'CAPITAO' | 'JOGADOR' | 'SITE' | 'T3_CAMPO' | 'T3_LOJA' | 'T3_PALPITE' | 'T3_CAPITAO';
           const publicadoEm = REELS_PROGRAMADOS.find((p) => p.id === id)!.publicarEm;
           await gravacao!.gravarNovidades(gravacao!.dadosDasNovidades(reels, { estreia: o.estreia, publicadoEm }), { saida, crf: 18 });
         }

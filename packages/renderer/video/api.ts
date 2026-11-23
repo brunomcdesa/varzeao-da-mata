@@ -12,6 +12,7 @@ import type { DadosDaExplicacaoOvr } from '../src/explicacaoOvr.js';
 import type { DadosDoAgradecimentoT1 } from '../src/agradecimentoT1.js';
 import type { DadosDoRebalanceamentoT2 } from '../src/rebalanceamentoT2.js';
 import type { DadosDasNovidades } from '../src/novidades.js';
+import type { DadosDoPerfilDoTime } from '../src/perfilDoTime.js';
 
 export interface VarzeaApi {
   preparar(dados: PartidaParaVideo, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
@@ -24,6 +25,7 @@ export interface VarzeaApi {
   prepararAgradecimentoT1(dados: DadosDoAgradecimentoT1, minimos?: Record<number, { antes?: number }>, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
   prepararRebalanceamentoT2(dados: DadosDoRebalanceamentoT2, minimos?: Record<number, { antes?: number }>, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
   prepararNovidades(dados: DadosDasNovidades, minimos?: Record<number, { antes?: number }>, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
+  prepararPerfilDoTime(dados: DadosDoPerfilDoTime, minimos?: Record<number, { antes?: number }>, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
   desenhar(n: number): void;
   /** Desenha `quantos` quadros a partir de `inicio` e devolve cada um como JPEG em base64. */
   capturar(inicio: number, quantos: number, qualidade?: number): string[];

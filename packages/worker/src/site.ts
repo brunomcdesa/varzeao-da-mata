@@ -313,9 +313,10 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       apelidoTrocadoEm: j.apelido_em ? new Date(j.apelido_em).toISOString() : null,
       time: j.time_id,
       posicao: j.posicao,
-      // OVR antes da primeira Partida ainda não encerrada; senão o atual.
-      ovr: oculta ? oculta.ovr_antes : j.ovr,
-      ovrInicial: minhas[0]?.ovr_antes ?? j.ovr,
+      // OVR antes da primeira Partida ainda não encerrada; senão o atual. Sempre o da Posição
+      // dele, pelas Habilidades: fora de posição, o da vaga fica só na Partida (ADR-0101).
+      ovr: oculta ? ovrPelasHabilidades(j.posicao, oculta.ovr_antes, oculta.habilidades_antes) : j.ovr,
+      ovrInicial: minhas[0] ? ovrPelasHabilidades(j.posicao, minhas[0].ovr_antes, minhas[0].habilidades_antes) : j.ovr,
       habilidades: oculta ? habilidadesDe(j.posicao, oculta.ovr_antes, oculta.habilidades_antes) : habilidadesDe(j.posicao, j.ovr, j.habilidades),
       habilidadesIniciais: minhas[0] ? habilidadesDe(j.posicao, minhas[0].ovr_antes, minhas[0].habilidades_antes) : habilidadesDe(j.posicao, j.ovr, j.habilidades),
       inscritoEm: new Date(j.inscrito_em).toISOString(),
@@ -634,12 +635,12 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     const linhas = escalacoesDe.get(p.id);
     const de = (time: TimeId): EscalacaoPublica => {
       const doTime = (linhas ?? []).filter((e) => e.time_id === time);
-      const banco = doTime.filter((e) => e.reserva).map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ...itensDaLinha(e), ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes) }));
+      const banco = doTime.filter((e) => e.reserva).map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ...itensDaLinha(e), ovr: ovrPelasHabilidades(e.posicao, e.ovr_antes, e.habilidades_antes), habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes) }));
       return {
         time,
         jogadores: doTime
           .filter((e) => !e.reserva)
-          .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ...itensDaLinha(e), ovr: e.ovr_antes, habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes), ...(e.capitao ? { capitao: true as const } : {}) })),
+          .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ...itensDaLinha(e), ovr: ovrPelasHabilidades(e.posicao, e.ovr_antes, e.habilidades_antes), habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes), ...(e.capitao ? { capitao: true as const } : {}) })),
         ...(banco.length ? { banco } : {}),
       };
     };
@@ -733,4 +734,13 @@ export function ovrNoHistorico(
   const linha = linhas.find((l) => l.jogador_id !== null && l.jogador_id === d.jogadorId);
   const posicao = linha?.posicao_de_origem ?? d.posicaoDeOrigem ?? linha?.posicao ?? d.posicao;
   return posicao === d.posicao || !d.habilidadesDepois ? d.ovrDepois : ovrDasHabilidades(posicao, d.habilidadesDepois);
+}
+
+/**
+ * OVR de uma linha da Escalação para o site (ADR-0101): o das Habilidades gravadas, com os pesos
+ * da Posição em que ele jogou. Corrige o `ovr_antes` antigo de quem foi escalado logo depois de um
+ * jogo fora de posição (ADR-0098), que ficou com o OVR da vaga. Sem Habilidades gravadas, o gravado.
+ */
+export function ovrPelasHabilidades(posicao: Posicao, ovr: number, habilidades: Habilidades | string | null): number {
+  return habilidades ? ovrDasHabilidades(posicao, habilidadesDe(posicao, ovr, habilidades)) : ovr;
 }

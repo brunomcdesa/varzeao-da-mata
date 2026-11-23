@@ -4,7 +4,7 @@ export { Roteiro, type OpcoesRoteiro, type QuadroRoteiro, type Segmento, type Ti
 export { desenharCapa, desenharQuadroVideo, type OpcoesVideo, type PartidaParaVideo } from './video.js';
 export { RoteiroResumo, desenharQuadroResumo, narracaoDoResumo, type DadosDoResumo, type Cartela } from './resumo.js';
 export { DADOS_PADRAO as DADOS_DA_APRESENTACAO, RoteiroApresentacao, desenharQuadroApresentacao, narracaoDaApresentacao, type DadosDaApresentacao } from './apresentacao.js';
-export { DADOS_DA_ABERTURA_T2, RoteiroAberturaDaTemporada, desenharQuadroAbertura, narracaoDaAbertura, type DadosDaAberturaDaTemporada } from './aberturaTemporada.js';
+export { DADOS_DA_ABERTURA_T2, dadosDaAberturaT3, RoteiroAberturaDaTemporada, desenharQuadroAbertura, narracaoDaAbertura, type DadosDaAberturaDaTemporada } from './aberturaTemporada.js';
 export { RoteiroAgradecimentoT1, desenharQuadroAgradecimentoT1, narracaoDoAgradecimentoT1, type DadosDoAgradecimentoT1 } from './agradecimentoT1.js';
 export { RoteiroRebalanceamentoT2, desenharQuadroRebalanceamentoT2, narracaoDoRebalanceamentoT2, type DadosDoRebalanceamentoT2 } from './rebalanceamentoT2.js';
 export { visualDoJogador, FONTE_DISPLAY, FONTE_TEXTO } from './desenho.js';
@@ -18,3 +18,4 @@ export { timelineDaPartida, paraEscalacao, momentosDoAoVivo } from './partidaPub
 export { trocasDaPartida, ocupanteNoLance, ocupanteDoDesempenho, DURACAO_TROCA, type Troca } from './substituicao.js';
 export { todosDaEscalacao } from './partidaPublica.js';
 export { desenharQuadroDoSite, efeitosDoSite, cartaoGiganteEm, TREMOR_DO_GOL, CLARAO_DO_GOL } from './efeitosDoSite.js';
+export { RoteiroPerfilDoTime, desenharQuadroPerfilDoTime, narracaoDoPerfilDoTime, NARRADOR_DO_PERFIL_DO_TIME, type DadosDoPerfilDoTime } from './perfilDoTime.js';

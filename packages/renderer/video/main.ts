@@ -36,6 +36,7 @@ import { RoteiroExplicacao, desenharQuadroExplicacao, type DadosDaExplicacao } f
 import { RoteiroExplicacaoOvr, desenharQuadroExplicacaoOvr, type DadosDaExplicacaoOvr } from '../src/explicacaoOvr.js';
 import { RoteiroAgradecimentoT1, desenharQuadroAgradecimentoT1, type DadosDoAgradecimentoT1 } from '../src/agradecimentoT1.js';
 import { RoteiroRebalanceamentoT2, desenharQuadroRebalanceamentoT2, type DadosDoRebalanceamentoT2 } from '../src/rebalanceamentoT2.js';
+import { RoteiroPerfilDoTime, desenharQuadroPerfilDoTime, type DadosDoPerfilDoTime } from '../src/perfilDoTime.js';
 import { Roteiro, Timeline, desenharCapa, desenharQuadroVideo, type OpcoesVideo, type PartidaParaVideo } from '../src/index.js';
 
 const FONTES: [string, string, string][] = [
@@ -64,6 +65,8 @@ let explicacao: RoteiroExplicacao | null = null;
 let explicacaoOvr: RoteiroExplicacaoOvr | null = null;
 let agradecimento: RoteiroAgradecimentoT1 | null = null;
 let rebalanceamento: RoteiroRebalanceamentoT2 | null = null;
+/** Quando preenchido, a página grava o Reels do Perfil do Time (ADR-0100). */
+let perfilDoTime: RoteiroPerfilDoTime | null = null;
 /** Quando preenchido, a página grava um Reels de Novidades da T2 (ADR-0063). */
 let novidades: RoteiroNovidades | null = null;
 const emojis: HTMLImageElement[] = [emojiGol, emojiFogo, emojiSusto, emojiPalmas].map((src) => Object.assign(new Image(), { src }));
@@ -94,6 +97,7 @@ async function prepararAnuncio(minimos: Record<number, { antes?: number }> = {},
   explicacaoOvr = null;
   agradecimento = null;
   rebalanceamento = null;
+  perfilDoTime = null;
   anuncio = new RoteiroAnuncio(minimos);
   return { duracao: anuncio.duracao, totalQuadros: anuncio.totalQuadros(fps) };
 }
@@ -125,6 +129,7 @@ async function preparar(dados: PartidaParaVideo, quadrosPorSegundo = 30): Promis
   explicacaoOvr = null;
   agradecimento = null;
   rebalanceamento = null;
+  perfilDoTime = null;
   definirAparencias(dados.aparencias ?? {});
   definirItens(dados.itensAtuais ?? {});
   definirEstrelas(dados.estrelas ?? {});
@@ -158,6 +163,7 @@ async function prepararResumo(
   explicacaoOvr = null;
   agradecimento = null;
   rebalanceamento = null;
+  perfilDoTime = null;
   definirAparencias(dados.aparencias ?? {});
   definirItens(dados.itens ?? {});
   definirEstrelas(dados.estrelas ?? {});
@@ -179,6 +185,7 @@ async function prepararApresentacao(
   explicacaoOvr = null;
   agradecimento = null;
   rebalanceamento = null;
+  perfilDoTime = null;
   abertura = null;
   apresentacao = new RoteiroApresentacao(dados, minimos);
   return { duracao: apresentacao.duracao, totalQuadros: apresentacao.totalQuadros(fps) };
@@ -199,6 +206,7 @@ async function prepararAberturaDaTemporada(
   apresentacao = null;
   agradecimento = null;
   rebalanceamento = null;
+  perfilDoTime = null;
   definirEstrelas(dados.estrelas ?? {});
   roteiro = null;
   abertura = new RoteiroAberturaDaTemporada(dados, minimos);
@@ -220,6 +228,7 @@ async function prepararExplicacao(
   explicacaoOvr = null;
   agradecimento = null;
   rebalanceamento = null;
+  perfilDoTime = null;
   explicacao = new RoteiroExplicacao(dados, minimos);
   return { duracao: explicacao.duracao, totalQuadros: explicacao.totalQuadros(fps) };
 }
@@ -239,6 +248,7 @@ async function prepararExplicacaoOvr(
   explicacao = null;
   agradecimento = null;
   rebalanceamento = null;
+  perfilDoTime = null;
   explicacaoOvr = new RoteiroExplicacaoOvr(dados, minimos);
   return { duracao: explicacaoOvr.duracao, totalQuadros: explicacaoOvr.totalQuadros(fps) };
 }
@@ -259,6 +269,7 @@ async function prepararAgradecimentoT1(
   explicacaoOvr = null;
   abertura = null;
   rebalanceamento = null;
+  perfilDoTime = null;
   agradecimento = new RoteiroAgradecimentoT1(dados, minimos);
   return { duracao: agradecimento.duracao, totalQuadros: agradecimento.totalQuadros(fps) };
 }
@@ -279,6 +290,7 @@ async function prepararRebalanceamentoT2(
   explicacaoOvr = null;
   abertura = null;
   agradecimento = null;
+  perfilDoTime = null;
   rebalanceamento = new RoteiroRebalanceamentoT2(dados, minimos);
   return { duracao: rebalanceamento.duracao, totalQuadros: rebalanceamento.totalQuadros(fps) };
 }
@@ -300,11 +312,34 @@ async function prepararNovidades(
   abertura = null;
   agradecimento = null;
   rebalanceamento = null;
+  perfilDoTime = null;
   novidades = new RoteiroNovidades(dados, minimos);
   return { duracao: novidades.duracao, totalQuadros: novidades.totalQuadros(fps) };
 }
 
+async function prepararPerfilDoTime(
+  dados: DadosDoPerfilDoTime,
+  minimos: Record<number, { antes?: number }> = {},
+  quadrosPorSegundo = 30,
+): Promise<{ duracao: number; totalQuadros: number }> {
+  await Promise.all([fontesProntas, escudoPronto]);
+  fps = quadrosPorSegundo;
+  novidades = null;
+  roteiro = null;
+  resumo = null;
+  apresentacao = null;
+  anuncio = null;
+  explicacao = null;
+  explicacaoOvr = null;
+  abertura = null;
+  agradecimento = null;
+  rebalanceamento = null;
+  perfilDoTime = new RoteiroPerfilDoTime(dados, minimos);
+  return { duracao: perfilDoTime.duracao, totalQuadros: perfilDoTime.totalQuadros(fps) };
+}
+
 function desenhar(n: number): void {
+  if (perfilDoTime) return desenharQuadroPerfilDoTime(ctx, perfilDoTime, n / fps, { escudo });
   if (novidades) return desenharQuadroNovidades(ctx, novidades, n / fps, { escudo, emojis });
   if (agradecimento) return desenharQuadroAgradecimentoT1(ctx, agradecimento, n / fps, { escudo });
   if (rebalanceamento) return desenharQuadroRebalanceamentoT2(ctx, rebalanceamento, n / fps, { escudo });
@@ -336,6 +371,7 @@ function capa(qualidade = 0.95): string {
 
 /** Segmentos do roteiro (para a prévia escolher quadros-chave). */
 function segmentos(): { tipo: string; inicio: number; fim: number; resolucao?: number }[] {
+  if (perfilDoTime) return perfilDoTime.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
   if (novidades) return novidades.segmentos.map((s) => ({ tipo: s.cena.id, inicio: s.inicio, fim: s.fim }));
   if (agradecimento) return agradecimento.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
   if (rebalanceamento) return rebalanceamento.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
@@ -360,5 +396,5 @@ function escudoPng(time: TimeId, escala: number): string {
   return c.toDataURL('image/png').slice('data:image/png;base64,'.length);
 }
 
-const api: VarzeaApi = { preparar, prepararResumo, prepararApresentacao, prepararAberturaDaTemporada, prepararAnuncio, prepararExplicacao, prepararExplicacaoOvr, prepararAgradecimentoT1, prepararRebalanceamentoT2, prepararNovidades, desenhar, capturar, capa, segmentos, escudoPng, times: () => [...TIMES] };
+const api: VarzeaApi = { preparar, prepararResumo, prepararApresentacao, prepararAberturaDaTemporada, prepararAnuncio, prepararExplicacao, prepararExplicacaoOvr, prepararAgradecimentoT1, prepararRebalanceamentoT2, prepararNovidades, prepararPerfilDoTime, desenhar, capturar, capa, segmentos, escudoPng, times: () => [...TIMES] };
 window.varzea = api;

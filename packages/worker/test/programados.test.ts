@@ -4,9 +4,10 @@ import { dispararProgramadosAgora, programadosDaVez, type ReelsProgramado } from
 import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
 import { AgendaNaMemoria, PastaLocal, type ItemDaAgenda } from '../src/nuvem.js';
-import { jobProgramados, legendaDaAbertura, legendaDasNovidades } from '../src/programados.js';
+import { jobProgramados, legendaDaAbertura, legendaDaAberturaT3, legendaDasNovidades, legendaDasNovidadesT3 } from '../src/programados.js';
 import { REELS_PROGRAMADOS } from '@liga/shared';
-import { legendaDoRebalanceamentoT2 } from '../src/programados.js';
+import { dadosDoPerfilDoTime, legendaDoPerfilDoTime, legendaDoRebalanceamentoT2 } from '../src/programados.js';
+import { definirPerfilDoTime } from '../src/perfilDoTime.js';
 import type { Instagram } from '../src/instagram.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 import { mkdtemp } from 'node:fs/promises';
@@ -83,7 +84,7 @@ describe('Reels Programados (ADR-0051)', () => {
   });
 
   it('Novidades da T2 (ADR-0063): quatro Reels na quarta, cada um com a sua legenda', () => {
-    const novidades = REELS_PROGRAMADOS.filter((p) => p.id.startsWith('novidades-'));
+    const novidades = REELS_PROGRAMADOS.filter((p) => p.id.startsWith('novidades-') && !p.id.startsWith('novidades-t3-'));
     expect(novidades.map((p) => p.id)).toEqual(['novidades-campo', 'novidades-capitao', 'novidades-jogador', 'novidades-site']);
     expect(new Set(REELS_PROGRAMADOS.map((p) => p.ref)).size).toBe(REELS_PROGRAMADOS.length);
     for (const p of novidades) {
@@ -117,5 +118,43 @@ describe('Reels Programados (ADR-0051)', () => {
     expect(l).toContain('61 mudaram de Time e 56 ficaram');
     expect(l).toContain('Estreia quinta, 19/11, primeiro jogo às 11h');
     expect(l).not.toContain('@');
+  });
+
+  it('Perfil do Time (ADR-0100): segunda 23/11 às 11h, logo depois de aprovado; perfis do banco na ordem em que viraram oficiais', async () => {
+    const p = REELS_PROGRAMADOS.find((x) => x.id === 'perfil-do-time')!;
+    expect(p.publicarEm).toBe('2026-11-23T14:00:00Z');
+    expect(new Set(REELS_PROGRAMADOS.map((x) => x.ref)).size).toBe(REELS_PROGRAMADOS.length);
+    await definirPerfilDoTime(banco, 'JAC', 'jacareacc', { gravar: true, agora: new Date('2026-11-23T12:00:00Z') });
+    await definirPerfilDoTime(banco, 'CAP', 'esporte_clube_capivara', { gravar: true, agora: new Date('2026-11-23T12:20:00Z') });
+    await definirPerfilDoTime(banco, 'TAM', 'tamanduaofc', { gravar: true, agora: new Date('2026-11-23T12:10:00Z') });
+    const d = await dadosDoPerfilDoTime(banco);
+    expect(d.perfis.map((x) => x.time)).toEqual(['JAC', 'TAM', 'CAP']);
+    expect(d.semPerfil).toHaveLength(13);
+    expect(d.semPerfil).not.toContain('JAC');
+    const l = legendaDoPerfilDoTime(d);
+    expect(l).toContain('👉 Jacaré: @jacareacc');
+    expect(l).toContain('Um perfil por Time: vale o primeiro que pedir.');
+  });
+
+  it('T3 (ADR-0092): Abertura sábado 21h e as quatro novidades no domingo, véspera da Copa', () => {
+    const t3 = REELS_PROGRAMADOS.filter((p) => p.id.endsWith('-t3') || p.id.startsWith('novidades-t3-'));
+    expect(t3.map((p) => [p.id, p.publicarEm])).toEqual([
+      ['abertura-t3', '2026-11-29T00:00:00Z'],
+      ['novidades-t3-campo', '2026-11-29T15:00:00Z'],
+      ['novidades-t3-loja', '2026-11-29T17:00:00Z'],
+      ['novidades-t3-palpite', '2026-11-29T19:00:00Z'],
+      ['novidades-t3-capitao', '2026-11-29T21:00:00Z'],
+    ]);
+    for (const p of t3.slice(1)) {
+      const l = legendaDasNovidadesT3(p.id, '2026-11-30', p.publicarEm);
+      expect(l.length).toBeLessThan(2200);
+      expect(l).toContain('A Copa começa amanhã, segunda, 30/11. A Fase de Liga, quinta, 03/12.');
+      expect(l).not.toMatch(/undefined|NaN|@/);
+    }
+    expect(legendaDasNovidadesT3('novidades-t3-loja', '2026-11-30', t3[2]!.publicarEm)).toContain('10 Moedas por rodada');
+    const ab = legendaDaAberturaT3(['CAP', 'ONC'], ['TAM', 'SUC'], '2026-11-30');
+    expect(ab).toContain('Série A: Capivara e Onça');
+    expect(ab).toContain('A Copa começa segunda, 30/11. A Fase de Liga começa quinta, 03/12');
+    expect(ab).toContain('40 Moedas');
   });
 });

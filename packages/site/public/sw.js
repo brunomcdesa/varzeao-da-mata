@@ -58,7 +58,7 @@ self.addEventListener('push', (e) => {
     self.registration.showNotification(a.titulo || 'Varzeão da Mata', {
       body: a.corpo || '',
       icon: 'icones/icone-192.png',
-      badge: 'icones/icone-192.png',
+      badge: 'icones/badge-96.png',
       tag: a.partidaId ? `partida-${a.partidaId}` : 'varzeao',
       renotify: true,
       data: { url: a.url || '#/' },
