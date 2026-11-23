@@ -461,7 +461,7 @@ async function main(): Promise<void> {
         console.log(`Última mensagem de @${j.username} na DM: ${quando(ultima.em)}. Id do remetente ${ultima.id === ultima.idNaConversa ? 'igual ao' : 'diferente do'} da conversa.`);
         if (Date.now() - ultima.em.getTime() > 24 * 3600_000) throw new Error(`Passou das 24 h desde a última mensagem de @${j.username}. Peça para ele mandar uma mensagem na DM e rode de novo.`);
         const destino = ultima.id;
-        const site = process.env.SITE_URL || 'https://varzeao-da-mata.pages.dev';
+        const site = process.env.SITE_URL || 'https://varzeaodamata.com.br';
         const link = await criarLinkDeVinculo(nuvem.agenda, j, { site, agora: new Date() });
         try {
           await ig.enviarDm(destino, mensagemDoLink(j.username, link.url));

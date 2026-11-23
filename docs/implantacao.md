@@ -67,11 +67,22 @@ Em **My Profile → API Tokens → Create Token → Custom token**:
 pnpm --filter @liga/edge exec wrangler pages project create varzeao-da-mata --production-branch master
 ```
 
-O nome vai na variável `CF_PAGES_PROJETO`. O site fica em `https://varzeao-da-mata.pages.dev`.
+O nome vai na variável `CF_PAGES_PROJETO`. O site fica em `https://varzeao-da-mata.pages.dev` e, com o domínio próprio, em `https://varzeaodamata.com.br`.
+
+### Domínio próprio (ADR-0103)
+
+1. Cloudflare → **Add a domain** → `varzeaodamata.com.br`, plano Free. Ela mostra dois servidores de nome.
+2. Registro.br → domínio → **Alterar servidores DNS** com os dois da Cloudflare. Esperar a delegação (o domínio sai de "pendente").
+3. Workers & Pages → projeto → **Custom domains** → `varzeaodamata.com.br` (e, se quiser, `www.varzeaodamata.com.br`). Não crie registro A/CNAME à mão: a Cloudflare cria.
+4. Turnstile → widget do site → acrescentar o hostname `varzeaodamata.com.br`.
+5. GitHub → PROD → variável `LIGA_SITE_URL` = `https://varzeaodamata.com.br` (link de Vínculo). Na borda, `VAPID_CONTATO` é opcional.
+6. Trocar o link da bio do Instagram.
+
+O endereço `varzeao-da-mata.pages.dev` continua no ar e mostra a placa "O Varzeão mudou de endereço".
 
 ### Anti-robô do voto no site (opcional)
 
-Em **Turnstile → Add widget**, domínio `varzeao-da-mata.pages.dev`, modo *Managed*. A **Site Key** é pública e vai na variável `LIGA_TURNSTILE_SITEKEY`. A **Secret Key** é segredo e vai só na borda:
+Em **Turnstile → Add widget**, domínios `varzeaodamata.com.br` e `varzeao-da-mata.pages.dev`, modo *Managed*. A **Site Key** é pública e vai na variável `LIGA_TURNSTILE_SITEKEY`. A **Secret Key** é segredo e vai só na borda:
 `pnpm --filter @liga/edge exec wrangler secret put TURNSTILE_SECRET` (cole quando ele pedir; não mande em chat). Sem os dois, o voto no site funciona sem o desafio, só com o limite por aparelho e por rede.
 Esse link vai na bio do Instagram.
 

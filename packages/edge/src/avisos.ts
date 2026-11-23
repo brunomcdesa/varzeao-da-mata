@@ -243,7 +243,7 @@ async function avisosNovos(env: AmbienteDosAvisos, agora: Date): Promise<AvisoPa
 /** Cron: junta os Avisos novos à fila e manda até ENVIOS_POR_MINUTO. Devolve quantos foram. */
 export async function rodarAvisos(env: AmbienteDosAvisos, agora: Date, comBanco: ComBanco, f: typeof fetch = fetch): Promise<number> {
   if (!env.VAPID_PRIVADA || !env.VAPID_PUBLICA || !env.DATABASE_URL) return 0;
-  const vapid: ChavesVapid = { publica: env.VAPID_PUBLICA, privada: env.VAPID_PRIVADA, contato: env.VAPID_CONTATO ?? 'https://varzeao-da-mata.pages.dev' };
+  const vapid: ChavesVapid = { publica: env.VAPID_PUBLICA, privada: env.VAPID_PRIVADA, contato: env.VAPID_CONTATO ?? 'https://varzeaodamata.com.br' };
   const antes = (await env.AGENDA.get<EnvioPendente[]>(CHAVE_FILA, 'json')) ?? [];
   const novos = await avisosNovos(env, agora);
   let fila = antes;
