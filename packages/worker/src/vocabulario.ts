@@ -30,6 +30,11 @@ export const APELIDOS_DE_TIME: Record<TimeId, string[]> = {
   // Sem "SER": é palavra de ligação ("quero SER goleiro").
   SER: ['SERIEMA', 'SERIEMAS', 'SERIEMA EC', 'SERIEMA ESPORTE CLUBE'],
   BUG: ['BUG', 'BUGIO', 'BUGIOS', 'BUGIO FC', 'BUGIO FUTEBOL CLUBE', 'GUARIBA'],
+  // Expansão (ADR-0093): só valem quando os Times entram numa Série; antes, o pedido é recusado como o dos Times guardados.
+  GAT: ['GAT', 'GATO', 'GATOS', 'GATO PRETO', 'GATO PRETO FC', 'GATO PRETO FUTEBOL CLUBE'],
+  RAT: ['RAT', 'RATO', 'RATOS', 'RATO EC', 'RATO ESPORTE CLUBE'],
+  ESC: ['ESC', 'ESCORPIAO', 'ESCORPIÃO', 'ESCORPIOES', 'ESCORPIÕES', 'ESCORPIAO AC', 'ESCORPIÃO ATLÉTICO CLUBE'],
+  ARN: ['ARN', 'ARANHA', 'ARANHAS', 'ARANHA FC', 'ARANHA FUTEBOL CLUBE'],
 };
 
 export const SINONIMOS_DE_POSICAO: Record<Posicao, string[]> = {

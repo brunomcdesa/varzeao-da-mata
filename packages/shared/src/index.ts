@@ -11,6 +11,7 @@ export const TIMES = [
   'CAP', 'ONC', 'TAT', 'TAM', 'PRE', 'SAG', 'TUC', 'ARA',
   'JAC', 'SUC', 'LOB', 'LEA', 'BOT', 'TAR', 'COR', 'BES',
   'QUA', 'GAM', 'JAB', 'TEI', 'ARI', 'ANT', 'SER', 'BUG',
+  'GAT', 'RAT', 'ESC', 'ARN',
 ] as const;
 export type TimeId = (typeof TIMES)[number];
 
@@ -18,6 +19,11 @@ export type TimeId = (typeof TIMES)[number];
 export const TIMES_FUNDADORES: readonly TimeId[] = ['CAP', 'ONC', 'TAT', 'TAM', 'PRE', 'SAG', 'TUC', 'ARA'];
 /** Os Times que chegaram na T2 direto na Série A, ao lado dos fundadores (ADR-0058). */
 export const TIMES_NOVOS: readonly TimeId[] = ['JAC', 'SUC', 'LOB', 'LEA', 'BOT', 'TAR', 'COR', 'BES'];
+/**
+ * Times da Expansão por lotação (ADR-0093): entram juntos na Série B quando 90% das vagas estão
+ * ocupadas no fim da Fase de Liga. Até lá, ficam guardados.
+ */
+export const TIMES_DA_EXPANSAO: readonly TimeId[] = ['GAT', 'RAT', 'ESC', 'ARN'];
 /**
  * Times criados para uma Série B futura (ADR-0058). Guardados (ADR-0062): a T2 tem só a Série A,
  * e a B da T3 é formada pelos 8 Times que caem no fim da T2.
@@ -111,6 +117,11 @@ export const IDENTIDADE: Readonly<Record<TimeId, { nome: string; sigla: string; 
   ANT: { nome: 'Associação Anta', sigla: 'ANT', bicho: 'anta', primaria: '#0F4C5C', secundaria: '#F4A259' },
   SER: { nome: 'Seriema Esporte Clube', sigla: 'SER', bicho: 'seriema', primaria: '#D9C9A3', secundaria: '#C1272D' },
   BUG: { nome: 'Bugio Futebol Clube', sigla: 'BUG', bicho: 'bugio', primaria: '#B9471E', secundaria: '#1B1B1B' },
+  // Times da Expansão por lotação (ADR-0093): nomes sugeridos por um seguidor (@thiago2026ba).
+  GAT: { nome: 'Gato Preto Futebol Clube', sigla: 'GAT', bicho: 'gato', primaria: '#2E2A3A', secundaria: '#9BE15D' },
+  RAT: { nome: 'Rato Esporte Clube', sigla: 'RAT', bicho: 'rato', primaria: '#8A8D91', secundaria: '#F28AA0' },
+  ESC: { nome: 'Escorpião Atlético Clube', sigla: 'ESC', bicho: 'escorpiao', primaria: '#C9822B', secundaria: '#2B1A10' },
+  ARN: { nome: 'Aranha Futebol Clube', sigla: 'ARN', bicho: 'aranha', primaria: '#B3202A', secundaria: '#1E1E1E' },
 };
 
 /**
@@ -139,6 +150,12 @@ export const CLASSICOS: ReadonlyArray<readonly [TimeId, TimeId]> = [
   ['JAB', 'TEI'],
   ['ARI', 'ANT'],
   ['SER', 'BUG'],
+  // Expansão (ADR-0093), em quadrado: Gato × Rato e Escorpião × Aranha primeiro; depois
+  // Gato × Escorpião e Rato × Aranha.
+  ['GAT', 'RAT'],
+  ['ESC', 'ARN'],
+  ['GAT', 'ESC'],
+  ['RAT', 'ARN'],
 ];
 
 export function ehClassico(a: TimeId, b: TimeId): boolean {
@@ -174,6 +191,10 @@ const NOMES_CLASSICOS: Readonly<Record<string, string>> = {
   'JAB-TEI': 'Clássico do Sol',
   'ANT-ARI': 'Clássico da Lagoa',
   'BUG-SER': 'Clássico do Grito',
+  'GAT-RAT': 'Clássico do Gato e Rato',
+  'ARN-ESC': 'Clássico do Veneno',
+  'ESC-GAT': 'Clássico da Noite',
+  'ARN-RAT': 'Clássico do Porão',
 };
 
 /** Nome do Clássico entre dois Times, ou null se não forem rivais (docs/times.md). */
@@ -207,6 +228,10 @@ export const FALA_DO_TIME: Readonly<Record<TimeId, { curto: string; artigo: 'o' 
   ANT: { curto: 'Anta', artigo: 'a', bordao: 'Passa por cima.' },
   SER: { curto: 'Seriema', artigo: 'a', bordao: 'Grita antes do gol.' },
   BUG: { curto: 'Bugio', artigo: 'o', bordao: 'O grito se ouve de longe.' },
+  GAT: { curto: 'Gato', artigo: 'o', bordao: 'Sete vidas e nenhuma derrota.' },
+  RAT: { curto: 'Rato', artigo: 'o', bordao: 'Entra por qualquer buraco.' },
+  ESC: { curto: 'Escorpião', artigo: 'o', bordao: 'O ferrão vem no fim.' },
+  ARN: { curto: 'Aranha', artigo: 'a', bordao: 'Quem cai na teia não sai.' },
 };
 
 /** "da Capivara", "do Tatu". */
@@ -375,6 +400,10 @@ export const GRITO_DO_TIME: Readonly<Record<TimeId, string>> = {
   ANT: 'Atropela, Anta!',
   SER: 'Grita, Seriema!',
   BUG: 'Ruge, Bugio!',
+  GAT: 'Mia, Gato, mia!',
+  RAT: 'Rói, Rato, rói!',
+  ESC: 'Ferroa, Escorpião!',
+  ARN: 'Tece a teia, Aranha!',
 };
 
 /** Temporada 2: as regras que só valem a partir da Temporada 2 (ADRs 0020, 0021, 0023, 0024). */
