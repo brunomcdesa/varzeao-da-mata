@@ -7,6 +7,7 @@ import { blocoDoPlano, planoDaCapitania, type Capitania } from '../planoDoTime.j
 import { chaveamento } from './chave.js';
 import { linhaDePartida, tabelaDeClassificacao } from './comum.js';
 import type { Pagina } from './tipos.js';
+import { abas } from '../abas.js';
 
 /** Temporadas que o Time ganhou (o título da Liga, que com Séries é o da A). */
 function titulosDo(l: LigaPublica, t: TimeId): number[] {
@@ -62,39 +63,56 @@ export const paginaJogos: Pagina = async (main) => {
   const daVez = rodadaAtual(l);
   main.innerHTML = html`<h1 class="titulo-pagina">Jogos da Temporada ${l.temporada?.numero ?? ''}</h1>
     ${preTemporada(l) ? html`<p class="placa aviso-temporada">${avisoDaPreTemporada(l)}</p>` : ''}
-    ${rodadas.length ? seriesDaLiga(l).map((serie) => chaveamento(l, { serie })) : ''}
     ${rodadas.length
-      ? html`<div class="grade-rodadas">${rodadas.map((n) => {
-          const jogos = l.calendario.filter((p) => p.rodada === n);
-          return html`<section class="rodada-bloco ${n === daVez ? 'atual' : ''}" id="rodada-${n}" aria-labelledby="t-rodada-${n}">
-            <h2 id="t-rodada-${n}" class="secao">${nomeDaRodada(jogos[0]!.fase, n)} <small>${diaLongo(jogos[0]!.apito)}</small></h2>
-            ${partidasPorSerie(l, jogos, (p) => linhaDePartida(p))}
-          </section>`;
-        })}</div>`
+      ? html`<div class="grade-rodadas">${abas(
+          'jogos',
+          [
+            { id: 'chave', rotulo: 'Mata-mata', conteudo: html`${seriesDaLiga(l).map((serie) => chaveamento(l, { serie }))}` },
+            ...rodadas.map((n) => {
+              const jogos = l.calendario.filter((p) => p.rodada === n);
+              return {
+                id: `r${n}`,
+                rotulo: `Rodada ${n}`,
+                conteudo: html`<section class="rodada-bloco ${n === daVez ? 'atual' : ''}" id="rodada-${n}" aria-labelledby="t-rodada-${n}">
+                  <h2 id="t-rodada-${n}" class="secao">${nomeDaRodada(jogos[0]!.fase, n)} <small>${diaLongo(jogos[0]!.apito)}</small></h2>
+                  ${partidasPorSerie(l, jogos, (p) => linhaDePartida(p))}
+                </section>`,
+              };
+            }),
+          ],
+          // Depois da Fase de Liga, o Mata-mata é o que importa; antes, a Rodada da vez.
+          rodadas.includes(daVez ?? -1) ? `r${daVez}` : l.calendario.some((p) => p.fase === 'MATA_MATA') ? 'chave' : `r${rodadas[0]}`,
+        )}</div>`
       : html`<p class="placa vazio">A Temporada ainda não tem jogos marcados.</p>`}`.s;
-  main.querySelector('.rodada-bloco.atual')?.scrollIntoView({ block: 'start' });
+  // No computador, a página desce até a Rodada da vez (no celular, ela é a subaba aberta).
+  if (matchMedia('(min-width: 720px)').matches) main.querySelector('.rodada-bloco.atual')?.scrollIntoView({ block: 'start' });
 };
 
 export const paginaTabela: Pagina = async (main) => {
   const l = await liga();
   main.innerHTML = temSeries(l)
     ? html`<h1 class="titulo-pagina">Tabela da Fase de Liga</h1>
-        ${seriesDaLiga(l).map(
-          (s) => html`<section aria-labelledby="titulo-tabela-${s.toLowerCase()}">
+        ${abas('tabela', seriesDaLiga(l).map((s) => ({
+          id: s.toLowerCase(),
+          rotulo: `Série ${s}`,
+          conteudo: html`<section aria-labelledby="titulo-tabela-${s.toLowerCase()}">
             <h2 id="titulo-tabela-${s.toLowerCase()}" class="secao"><span class="selo-serie serie-${s.toLowerCase()}">Série ${s}</span></h2>
             <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(tabelaDaSerie(l, s), { serie: s, forma: formaDosTimes(l) })}</div>
           </section>`,
-        )}
+        })))}
         <p class="legenda"><a href="#/jogos">Ver o chaveamento do Mata-mata em Jogos</a></p>`.s
     : l.grupos?.length
       ? html`<h1 class="titulo-pagina">${preTemporada(l) ? `Tabela da Temporada ${l.temporada?.numero}` : 'Tabela da Fase de Liga'}</h1>
         ${preTemporada(l) ? html`<p class="placa aviso-temporada">${avisoDaPreTemporada(l)}</p>` : ''}
-        ${l.grupos.map(
-          (g, k) => html`<section aria-labelledby="titulo-grupo-${g.grupo.toLowerCase()}">
+        ${abas('tabela', l.grupos.map((g) => ({
+          id: g.grupo.toLowerCase(),
+          rotulo: g.nome,
+          // Cada Grupo é uma subaba no celular: cada um leva a sua legenda.
+          conteudo: html`<section aria-labelledby="titulo-grupo-${g.grupo.toLowerCase()}">
             <h2 id="titulo-grupo-${g.grupo.toLowerCase()}" class="secao">${g.nome}</h2>
-            <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(g.tabela, { ...(preTemporada(l) ? {} : { forma: formaDosTimes(l) }), classificam: 2, porGrupo: true, caem: l.caem ?? 0, semLegenda: k < l.grupos!.length - 1 })}</div>
+            <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(g.tabela, { ...(preTemporada(l) ? {} : { forma: formaDosTimes(l) }), classificam: 2, porGrupo: true, caem: l.caem ?? 0 })}</div>
           </section>`,
-        )}
+        })))}
         ${preTemporada(l) ? '' : html`<p class="legenda"><a href="#/jogos">Ver o chaveamento do Mata-mata em Jogos</a></p>`}`.s
     : html`<h1 class="titulo-pagina">Tabela da Fase de Liga</h1>
     <div class="quadro-negro tabela-grande">${tabelaDeClassificacao(l.tabela, { forma: formaDosTimes(l), ...(l.caem ? { caem: l.caem } : {}) })}</div>
@@ -193,16 +211,23 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
         ${estreante ? html`<p class="campanha">Estreia na próxima Temporada, na Série B. Quem comentar ENTRO ${curto(t).toUpperCase()} já entra quando ela começar.</p>` : ''}
       </div>
     </header>
-    <div data-plano hidden></div>
-    ${salaDoTime(l, t)}
-    <div class="time-colunas">
-      <section aria-labelledby="titulo-elenco">
-        ${estreante
-          ? ''
-          : html`<div data-provavel>${provavel(null)}</div>
-            ${novatos.length
-              ? html`<p class="legenda aviso-mata-mata">${novatos.length === 1 ? 'Quem chegou' : `Os ${novatos.length} que chegaram`} depois do último jogo da Fase de Liga não ${novatos.length === 1 ? 'joga' : 'jogam'} o Mata-mata: ${novatos.length === 1 ? 'estreia' : 'estreiam'} na próxima Temporada.</p>`
-              : ''}`}
+    <div class="time-colunas">${abas(
+      'time',
+      [
+        {
+          id: 'escalacao',
+          rotulo: 'Escalação',
+          conteudo: estreante
+            ? ''
+            : html`<div data-plano hidden></div><section aria-label="Escalação provável"><div data-provavel>${provavel(null)}</div>
+              ${novatos.length
+                ? html`<p class="legenda aviso-mata-mata">${novatos.length === 1 ? 'Quem chegou' : `Os ${novatos.length} que chegaram`} depois do último jogo da Fase de Liga não ${novatos.length === 1 ? 'joga' : 'jogam'} o Mata-mata: ${novatos.length === 1 ? 'estreia' : 'estreiam'} na próxima Temporada.</p>`
+                : ''}</section>`,
+        },
+        {
+          id: 'elenco',
+          rotulo: `Elenco (${elenco.length})`,
+          conteudo: html`<section aria-labelledby="titulo-elenco">
         <h2 id="titulo-elenco" class="secao">Elenco <small>${elenco.length} inscritos · ordenado por OVR</small></h2>
         ${elenco.length
           ? POSICOES_EM_ORDEM.map((pos) => {
@@ -211,12 +236,20 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
                 ${da.length ? html`<ul class="elenco">${da.map((j) => linhaDoElenco(j, inscritosAte, l.temporada ? `T${l.temporada.numero + 1}` : undefined))}</ul>` : html`<p class="vazio-pequeno">Ninguém ainda: a Base completa a vaga.</p>`}</div>`;
             })
           : html`<p class="placa vazio">Ninguém inscrito ainda. Comente <span class="comando pequeno">ENTRO ${curto(t).toUpperCase()} ATACANTE</span> para ser o primeiro.</p>`}
-      </section>
-      <section aria-labelledby="titulo-jogos-time">
+      </section>`,
+        },
+        {
+          id: 'jogos',
+          rotulo: 'Jogos',
+          conteudo: html`<section aria-labelledby="titulo-jogos-time">
         <h2 id="titulo-jogos-time" class="secao">Jogos</h2>
         <ul class="lista-partidas">${jogos.map((p) => linhaDePartida(p, { comDia: true }))}</ul>
-      </section>
-    </div>
+      </section>`,
+        },
+        { id: 'trofeus', rotulo: 'Troféus', conteudo: salaDoTime(l, t) },
+      ],
+      estreante ? 'elenco' : 'escalacao',
+    )}</div>
   </article>`.s;
 
   // Plano do Capitão (ADR-0086): só para quem tem Vínculo com um Jogador deste Time.

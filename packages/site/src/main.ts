@@ -8,10 +8,12 @@ import { paginaPartida } from './paginas/partida.js';
 import { paginaCarreira } from './paginas/carreira.js';
 import { paginaTemporada } from './paginas/temporada.js';
 import { paginaAvisos } from './paginas/avisos.js';
-import { adiantarEstadoDasEscolhas, paginaVincular } from './meuPersonagem.js';
+import { adiantarEstadoDasEscolhas, jogadorVinculado, paginaVincular } from './meuPersonagem.js';
 import type { Pagina } from './paginas/tipos.js';
 import { html } from './ui.js';
 import { prepararApp } from './appInstalavel.js';
+import { centralizarAbas, ligarAbas } from './abas.js';
+import { atualizarNavegacaoApp, prepararNavegacaoApp } from './navegacaoApp.js';
 
 const ROTAS: { padrao: RegExp; pagina: Pagina; secao: string; titulo: string }[] = [
   { padrao: /^\/?$/, pagina: inicio, secao: 'inicio', titulo: '' },
@@ -50,6 +52,7 @@ async function navegar(): Promise<void> {
     else a.removeAttribute('aria-current');
   }
   if (!rota) {
+    atualizarNavegacaoApp('inicio', caminho, '');
     main.innerHTML = html`<section class="placa vazio"><h1>Página não encontrada</h1><p><a href="#/">Voltar para a Rodada</a></p></section>`.s;
     return;
   }
@@ -61,6 +64,10 @@ async function navegar(): Promise<void> {
     else limpar = fim;
     const h1 = main.querySelector('h1')?.textContent?.trim();
     document.title = rota.titulo ? `${h1 || rota.titulo} · Varzeão da Mata` : 'Varzeão da Mata';
+    // Celular (ADR-0103): título curto na barra de cima; a tela de detalhe usa o nome da coisa.
+    const nomeNaBarra = rota.titulo === 'Time' ? h1 : rota.titulo === 'Partida' && main.querySelectorAll('.tabua-time span').length === 2 ? [...main.querySelectorAll('.tabua-time span')].map((e) => e.textContent).join(' × ') : rota.titulo === 'Jogador' ? main.querySelector('h1')?.textContent?.trim().split(' (@')[0] : rota.titulo;
+    atualizarNavegacaoApp(rota.secao, caminho, nomeNaBarra || rota.titulo);
+    centralizarAbas(main);
   } catch (e) {
     console.error(e);
     const semDados = e instanceof ErroDeDados && e.status === 404;
@@ -77,6 +84,8 @@ window.addEventListener('hashchange', () => {
   });
 });
 document.addEventListener('submit', (e) => e.preventDefault());
+ligarAbas(main);
+prepararNavegacaoApp({ meuJogador: jogadorVinculado });
 // Quem tem Vínculo: a capitania começa a vir junto com os dados da página (ADR-0094).
 adiantarEstadoDasEscolhas();
 void navegar();

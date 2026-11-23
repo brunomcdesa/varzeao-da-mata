@@ -40,10 +40,19 @@
           <a href="#/jogadores" data-secao="jogadores">Jogadores</a>
           <a href="#/historia" data-secao="historia">História</a>
         </nav>
+        <!-- No celular (ADR-0103): barra de app com Voltar, o título da tela e o sino dos Avisos. -->
+        <div class="barra-app">
+          <a class="barra-app-escudo" href="#/" aria-label="Rodada"><img src="escudo.png" alt="" width="32" height="32" /></a>
+          <button type="button" class="barra-app-voltar" data-voltar hidden aria-label="Voltar"></button>
+          <p class="barra-app-titulo" aria-hidden="true">Varzeão da Mata</p>
+          <a class="barra-app-sino" href="#/avisos" aria-label="Avisos de jogo"></a>
+        </div>
       </div>
     </header>
     <div id="instalar" class="instalar-lugar" hidden></div>
     <main id="conteudo" tabindex="-1"><p class="carregando">Carregando…</p></main>
     <footer class="rodape"><p id="atualizado"></p></footer>
+    <nav class="abas-app" aria-label="Seções do app" data-abas-app></nav>
+    <div class="folha-mais" data-folha-mais hidden></div>
   </body>
 </html>
