@@ -28,6 +28,9 @@ export const REELS_PROGRAMADOS: readonly ReelsProgramado[] = [
   { id: 'novidades-capitao', ref: 2004, publicarEm: '2026-11-18T17:00:00Z' },
   { id: 'novidades-jogador', ref: 2005, publicarEm: '2026-11-18T19:00:00Z' },
   { id: 'novidades-site', ref: 2006, publicarEm: '2026-11-18T21:00:00Z' },
+  // Perfil do Time (ADR-0100): segunda 23/11, 11h de Brasília, logo depois de aprovado (o dono pediu
+  // para postar assim que subisse; a gravação foi disparada à mão).
+  { id: 'perfil-do-time', ref: 2008, publicarEm: '2026-11-23T14:00:00Z' },
 ];
 
 /** O job grava a partir de 2 h antes e ainda tenta até 1 h depois do horário. */

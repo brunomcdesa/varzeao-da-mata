@@ -6,7 +6,8 @@ import { criarTemporada } from '../src/calendario.js';
 import { AgendaNaMemoria, PastaLocal, type ItemDaAgenda } from '../src/nuvem.js';
 import { jobProgramados, legendaDaAbertura, legendaDasNovidades } from '../src/programados.js';
 import { REELS_PROGRAMADOS } from '@liga/shared';
-import { legendaDoRebalanceamentoT2 } from '../src/programados.js';
+import { dadosDoPerfilDoTime, legendaDoPerfilDoTime, legendaDoRebalanceamentoT2 } from '../src/programados.js';
+import { definirPerfilDoTime } from '../src/perfilDoTime.js';
 import type { Instagram } from '../src/instagram.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 import { mkdtemp } from 'node:fs/promises';
@@ -117,5 +118,21 @@ describe('Reels Programados (ADR-0051)', () => {
     expect(l).toContain('61 mudaram de Time e 56 ficaram');
     expect(l).toContain('Estreia quinta, 19/11, primeiro jogo às 11h');
     expect(l).not.toContain('@');
+  });
+
+  it('Perfil do Time (ADR-0100): segunda 23/11 às 11h, logo depois de aprovado; perfis do banco na ordem em que viraram oficiais', async () => {
+    const p = REELS_PROGRAMADOS.find((x) => x.id === 'perfil-do-time')!;
+    expect(p.publicarEm).toBe('2026-11-23T14:00:00Z');
+    expect(new Set(REELS_PROGRAMADOS.map((x) => x.ref)).size).toBe(REELS_PROGRAMADOS.length);
+    await definirPerfilDoTime(banco, 'JAC', 'jacareacc', { gravar: true, agora: new Date('2026-11-23T12:00:00Z') });
+    await definirPerfilDoTime(banco, 'CAP', 'esporte_clube_capivara', { gravar: true, agora: new Date('2026-11-23T12:20:00Z') });
+    await definirPerfilDoTime(banco, 'TAM', 'tamanduaofc', { gravar: true, agora: new Date('2026-11-23T12:10:00Z') });
+    const d = await dadosDoPerfilDoTime(banco);
+    expect(d.perfis.map((x) => x.time)).toEqual(['JAC', 'TAM', 'CAP']);
+    expect(d.semPerfil).toHaveLength(13);
+    expect(d.semPerfil).not.toContain('JAC');
+    const l = legendaDoPerfilDoTime(d);
+    expect(l).toContain('👉 Jacaré: @jacareacc');
+    expect(l).toContain('Um perfil por Time: vale o primeiro que pedir.');
   });
 });

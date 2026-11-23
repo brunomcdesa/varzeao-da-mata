@@ -11,7 +11,7 @@ import { FALA_DO_TIME, PISO_DA_TEMPORADA_1, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, RE
 import type { Banco } from './banco.js';
 import { gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
 import type { Instagram } from './instagram.js';
-import type { DadosDoAgradecimentoT1, DadosDoRebalanceamentoT2 } from '@liga/renderer';
+import type { DadosDoAgradecimentoT1, DadosDoPerfilDoTime, DadosDoRebalanceamentoT2 } from '@liga/renderer';
 import { TIME_PRIMO } from './rebalanceamento.js';
 import { PARAMETROS_T2 } from '@liga/sim';
 import { numerosDaTemporada1 } from './recompensaT1.js';
@@ -39,6 +39,7 @@ const ESTREIA_PREVISTA: Record<string, { temporada: number; estreia: string }> =
   'novidades-jogador': { temporada: 2, estreia: '2026-11-19' },
   'novidades-site': { temporada: 2, estreia: '2026-11-19' },
   'rebalanceamento-t2': { temporada: 2, estreia: '2026-11-19' },
+  'perfil-do-time': { temporada: 2, estreia: '2026-11-19' },
 };
 
 /** Legenda de cada Programado. */
@@ -46,6 +47,7 @@ async function legendaDe(banco: Banco, p: ReelsProgramado, temporada: number, es
   if (p.id === 'agradecimento-t1') return legendaDoAgradecimentoT1(await dadosDoAgradecimentoT1(banco, { publicarEm: p.publicarEm }));
   if (p.id.startsWith('novidades-')) return legendaDasNovidades(p.id, estreia, p.publicarEm);
   if (p.id === 'rebalanceamento-t2') return legendaDoRebalanceamentoT2(await dadosDoRebalanceamentoT2(banco, estreia));
+  if (p.id === 'perfil-do-time') return legendaDoPerfilDoTime(await dadosDoPerfilDoTime(banco));
   return legendaDaAbertura(temporada, estreia);
 }
 
@@ -282,5 +284,36 @@ export function legendaDoRebalanceamentoT2(d: DadosDoRebalanceamentoT2): string 
     `🏁 Estreia ${semana}, ${data}, primeiro jogo às ${d.primeiroJogoAs}h. Confere o seu Time no link da bio.`,
     '',
     '#futebol #varzea #jogo #liga',
+  ].join('\n');
+}
+
+/**
+ * Dados do Reels do Perfil do Time (ADR-0100), lidos na hora de gravar: os Perfis do Time
+ * oficiais, do mais antigo para o mais novo, e os Times da Série A que ainda não têm perfil.
+ */
+export async function dadosDoPerfilDoTime(banco: Banco): Promise<DadosDoPerfilDoTime> {
+  const perfis = (await banco.query<{ time_id: TimeId; usuario: string }>(`SELECT time_id, usuario FROM perfil_do_time ORDER BY oficial_desde, time_id`)).rows.map((l) => ({ time: l.time_id, usuario: l.usuario }));
+  const daLiga = [...GRUPOS_DA_A_DE_16.CHAO, ...GRUPOS_DA_A_DE_16.COPA];
+  return { perfis, semPerfil: daLiga.filter((t) => !perfis.some((p) => p.time === t)) };
+}
+
+/** Legenda do Reels do Perfil do Time (ADR-0100). Aqui o @ aparece: é texto, não fala. */
+export function legendaDoPerfilDoTime(d: DadosDoPerfilDoTime): string {
+  const exemplos = d.perfis.map((p) => `${FALA_DO_TIME[p.time].curto}: @${p.usuario}`);
+  return [
+    '📲 O seu Time pode ter perfil oficial no Instagram!',
+    '',
+    ...(exemplos.length ? ['Já tem Time com perfil, criado pelos próprios Jogadores:', ...exemplos.map((e) => `👉 ${e}`), ''] : []),
+    '✅ Pra ser oficial:',
+    '1. @varzeao_da_mata na bio',
+    '2. Nome e bicho do Time (o escudo pode ser o seu)',
+    '3. Não se passar pela Liga (nada de selo de verificado falso)',
+    '4. Respeito aos rivais (provocação de Clássico pode!)',
+    '',
+    '📩 Criou? Manda DM pro @varzeao_da_mata. Um perfil por Time: vale o primeiro que pedir.',
+    '',
+    '🎁 O perfil oficial ganha link na página do Time no site e no App, é seguido pela Liga, pode aparecer nos Stories e entra de colaborador em todo Reels de jogo do Time.',
+    '',
+    '#varzeaodamata #futebol #varzea',
   ].join('\n');
 }
