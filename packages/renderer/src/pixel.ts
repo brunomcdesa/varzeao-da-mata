@@ -99,6 +99,7 @@ export class Pincel {
     cor: string,
     o: { alinhar?: CanvasTextAlign; base?: CanvasTextBaseline; contorno?: string; peso?: number | string; espessura?: number } = {},
   ): number {
+    txt = semLigadura(txt);
     const p = this.px;
     const c = this.ctx;
     c.font = `${o.peso ?? 400} ${tamanho * p}px ${familia}`;
@@ -119,8 +120,15 @@ export class Pincel {
 
   /** Maior tamanho (até `max`) em que o texto cabe em `largura` pixels lógicos. */
   caber(txt: string, largura: number, max: number, familia: string, peso: number | string = 400): number {
+    txt = semLigadura(txt);
     this.ctx.font = `${peso} ${max * this.px}px ${familia}`;
     const w = this.ctx.measureText(txt).width / this.px;
     return w <= largura ? max : Math.floor((max * largura) / w);
   }
 }
+
+/**
+ * A fonte junta "fi" e "fl" numa ligadura que, em pixel, parece um "A" ("final" virava "Anal").
+ * Um separador invisível (U+200C) entre as letras desliga a ligadura sem mudar o texto.
+ */
+export const semLigadura = (txt: string) => txt.replace(/f(?=[il])/g, 'f\u200C');
