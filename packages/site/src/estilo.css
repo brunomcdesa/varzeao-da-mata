@@ -3949,3 +3949,41 @@ a.jogo:hover {
 .tabua-confronto:has(.com-estrelas) {
   padding-top: 24px;
 }
+
+/* Perfil do Time (ADR-0099): o Instagram oficial do Time, na faixa da página do Time. */
+.perfil-do-time {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.perfil-do-time a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  color: inherit;
+  max-width: 100%;
+  font-weight: 700;
+  font-size: 0.9em;
+  text-decoration: none;
+}
+/* @ comprido (esporte_clube_capivara) quebra depois do sublinhado ou do ponto, dentro da pílula. */
+.faixa-time > div {
+  min-width: 0;
+}
+.perfil-do-time span {
+  overflow-wrap: break-word;
+}
+.perfil-do-time svg {
+  flex: none;
+}
+.perfil-do-time a:hover,
+.perfil-do-time a:focus-visible {
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+.perfil-do-time small {
+  opacity: 0.85;
+}

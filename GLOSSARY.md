@@ -108,6 +108,14 @@ _Avoid_: campeonato, torneio
 Um dos 24 clubes fictícios, com identidade própria do projeto, que disputam a Liga. Cada Time está numa Série e tem rivais fixos, com quem faz o Clássico (dois rivais para cada Time da Série A de 16, desde a T2).
 _Avoid_: equipe, clube, lado, seleção
 
+**Perfil do Time**:
+O Instagram que um Jogador criou para o Time e que o dono reconheceu como oficial, a pedido pela DM. É um por Time: fica o primeiro que pediu. Precisa ter @varzeao_da_mata na bio, usar o nome e o bicho do Time (o escudo pode ser próprio), não se passar pela Liga e respeitar os rivais. Ganha link na página do Time, é seguido pela Liga, pode ter artes repostadas nos Stories e entra como colaborador em todo Reels de Partida do Time. ADR-0099.
+_Avoid_: perfil oficial da Liga, conta do time, página do time
+
+**Perfil de Torcida**:
+Qualquer outro Instagram sobre um Time que não seja o Perfil do Time, como um segundo perfil do mesmo Time. Pode existir à vontade, mas não ganha nenhum dos benefícios do Perfil do Time. ADR-0099.
+_Avoid_: perfil falso, fã-clube
+
 **Elenco**:
 Todos os Jogadores inscritos num Time. A Inscrição fica aberta durante toda a Temporada, então o Elenco cresce ao longo dela.
 _Avoid_: plantel, grupo, squad

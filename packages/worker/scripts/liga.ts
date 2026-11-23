@@ -15,6 +15,7 @@
  *   pnpm liga webhook-mensagens [--gravar]         mostra (e com --gravar faz) a inscrição da conta no webhook `messages` (ADR-0083)
  *   pnpm liga corrigir-trocas-de-posicao            devolve o OVR de quem trocou de posição pela regra antiga (ADR-0030)
  *   pnpm liga corrigir-ovr-fora-de-posicao          devolve o OVR da Posição a quem ficou com o da vaga (ADR-0098)
+ *   TIME=jacare USUARIO=jacareacc pnpm liga perfil-do-time [--gravar]  Perfil do Time oficial (ADR-0099); sem USUARIO, tira
  *   USUARIO=jacareacc pnpm liga testar-colaborador  cria (sem publicar) um Reels com colaborador, para conferir a permissão (ADR-0099)
  *   pnpm liga comentarios                          os comentários lidos e o resultado de cada um
  *   pnpm liga mudar-inicio --inicio 2026-11-08      antecipa/adia a Temporada (antes do 1º jogo)
@@ -65,6 +66,8 @@ import {
   interpretar,
   rodadaEmVotacao,
   rodarPartida,
+  definirPerfilDoTime,
+  tirarPerfilDoTime,
   tokenGuardado,
   Instagram,
   tabela,
@@ -279,6 +282,21 @@ async function main(): Promise<void> {
         const j = (await banco.query<{ time_id: string; posicao: string; ovr: number }>(`SELECT time_id, posicao, ovr FROM jogador WHERE lower(username) = lower($1)`, [usuario])).rows[0];
         console.log(`Resultado: ${r}${j ? ` → ${j.posicao} do ${j.time_id}, OVR ${j.ovr}` : ''}`);
         if (r !== 'INSCRITO' && r !== 'REALOCADO') process.exitCode = 1;
+        break;
+      }
+
+      case 'perfil-do-time': {
+        // Perfil do Time (ADR-0099): reconhece o Instagram do Time pedido pela DM. Com USUARIO,
+        // vira oficial; sem USUARIO, tira. TROCAR=true passa por cima de quem pediu primeiro.
+        const timeTexto = (process.env.TIME ?? '').trim();
+        const pedido = interpretar(`ENTRO ${timeTexto} ATA`);
+        if (!timeTexto || pedido.tipo !== 'INSCRICAO') throw new Error('Use: TIME=jacare USUARIO=jacareacc pnpm liga perfil-do-time (sem USUARIO, tira)');
+        const usuario = (process.env.USUARIO ?? '').trim();
+        const r = usuario
+          ? await definirPerfilDoTime(banco, pedido.time, usuario, { gravar: args.gravar, trocar: process.env.TROCAR === 'true' })
+          : await tirarPerfilDoTime(banco, pedido.time, { gravar: args.gravar });
+        console.log(`${nomeCurto(r.time)}: Perfil do Time @${r.antes ?? '—'} → @${r.depois ?? '—'}.${r.gravado ? ' Gravado.' : ' SIMULAÇÃO: nada foi gravado.'}`);
+        if (r.depois) console.log('Daqui em diante o perfil é convidado como colaborador nos Reels das Partidas do Time e aparece na página do Time.');
         break;
       }
 

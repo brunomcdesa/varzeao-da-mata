@@ -138,6 +138,11 @@ function linhaDoElenco(j: JogadorPublico, inscritosAte: string | null = null, pr
   </a></li>`;
 }
 
+/** Ícone do Instagram em traço, na cor do texto. */
+function iconeInstagram(): ReturnType<typeof html> {
+  return html`<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>`;
+}
+
 export const paginaTime: Pagina = async (main, [idTexto]) => {
   const t = (idTexto ?? '').toUpperCase() as TimeId;
   if (!TIMES.includes(t)) {
@@ -146,6 +151,8 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
   }
   const [l, js] = await Promise.all([liga(), jogadores()]);
   const id = IDENTIDADE[t];
+  // Perfil do Time (ADR-0099): o Instagram que os Jogadores criaram e a Liga reconheceu.
+  const perfil = l.times.find((x) => x.id === t)?.instagram ?? null;
   const elenco = js.filter((j) => j.time === t).sort((a, b) => b.ovr - a.ovr || a.username.localeCompare(b.username));
   const serie = serieDoTime(l, t);
   const tabela = tabelaDaSerie(l, serie);
@@ -175,6 +182,7 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
       <div>
         <h1>${id.nome}</h1>
         <p class="bordao">“${FALA_DO_TIME[t].bordao}”</p>
+        ${perfil ? html`<p class="perfil-do-time"><a href="https://www.instagram.com/${perfil}/" target="_blank" rel="noopener">${iconeInstagram()}<span>@${perfil.split(/(?<=[._])/).map((parte, i) => (i ? html`<wbr>${parte}` : parte))}</span></a><small>Perfil oficial do Time</small></p>` : ''}
         ${titulosDo(l, t).length
           ? html`<p class="titulos-time">${titulosDo(l, t).map(() => taca(20, 'trofeu'))}<span>${titulosDo(l, t).length === 1 ? 'Campeão' : `${titulosDo(l, t).length} vezes campeão`}: ${titulosDo(l, t).map((n) => `Temporada ${n}`).join(', ')}</span></p>`
           : ''}

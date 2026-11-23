@@ -2,11 +2,6 @@
 # Não publica nada: cria o container, espera ficar pronto e para. Só à mão.
 name: testar-colaborador
 on:
-  # Enquanto o branch perfil-do-time não vai para o master, o workflow roda no push dele
-  # (workflow_dispatch só existe para arquivos que já estão no master).
-  push:
-    branches: [perfil-do-time]
-    paths: [.github/workflows/testar-colaborador.yml]
   workflow_dispatch:
     inputs:
       usuario:
@@ -23,7 +18,7 @@ jobs:
       IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
       IG_APP_ID: ${{ vars.IG_APP_ID }}
       IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
-      USUARIO: ${{ inputs.usuario || 'jacareacc' }}
+      USUARIO: ${{ inputs.usuario }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/preparar

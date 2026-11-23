@@ -15,6 +15,8 @@ export interface TimePublico {
   sigla: string;
   primaria: string;
   secundaria: string;
+  /** Perfil do Time no Instagram, sem o @ (ADR-0099). Só os reconhecidos como oficiais. */
+  instagram?: string;
 }
 
 export interface LinhaTabelaPublica {
