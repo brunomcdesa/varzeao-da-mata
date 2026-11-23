@@ -9,6 +9,7 @@ import { atualizarCarteiraDoTopo } from '../carteiraDoTopo.js';
 import { jogadores, liga } from '../dados.js';
 import { temporadaDoApp } from '../instalacao.js';
 import { acaoDoItem, corpoDaLoja, type EstadoDaLoja } from '../loja.js';
+import { desenharIcones } from '../iconesDaLoja.js';
 import { carteiraDoVinculo, enviarEscolhaDoVinculo, vinculoDisponivel } from '../meuPersonagem.js';
 import { html } from '../ui.js';
 import type { Pagina } from './tipos.js';
@@ -31,6 +32,8 @@ export const paginaLoja: Pagina = async (main) => {
   let quadro = 0;
   let timer = 0;
 
+  // O boneco do dono (ou o de exemplo), sem Itens: a base da prévia e dos ícones.
+  const baseDoBoneco = () => (eu ? visualDoJogador(eu.time, eu.posicao, `@${eu.username}`) : visualDoJogador(EXEMPLO.time, EXEMPLO.posicao, EXEMPLO.username));
   const desenhar = () => {
     const canvas = main.querySelector<HTMLCanvasElement>('.previa-boneco');
     if (!canvas) return;
@@ -39,7 +42,7 @@ export const paginaLoja: Pagina = async (main) => {
     c.clearRect(0, 0, canvas.width, canvas.height);
     const item = selecionado ? ITEM_POR_CODIGO.get(selecionado) : null;
     const equipados: ItensEquipados = item ? { ...estado.equipados, [item.encaixe]: item.codigo } : estado.equipados;
-    const base = eu ? visualDoJogador(eu.time, eu.posicao, `@${eu.username}`) : visualDoJogador(EXEMPLO.time, EXEMPLO.posicao, EXEMPLO.username);
+    const base = baseDoBoneco();
     const v = { ...base, ...(eu?.numero ? { numero: eu.numero } : {}), ...vestir(equipados, estado.goleiro) };
     // Com uma comemoração selecionada, o boneco faz ela em loop (1 s, e uma pausa).
     if (item?.encaixe === 'COMEMORACAO' && v.comemoracao) {
@@ -61,10 +64,9 @@ export const paginaLoja: Pagina = async (main) => {
   };
 
   const render = (aviso?: { texto: string; ok: boolean }) => {
-    main.innerHTML = html`<section class="placa loja-pagina">
-      ${eu ? html`<p class="tabua-titulo">${eu.apelido ?? `@${eu.username}`}</p>` : ''}
-      <h1>Loja</h1>
-      ${carteira ? '' : html`<p class="legenda">${vinculoDisponivel() ? html`Para comprar, vincule o seu personagem na página do seu Jogador (em <a href="#/jogadores">Jogadores</a>). As Moedas vêm do Salário e dos prêmios.` : 'A compra abre aqui em breve.'}</p>`}
+    main.innerHTML = html`<section class="loja-pagina">
+      <header class="loja-letreiro"><h1>Loja</h1>${eu ? html`<p>Vestiário de ${eu.apelido ?? `@${eu.username}`}</p>` : ''}</header>
+      ${carteira ? '' : html`<p class="loja-aviso">${vinculoDisponivel() ? html`Para comprar, vincule o seu personagem na página do seu Jogador (em <a href="#/jogadores">Jogadores</a>). As Moedas vêm do Salário e dos prêmios.` : 'A compra abre aqui em breve.'}</p>`}
       ${corpoDaLoja(estado, selecionado)}
     </section>`.s;
     const canvas = main.querySelector<HTMLCanvasElement>('.previa-boneco');
@@ -79,6 +81,7 @@ export const paginaLoja: Pagina = async (main) => {
     }
     // Sem Vínculo não há o que comprar: o botão some e fica só a prévia.
     if (!carteira) main.querySelector('[data-acao-loja]')?.remove();
+    desenharIcones(main, baseDoBoneco());
     desenhar();
   };
 
