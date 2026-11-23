@@ -74,7 +74,7 @@ O nome vai na variável `CF_PAGES_PROJETO`. O site fica em `https://varzeao-da-m
 1. Cloudflare → **Add a domain** → `varzeaodamata.com.br`, plano Free. Ela mostra dois servidores de nome.
 2. Registro.br → domínio → **Alterar servidores DNS** com os dois da Cloudflare. Esperar a delegação (o domínio sai de "pendente").
 3. Workers & Pages → projeto → **Custom domains** → `varzeaodamata.com.br` (e, se quiser, `www.varzeaodamata.com.br`). Não crie registro A/CNAME à mão: a Cloudflare cria.
-4. Turnstile → widget do site → acrescentar o hostname `varzeaodamata.com.br`.
+4. Turnstile (só se `LIGA_TURNSTILE_SITEKEY` estiver configurada; protege as votações) → widget do site → acrescentar o hostname `varzeaodamata.com.br`.
 5. GitHub → PROD → variável `LIGA_SITE_URL` = `https://varzeaodamata.com.br` (link de Vínculo). Na borda, `VAPID_CONTATO` é opcional.
 6. Trocar o link da bio do Instagram.
 
