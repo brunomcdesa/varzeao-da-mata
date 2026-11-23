@@ -4117,3 +4117,82 @@ a.jogo:hover {
 .tabua-confronto:has(.com-estrelas) {
   padding-top: 24px;
 }
+
+/* Loja (ADR-0095): Itens por Encaixe, com o boneco de prévia */
+.loja-grade {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.loja-vitrine {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+.loja-vitrine .saldo-moedas {
+  font-size: 1rem;
+  margin: 0;
+}
+.loja-encaixes fieldset {
+  border: 0;
+  margin: 0 0 10px;
+  padding: 0;
+}
+.loja-encaixes legend {
+  font: 700 0.8125rem var(--texto);
+  margin-bottom: 4px;
+}
+.amostra.item {
+  position: relative;
+}
+.amostra.item.raro {
+  box-shadow: inset 0 0 0 2px #fff6c9;
+}
+.amostra.item.raro::before {
+  content: '★';
+  position: absolute;
+  top: -9px;
+  left: -7px;
+  font-size: 0.75rem;
+  color: #b07a12;
+  text-shadow: 0 0 2px var(--placa);
+}
+/* Já é do Jogador: um tique no canto. Equipado: o tique fica amarelo. */
+.amostra.item.meu::after {
+  content: '✓';
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  line-height: 14px;
+  font: 700 0.625rem/14px var(--texto);
+  color: var(--placa);
+  background: var(--contorno);
+  border-radius: 50%;
+}
+.amostra.item.usando::after {
+  background: var(--amarelo);
+  color: var(--contorno);
+}
+.loja-escolha {
+  margin-top: 6px;
+}
+.loja-escolha p {
+  margin: 0 0 6px;
+}
+.loja-escolha small,
+.estado-loja {
+  color: var(--tinta-fraca);
+}
+.loja-escolha .botao[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+@media (max-width: 380px) {
+  .loja-grade {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+}

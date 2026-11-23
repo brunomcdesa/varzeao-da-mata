@@ -5,8 +5,9 @@
  *
  * Legenda: . vazio · K contorno · H cabelo · S pele · C camisa · c detalhe da camisa
  *          B calção · M meião · L luva/mão do goleiro (cor da camisa)
+ *          Itens da Loja (ADR-0095): P chuteira · W munhequeira · F faixa · G luva do goleiro
  */
-import { CABELOS, PELES, type Aparencia, type Penteado } from '@liga/shared';
+import { CABELOS, PELES, type Aparencia, type Encaixe, type Penteado } from '@liga/shared';
 import type { AcaoJogador } from './jogada.js';
 import { contraste } from './pixel.js';
 
@@ -164,6 +165,8 @@ export interface Visual {
   penteado?: Penteado;
   /** Número da camisa escolhido pelo dono (1 a 99): só aparece de costas. Sem ele, camisa lisa. */
   numero?: number | null;
+  /** Cores dos Itens equipados (ADR-0095), já sem a Luva de quem não é goleiro. */
+  itens?: Partial<Record<Encaixe, string>>;
 }
 
 
@@ -205,6 +208,49 @@ function comPenteado(grade: string[], penteado: Penteado | undefined, pose: Pose
     }
     return c.join('');
   });
+}
+
+/**
+ * Veste os Itens na grade (ADR-0095). A regra vale para todas as poses, sem desenho novo:
+ * - Chuteira: o contorno logo abaixo do meião (o pé) ganha a cor da chuteira.
+ * - Munhequeira: no braço (pele fora do rosto com pele logo abaixo), o pixel do
+ *   pulso, que é o de cima com o braço para baixo e o de baixo com o braço levantado.
+ * - Luva: a mão do goleiro (a outra ponta do braço) e a luva do mergulho.
+ * - Faixa: a terceira linha da cabeça, por cima do cabelo (ou da careca).
+ */
+export function comItens(grade: string[], itens: Visual['itens'], pose: Pose): string[] {
+  if (!itens || !Object.keys(itens).length) return grade;
+  const g = grade.map((l) => [...l]);
+  const cabeca = pose === 'MERGULHO' ? -1 : 6;
+  if (itens.CHUTEIRA) {
+    for (let x = 0; x < LARGURA_SPRITE; x++) {
+      for (let y = 1; y < g.length; y++) if (grade[y]![x] === 'K' && grade[y - 1]![x] === 'M' && (y + 1 >= grade.length || grade[y + 1]![x] !== 'M')) g[y]![x] = 'P';
+    }
+  }
+  if ((itens.MUNHEQUEIRA || itens.LUVA) && pose !== 'MERGULHO') {
+    for (let y = 0; y < g.length - 1; y++) {
+      for (let x = 0; x < LARGURA_SPRITE; x++) {
+        if (grade[y]![x] !== 'S' || grade[y + 1]![x] !== 'S' || noRosto(grade, x, y) || noRosto(grade, x, y + 1)) continue;
+        // Par vertical de pele fora do rosto: o braço. Levantado (na altura da cabeça), a mão fica em cima.
+        const [pulso, mao] = y < 7 ? [y + 1, y] : [y, y + 1];
+        if (itens.MUNHEQUEIRA) g[pulso]![x] = 'W';
+        if (itens.LUVA) g[mao]![x] = 'G';
+      }
+    }
+  }
+  if (itens.LUVA) for (const l of g) for (let x = 0; x < l.length; x++) if (l[x] === 'L') l[x] = 'G';
+  if (itens.FAIXA && cabeca > 0) {
+    const l = g[2]!;
+    for (let x = 0; x < l.length; x++) if (l[x] === 'H' || (l[x] === 'S' && grade[2]![x] !== '.' && x > l.indexOf('K') && x < l.lastIndexOf('K'))) l[x] = 'F';
+  }
+  return g.map((l) => l.join(''));
+}
+
+/** Pele da cabeça (rosto e pescoço): nas 7 primeiras linhas, entre o primeiro e o último contorno. */
+function noRosto(grade: string[], x: number, y: number): boolean {
+  if (y >= 7) return false;
+  const l = grade[y]!;
+  return x > l.indexOf('K') && x < l.lastIndexOf('K');
 }
 
 const CONTORNO = '#15110E';
@@ -277,10 +323,10 @@ export function pontosDoNumero(numero: number): { x: number; y: number }[] {
  */
 export function sprite(pose: Pose, v: Visual, espelhado = false): HTMLCanvasElement | OffscreenCanvas {
   const numero = numeroNasCostas(pose, v.numero);
-  const k = `${pose}|${v.camisa}|${v.detalhe}|${v.calcao}|${v.meiao}|${v.pele}|${v.cabelo}|${v.penteado ?? ''}|${numero ?? ''}|${espelhado ? 'E' : ''}`;
+  const k = `${pose}|${v.camisa}|${v.detalhe}|${v.calcao}|${v.meiao}|${v.pele}|${v.cabelo}|${v.penteado ?? ''}|${numero ?? ''}|${espelhado ? 'E' : ''}|${v.itens ? Object.entries(v.itens).map((e) => e.join(':')).join(',') : ''}`;
   const pronto = cache.get(k);
   if (pronto) return pronto;
-  let grade = comPenteado(POSES[pose], v.penteado, pose);
+  let grade = comItens(comPenteado(POSES[pose], v.penteado, pose), v.itens, pose);
   if (espelhado) grade = grade.map((l) => [...l].reverse().join(''));
   // Com número, a faixa de detalhe das costas sai e o boneco é pintado em dobro (meio pixel
   // para o número caber). Quem desenha sempre passa o tamanho final, então nada mais muda.
@@ -290,6 +336,7 @@ export function sprite(pose: Pose, v: Visual, espelhado = false): HTMLCanvasElem
   const g = c.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
   const cores: Record<string, string> = {
     K: CONTORNO, H: v.cabelo, S: v.pele, C: v.camisa, c: v.detalhe, B: v.calcao, M: v.meiao, L: v.detalhe,
+    P: v.itens?.CHUTEIRA ?? CONTORNO, W: v.itens?.MUNHEQUEIRA ?? v.pele, F: v.itens?.FAIXA ?? v.cabelo, G: v.itens?.LUVA ?? v.pele,
   };
   grade.forEach((linha, y) => {
     for (let x = 0; x < linha.length; x++) {
