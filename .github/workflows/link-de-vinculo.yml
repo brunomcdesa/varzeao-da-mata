@@ -31,7 +31,7 @@ jobs:
       R2_BUCKET_PUBLICO: ${{ vars.R2_BUCKET_PUBLICO }}
       R2_BUCKET_PRIVADO: ${{ vars.R2_BUCKET_PRIVADO }}
       R2_URL_PUBLICA: ${{ vars.R2_URL_PUBLICA }}
-      SITE_URL: ${{ vars.LIGA_SITE_URL || 'https://varzeao-da-mata.pages.dev' }}
+      SITE_URL: ${{ vars.LIGA_SITE_URL || 'https://varzeaodamata.com.br' }}
       USUARIO: ${{ inputs.usuario }}
       ID: ${{ inputs.id }}
     steps:

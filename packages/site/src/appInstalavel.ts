@@ -7,6 +7,7 @@ import { liga } from './dados.js';
 import { appLiberado, temporadaDoApp, comoInstalar, type ComoInstalar } from './instalacao.js';
 import { suporteAosAvisos, timesComAviso } from './avisosApp.js';
 import { html, type Html } from './ui.js';
+import { SITE_OFICIAL, ehEnderecoAntigo, linkNoEnderecoNovo } from './enderecoNovo.js';
 
 const CHAVE_DISPENSA = 'varzeao:instalar-dispensado';
 const CHAVE_DISPENSA_AVISOS = 'varzeao:avisos-dispensado';
@@ -63,9 +64,24 @@ function conteudo(modo: Exclude<ComoInstalar, 'instalado' | null>): Html {
   }
 }
 
+/** No endereço antigo (ADR-0103) a placa de mudança toma o lugar do convite para instalar. Não tem "Agora não"; o link acompanha a página (desenhar roda a cada hashchange). */
+function desenharMudanca(lugar: HTMLElement): void {
+  const dominio = SITE_OFICIAL.replace('https://', '');
+  lugar.innerHTML = html`<section class="placa instalar mudanca" aria-labelledby="instalar-titulo">
+    <div class="instalar-topo"><img src="icones/icone-192.png" alt="" width="44" height="44" /><h2 id="instalar-titulo">O Varzeão mudou de endereço</h2></div>
+    <p>Agora o site e o App ficam em <b>${dominio}</b>. Lá você instala o App de novo, refaz o Vínculo com o seu Jogador e reativa os Avisos.</p>
+    <div class="instalar-acoes"><a class="botao" href="${linkNoEnderecoNovo(location.hash)}">Ir para o novo endereço</a></div>
+  </section>`.s;
+  lugar.hidden = false;
+}
+
 function desenhar(): void {
   const lugar = document.getElementById('instalar');
   if (!lugar) return;
+  if (ehEnderecoAntigo(location.host)) {
+    desenharMudanca(lugar);
+    return;
+  }
   const modo = comoInstalar({
     userAgent: navigator.userAgent,
     abertoComoApp: abertoComoApp(),
