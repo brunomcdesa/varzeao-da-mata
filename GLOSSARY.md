@@ -216,6 +216,10 @@ _Avoid_: superfinal, desafio dos campeões
 Na última Rodada da Fase de Liga, a situação de cada Time em relação às 4 vagas do Mata-mata: **Garantido** (nenhum resultado que falta o tira dos 4 primeiros, contando os desempates), **Eliminado** (nenhum resultado o coloca entre os 4) ou "depende" (ainda depende de outros resultados). O Narrador e as plaquinhas embaixo do placar mostram também do que o Time precisa e o que acontece "se terminar assim". ADR-0053.
 _Avoid_: classificado matematicamente, G4
 
+**Chances**:
+Cartela do Resumo da Rodada, da metade da Fase de Liga (a Rodada 4 de 7) até a penúltima Rodada: a chance de cada Time ir às Semifinais e de cair, por Grupo (ou por Série). Os jogos que faltam são simulados 20 mil vezes, todos com chances iguais, com os desempates da tabela. Quando é certo de verdade, aparece o selo **Na semi**, **Fora**, **Caiu** ou **Salvo**; sem certeza, nunca 0% nem 100% ("<1%", ">99%"). ADR-0098.
+_Avoid_: probabilidade, previsão, palpite (o Palpite é outra coisa)
+
 **Disputa de pênaltis**:
 Como se decide um jogo do Mata-mata (Semifinal ou Final) que termina empatado nos 90 minutos. Aparece cobrança por cobrança no Ao Vivo, no Replay e no Reels; o Ao Vivo do Mata-mata dura até 8 minutos para caber a disputa.
 Também decide os jogos empatados da Copa. A ordem é a dos Batedores escolhidos pelo Capitão; sem escolha, ATA, ATA, MEI, MEI, ZAG, ZAG, GOL (ADR-0091).
