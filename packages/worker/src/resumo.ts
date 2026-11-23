@@ -167,8 +167,8 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
   const caem = timesQueCaem({ temSerieB: comSeries, porGrupo: !!grupos });
   // Seleção da Rodada (ADR-0041), a partir da T2.
   const destaques = await destaquesDaRodadaNoBanco(banco, rodadaId, r.temporada, comSeries);
-  // Chances da reta final (ADR-0099): da metade da Fase de Liga até a penúltima Rodada.
-  const chances = await chancesDoResumo(banco, r.temporada_id, r.fase, r.numero, { comSeries, caemNaA: caem });
+  // Chances da reta final (ADR-0099): da metade da Fase de Liga até a última Rodada ("Fim da Fase de Liga").
+  const { chances, fim: fimDaFaseDeLiga } = await chancesDoResumo(banco, r.temporada_id, r.fase, r.numero, { comSeries, caemNaA: caem });
   return {
     ...(final ? { votacao: 'TEMPORADA' as const } : {}),
     ...(campeao ? { campeao } : {}),
@@ -186,7 +186,7 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
     totalNovos: novos.length,
     candidatos,
     ...(destaques.length ? { destaques } : {}),
-    ...(chances.length ? { chances } : {}),
+    ...(chances.length ? { chances, ...(fimDaFaseDeLiga ? { fimDaFaseDeLiga: true } : {}) } : {}),
     ...(craqueAnterior ? { craqueDaRodada: craqueAnterior } : {}),
     ...(craqueAnteriorB ? { craqueDaRodadaB: craqueAnteriorB } : {}),
   };
@@ -195,7 +195,8 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
 /**
  * Chances da reta final (ADR-0099) para o Resumo: um bloco por Grupo (T2) ou por Série. Na A,
  * vão às Semifinais 2 por Grupo (ou 4 na Série) e caem os da zona de queda; na B, ninguém cai
- * pela tabela (sobem os finalistas do Mata-mata), então só conta a Semifinal. Vazio fora da reta.
+ * pela tabela (sobem os finalistas do Mata-mata), então só conta a Semifinal. Vazio fora da reta;
+ * `fim` na última Rodada da Fase de Liga.
  */
 export async function chancesDoResumo(
   banco: Banco,
@@ -203,9 +204,10 @@ export async function chancesDoResumo(
   fase: 'LIGA' | 'MATA_MATA',
   rodada: number,
   o: { comSeries: boolean; caemNaA: number },
-): Promise<NonNullable<DadosDoResumo['chances']>> {
+): Promise<{ chances: NonNullable<DadosDoResumo['chances']>; fim: boolean }> {
   const ultima = Number((await banco.query<{ n: number | null }>(`SELECT max(numero) AS n FROM rodada WHERE temporada_id = $1 AND fase = 'LIGA'`, [temporadaId])).rows[0]?.n ?? 0);
-  if (!resumoMostraChances(fase, rodada, ultima)) return [];
+  if (!resumoMostraChances(fase, rodada, ultima)) return { chances: [], fim: false };
+  const fim = rodada === ultima;
   const faltam = (
     await banco.query<{ mandante_id: TimeId; visitante_id: TimeId; serie: Serie }>(
       `SELECT p.mandante_id, p.visitante_id, p.serie FROM partida p JOIN rodada r ON r.id = p.rodada_id
@@ -217,13 +219,14 @@ export async function chancesDoResumo(
     faltam.filter((p) => p.serie === serie && times.includes(p.mandante_id) && times.includes(p.visitante_id)).map((p) => ({ mandante: p.mandante_id, visitante: p.visitante_id }));
   const grupos = await gruposDaTemporada(banco, temporadaId);
   if (grupos) {
-    return Promise.all(
+    const chances = await Promise.all(
       GRUPOS.map(async (grupo) => {
         const t = await tabela(banco, temporadaId, 'A', grupo);
         const times = chancesDaTabela(t, doBloco(grupos[grupo], 'A'), { classificam: CLASSIFICAM_POR_GRUPO, caem: o.caemNaA });
         return { grupo, classificam: CLASSIFICAM_POR_GRUPO, caem: o.caemNaA, times };
       }),
     );
+    return { chances, fim };
   }
   const series = await seriesDaTemporada(banco, temporadaId);
   const blocos: NonNullable<DadosDoResumo['chances']> = [];
@@ -234,7 +237,7 @@ export async function chancesDoResumo(
     const times = chancesDaTabela(t, doBloco(series[serie], serie), { classificam: VAGAS_NO_MATA_MATA, caem });
     blocos.push({ ...(o.comSeries ? { serie } : {}), classificam: VAGAS_NO_MATA_MATA, caem, times });
   }
-  return blocos;
+  return { chances: blocos, fim };
 }
 
 /**

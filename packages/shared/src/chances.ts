@@ -43,9 +43,12 @@ export function primeiraRodadaDasChances(rodadasDaLiga: number): number {
   return Math.ceil(rodadasDaLiga / 2);
 }
 
-/** Se o Resumo desta Rodada mostra as Chances: da metade até a penúltima Rodada da Fase de Liga. */
+/**
+ * Se o Resumo desta Rodada mostra as Chances: da metade até a última Rodada da Fase de Liga. Na
+ * última, a cartela vira "Fim da Fase de Liga", só com os selos (nada falta jogar).
+ */
 export function resumoMostraChances(fase: 'LIGA' | 'MATA_MATA', rodada: number, rodadasDaLiga: number): boolean {
-  return fase === 'LIGA' && rodada >= primeiraRodadaDasChances(rodadasDaLiga) && rodada < rodadasDaLiga;
+  return fase === 'LIGA' && rodada >= primeiraRodadaDasChances(rodadasDaLiga) && rodada <= rodadasDaLiga;
 }
 
 /** Gerador com semente (mulberry32): a mesma conta dá sempre o mesmo número. */

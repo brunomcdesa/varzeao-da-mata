@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { chancesDaTabela, porcentagem, primeiraRodadaDasChances, resumoMostraChances, textoDaQueda, textoDaSemifinal, type TimeId } from '@liga/shared';
-import { RoteiroResumo, falaDasChances } from '../../renderer/src/resumo.js';
+import { RoteiroResumo, falaDasChances, falaDoFimDaFaseDeLiga } from '../../renderer/src/resumo.js';
 import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
 import { dadosDoResumo } from '../src/resumo.js';
@@ -13,11 +13,11 @@ const jogo = (s: string) => {
 };
 
 describe('Chances da reta final (ADR-0099)', () => {
-  it('aparecem da metade da Fase de Liga até a penúltima Rodada', () => {
+  it('aparecem da metade até a última Rodada da Fase de Liga', () => {
     expect(primeiraRodadaDasChances(7)).toBe(4);
-    expect([1, 2, 3, 4, 5, 6, 7].filter((r) => resumoMostraChances('LIGA', r, 7))).toEqual([4, 5, 6]);
+    expect([1, 2, 3, 4, 5, 6, 7].filter((r) => resumoMostraChances('LIGA', r, 7))).toEqual([4, 5, 6, 7]);
     expect(resumoMostraChances('MATA_MATA', 8, 7)).toBe(false);
-    expect([5, 8, 9].filter((r) => resumoMostraChances('LIGA', r, 9))).toEqual([5, 8]);
+    expect([4, 5, 9].filter((r) => resumoMostraChances('LIGA', r, 9))).toEqual([5, 9]);
   });
 
   it('selo só quando é certo de verdade; sem certeza, nunca 0% nem 100%', () => {
@@ -54,7 +54,18 @@ describe('Chances da reta final (ADR-0099)', () => {
     const r = new RoteiroResumo({ temporada: 2, rodada: 5, fase: 'LIGA', placares: [], tabela: [], novosContratados: [], totalNovos: 0, candidatos: [], chances });
     const cartelas = r.segmentos.map((s) => s.cartela);
     expect(cartelas.indexOf('CHANCES')).toBe(cartelas.indexOf('TABELA') + 1);
-    expect(falaDasChances(chances)).toBe('Hora da matemática! Simulamos os jogos que faltam. No Grupo do Galho, a Arara já está na semifinal; o Tucano já caiu para a Série B.');
+    expect(falaDasChances(chances)).toBe('Hora da matemática! Simulamos os jogos que faltam. No Grupo do Galho, com mais chances de semifinal, a Arara, já garantida. E com mais risco de cair, o Tucano, que já caiu, e a Onça, com 64 por cento.');
+  });
+});
+
+describe('Fim da Fase de Liga (ADR-0099)', () => {
+  it('o Narrador diz quem foi à Semifinal e quem caiu, na ordem da tabela', () => {
+    const tabela = [linha('ARA', 3, 9, 3, 6, 7), linha('ONC', 3, 4, 1, 1, 3), linha('CAP', 3, 3, 1, 0, 3), linha('TUC', 3, 0, 0, -8, 0)];
+    const times = chancesDaTabela(tabela, [], { classificam: 1, caem: 2 });
+    expect(times.every((c) => c.certezaSemifinal !== null && c.certezaQueda !== null)).toBe(true);
+    expect(falaDoFimDaFaseDeLiga([{ grupo: 'CHAO', classificam: 1, caem: 2, times }])).toBe(
+      'Fim da Fase de Liga! A conta fechou. No Grupo do Barro, na semifinal, a Arara. E caem para a Série B a Capivara e o Tucano.',
+    );
   });
 });
 
@@ -91,8 +102,17 @@ describe('Chances no Resumo (banco)', () => {
     expect(b!.times.every((c) => c.queda === 0)).toBe(true);
   });
 
-  it('no Resumo da última Rodada já não tem Chances', async () => {
+  it('no Resumo da última Rodada vira "Fim da Fase de Liga": todo mundo com selo', async () => {
     const d = await dadosDoResumo(banco, await jogarAte(7));
-    expect(d.chances).toBeUndefined();
+    expect(d.fimDaFaseDeLiga).toBe(true);
+    const [b] = d.chances!;
+    expect(b!.times.every((c) => c.certezaSemifinal !== null)).toBe(true);
+    expect(b!.times.filter((c) => c.certezaSemifinal === 'GARANTIDO').map((c) => c.time)).toEqual(d.tabela.slice(0, 4).map((l) => l.time));
+  });
+
+  it('antes da última Rodada, não é o Fim da Fase de Liga', async () => {
+    const d = await dadosDoResumo(banco, await jogarAte(6));
+    expect(d.chances).toHaveLength(1);
+    expect(d.fimDaFaseDeLiga).toBeUndefined();
   });
 });

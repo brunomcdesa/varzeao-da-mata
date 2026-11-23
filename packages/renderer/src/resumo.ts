@@ -73,6 +73,8 @@ export interface DadosDoResumo {
    * da tabela. Ganha a cartela "Chances", logo depois da tabela.
    */
   chances?: { grupo?: Grupo; serie?: Serie; classificam: number; caem: number; times: ChancesDoTime[] }[];
+  /** Resumo da última Rodada da Fase de Liga: a cartela das Chances vira "Fim da Fase de Liga", só com selos. */
+  fimDaFaseDeLiga?: boolean;
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
   /** Estrelas de Título nos escudos (ADR-0060). */
@@ -294,7 +296,7 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
         break;
       }
       case 'CHANCES':
-        texto = falaDasChances(d.chances ?? []);
+        texto = d.fimDaFaseDeLiga ? falaDoFimDaFaseDeLiga(d.chances ?? []) : falaDasChances(d.chances ?? []);
         break;
       case 'NOVOS':
         texto = d.totalNovos === 1 ? 'Chegou um novo contratado na Liga. Seja bem-vindo!' : `Chegaram ${d.totalNovos} novos contratados na Liga. Sejam bem-vindos!`;
@@ -320,39 +322,78 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
   return falas;
 }
 
-/** "37 por cento", "menos de 1 por cento", "mais de 99 por cento" (a mesma conta da tela). */
-function porCentoFalado(p: number): string {
-  const x = porcentagem(p);
-  return x === '<1%' ? 'menos de 1 por cento' : x === '>99%' ? 'mais de 99 por cento' : `${x.slice(0, -1)} por cento`;
-}
-
 /** Nome de um bloco das Chances na fala: "No Grupo do Barro", "Na Série A", ou nada. */
 function noBloco(b: NonNullable<DadosDoResumo['chances']>[number], varios: boolean): string {
   if (b.grupo) return NOME_DO_GRUPO[b.grupo].replace(/^Grupo d/, 'No Grupo d');
   return varios && b.serie ? `Na Série ${b.serie}` : '';
 }
 
+/** "67", "menos de 1", "mais de 99" (o "por cento" vai só no último número da lista). */
+function numeroFalado(p: number): string {
+  const x = porcentagem(p);
+  return x === '<1%' ? 'menos de 1' : x === '>99%' ? 'mais de 99' : x.slice(0, -1);
+}
+
+/** "a Arara", "o Lobo-guará, com 67" ... "e a Sucuri, com 53 por cento". */
+function listaComChances(itens: { time: TimeId; certo: string | null; p: number }[]): string {
+  const ultimoNumero = itens.map((i) => i.certo === null).lastIndexOf(true);
+  const partes = itens.map((i, k) => `${artigo(i.time)} ${curto(i.time)}, ${i.certo ?? `com ${numeroFalado(i.p)}${k === ultimoNumero ? ' por cento' : ''}`}`);
+  return partes.length <= 1 ? (partes[0] ?? '') : `${partes.slice(0, -1).join(', ')}, e ${partes.at(-1)}`;
+}
+
 /**
- * Fala da cartela das Chances (ADR-0099): só o que está na tela. Em cada bloco, quem tem mais
- * chance de Semifinal e quem corre mais risco de cair, com o selo quando já é certo.
+ * Fala da cartela das Chances (ADR-0099): só o que está na tela. Em cada bloco, todos os Times
+ * com mais chance de Semifinal (tantos quantas são as vagas) e todos com mais risco de cair
+ * (tantos quantos caem), com a porcentagem ou o selo, quando já é certo.
  */
 export function falaDasChances(blocos: NonNullable<DadosDoResumo['chances']>): string {
   const partes = ['Hora da matemática! Simulamos os jogos que faltam.'];
+  const garantido = (t: TimeId) => (FALA_DO_TIME[t].artigo === 'a' ? 'já garantida' : 'já garantido');
   for (const b of blocos) {
     const no = noBloco(b, blocos.length > 1);
     const frase: string[] = [];
-    const naSemi = b.times.filter((c) => c.certezaSemifinal === 'GARANTIDO');
-    const briga = b.times.filter((c) => c.certezaSemifinal === null).sort((x, y) => y.semifinal - x.semifinal);
-    if (naSemi.length) frase.push(`${naSemi.map((c) => `${artigo(c.time)} ${curto(c.time)}`).join(' e ')} já ${naSemi.length > 1 ? 'estão' : 'está'} na semifinal`);
-    else if (briga[0]) frase.push(`${artigo(briga[0].time)} ${curto(briga[0].time)} tem ${porCentoFalado(briga[0].semifinal)} de chance de semifinal`);
+    const semi = b.times
+      .filter((c) => c.certezaSemifinal !== 'ELIMINADO')
+      .sort((x, y) => y.semifinal - x.semifinal)
+      .slice(0, b.classificam)
+      .map((c) => ({ time: c.time, p: c.semifinal, certo: c.certezaSemifinal === 'GARANTIDO' ? garantido(c.time) : null }));
+    if (semi.length) frase.push(`com mais chances de semifinal, ${listaComChances(semi)}`);
     if (b.caem > 0) {
-      const caiu = b.times.filter((c) => c.certezaQueda === 'CAIU');
-      const risco = b.times.filter((c) => c.certezaQueda === null).sort((x, y) => y.queda - x.queda);
-      if (caiu.length) frase.push(`${caiu.map((c) => `${artigo(c.time)} ${curto(c.time)}`).join(' e ')} já ${caiu.length > 1 ? 'caíram' : 'caiu'} para a Série B`);
-      else if (risco[0]) frase.push(`lá embaixo, ${artigo(risco[0].time)} ${curto(risco[0].time)} tem ${porCentoFalado(risco[0].queda)} de risco de cair`);
+      const cair = b.times
+        .filter((c) => c.certezaQueda !== 'SALVO')
+        .sort((x, y) => y.queda - x.queda)
+        .slice(0, b.caem)
+        .map((c) => ({ time: c.time, p: c.queda, certo: c.certezaQueda === 'CAIU' ? 'que já caiu' : null }));
+      if (cair.length) frase.push(`com mais risco de cair, ${listaComChances(cair)}`);
     }
     if (!frase.length) continue;
-    const texto = frase.join('; ');
+    const texto = frase.join('. E ');
+    partes.push(no ? `${no}, ${texto}.` : `${texto.charAt(0).toUpperCase()}${texto.slice(1)}.`);
+  }
+  return partes.join(' ');
+}
+
+/** "o Lobo-guará e a Capivara", "o Tamanduá, o Leão, a Sucuri e o Tatu". */
+function comArtigos(ts: readonly TimeId[]): string {
+  const nomes = ts.map((t) => `${artigo(t)} ${curto(t)}`);
+  return nomes.length <= 1 ? (nomes[0] ?? '') : `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)}`;
+}
+
+/**
+ * Fala da cartela "Fim da Fase de Liga" (ADR-0099), no Resumo da última Rodada: em cada bloco,
+ * quem foi à Semifinal e quem caiu, na ordem da tabela.
+ */
+export function falaDoFimDaFaseDeLiga(blocos: NonNullable<DadosDoResumo['chances']>): string {
+  const partes = ['Fim da Fase de Liga! A conta fechou.'];
+  for (const b of blocos) {
+    const no = noBloco(b, blocos.length > 1);
+    const frase: string[] = [];
+    const semi = b.times.filter((c) => c.certezaSemifinal === 'GARANTIDO').map((c) => c.time);
+    const caem = b.times.filter((c) => c.certezaQueda === 'CAIU').map((c) => c.time);
+    if (semi.length) frase.push(`na semifinal, ${comArtigos(semi)}`);
+    if (caem.length) frase.push(`${caem.length > 1 ? 'caem' : 'cai'} para a Série B ${comArtigos(caem)}`);
+    if (!frase.length) continue;
+    const texto = frase.join('. E ');
     partes.push(no ? `${no}, ${texto}.` : `${texto.charAt(0).toUpperCase()}${texto.slice(1)}.`);
   }
   return partes.join(' ');
@@ -555,7 +596,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       break;
     }
     case 'CHANCES': {
-      titulo('Chances');
+      titulo(d.fimDaFaseDeLiga ? 'Fim da Fase de Liga' : 'Chances');
       const blocos = d.chances ?? [];
       const x = 14;
       const w = 242;
@@ -588,7 +629,11 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
         });
       });
       pin.ctx.globalAlpha = aparece(item, 0.09, 0.4);
-      const regra = 'Jogos que faltam simulados 20 mil vezes, todos com chances iguais';
+      const vagas = blocos[0]?.classificam ?? 0;
+      const caemNoBloco = blocos.find((b) => b.caem > 0)?.caem ?? 0;
+      const regra = d.fimDaFaseDeLiga
+        ? `${vagas} primeiros: semifinal${caemNoBloco ? ` · ${caemNoBloco} últimos: Série B` : ''}`
+        : 'Jogos que faltam simulados 20 mil vezes, todos com chances iguais';
       pin.texto(regra, COLUNAS / 2, 458, pin.caber(regra, 236, 9, texto, 600), texto, COR.placa, { peso: 600 });
       pin.ctx.globalAlpha = 1;
       break;
