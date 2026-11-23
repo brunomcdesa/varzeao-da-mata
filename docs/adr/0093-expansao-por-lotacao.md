@@ -32,3 +32,10 @@ Com o Limite por Posição (2 goleiros e 4 por posição, ADR-0080), cada Time t
 - A Temporada passa de cerca de 9 para cerca de 11 dias, mais os 3 da Copa.
 - 10 jogos por dia aumentam o uso diário da voz do Gemini em cerca de 25%; antes de implementar, é preciso conferir se o cache de falas mantém o uso dentro da cota.
 - Os 8 Times guardados continuam guardados.
+
+## Implementação (T3)
+
+- Os 4 Times novos são Gato, Rato, Escorpião e Aranha (nomes sugeridos por Jogadores na DM), com os Clássicos do Gato e Rato, do Veneno, da Noite e do Porão.
+- O gatilho é conferido no fim da Fase de Liga (antes das Semifinais): 90% das vagas da Série A e B ocupadas (202 de 224). Fica marcado em `temporada.expansao` e vale para a Temporada seguinte.
+- Na Repescagem e nas Quartas, "campanha na Temporada anterior" é a ordem da tabela da Série A seguida da tabela da Série B; Time que não jogou a anterior fica no fim.
+- A chave do site mostra as vagas da Repescagem e das Quartas pela colocação ("7º do Clássico") até os jogos existirem.

@@ -13,12 +13,15 @@ import { criarRng } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { gravarSeries, gruposPara, seriesDaProximaTemporada, seriesComTimes, type GruposDaTemporada, type SeriesDaTemporada } from './series.js';
 import { tabela } from './tabela.js';
-import { cabeACopa, criarOitavas } from './copa.js';
+import { cabeACopa, criarOitavas, formatoDaCopa } from './copa.js';
 import { pagarBonusDeLargada } from './moedas.js';
 
 export const HORARIOS = [12, 14, 16, 18] as const;
 /** Com duas Séries (ADR-0050): a B joga antes, a A fecha o dia. */
 export const HORARIOS_COM_SERIES: Record<Serie, readonly number[]> = { B: [11, 12, 13, 14], A: [15, 16, 17, 18] };
+
+/** Séries de 10 depois da Expansão (ADR-0093): 10 jogos por dia, um por hora das 9h às 18h. */
+export const HORARIOS_COM_SERIES_DE_10: Record<Serie, readonly number[]> = { B: [9, 10, 11, 12, 13], A: [14, 15, 16, 17, 18] };
 
 /** A Série A de 16 em Grupos (T2, ADR-0062 e ADR-0064): 8 jogos por Rodada, um por hora. */
 export const HORARIOS_DA_A_DE_16 = [11, 12, 13, 14, 15, 16, 17, 18] as const;
@@ -29,6 +32,8 @@ export const HORARIOS_DA_A_DE_16 = [11, 12, 13, 14, 15, 16, 17, 18] as const;
  * mais de um jogo ao mesmo tempo (ADR-0058).
  */
 export function horariosDaLiga(serie: Serie, comSeries: boolean, jogos = 4): readonly number[] {
+  // Séries de 10 (Expansão, ADR-0093): um jogo por hora, a B das 9h às 13h e a A das 14h às 18h.
+  if (comSeries && jogos === 5) return HORARIOS_COM_SERIES_DE_10[serie];
   const base = comSeries ? HORARIOS_COM_SERIES[serie] : jogos > HORARIOS.length ? HORARIOS_DA_A_DE_16 : HORARIOS;
   const porHorario = Math.ceil(jogos / base.length);
   return base.flatMap((h) => Array<number>(porHorario).fill(h)).slice(0, Math.max(jogos, base.length));
@@ -172,7 +177,7 @@ export async function criarTemporada(banco: Banco, o: { numero: number; primeira
     const totalDeRodadas = Math.max(...calendarios.map((c) => c.rodadas.length));
     // Copa A+B (ADR-0088): da T3 em diante, os 3 primeiros dias são dela; a Fase de Liga vem depois.
     const comCopa = temCopa(o.numero) && !!series && comSeries && cabeACopa([...series.A, ...series.B]);
-    if (comCopa) await criarOitavas(b, temporadaId, o.primeiraRodada, (t) => (series!.B.includes(t) ? 'B' : 'A'));
+    if (comCopa) await criarOitavas(b, temporadaId, o.primeiraRodada, (t) => (series!.B.includes(t) ? 'B' : 'A'), formatoDaCopa([...series!.A, ...series!.B])!);
     const inicioDaLiga = comCopa ? somarDias(o.primeiraRodada, DIAS_DA_COPA) : o.primeiraRodada;
     // Moedas (ADR-0087): a primeira Temporada com elas abre a Loja com o bônus de largada dos veteranos.
     if (temMoedas(o.numero) && !temMoedas(o.numero - 1)) await pagarBonusDeLargada(b, new Date());

@@ -589,6 +589,8 @@ export function aberturaDoMataMata(m: MataMataDaPartida, mandante: TimeId, visit
     const etapa = NOME_DA_ETAPA_DA_COPA[m.copa];
     if (m.copa === 'FINAL') return classico ? `É o ${classico} na Final da Copa! ${confronto}, valendo a taça!` : `É a Final da Copa do Varzeão! ${confronto}, valendo a taça!`;
     if (m.copa === 'OITAVAS') return `É Copa! Oitavas de Clássico: ${classico ? `o ${classico}, ` : ''}${confronto}! Perdeu, tá fora!`;
+    if (m.copa === 'CLASSICO') return `É Copa! Fase do Clássico: ${classico ? `o ${classico}, ` : ''}${confronto}! Perdeu, tá fora!`;
+    if (m.copa === 'REPESCAGEM') return `É a Repescagem da Copa: ${confronto}! Quem vencer pega as Quartas, quem perder volta pra casa!`;
     return rng.pick([`É Copa! ${etapa}: ${confronto}! Quem perder volta pra casa!`, `${etapa} da Copa no Varzeão: ${confronto}!`]);
   }
   if (m.etapa === 'SEMIFINAL') {
