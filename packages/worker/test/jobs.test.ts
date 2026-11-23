@@ -9,12 +9,15 @@ import type { Comentario } from '../src/coletar.js';
 import type { Instagram } from '../src/instagram.js';
 import { CAPA_DO_RESUMO_MS, jobColetar, jobEscalar, jobPartida, jobResumo, refazerNarracoes, sincronizarPublicados, type ContextoDoJob } from '../src/jobs.js';
 import { AgendaNaMemoria, CHAVE_TOKEN, PastaLocal, type ItemDaAgenda } from '../src/nuvem.js';
+import { definirPerfilDoTime } from '../src/perfilDoTime.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 
 /** Instagram de mentira: posts com comentários, containers que ficam prontos na hora. */
 class InstagramFalso {
   comentariosPorMidia = new Map<string, Comentario[]>();
-  containers: { id: string; videoUrl: string; legenda: string; capaEmMs?: number; capaUrl?: string }[] = [];
+  containers: { id: string; videoUrl: string; legenda: string; capaEmMs?: number; capaUrl?: string; colaboradores?: string[] }[] = [];
+  /** Simula o Instagram recusando o convite de colaboração (ADR-0100). */
+  recusarColaboradores = false;
   token = 'T0';
   renovacoes = 0;
   /** Posts antigos: existem, mas já não aparecem em midiasDesde. */
@@ -25,7 +28,8 @@ class InstagramFalso {
   async comentarios(id: string) {
     return this.comentariosPorMidia.get(id) ?? [];
   }
-  async criarReels(o: { videoUrl: string; legenda: string; capaEmMs?: number; capaUrl?: string }) {
+  async criarReels(o: { videoUrl: string; legenda: string; capaEmMs?: number; capaUrl?: string; colaboradores?: string[] }) {
+    if (this.recusarColaboradores && o.colaboradores?.length) throw new Error('Invalid collaborator');
     const id = `C${this.containers.length + 1}`;
     this.containers.push({ id, ...o });
     return id;
@@ -118,6 +122,26 @@ describe('jobs', () => {
     const rel = await jobColetar(ctx);
     expect(rel.publicados).toBe(1);
     expect(rel.resultados.INSCRITO).toBe(1);
+  });
+
+  it('partida: o Perfil de cada Time entra como colaborador do Reels (ADR-0100)', async () => {
+    await jobColetar(ctx);
+    for (const t of TIMES) await definirPerfilDoTime(banco, t, `perfil_${t.toLowerCase()}`, { gravar: true });
+    agora = new Date('2026-11-07T14:25:00Z');
+    const [id] = await jobPartida(ctx);
+    const lados = (await banco.query<{ mandante_id: string; visitante_id: string }>(`SELECT mandante_id, visitante_id FROM partida WHERE id = $1`, [id])).rows[0]!;
+    expect(ig.containers[0]!.colaboradores).toEqual([`perfil_${lados.mandante_id.toLowerCase()}`, `perfil_${lados.visitante_id.toLowerCase()}`]);
+  });
+
+  it('partida: se o Instagram recusa os colaboradores, o Reels sai sem eles (ADR-0100)', async () => {
+    await jobColetar(ctx);
+    for (const t of TIMES) await definirPerfilDoTime(banco, t, `perfil_${t.toLowerCase()}`, { gravar: true });
+    ig.recusarColaboradores = true;
+    agora = new Date('2026-11-07T14:25:00Z');
+    const [id] = await jobPartida(ctx);
+    expect(await status(id!)).toBe('AGENDADA');
+    expect(ig.containers).toHaveLength(1);
+    expect(ig.containers[0]!.colaboradores).toBeUndefined();
   });
 
   it('partida: espera o Corte, grava, sobe, agenda para o fim do Ao Vivo e não repete', async () => {

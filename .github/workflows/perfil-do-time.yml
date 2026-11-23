@@ -1,0 +1,58 @@
+# Perfil do Time (ADR-0100). Só à mão: Actions → perfil-do-time → Run workflow.
+# Com o @, o Instagram que um Jogador criou para o Time vira o Perfil do Time oficial: link na
+# página do Time e colaborador em todo Reels de Partida do Time. Sem o @, tira.
+# Fica o primeiro que pediu pela DM; "trocar" passa por cima disso.
+# Primeiro rode sem "gravar" (simulação: o log mostra o antes e o depois).
+name: perfil-do-time
+on:
+  workflow_dispatch:
+    inputs:
+      time:
+        description: 'Time (ex.: jacare)'
+        required: true
+      usuario:
+        description: '@ do perfil (sem o @); vazio para tirar o Perfil do Time'
+        required: false
+      trocar:
+        description: 'Trocar mesmo se o Time já tiver outro perfil'
+        type: boolean
+        default: false
+      gravar:
+        description: 'Gravar (desmarcado = só simulação)'
+        type: boolean
+        default: false
+jobs:
+  perfil:
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      IG_APP_ID: ${{ vars.IG_APP_ID }}
+      IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET_PUBLICO: ${{ vars.R2_BUCKET_PUBLICO }}
+      R2_BUCKET_PRIVADO: ${{ vars.R2_BUCKET_PRIVADO }}
+      R2_URL_PUBLICA: ${{ vars.R2_URL_PUBLICA }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_TTS_VOZ: ${{ vars.GEMINI_TTS_VOZ || 'Lumi' }}
+      GEMINI_TTS_RPM: ${{ vars.GEMINI_TTS_RPM || '10' }}
+      TIME: ${{ inputs.time }}
+      USUARIO: ${{ inputs.usuario }}
+      TROCAR: ${{ inputs.trocar }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+      - if: ${{ !inputs.gravar }}
+        run: pnpm liga perfil-do-time
+      - if: ${{ inputs.gravar }}
+        run: pnpm liga perfil-do-time --gravar
+      # A coleta republica os dados do site (o link na página do Time).
+      - if: ${{ inputs.gravar }}
+        run: pnpm job coletar

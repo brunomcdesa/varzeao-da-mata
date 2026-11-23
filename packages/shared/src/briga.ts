@@ -115,10 +115,28 @@ export function situacoesNaBriga(
   const vagas = b.vagas ?? VAGAS_NO_MATA_MATA;
   const base = new Map(b.tabela.map((l) => [l.time, { ...l }]));
   if (placar) somar(base, times.mandante, times.visitante, placar.mandante, placar.visitante);
-  const abertos: { mandante: TimeId; visitante: TimeId; fixo?: number }[] = [
+  const abertos: JogoEmAberto[] = [
     ...(placar ? [] : [{ ...times, ...(resultado ? { fixo: RESULTADOS.indexOf(resultado) } : {}) }]),
     ...b.depois,
   ];
+  return certezasNaTabela([...base.values()], abertos, vagas);
+}
+
+/** Um jogo em aberto; `fixo` (0 mandante, 1 empate, 2 visitante) prende o resultado dele. */
+export interface JogoEmAberto {
+  mandante: TimeId;
+  visitante: TimeId;
+  fixo?: number;
+}
+
+/**
+ * Quem fica nas `vagas` primeiras posições com certeza de verdade (GARANTIDO), quem fica fora
+ * com certeza (ELIMINADO) e quem depende, testando todos os resultados dos jogos em aberto
+ * (3 por jogo). Desempate como em `classificar`; empate de pontos e vitórias com um Time que
+ * ainda joga conta como "pode passar na frente".
+ */
+export function certezasNaTabela(tabela: readonly LinhaDaBriga[], abertos: readonly JogoEmAberto[], vagas: number): Map<TimeId, SituacaoNaBriga> {
+  const base = new Map(tabela.map((l) => [l.time, l]));
   /** Quem ainda joga: o saldo e os gols dele não são conhecidos. */
   const incertos = new Set(abertos.flatMap((j) => [j.mandante, j.visitante]));
   const garantido = new Map<TimeId, boolean>([...base.keys()].map((t) => [t, true]));

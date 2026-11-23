@@ -1,0 +1,25 @@
+# Confere se a conta da Liga consegue criar Reels com um Perfil do Time de colaborador (ADR-0100).
+# Não publica nada: cria o container, espera ficar pronto e para. Só à mão.
+name: testar-colaborador
+on:
+  workflow_dispatch:
+    inputs:
+      usuario:
+        description: '@ do perfil a convidar (sem o @)'
+        required: true
+jobs:
+  testar:
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      IG_APP_ID: ${{ vars.IG_APP_ID }}
+      IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
+      USUARIO: ${{ inputs.usuario }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+      - run: pnpm liga testar-colaborador

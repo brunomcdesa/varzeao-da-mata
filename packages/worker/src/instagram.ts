@@ -24,6 +24,9 @@ export const PREFIXO_SEM_ID = 'sem-id:';
 
 export const VERSAO_API = process.env.IG_API_VERSAO ?? 'v25.0';
 
+/** Limite da API para colaboradores num Reels. */
+export const MAX_COLABORADORES = 3;
+
 export type LoginDoToken = 'INSTAGRAM' | 'UNIFICADO';
 
 /** Tokens do login unificado (Facebook Login para Empresas) começam com EAA. */
@@ -223,9 +226,15 @@ export class Instagram {
     return lista.sort((a, b) => a.comentadoEm.getTime() - b.comentadoEm.getTime() || a.igCommentId.localeCompare(b.igCommentId));
   }
 
-  /** Cria o container do Reels. O `videoUrl` precisa ser público (R2). */
-  async criarReels(o: { videoUrl: string; legenda: string; capaEmMs?: number; capaUrl?: string }): Promise<string> {
+  /**
+   * Cria o container do Reels. O `videoUrl` precisa ser público (R2). `colaboradores` são os @
+   * (sem o @) convidados para a colaboração: o Perfil do Time (ADR-0100). A API aceita até 3 e
+   * só no login unificado; cada perfil precisa aceitar o convite no próprio Reels.
+   */
+  async criarReels(o: { videoUrl: string; legenda: string; capaEmMs?: number; capaUrl?: string; colaboradores?: string[] }): Promise<string> {
     const params: Record<string, string> = { media_type: 'REELS', video_url: o.videoUrl, caption: o.legenda, share_to_feed: 'true' };
+    const colaboradores = [...new Set((o.colaboradores ?? []).map((u) => u.replace(/^@/, '').trim()).filter(Boolean))].slice(0, MAX_COLABORADORES);
+    if (colaboradores.length) params.collaborators = JSON.stringify(colaboradores);
     if (o.capaUrl) params.cover_url = o.capaUrl;
     if (o.capaEmMs !== undefined) params.thumb_offset = String(Math.round(o.capaEmMs));
     const r = await this.chamar<{ id: string }>('POST', `${this.o.userId}/media`, params);

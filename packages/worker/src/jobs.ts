@@ -15,6 +15,7 @@ import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FALA_DO_TIME, IDENTIDADE, doTime, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { colaboradoresDaPartida, perfisDosTimes } from './perfilDoTime.js';
 import { momentosDoAoVivo } from '@liga/renderer';
 import { recompensarT1 } from './recompensaT1.js';
 import type { Banco } from './banco.js';
@@ -303,7 +304,7 @@ async function guardarPartidaPrivada(c: ContextoDoJob, partidaId: number, apito:
 export const CAPA_DO_RESUMO_MS = 2000;
 
 /** Cria (ou reaproveita) o container e grava na agenda. Devolve o item agendado. */
-async function agendar(c: ContextoDoJob, o: { tipo: ItemDaAgenda['tipo']; ref: number; videoUrl: string; capaUrl?: string; capaEmMs?: number; legenda: string; containerAtual: string | null; publicarEm: Date; salvarContainer: (id: string) => Promise<void> }): Promise<ItemDaAgenda | null> {
+async function agendar(c: ContextoDoJob, o: { tipo: ItemDaAgenda['tipo']; ref: number; videoUrl: string; capaUrl?: string; capaEmMs?: number; legenda: string; colaboradores?: string[]; containerAtual: string | null; publicarEm: Date; salvarContainer: (id: string) => Promise<void> }): Promise<ItemDaAgenda | null> {
   if (!c.ig) {
     logDe(c)(`${o.tipo} ${o.ref}: sem Instagram configurado, não agendou.`);
     return null;
@@ -314,7 +315,16 @@ async function agendar(c: ContextoDoJob, o: { tipo: ItemDaAgenda['tipo']; ref: n
     if (status === 'ERROR' || status === 'EXPIRED') container = null;
   }
   if (!container) {
-    container = await c.ig.criarReels({ videoUrl: o.videoUrl, legenda: o.legenda, ...(o.capaUrl ? { capaUrl: o.capaUrl } : {}), ...(o.capaEmMs !== undefined ? { capaEmMs: o.capaEmMs } : {}) });
+    const base = { videoUrl: o.videoUrl, legenda: o.legenda, ...(o.capaUrl ? { capaUrl: o.capaUrl } : {}), ...(o.capaEmMs !== undefined ? { capaEmMs: o.capaEmMs } : {}) };
+    if (o.colaboradores?.length) {
+      // Perfil do Time como colaborador (ADR-0100). Se o Instagram recusar o convite (@ trocado,
+      // perfil privado), o Reels sai só na conta da Liga: o jogo não pode ficar sem Reels.
+      container = await c.ig.criarReels({ ...base, colaboradores: o.colaboradores }).catch((e: Error) => {
+        logDe(c)(`${o.tipo} ${o.ref}: colaboradores (${o.colaboradores!.map((u) => `@${u}`).join(', ')}) recusados: ${e.message}. Vai sem.`);
+        return null;
+      });
+    }
+    container ??= await c.ig.criarReels(base);
     await o.salvarContainer(container);
   }
   await c.ig.esperarContainer(container);
@@ -503,12 +513,14 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
       }
       // Publica quando o Ao Vivo acaba, para o Reels não estragar o jogo no site.
       const publicarEm = new Date(Math.max(apito.getTime() + duracaoAoVivoMs(p.fase), agoraDe(c).getTime()));
+      const lados = (await c.banco.query<{ mandante_id: TimeId; visitante_id: TimeId }>(`SELECT mandante_id, visitante_id FROM partida WHERE id = $1`, [p.id])).rows[0]!;
       const item = await agendar(c, {
         tipo: 'PARTIDA',
         ref: p.id,
         videoUrl,
         ...(capaUrl ? { capaUrl } : {}),
         legenda: legendaDaPartida(r.dados, p.rodada),
+        colaboradores: colaboradoresDaPartida(await perfisDosTimes(c.banco), lados.mandante_id, lados.visitante_id),
         containerAtual: p.ig_container_id,
         publicarEm,
         salvarContainer: (id) => c.banco.query(`UPDATE partida SET ig_container_id = $2 WHERE id = $1`, [p.id, id]).then(() => {}),

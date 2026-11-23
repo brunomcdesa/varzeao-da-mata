@@ -108,6 +108,14 @@ _Avoid_: campeonato, torneio
 Um dos 24 clubes fictícios, com identidade própria do projeto, que disputam a Liga. Cada Time está numa Série e tem rivais fixos, com quem faz o Clássico (dois rivais para cada Time da Série A de 16, desde a T2).
 _Avoid_: equipe, clube, lado, seleção
 
+**Perfil do Time**:
+O Instagram que um Jogador criou para o Time e que o dono reconheceu como oficial, a pedido pela DM. É um por Time: fica o primeiro que pediu. Precisa ter @varzeao_da_mata na bio, usar o nome e o bicho do Time (o escudo pode ser próprio), não se passar pela Liga e respeitar os rivais. Ganha link na página do Time, é seguido pela Liga, pode ter artes repostadas nos Stories e entra como colaborador em todo Reels de Partida do Time. ADR-0100.
+_Avoid_: perfil oficial da Liga, conta do time, página do time
+
+**Perfil de Torcida**:
+Qualquer outro Instagram sobre um Time que não seja o Perfil do Time, como um segundo perfil do mesmo Time. Pode existir à vontade, mas não ganha nenhum dos benefícios do Perfil do Time. ADR-0100.
+_Avoid_: perfil falso, fã-clube
+
 **Elenco**:
 Todos os Jogadores inscritos num Time. A Inscrição fica aberta durante toda a Temporada, então o Elenco cresce ao longo dela.
 _Avoid_: plantel, grupo, squad
@@ -215,6 +223,10 @@ _Avoid_: superfinal, desafio dos campeões
 **Briga pelo Mata-mata**:
 Na última Rodada da Fase de Liga, a situação de cada Time em relação às 4 vagas do Mata-mata: **Garantido** (nenhum resultado que falta o tira dos 4 primeiros, contando os desempates), **Eliminado** (nenhum resultado o coloca entre os 4) ou "depende" (ainda depende de outros resultados). O Narrador e as plaquinhas embaixo do placar mostram também do que o Time precisa e o que acontece "se terminar assim". ADR-0053.
 _Avoid_: classificado matematicamente, G4
+
+**Chances**:
+Cartela do Resumo da Rodada, da metade da Fase de Liga (a Rodada 4 de 7) até a penúltima Rodada: a chance de cada Time ir às Semifinais e de cair, por Grupo (ou por Série). Os jogos que faltam são simulados 20 mil vezes, todos com chances iguais, com os desempates da tabela. Quando é certo de verdade, aparece o selo **Na semi**, **Fora**, **Caiu** ou **Salvo**; sem certeza, nunca 0% nem 100% ("<1%", ">99%"). No Resumo da última Rodada, vira a cartela **Fim da Fase de Liga**, só com os selos. ADR-0099.
+_Avoid_: probabilidade, previsão, palpite (o Palpite é outra coisa)
 
 **Disputa de pênaltis**:
 Como se decide um jogo do Mata-mata (Semifinal ou Final) que termina empatado nos 90 minutos. Aparece cobrança por cobrança no Ao Vivo, no Replay e no Reels; o Ao Vivo do Mata-mata dura até 8 minutos para caber a disputa.

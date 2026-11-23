@@ -2,7 +2,7 @@
  * Job `resumo` (18h10): fecha a Rodada com os Candidatos a Craque e junta o que o Reels
  * do Resumo da Rodada mostra: placares, tabela, Novos Contratados e Candidatos.
  */
-import { CANDIDATOS_POR_SERIE, GRUPOS, SERIES, etapaDa, numeroDoCandidato, rotuloDoCandidato, timesQueCaem, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { CANDIDATOS_POR_SERIE, CLASSIFICAM_POR_GRUPO, GRUPOS, SERIES, VAGAS_NO_MATA_MATA, chancesDaTabela, resumoMostraChances, etapaDa, numeroDoCandidato, rotuloDoCandidato, timesQueCaem, type Posicao, type Serie, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA } from './calendario.js';
 import type { DadosDoResumo } from '@liga/renderer';
@@ -167,6 +167,8 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
   const caem = timesQueCaem({ temSerieB: comSeries, porGrupo: !!grupos });
   // Seleção da Rodada (ADR-0041), a partir da T2.
   const destaques = await destaquesDaRodadaNoBanco(banco, rodadaId, r.temporada, comSeries);
+  // Chances da reta final (ADR-0099): da metade da Fase de Liga até a última Rodada ("Fim da Fase de Liga").
+  const { chances, fim: fimDaFaseDeLiga } = await chancesDoResumo(banco, r.temporada_id, r.fase, r.numero, { comSeries, caemNaA: caem });
   return {
     ...(final ? { votacao: 'TEMPORADA' as const } : {}),
     ...(campeao ? { campeao } : {}),
@@ -184,9 +186,58 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
     totalNovos: novos.length,
     candidatos,
     ...(destaques.length ? { destaques } : {}),
+    ...(chances.length ? { chances, ...(fimDaFaseDeLiga ? { fimDaFaseDeLiga: true } : {}) } : {}),
     ...(craqueAnterior ? { craqueDaRodada: craqueAnterior } : {}),
     ...(craqueAnteriorB ? { craqueDaRodadaB: craqueAnteriorB } : {}),
   };
+}
+
+/**
+ * Chances da reta final (ADR-0099) para o Resumo: um bloco por Grupo (T2) ou por Série. Na A,
+ * vão às Semifinais 2 por Grupo (ou 4 na Série) e caem os da zona de queda; na B, ninguém cai
+ * pela tabela (sobem os finalistas do Mata-mata), então só conta a Semifinal. Vazio fora da reta;
+ * `fim` na última Rodada da Fase de Liga.
+ */
+export async function chancesDoResumo(
+  banco: Banco,
+  temporadaId: number,
+  fase: 'LIGA' | 'MATA_MATA',
+  rodada: number,
+  o: { comSeries: boolean; caemNaA: number },
+): Promise<{ chances: NonNullable<DadosDoResumo['chances']>; fim: boolean }> {
+  const ultima = Number((await banco.query<{ n: number | null }>(`SELECT max(numero) AS n FROM rodada WHERE temporada_id = $1 AND fase = 'LIGA'`, [temporadaId])).rows[0]?.n ?? 0);
+  if (!resumoMostraChances(fase, rodada, ultima)) return { chances: [], fim: false };
+  const fim = rodada === ultima;
+  const faltam = (
+    await banco.query<{ mandante_id: TimeId; visitante_id: TimeId; serie: Serie }>(
+      `SELECT p.mandante_id, p.visitante_id, p.serie FROM partida p JOIN rodada r ON r.id = p.rodada_id
+       WHERE r.temporada_id = $1 AND r.fase = 'LIGA' AND p.gols_mandante IS NULL ORDER BY p.apito_inicial`,
+      [temporadaId],
+    )
+  ).rows;
+  const doBloco = (times: readonly TimeId[], serie: Serie) =>
+    faltam.filter((p) => p.serie === serie && times.includes(p.mandante_id) && times.includes(p.visitante_id)).map((p) => ({ mandante: p.mandante_id, visitante: p.visitante_id }));
+  const grupos = await gruposDaTemporada(banco, temporadaId);
+  if (grupos) {
+    const chances = await Promise.all(
+      GRUPOS.map(async (grupo) => {
+        const t = await tabela(banco, temporadaId, 'A', grupo);
+        const times = chancesDaTabela(t, doBloco(grupos[grupo], 'A'), { classificam: CLASSIFICAM_POR_GRUPO, caem: o.caemNaA });
+        return { grupo, classificam: CLASSIFICAM_POR_GRUPO, caem: o.caemNaA, times };
+      }),
+    );
+    return { chances, fim };
+  }
+  const series = await seriesDaTemporada(banco, temporadaId);
+  const blocos: NonNullable<DadosDoResumo['chances']> = [];
+  for (const serie of SERIES) {
+    if (!series[serie].length) continue;
+    const t = await tabela(banco, temporadaId, serie);
+    const caem = serie === 'A' ? o.caemNaA : 0;
+    const times = chancesDaTabela(t, doBloco(series[serie], serie), { classificam: VAGAS_NO_MATA_MATA, caem });
+    blocos.push({ ...(o.comSeries ? { serie } : {}), classificam: VAGAS_NO_MATA_MATA, caem, times });
+  }
+  return { chances: blocos, fim };
 }
 
 /**

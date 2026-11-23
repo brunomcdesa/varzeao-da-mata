@@ -9,6 +9,7 @@
  */
 import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Grupo, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, type EtapaDaCopa, temMoedas, temRegrasT2, temRegrasT3, perfilDoJuiz, timesQueCaem, GRUPOS, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque, type ItensEquipados } from '@liga/shared';
 import { lerItens } from './escalacao.js';
+import { perfisDosTimes } from './perfilDoTime.js';
 import { fundadorDe } from './rebalanceamento.js';
 import { comSeloT1, subiramPeloPiso } from './recompensaT1.js';
 import { ajustesDeOvr } from './aMao.js';
@@ -139,7 +140,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
         grupos: gruposDaAtiva ? (Object.fromEntries(GRUPOS.map((g) => [g, [...gruposDaAtiva[g]].sort((x, y) => GRUPOS_DA_A_DE_16[g].indexOf(x) - GRUPOS_DA_A_DE_16[g].indexOf(y))])) as Record<Grupo, TimeId[]>) : null,
       };
   const numeroDa = new Map(temporadas.map((t) => [t.id, t.numero]));
-  const times = TIMES.map((id) => ({ id, nome: IDENTIDADE[id].nome, sigla: IDENTIDADE[id].sigla, primaria: IDENTIDADE[id].primaria, secundaria: IDENTIDADE[id].secundaria }));
+  const perfis = await perfisDosTimes(banco);
+  const times = TIMES.map((id) => ({ id, nome: IDENTIDADE[id].nome, sigla: IDENTIDADE[id].sigla, primaria: IDENTIDADE[id].primaria, secundaria: IDENTIDADE[id].secundaria, ...(perfis.has(id) ? { instagram: perfis.get(id)! } : {}) }));
 
   // Todas as Partidas de todas as Temporadas: a carreira dos Jogadores atravessa Temporadas.
   const todas = (

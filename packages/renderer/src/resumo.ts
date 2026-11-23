@@ -4,7 +4,7 @@
  * narrada pelo Locutor da Liga; cada cartela estica até a sua fala caber inteira.
  */
 import { desenharCompartilhe } from './anuncio.js';
-import { CLASSIFICAM_POR_GRUPO, DESTAQUE_DA_POSICAO, FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, TIMES_QUE_TROCAM_DE_SERIE, type Grupo, doTime, nomeDaRodada, type Posicao, type Serie, type TimeId, type Aparencia, type Estrelas, type ItensEquipados } from '@liga/shared';
+import { CLASSIFICAM_POR_GRUPO, DESTAQUE_DA_POSICAO, NOME_CURTO_DO_GRUPO, porcentagem, textoDaQueda, textoDaSemifinal, FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, TIMES_QUE_TROCAM_DE_SERIE, type Grupo, doTime, nomeDaRodada, type Posicao, type Serie, type TimeId, type Aparencia, type Estrelas, type ChancesDoTime, type ItensEquipados } from '@liga/shared';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, plaquinha } from './desenho.js';
 import { apelidoFalavel, type Fala } from './narracao.js';
@@ -67,6 +67,14 @@ export interface DadosDoResumo {
    * um por Posição em cada Série. No Resumo da Temporada (`fimDaTemporada`), é a Seleção da Temporada.
    */
   destaques?: { posicao: Posicao; serie?: Serie; username: string; time: TimeId; nota: number; numero: { valor: number; legenda: string } }[];
+  /**
+   * Chances da reta final (ADR-0099): da metade da Fase de Liga até a penúltima Rodada, a
+   * chance de cada Time ir às Semifinais e de cair, um bloco por Grupo (ou por Série), na ordem
+   * da tabela. Ganha a cartela "Chances", logo depois da tabela.
+   */
+  chances?: { grupo?: Grupo; serie?: Serie; classificam: number; caem: number; times: ChancesDoTime[] }[];
+  /** Resumo da última Rodada da Fase de Liga: a cartela das Chances vira "Fim da Fase de Liga", só com selos. */
+  fimDaFaseDeLiga?: boolean;
   /** Aparências escolhidas pelos donos (ADR-0013), pelo @. */
   aparencias?: Record<string, Aparencia>;
   /** Itens equipados agora pelos donos (ADR-0101), pelo @. */
@@ -75,7 +83,7 @@ export interface DadosDoResumo {
   estrelas?: Partial<Record<TimeId, Estrelas>>;
 }
 
-export type Cartela = 'ABERTURA' | 'PLACARES' | 'FINALISTAS' | 'CAMPEAO' | 'TABELA' | 'NOVOS' | 'CANDIDATOS' | 'CRAQUE' | 'DESTAQUES' | 'POSICOES' | 'CHAMADA' | 'COMPARTILHE';
+export type Cartela = 'ABERTURA' | 'PLACARES' | 'FINALISTAS' | 'CAMPEAO' | 'TABELA' | 'CHANCES' | 'NOVOS' | 'CANDIDATOS' | 'CRAQUE' | 'DESTAQUES' | 'POSICOES' | 'CHAMADA' | 'COMPARTILHE';
 
 /**
  * Segmento do Roteiro com a cartela que ele mostra (tipo 'ABERTURA' = trilha cheia na mixagem).
@@ -97,7 +105,7 @@ export function dadosDaSerie(d: DadosDoResumo, serie: Serie | undefined): Pick<D
   };
 }
 
-const DURACAO_BASE: Record<Cartela, number> = { ABERTURA: 3, PLACARES: 5, FINALISTAS: 5, CAMPEAO: 6, TABELA: 6, NOVOS: 4, CANDIDATOS: 7, CRAQUE: 7, DESTAQUES: 6, POSICOES: 7, CHAMADA: 5, COMPARTILHE: 6 };
+const DURACAO_BASE: Record<Cartela, number> = { ABERTURA: 3, PLACARES: 5, FINALISTAS: 5, CAMPEAO: 6, TABELA: 6, CHANCES: 7, NOVOS: 4, CANDIDATOS: 7, CRAQUE: 7, DESTAQUES: 6, POSICOES: 7, CHAMADA: 5, COMPARTILHE: 6 };
 const CORTE = 0.3;
 
 export class RoteiroResumo {
@@ -122,6 +130,7 @@ export class RoteiroResumo {
       if (dados.final?.length) cartelas.push('FINALISTAS');
       if (dados.campeao) cartelas.push('CAMPEAO');
       if (dados.fase === 'LIGA') cartelas.push('TABELA');
+      if (dados.fase === 'LIGA' && dados.chances?.length) cartelas.push('CHANCES');
       if (dados.totalNovos > 0) cartelas.push('NOVOS');
       if (dados.destaques?.length) cartelas.push('POSICOES');
       if (dados.candidatos.length) cartelas.push('CANDIDATOS');
@@ -288,6 +297,9 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
               : `${naTabela}, ${artigo(l1.time)} ${curto(l1.time)} lidera com ${l1.pontos} ${l1.pontos === 1 ? 'ponto' : 'pontos'}.`;
         break;
       }
+      case 'CHANCES':
+        texto = d.fimDaFaseDeLiga ? falaDoFimDaFaseDeLiga(d.chances ?? []) : falaDasChances(d.chances ?? []);
+        break;
       case 'NOVOS':
         texto = d.totalNovos === 1 ? 'Chegou um novo contratado na Liga. Seja bem-vindo!' : `Chegaram ${d.totalNovos} novos contratados na Liga. Sejam bem-vindos!`;
         break;
@@ -310,6 +322,83 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
     falas.push({ id: `resumo-${i}`, texto, inicio: s.inicio + 0.35, limite: s.fim, tom: s.cartela === 'ABERTURA' ? 'animado' : 'normal', segmento: i, parte: 'antes' });
   });
   return falas;
+}
+
+/** Nome de um bloco das Chances na fala: "No Grupo do Barro", "Na Série A", ou nada. */
+function noBloco(b: NonNullable<DadosDoResumo['chances']>[number], varios: boolean): string {
+  if (b.grupo) return NOME_DO_GRUPO[b.grupo].replace(/^Grupo d/, 'No Grupo d');
+  return varios && b.serie ? `Na Série ${b.serie}` : '';
+}
+
+/** "67", "menos de 1", "mais de 99" (o "por cento" vai só no último número da lista). */
+function numeroFalado(p: number): string {
+  const x = porcentagem(p);
+  return x === '<1%' ? 'menos de 1' : x === '>99%' ? 'mais de 99' : x.slice(0, -1);
+}
+
+/** "a Arara", "o Lobo-guará, com 67" ... "e a Sucuri, com 53 por cento". */
+function listaComChances(itens: { time: TimeId; certo: string | null; p: number }[]): string {
+  const ultimoNumero = itens.map((i) => i.certo === null).lastIndexOf(true);
+  const partes = itens.map((i, k) => `${artigo(i.time)} ${curto(i.time)}, ${i.certo ?? `com ${numeroFalado(i.p)}${k === ultimoNumero ? ' por cento' : ''}`}`);
+  return partes.length <= 1 ? (partes[0] ?? '') : `${partes.slice(0, -1).join(', ')}, e ${partes.at(-1)}`;
+}
+
+/**
+ * Fala da cartela das Chances (ADR-0099): só o que está na tela. Em cada bloco, todos os Times
+ * com mais chance de Semifinal (tantos quantas são as vagas) e todos com mais risco de cair
+ * (tantos quantos caem), com a porcentagem ou o selo, quando já é certo.
+ */
+export function falaDasChances(blocos: NonNullable<DadosDoResumo['chances']>): string {
+  const partes = ['Hora da matemática! Simulamos os jogos que faltam.'];
+  const garantido = (t: TimeId) => (FALA_DO_TIME[t].artigo === 'a' ? 'já garantida' : 'já garantido');
+  for (const b of blocos) {
+    const no = noBloco(b, blocos.length > 1);
+    const frase: string[] = [];
+    const semi = b.times
+      .filter((c) => c.certezaSemifinal !== 'ELIMINADO')
+      .sort((x, y) => y.semifinal - x.semifinal)
+      .slice(0, b.classificam)
+      .map((c) => ({ time: c.time, p: c.semifinal, certo: c.certezaSemifinal === 'GARANTIDO' ? garantido(c.time) : null }));
+    if (semi.length) frase.push(`com mais chances de semifinal, ${listaComChances(semi)}`);
+    if (b.caem > 0) {
+      const cair = b.times
+        .filter((c) => c.certezaQueda !== 'SALVO')
+        .sort((x, y) => y.queda - x.queda)
+        .slice(0, b.caem)
+        .map((c) => ({ time: c.time, p: c.queda, certo: c.certezaQueda === 'CAIU' ? 'que já caiu' : null }));
+      if (cair.length) frase.push(`com mais risco de cair, ${listaComChances(cair)}`);
+    }
+    if (!frase.length) continue;
+    const texto = frase.join('. E ');
+    partes.push(no ? `${no}, ${texto}.` : `${texto.charAt(0).toUpperCase()}${texto.slice(1)}.`);
+  }
+  return partes.join(' ');
+}
+
+/** "o Lobo-guará e a Capivara", "o Tamanduá, o Leão, a Sucuri e o Tatu". */
+function comArtigos(ts: readonly TimeId[]): string {
+  const nomes = ts.map((t) => `${artigo(t)} ${curto(t)}`);
+  return nomes.length <= 1 ? (nomes[0] ?? '') : `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)}`;
+}
+
+/**
+ * Fala da cartela "Fim da Fase de Liga" (ADR-0099), no Resumo da última Rodada: em cada bloco,
+ * quem foi à Semifinal e quem caiu, na ordem da tabela.
+ */
+export function falaDoFimDaFaseDeLiga(blocos: NonNullable<DadosDoResumo['chances']>): string {
+  const partes = ['Fim da Fase de Liga! A conta fechou.'];
+  for (const b of blocos) {
+    const no = noBloco(b, blocos.length > 1);
+    const frase: string[] = [];
+    const semi = b.times.filter((c) => c.certezaSemifinal === 'GARANTIDO').map((c) => c.time);
+    const caem = b.times.filter((c) => c.certezaQueda === 'CAIU').map((c) => c.time);
+    if (semi.length) frase.push(`na semifinal, ${comArtigos(semi)}`);
+    if (caem.length) frase.push(`${caem.length > 1 ? 'caem' : 'cai'} para a Série B ${comArtigos(caem)}`);
+    if (!frase.length) continue;
+    const texto = frase.join('. E ');
+    partes.push(no ? `${no}, ${texto}.` : `${texto.charAt(0).toUpperCase()}${texto.slice(1)}.`);
+  }
+  return partes.join(' ');
 }
 
 const DIAS_DA_SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
@@ -506,6 +595,49 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
         pin.texto(regra, COLUNAS / 2, 458, pin.caber(regra, 236, 10, texto, 600), texto, COR.placa, { peso: 600 });
         pin.ctx.globalAlpha = 1;
       }
+      break;
+    }
+    case 'CHANCES': {
+      titulo(d.fimDaFaseDeLiga ? 'Fim da Fase de Liga' : 'Chances');
+      const blocos = d.chances ?? [];
+      const x = 14;
+      const w = 242;
+      pin.tabua(x, 84, w, 360);
+      const linhasPorBloco = Math.max(...blocos.map((b) => b.times.length), 1);
+      // Até 2 blocos de 8 (os Grupos da T2, ou A e B): 19 por linha; um bloco só, linhas maiores.
+      const passo = blocos.length > 1 ? 19 : Math.min(36, Math.floor(320 / linhasPorBloco));
+      const temQueda = blocos.some((b) => b.caem > 0);
+      const colSemi = temQueda ? 184 : 222;
+      const colQueda = 226;
+      let item = 0;
+      blocos.forEach((b, n) => {
+        const topo = 92 + n * 176;
+        const nome = b.grupo ? NOME_DO_GRUPO[b.grupo] : b.serie ? `Série ${b.serie}` : 'Tabela';
+        pin.texto(nome, x + 12, topo + 8, 13, display, COR.amarelo, { alinhar: 'left', contorno: COR.contorno });
+        pin.texto('Semi', colSemi, topo + 8, 9, texto, COR.placaSombra, { peso: 700 });
+        if (b.caem > 0) pin.texto('Cai', colQueda, topo + 8, 9, texto, COR.placaSombra, { peso: 700 });
+        b.times.forEach((c, k) => {
+          const a = aparece(item++, 0.09, 0.4);
+          if (a <= 0) return;
+          const y = topo + 26 + k * passo;
+          pin.ctx.globalAlpha = a;
+          pin.placa(x + 6, y - 6, w - 12, passo - 2, { fundo: COR.madeiraEscura, sombra: COR.contorno, degrau: 1 });
+          pin.texto(`${k + 1}`, x + 17, y + 3, 10, display, COR.placa);
+          desenharEscudo(pin, c.time, x + 28, y - 4, 0.56);
+          pin.texto(curto(c.time), x + 46, y + 3, pin.caber(curto(c.time), 100, 10, display), display, COR.placa, { alinhar: 'left' });
+          celulaDaChance(pin, colSemi, y, textoDaSemifinal(c), c.semifinal, c.certezaSemifinal === 'GARANTIDO' ? 'bom' : c.certezaSemifinal === 'ELIMINADO' ? 'apagado' : null, '#4E8A3A', display);
+          if (b.caem > 0) celulaDaChance(pin, colQueda, y, textoDaQueda(c), c.queda, c.certezaQueda === 'CAIU' ? 'ruim' : c.certezaQueda === 'SALVO' ? 'bom' : null, '#A33A2C', display);
+          pin.ctx.globalAlpha = 1;
+        });
+      });
+      pin.ctx.globalAlpha = aparece(item, 0.09, 0.4);
+      const vagas = blocos[0]?.classificam ?? 0;
+      const caemNoBloco = blocos.find((b) => b.caem > 0)?.caem ?? 0;
+      const regra = d.fimDaFaseDeLiga
+        ? `${vagas} primeiros: semifinal${caemNoBloco ? ` · ${caemNoBloco} últimos: Série B` : ''}`
+        : 'Jogos que faltam simulados 20 mil vezes, todos com chances iguais';
+      pin.texto(regra, COLUNAS / 2, 458, pin.caber(regra, 236, 9, texto, 600), texto, COR.placa, { peso: 600 });
+      pin.ctx.globalAlpha = 1;
       break;
     }
     case 'NOVOS': {
@@ -814,4 +946,28 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.restore();
   }
+}
+
+const SELO: Record<'bom' | 'ruim' | 'apagado', { fundo: string; tinta: string }> = {
+  bom: { fundo: '#3E5A2E', tinta: COR.placa },
+  ruim: { fundo: '#7A2A22', tinta: COR.placa },
+  apagado: { fundo: '#3A2A1E', tinta: COR.placaSombra },
+};
+
+/**
+ * Uma célula da cartela das Chances: o selo, quando é certo, ou a porcentagem sobre uma
+ * barrinha da cor da coluna (verde na Semifinal, vermelha na Queda), do tamanho da chance.
+ */
+function celulaDaChance(pin: Pincel, cx: number, y: number, rotulo: string, p: number, selo: 'bom' | 'ruim' | 'apagado' | null, cor: string, display: string): void {
+  const largura = 38;
+  if (selo) {
+    pin.placa(cx - largura / 2, y - 4, largura, 13, { fundo: SELO[selo].fundo, sombra: COR.contorno, degrau: 1 });
+    pin.texto(rotulo, cx, y + 3, pin.caber(rotulo, largura - 4, 9, display), display, SELO[selo].tinta);
+    return;
+  }
+  pin.ctx.fillStyle = COR.contorno;
+  pin.ctx.fillRect((cx - largura / 2) * pin.px, (y - 4) * pin.px, largura * pin.px, 13 * pin.px);
+  pin.ctx.fillStyle = cor;
+  pin.ctx.fillRect((cx - largura / 2) * pin.px, (y - 4) * pin.px, Math.max(1, Math.round(largura * p)) * pin.px, 13 * pin.px);
+  pin.texto(rotulo, cx, y + 3, 10, display, COR.placa, { contorno: COR.contorno });
 }

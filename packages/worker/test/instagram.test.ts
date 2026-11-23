@@ -74,6 +74,20 @@ describe('Instagram', () => {
     expect(consultas).toBe(3);
   });
 
+  it('Reels com colaboradores manda a lista sem @ e sem repetição (ADR-0100)', async () => {
+    const { f, chamadas } = falso({ 'POST /v25.0/EU/media': () => ({ id: 'CONT' }) });
+    const ig = new Instagram({ userId: 'EU', token: 'T', fetch: f });
+    await ig.criarReels({ videoUrl: 'https://videos/x.mp4', legenda: 'Gol!', colaboradores: ['@jacareacc', 'tamanduaofc', 'jacareacc'] });
+    expect(new URLSearchParams(chamadas[0]!.corpo).get('collaborators')).toBe('["jacareacc","tamanduaofc"]');
+  });
+
+  it('Reels sem colaboradores não manda o campo', async () => {
+    const { f, chamadas } = falso({ 'POST /v25.0/EU/media': () => ({ id: 'CONT' }) });
+    const ig = new Instagram({ userId: 'EU', token: 'T', fetch: f });
+    await ig.criarReels({ videoUrl: 'https://videos/x.mp4', legenda: 'Gol!', colaboradores: [] });
+    expect(new URLSearchParams(chamadas[0]!.corpo).has('collaborators')).toBe(false);
+  });
+
   it('erro do container e token vencido viram ErroInstagram', async () => {
     const { f } = falso({
       'GET /v25.0/CONT': () => ({ status_code: 'ERROR', status: 'Formato de vídeo' }),

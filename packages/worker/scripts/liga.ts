@@ -15,6 +15,8 @@
  *   pnpm liga webhook-mensagens [--gravar]         mostra (e com --gravar faz) a inscrição da conta no webhook `messages` (ADR-0083)
  *   pnpm liga corrigir-trocas-de-posicao            devolve o OVR de quem trocou de posição pela regra antiga (ADR-0030)
  *   pnpm liga corrigir-ovr-fora-de-posicao          devolve o OVR da Posição a quem ficou com o da vaga (ADR-0098)
+ *   TIME=jacare USUARIO=jacareacc pnpm liga perfil-do-time [--gravar]  Perfil do Time oficial (ADR-0100); sem USUARIO, tira
+ *   USUARIO=jacareacc pnpm liga testar-colaborador  cria (sem publicar) um Reels com colaborador, para conferir a permissão (ADR-0100)
  *   pnpm liga comentarios                          os comentários lidos e o resultado de cada um
  *   pnpm liga mudar-inicio --inicio 2026-11-08      antecipa/adia a Temporada (antes do 1º jogo)
  *   pnpm liga inscricoes-de-teste [--quantidade 40]  "comentários" ENTRO de seguidores fictícios
@@ -64,6 +66,8 @@ import {
   interpretar,
   rodadaEmVotacao,
   rodarPartida,
+  definirPerfilDoTime,
+  tirarPerfilDoTime,
   tokenGuardado,
   Instagram,
   tabela,
@@ -278,6 +282,44 @@ async function main(): Promise<void> {
         const j = (await banco.query<{ time_id: string; posicao: string; ovr: number }>(`SELECT time_id, posicao, ovr FROM jogador WHERE lower(username) = lower($1)`, [usuario])).rows[0];
         console.log(`Resultado: ${r}${j ? ` → ${j.posicao} do ${j.time_id}, OVR ${j.ovr}` : ''}`);
         if (r !== 'INSCRITO' && r !== 'REALOCADO') process.exitCode = 1;
+        break;
+      }
+
+      case 'perfil-do-time': {
+        // Perfil do Time (ADR-0100): reconhece o Instagram do Time pedido pela DM. Com USUARIO,
+        // vira oficial; sem USUARIO, tira. TROCAR=true passa por cima de quem pediu primeiro.
+        const timeTexto = (process.env.TIME ?? '').trim();
+        const pedido = interpretar(`ENTRO ${timeTexto} ATA`);
+        if (!timeTexto || pedido.tipo !== 'INSCRICAO') throw new Error('Use: TIME=jacare USUARIO=jacareacc pnpm liga perfil-do-time (sem USUARIO, tira)');
+        const usuario = (process.env.USUARIO ?? '').trim();
+        const r = usuario
+          ? await definirPerfilDoTime(banco, pedido.time, usuario, { gravar: args.gravar, trocar: process.env.TROCAR === 'true' })
+          : await tirarPerfilDoTime(banco, pedido.time, { gravar: args.gravar });
+        console.log(`${nomeCurto(r.time)}: Perfil do Time @${r.antes ?? '—'} → @${r.depois ?? '—'}.${r.gravado ? ' Gravado.' : ' SIMULAÇÃO: nada foi gravado.'}`);
+        if (r.depois) console.log('Daqui em diante o perfil é convidado como colaborador nos Reels das Partidas do Time e aparece na página do Time.');
+        break;
+      }
+
+      case 'testar-colaborador': {
+        // Confere se a conta consegue criar Reels com colaborador (ADR-0100) SEM publicar nada:
+        // cria um container com o vídeo de uma Partida já postada e o @ convidado, espera o
+        // Instagram processar e para aí. O container nunca publicado vence sozinho em 24 h.
+        const usuario = (process.env.USUARIO ?? '').replace(/^@/, '').trim();
+        if (!usuario) throw new Error('Use: USUARIO=jacareacc pnpm liga testar-colaborador');
+        const token = (await tokenGuardado(banco))?.token ?? process.env.IG_ACCESS_TOKEN;
+        if (!process.env.IG_USER_ID || !token) throw new Error('Instagram não configurado (IG_USER_ID e token).');
+        const ig = new Instagram({ userId: process.env.IG_USER_ID, token });
+        console.log(`Login do token: ${ig.login === 'UNIFICADO' ? 'unificado (EAA…, Facebook Login), o que tem colaboradores' : 'do Instagram (IG…): a Meta só oferece colaboradores no login unificado'}`);
+        const v = (await banco.query<{ id: number; video_url: string }>(`SELECT id, video_url FROM partida WHERE video_url IS NOT NULL ORDER BY apito_inicial DESC LIMIT 1`)).rows[0];
+        if (!v) throw new Error('Nenhuma Partida com vídeo para usar no teste.');
+        try {
+          const container = await ig.criarReels({ videoUrl: v.video_url, legenda: 'Teste de colaborador (não publicado)', colaboradores: [usuario] });
+          await ig.esperarContainer(container);
+          console.log(`OK: container ${container} com @${usuario} de colaborador ficou pronto (vídeo da Partida ${v.id}). Nada foi publicado.`);
+        } catch (e) {
+          console.log(`FALHOU: ${(e as Error).message}`);
+          process.exitCode = 1;
+        }
         break;
       }
 

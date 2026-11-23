@@ -6,6 +6,7 @@ import { processarComentario } from '../src/coletar.js';
 import { rodarPartida } from '../src/partida.js';
 import { fecharRodada } from '../src/resumo.js';
 import { DURACAO_AO_VIVO_MS, exportarSite } from '../src/site.js';
+import { definirPerfilDoTime } from '../src/perfilDoTime.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 
 let banco: Banco;
@@ -49,6 +50,13 @@ async function exportar(agora: Date) {
 }
 
 describe('dados públicos do site', () => {
+  it('o Perfil do Time oficial vai para o site; Time sem perfil não ganha o campo (ADR-0100)', async () => {
+    await definirPerfilDoTime(banco, 'TAM', '@tamanduaofc', { gravar: true });
+    const { liga } = await exportar(new Date('2026-11-07T12:00:00Z'));
+    expect(liga.times.find((t) => t.id === 'TAM')!.instagram).toBe('tamanduaofc');
+    expect(liga.times.find((t) => t.id === 'ONC')).not.toHaveProperty('instagram');
+  });
+
   it('antes do Apito: escalação aparece, resultado e OVR novo não', async () => {
     const p1 = partidas[0]!;
     const { liga, jogadores, partida } = await exportar(new Date(p1.apito.getTime() - 10 * minuto));
