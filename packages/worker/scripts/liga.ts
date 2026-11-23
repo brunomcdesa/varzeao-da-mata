@@ -15,8 +15,8 @@
  *   pnpm liga webhook-mensagens [--gravar]         mostra (e com --gravar faz) a inscrição da conta no webhook `messages` (ADR-0083)
  *   pnpm liga corrigir-trocas-de-posicao            devolve o OVR de quem trocou de posição pela regra antiga (ADR-0030)
  *   pnpm liga corrigir-ovr-fora-de-posicao          devolve o OVR da Posição a quem ficou com o da vaga (ADR-0098)
- *   TIME=jacare USUARIO=jacareacc pnpm liga perfil-do-time [--gravar]  Perfil do Time oficial (ADR-0099); sem USUARIO, tira
- *   USUARIO=jacareacc pnpm liga testar-colaborador  cria (sem publicar) um Reels com colaborador, para conferir a permissão (ADR-0099)
+ *   TIME=jacare USUARIO=jacareacc pnpm liga perfil-do-time [--gravar]  Perfil do Time oficial (ADR-0100); sem USUARIO, tira
+ *   USUARIO=jacareacc pnpm liga testar-colaborador  cria (sem publicar) um Reels com colaborador, para conferir a permissão (ADR-0100)
  *   pnpm liga comentarios                          os comentários lidos e o resultado de cada um
  *   pnpm liga mudar-inicio --inicio 2026-11-08      antecipa/adia a Temporada (antes do 1º jogo)
  *   pnpm liga inscricoes-de-teste [--quantidade 40]  "comentários" ENTRO de seguidores fictícios
@@ -286,7 +286,7 @@ async function main(): Promise<void> {
       }
 
       case 'perfil-do-time': {
-        // Perfil do Time (ADR-0099): reconhece o Instagram do Time pedido pela DM. Com USUARIO,
+        // Perfil do Time (ADR-0100): reconhece o Instagram do Time pedido pela DM. Com USUARIO,
         // vira oficial; sem USUARIO, tira. TROCAR=true passa por cima de quem pediu primeiro.
         const timeTexto = (process.env.TIME ?? '').trim();
         const pedido = interpretar(`ENTRO ${timeTexto} ATA`);
@@ -301,7 +301,7 @@ async function main(): Promise<void> {
       }
 
       case 'testar-colaborador': {
-        // Confere se a conta consegue criar Reels com colaborador (ADR-0099) SEM publicar nada:
+        // Confere se a conta consegue criar Reels com colaborador (ADR-0100) SEM publicar nada:
         // cria um container com o vídeo de uma Partida já postada e o @ convidado, espera o
         // Instagram processar e para aí. O container nunca publicado vence sozinho em 24 h.
         const usuario = (process.env.USUARIO ?? '').replace(/^@/, '').trim();

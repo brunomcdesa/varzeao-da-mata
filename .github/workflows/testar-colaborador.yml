@@ -1,4 +1,4 @@
-# Confere se a conta da Liga consegue criar Reels com um Perfil do Time de colaborador (ADR-0099).
+# Confere se a conta da Liga consegue criar Reels com um Perfil do Time de colaborador (ADR-0100).
 # Não publica nada: cria o container, espera ficar pronto e para. Só à mão.
 name: testar-colaborador
 on:

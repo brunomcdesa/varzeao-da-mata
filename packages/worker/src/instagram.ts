@@ -228,7 +228,7 @@ export class Instagram {
 
   /**
    * Cria o container do Reels. O `videoUrl` precisa ser público (R2). `colaboradores` são os @
-   * (sem o @) convidados para a colaboração: o Perfil do Time (ADR-0099). A API aceita até 3 e
+   * (sem o @) convidados para a colaboração: o Perfil do Time (ADR-0100). A API aceita até 3 e
    * só no login unificado; cada perfil precisa aceitar o convite no próprio Reels.
    */
   async criarReels(o: { videoUrl: string; legenda: string; capaEmMs?: number; capaUrl?: string; colaboradores?: string[] }): Promise<string> {

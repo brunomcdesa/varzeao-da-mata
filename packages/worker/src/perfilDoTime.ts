@@ -1,5 +1,5 @@
 /**
- * Perfil do Time (ADR-0099): o Instagram que um Jogador criou para o Time e que o dono
+ * Perfil do Time (ADR-0100): o Instagram que um Jogador criou para o Time e que o dono
  * reconheceu como oficial pela DM. Ganha link na página do Time e entra como colaborador
  * em todo Reels de Partida do Time. Roda pelo workflow `perfil-do-time` (ou
  * `pnpm liga perfil-do-time`); sem `gravar`, é a simulação.

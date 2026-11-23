@@ -16,7 +16,7 @@ import { bancoDeTeste } from './banco-de-teste.js';
 class InstagramFalso {
   comentariosPorMidia = new Map<string, Comentario[]>();
   containers: { id: string; videoUrl: string; legenda: string; capaEmMs?: number; capaUrl?: string; colaboradores?: string[] }[] = [];
-  /** Simula o Instagram recusando o convite de colaboração (ADR-0099). */
+  /** Simula o Instagram recusando o convite de colaboração (ADR-0100). */
   recusarColaboradores = false;
   token = 'T0';
   renovacoes = 0;
@@ -124,7 +124,7 @@ describe('jobs', () => {
     expect(rel.resultados.INSCRITO).toBe(1);
   });
 
-  it('partida: o Perfil de cada Time entra como colaborador do Reels (ADR-0099)', async () => {
+  it('partida: o Perfil de cada Time entra como colaborador do Reels (ADR-0100)', async () => {
     await jobColetar(ctx);
     for (const t of TIMES) await definirPerfilDoTime(banco, t, `perfil_${t.toLowerCase()}`, { gravar: true });
     agora = new Date('2026-11-07T14:25:00Z');
@@ -133,7 +133,7 @@ describe('jobs', () => {
     expect(ig.containers[0]!.colaboradores).toEqual([`perfil_${lados.mandante_id.toLowerCase()}`, `perfil_${lados.visitante_id.toLowerCase()}`]);
   });
 
-  it('partida: se o Instagram recusa os colaboradores, o Reels sai sem eles (ADR-0099)', async () => {
+  it('partida: se o Instagram recusa os colaboradores, o Reels sai sem eles (ADR-0100)', async () => {
     await jobColetar(ctx);
     for (const t of TIMES) await definirPerfilDoTime(banco, t, `perfil_${t.toLowerCase()}`, { gravar: true });
     ig.recusarColaboradores = true;

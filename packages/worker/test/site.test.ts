@@ -50,7 +50,7 @@ async function exportar(agora: Date) {
 }
 
 describe('dados públicos do site', () => {
-  it('o Perfil do Time oficial vai para o site; Time sem perfil não ganha o campo (ADR-0099)', async () => {
+  it('o Perfil do Time oficial vai para o site; Time sem perfil não ganha o campo (ADR-0100)', async () => {
     await definirPerfilDoTime(banco, 'TAM', '@tamanduaofc', { gravar: true });
     const { liga } = await exportar(new Date('2026-11-07T12:00:00Z'));
     expect(liga.times.find((t) => t.id === 'TAM')!.instagram).toBe('tamanduaofc');

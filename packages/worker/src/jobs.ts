@@ -314,7 +314,7 @@ async function agendar(c: ContextoDoJob, o: { tipo: ItemDaAgenda['tipo']; ref: n
   if (!container) {
     const base = { videoUrl: o.videoUrl, legenda: o.legenda, ...(o.capaUrl ? { capaUrl: o.capaUrl } : {}), ...(o.capaEmMs !== undefined ? { capaEmMs: o.capaEmMs } : {}) };
     if (o.colaboradores?.length) {
-      // Perfil do Time como colaborador (ADR-0099). Se o Instagram recusar o convite (@ trocado,
+      // Perfil do Time como colaborador (ADR-0100). Se o Instagram recusar o convite (@ trocado,
       // perfil privado), o Reels sai só na conta da Liga: o jogo não pode ficar sem Reels.
       container = await c.ig.criarReels({ ...base, colaboradores: o.colaboradores }).catch((e: Error) => {
         logDe(c)(`${o.tipo} ${o.ref}: colaboradores (${o.colaboradores!.map((u) => `@${u}`).join(', ')}) recusados: ${e.message}. Vai sem.`);

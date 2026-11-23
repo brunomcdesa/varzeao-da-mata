@@ -3950,7 +3950,7 @@ a.jogo:hover {
   padding-top: 24px;
 }
 
-/* Perfil do Time (ADR-0099): o Instagram oficial do Time, na faixa da página do Time. */
+/* Perfil do Time (ADR-0100): o Instagram oficial do Time, na faixa da página do Time. */
 .perfil-do-time {
   display: flex;
   flex-wrap: wrap;

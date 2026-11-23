@@ -151,7 +151,7 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
   }
   const [l, js] = await Promise.all([liga(), jogadores()]);
   const id = IDENTIDADE[t];
-  // Perfil do Time (ADR-0099): o Instagram que os Jogadores criaram e a Liga reconheceu.
+  // Perfil do Time (ADR-0100): o Instagram que os Jogadores criaram e a Liga reconheceu.
   const perfil = l.times.find((x) => x.id === t)?.instagram ?? null;
   const elenco = js.filter((j) => j.time === t).sort((a, b) => b.ovr - a.ovr || a.username.localeCompare(b.username));
   const serie = serieDoTime(l, t);

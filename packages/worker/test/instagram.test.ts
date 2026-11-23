@@ -74,7 +74,7 @@ describe('Instagram', () => {
     expect(consultas).toBe(3);
   });
 
-  it('Reels com colaboradores manda a lista sem @ e sem repetição (ADR-0099)', async () => {
+  it('Reels com colaboradores manda a lista sem @ e sem repetição (ADR-0100)', async () => {
     const { f, chamadas } = falso({ 'POST /v25.0/EU/media': () => ({ id: 'CONT' }) });
     const ig = new Instagram({ userId: 'EU', token: 'T', fetch: f });
     await ig.criarReels({ videoUrl: 'https://videos/x.mp4', legenda: 'Gol!', colaboradores: ['@jacareacc', 'tamanduaofc', 'jacareacc'] });

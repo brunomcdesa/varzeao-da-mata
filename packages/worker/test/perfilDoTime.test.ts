@@ -11,7 +11,7 @@ afterEach(async () => {
   await banco.fechar();
 });
 
-describe('Perfil do Time (ADR-0099)', () => {
+describe('Perfil do Time (ADR-0100)', () => {
   it('sem gravar é só simulação; gravado, aparece sem o @', async () => {
     const sim = await definirPerfilDoTime(banco, 'JAC', '@jacareacc', { gravar: false });
     expect(sim).toEqual({ time: 'JAC', antes: null, depois: 'jacareacc', gravado: false });
