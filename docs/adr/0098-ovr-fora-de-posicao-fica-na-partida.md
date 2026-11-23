@@ -1,6 +1,6 @@
 # 0098 — O OVR de quem joga fora de posição fica na Partida
 
-- Status: proposto (aguarda aprovação do dono)
+- Status: aceito (aprovado pelo dono em 23/11/2026)
 - Data: 2026-11-21
 
 ## Contexto
