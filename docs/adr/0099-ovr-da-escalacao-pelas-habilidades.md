@@ -1,6 +1,6 @@
 # 0099 — OVR da Escalação no site pelas Habilidades
 
-- Status: proposto (aguarda aprovação do dono)
+- Status: aceito (aprovado pelo dono em 23/11/2026)
 - Data: 2026-11-23
 
 ## Contexto
