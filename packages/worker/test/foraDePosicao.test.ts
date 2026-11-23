@@ -127,7 +127,7 @@ describe('OVR fora de posição no banco (ADR-0098)', () => {
   });
 });
 
-describe('OVR da Escalação no site (ADR-0099)', () => {
+describe('OVR da Escalação no site (ADR-0101)', () => {
   it('quem foi escalado com o OVR da vaga gravado aparece com o das Habilidades', async () => {
     const { ovrPelasHabilidades } = await import('../src/site.js');
     const ata = habilidadesDoPerfil('ATA', 65);

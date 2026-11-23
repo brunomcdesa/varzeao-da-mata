@@ -292,7 +292,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       time: j.time_id,
       posicao: j.posicao,
       // OVR antes da primeira Partida ainda não encerrada; senão o atual. Sempre o da Posição
-      // dele, pelas Habilidades: fora de posição, o da vaga fica só na Partida (ADR-0099).
+      // dele, pelas Habilidades: fora de posição, o da vaga fica só na Partida (ADR-0101).
       ovr: oculta ? ovrPelasHabilidades(j.posicao, oculta.ovr_antes, oculta.habilidades_antes) : j.ovr,
       ovrInicial: minhas[0] ? ovrPelasHabilidades(j.posicao, minhas[0].ovr_antes, minhas[0].habilidades_antes) : j.ovr,
       habilidades: oculta ? habilidadesDe(j.posicao, oculta.ovr_antes, oculta.habilidades_antes) : habilidadesDe(j.posicao, j.ovr, j.habilidades),
@@ -663,7 +663,7 @@ export function ovrNoHistorico(
 }
 
 /**
- * OVR de uma linha da Escalação para o site (ADR-0099): o das Habilidades gravadas, com os pesos
+ * OVR de uma linha da Escalação para o site (ADR-0101): o das Habilidades gravadas, com os pesos
  * da Posição em que ele jogou. Corrige o `ovr_antes` antigo de quem foi escalado logo depois de um
  * jogo fora de posição (ADR-0098), que ficou com o OVR da vaga. Sem Habilidades gravadas, o gravado.
  */
