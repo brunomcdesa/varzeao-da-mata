@@ -19,5 +19,5 @@ Para o navegador, outro domínio é outro site. O App instalado, a sessão do V�
 ## Consequências
 
 - Quem migra instala o App de novo, refaz o Vínculo e reativa os Avisos no domínio novo.
-- O Turnstile precisa ter o hostname novo, senão o desafio falha no domínio novo.
+- Se o Turnstile das votações estiver configurado, o widget precisa ter o hostname novo, senão o desafio falha no domínio novo. Em 23/11/2026 ele não estava configurado.
 - O e-mail do domínio fica desligado (MX nulo, SPF e DMARC de rejeição) até alguém pedir o Email Routing.
