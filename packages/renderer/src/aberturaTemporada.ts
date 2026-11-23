@@ -4,7 +4,7 @@
  * (ADR-0062) só há a Série A de 16: o Reels conta que os 8 piores caem e formam a Série B da T3.
  * Mesmo estilo e mesmos ajudantes do Reels de apresentação da Liga (apresentacao.ts).
  */
-import { FALA_DO_TIME, GRUPOS_DA_A_DE_16, IDENTIDADE, NOME_DO_GRUPO, TIMES_FUNDADORES, TIMES_NOVOS, type Estrelas, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, GRUPOS_DA_A_DE_16, IDENTIDADE, MOEDAS, NOME_DO_GRUPO, OITAVAS_DE_CLASSICO, TIMES_FUNDADORES, TIMES_NOVOS, type Estrelas, type Posicao, type TimeId } from '@liga/shared';
 import { boneco, dataDa, entre, horaFalada, lista, NUMERO_FALADO, POSICAO_ESCRITA, POSICAO_FALADA, uniforme } from './apresentacao.js';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, plaquinha } from './desenho.js';
@@ -13,6 +13,7 @@ import { COLUNAS, COR, LINHAS, Pincel } from './pixel.js';
 import type { Segmento } from './roteiro.js';
 import type { Pose } from './sprites.js';
 import { desenharEscudoDaLiga, veu } from './video.js';
+import { desenharEstrelaSolta } from './escudos.js';
 
 export interface DadosDaAberturaDaTemporada {
   temporada: number;
@@ -45,6 +46,13 @@ export interface DadosDaAberturaDaTemporada {
   /** Hora (no mesmo dia do post) do Reels que conta quem vai para a Série B; null se não houver. */
   horaDoRebalanceamento: number | null;
   exemplo: { time: TimeId; posicao: Posicao; username: string };
+  /**
+   * T3 em diante (ADR-0088): a Copa abre a Temporada, com as duas Séries de 8 formadas no fim da
+   * anterior. `estreia` passa a ser o 1º dia da Copa; a Rodada 1 da Fase de Liga é `estreiaDaLiga`.
+   */
+  copa?: { oitavas: readonly (readonly [TimeId, TimeId])[]; estreiaDaLiga: string; moedas: number };
+  /** Quando saem os Reels de cada novidade ("Amanhã", "Hoje"). Padrão: amanhã. */
+  quandoSaemAsNovidades?: 'Hoje' | 'Amanhã';
 }
 
 export const DADOS_DA_ABERTURA_T2: Omit<DadosDaAberturaDaTemporada, 'estreia'> = {
@@ -66,11 +74,39 @@ export const DADOS_DA_ABERTURA_T2: Omit<DadosDaAberturaDaTemporada, 'estreia'> =
   exemplo: { time: 'JAC', posicao: 'ATA', username: 'voce' },
 };
 
-export type CartelaAbertura = 'ABERTURA' | 'SERIES' | 'ACESSO' | 'NOVIDADES' | 'ENTRAR' | 'AGENDA' | 'CHAMADA';
+/**
+ * Dados da Abertura da T3 (ADR-0088): as Séries de 8 saem do fim da T2 (o worker lê do banco),
+ * a Copa abre a Temporada e a Fase de Liga começa depois dos dias dela.
+ */
+export function dadosDaAberturaT3(o: { serieA: readonly TimeId[]; serieB: readonly TimeId[]; estreia: string; estreiaDaLiga: string; estrelas?: Partial<Record<TimeId, Estrelas>>; quandoSaemAsNovidades?: 'Hoje' | 'Amanhã' }): DadosDaAberturaDaTemporada {
+  return {
+    temporada: 3,
+    estreia: o.estreia,
+    ...(o.estrelas ? { estrelas: o.estrelas } : {}),
+    horarios: { B: [11, 12, 13, 14], A: [15, 16, 17, 18] },
+    jogosPorHorarioDaA: 1,
+    rodadas: { A: 7, B: 7 },
+    horaDoResumo: 19,
+    serieA: o.serieA,
+    chegamNaA: [],
+    serieB: o.serieB,
+    caem: 0,
+    grupos: [],
+    limiteNaA: { goleiros: 2, porPosicao: 4 },
+    horaDoRebalanceamento: null,
+    exemplo: { time: 'CAP', posicao: 'ATA', username: 'voce' },
+    copa: { oitavas: OITAVAS_DE_CLASSICO, estreiaDaLiga: o.estreiaDaLiga, moedas: MOEDAS.TITULO_COPA },
+    ...(o.quandoSaemAsNovidades ? { quandoSaemAsNovidades: o.quandoSaemAsNovidades } : {}),
+  };
+}
+
+export type CartelaAbertura = 'ABERTURA' | 'SERIES' | 'ACESSO' | 'COPA' | 'NOVIDADES' | 'ENTRAR' | 'AGENDA' | 'CHAMADA';
 export type SegmentoAbertura = Segmento & { cartela: CartelaAbertura };
 
 const ORDEM: CartelaAbertura[] = ['ABERTURA', 'SERIES', 'ACESSO', 'NOVIDADES', 'ENTRAR', 'AGENDA', 'CHAMADA'];
-const DURACAO_BASE: Record<CartelaAbertura, number> = { ABERTURA: 4.5, SERIES: 9, ACESSO: 6.5, NOVIDADES: 8, ENTRAR: 8.5, AGENDA: 7, CHAMADA: 6 };
+/** Da T3 em diante, a Copa entra logo depois do Sobe e desce (ADR-0088). */
+const ORDEM_COM_COPA: CartelaAbertura[] = ['ABERTURA', 'SERIES', 'ACESSO', 'COPA', 'NOVIDADES', 'ENTRAR', 'AGENDA', 'CHAMADA'];
+const DURACAO_BASE: Record<CartelaAbertura, number> = { ABERTURA: 4.5, SERIES: 9, ACESSO: 6.5, COPA: 9, NOVIDADES: 8, ENTRAR: 8.5, AGENDA: 7, CHAMADA: 6 };
 const CORTE = 0.3;
 
 export class RoteiroAberturaDaTemporada {
@@ -82,7 +118,7 @@ export class RoteiroAberturaDaTemporada {
     minimos: Record<number, { antes?: number }> = {},
   ) {
     let cursor = 0;
-    this.segmentos = ORDEM.map((cartela, i) => {
+    this.segmentos = (dados.copa ? ORDEM_COM_COPA : ORDEM).map((cartela, i) => {
       const inicio = cursor;
       cursor += Math.max(DURACAO_BASE[cartela], (minimos[i]?.antes ?? 0) + 0.6);
       return { tipo: 'ABERTURA', cartela, inicio, fim: cursor };
@@ -126,8 +162,24 @@ export function narracaoDaAbertura(roteiro: RoteiroAberturaDaTemporada): Fala[] 
   const n = d.temporada;
   const soA = d.serieB.length === 0;
   const limite = `${NUMERO_FALADO[d.limiteNaA.goleiros] ?? d.limiteNaA.goleiros} goleiros e ${NUMERO_FALADO[d.limiteNaA.porPosicao] ?? d.limiteNaA.porPosicao} jogadores em cada posição`;
+  const quando = d.quandoSaemAsNovidades ?? 'Amanhã';
+  const textoT3 = (): Record<CartelaAbertura, string> => {
+    const c = d.copa!;
+    const liga = dataDa({ estreia: c.estreiaDaLiga });
+    const [p1, p2] = c.oitavas;
+    return {
+      ABERTURA: `Acabou a Temporada ${n - 1}. E já vem aí a Temporada ${n} do Varzeão da Mata!`,
+      SERIES: `Agora são duas séries de oito times. Na Série A: ${lista(d.serieA.map(curto))}. E estreia a Série B, com ${lista(d.serieB.map(curto))}.`,
+      ACESSO: `Em cada série, todos contra todos, em ${NUMERO_FALADO[d.rodadas.A] ?? d.rodadas.A} rodadas. Os quatro primeiros vão pra semifinal. E no fim, os dois últimos da Série A caem, e os dois finalistas da Série B sobem.`,
+      COPA: `Mas antes, tem Copa! Os dezesseis times juntos, das duas séries, em mata-mata, em três dias. As oitavas são clássicos, como ${curto(p1![0])} contra ${curto(p1![1])}, e ${curto(p2![0])} contra ${curto(p2![1])}. Jogo único, com pênaltis no empate. E o campeão ganha a estrela de bronze no escudo e ${NUMERO_FALADO[c.moedas] ?? c.moedas} moedas pra cada jogador que entrou em campo.`,
+      NOVIDADES: `E tem muita novidade: dentro de campo, salário e loja, palpite e conquistas, e pro capitão. ${quando} sai um Reels explicando cada uma.`,
+      ENTRAR: `Quer jogar? Comenta ENTRO, o time e a posição. Tipo: ENTRO ${curto(ex.time)} ${POSICAO_FALADA[ex.posicao]}. Vale qualquer time, da Série A ou da B. E quem já joga continua com o seu jogador.`,
+      AGENDA: `A Copa começa ${semana === 'sábado' || semana === 'domingo' ? 'no' : 'na'} ${semana}, dia ${NUMERO_FALADO[dia] ?? dia}. E a fase de liga começa ${liga.semana === 'sábado' || liga.semana === 'domingo' ? 'no' : 'na'} ${liga.semana}, dia ${NUMERO_FALADO[liga.dia] ?? liga.dia}: a Série B joga ${faixa(d.horarios.B)}, e a Série A, ${faixa(d.horarios.A)}. Um jogo por hora.`,
+      CHAMADA: `As inscrições estão abertas. Comenta aí e garante a sua vaga na Temporada ${n}!`,
+    };
+  };
   return roteiro.segmentos.map((s, i): Fala => {
-    const texto: Record<CartelaAbertura, string> = soA
+    const texto: Record<CartelaAbertura, string> = d.copa ? textoT3() : soA
       ? {
           ABERTURA: `Acabou a Temporada ${n - 1}. E já vem aí a Temporada ${n} do Varzeão da Mata!`,
           SERIES: d.grupos.length
@@ -140,6 +192,7 @@ export function narracaoDaAbertura(roteiro: RoteiroAberturaDaTemporada): Fala[] 
           ENTRAR: `Quer jogar? Comenta ENTRO, o time e a posição. Tipo: ENTRO ${curto(ex.time)} ${POSICAO_FALADA[ex.posicao]}. Cada time recebe até ${limite}. Posição cheia, você vai para outro time. E quem já joga continua com o seu jogador.`,
           AGENDA: `A estreia é ${semana === 'sábado' || semana === 'domingo' ? 'no' : 'na'} ${semana}, dia ${NUMERO_FALADO[dia] ?? dia}. São oito jogos por dia, um por hora, ${faixa(d.horarios.A)}. ${NUMERO_FALADO[d.rodadas.A] ?? d.rodadas.A} rodadas, depois semifinal e final.`.replace('. sete', '. Sete'),
           CHAMADA: `As inscrições estão abertas. Comenta aí e garante a sua vaga na Temporada ${n}!`,
+          COPA: '',
         }
       : {
       ABERTURA: `Acabou a Temporada ${n - 1}. E já vem aí a Temporada ${n} do Varzeão da Mata!`,
@@ -151,8 +204,9 @@ export function narracaoDaAbertura(roteiro: RoteiroAberturaDaTemporada): Fala[] 
       ENTRAR: `Quer jogar? Comenta ENTRO, o time e a posição. Tipo: ENTRO ${curto(ex.time)} ${POSICAO_FALADA[ex.posicao]}. Cada time da Série A recebe até ${NUMERO_FALADO[d.limiteNaA.goleiros] ?? d.limiteNaA.goleiros} goleiros e ${NUMERO_FALADO[d.limiteNaA.porPosicao] ?? d.limiteNaA.porPosicao} jogadores em cada posição. Posição cheia, você vai para outro time da Série A. Só se não tiver vaga em nenhum, você começa na Série B. E quem já joga continua com o seu jogador.`,
       AGENDA: `A estreia é ${semana === 'sábado' || semana === 'domingo' ? 'no' : 'na'} ${semana}, dia ${NUMERO_FALADO[dia] ?? dia}. A Série B joga ${faixa(d.horarios.B)}, um jogo por hora. E a Série A, ${faixa(d.horarios.A)}, com ${NUMERO_FALADO[d.jogosPorHorarioDaA] ?? d.jogosPorHorarioDaA} jogos em cada horário.`,
       CHAMADA: `As inscrições estão abertas. Comenta aí e garante a sua vaga na Temporada ${n}!`,
+      COPA: '',
         };
-    const animado = s.cartela === 'ABERTURA' || s.cartela === 'CHAMADA' || s.cartela === 'ENTRAR';
+    const animado = s.cartela === 'ABERTURA' || s.cartela === 'CHAMADA' || s.cartela === 'ENTRAR' || s.cartela === 'COPA';
     return { id: `abertura-${i}`, texto: texto[s.cartela], inicio: s.inicio + 0.35, limite: s.fim, tom: animado ? 'animado' : 'normal', segmento: i, parte: 'antes' };
   });
 }
@@ -242,6 +296,19 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
       break;
     }
     case 'SERIES': {
+      if (d.copa) {
+        // T3 (ADR-0050): A e B de 8, uma tábua por Série.
+        titulo('2 Séries de 8');
+        ([['Série A', d.serieA, 0.3], ['Série B', d.serieB, 3.6]] as const).forEach(([nome, times, de], n) => {
+          const topo = 76 + n * 172;
+          surge(entre(t, de, de + 0.4), () => {
+            pin.tabua(12, topo, 246, 162);
+            pin.texto(nome, COLUNAS / 2, topo + 18, 20, display, COR.amarelo, { contorno: COR.contorno });
+          });
+          grade(times, topo + 34, de + 0.3, 0.12);
+        });
+        break;
+      }
       if (soA && d.grupos.length) {
         // Dois Grupos de 8 (ADR-0064): uma tábua por Grupo, com os escudos em duas fileiras de 4.
         titulo(`${d.serieA.length} Times, 2 Grupos`);
@@ -392,10 +459,11 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
         break;
       }
       titulo('Sobe e desce');
-      // Antes de tudo: quem jogou a Temporada anterior não cai agora (ADR-0058).
+      // Antes de tudo: quem jogou a Temporada anterior não cai agora (ADR-0058). Na T3, o aviso
+      // é o formato: todos contra todos e os 4 primeiros na semifinal.
       surge(entre(t, 0.1, 0.4), () => {
         pin.placa(24, 69, 222, 12, { fundo: '#7FD36B', sombra: COR.contorno, degrau: 1 });
-        const aviso = `Ninguém da Temporada ${d.temporada - 1} cai agora`;
+        const aviso = d.copa ? 'Todos contra todos · 4 primeiros na semi' : `Ninguém da Temporada ${d.temporada - 1} cai agora`;
         pin.texto(aviso, COLUNAS / 2, 75, pin.caber(aviso, 214, 9, texto, 700), texto, COR.tinta, { peso: 700 });
       });
       const pula = (k: number) => Math.round(Math.sin(t * 5 + k) * 2);
@@ -430,9 +498,55 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
       });
       break;
     }
+    case 'COPA': {
+      // A Copa (ADR-0088): as 8 Oitavas de Clássico, o calendário em 3 dias e o prêmio.
+      titulo('Copa do Varzeão');
+      const oitavas = d.copa?.oitavas ?? [];
+      surge(entre(t, 0.2, 0.6), () => pin.tabua(12, 74, 246, 222));
+      surge(entre(t, 0.3, 0.6), () => pin.texto('Oitavas de Clássico', COLUNAS / 2, 90, 15, display, COR.amarelo, { contorno: COR.contorno }));
+      oitavas.forEach(([a, b], k) => {
+        const x = 20 + (k % 2) * 118;
+        const y = 102 + Math.floor(k / 2) * 46;
+        const de = 0.6 + k * 0.35;
+        surge(entre(t, de, de + 0.3), () => {
+          desenharEscudo(pin, a, x + 6, y, 1.05);
+          pin.texto('x', x + 52, y + 17, 12, display, COR.placa);
+          desenharEscudo(pin, b, x + 66, y, 1.05);
+        }, 6);
+      });
+      surge(entre(t, 4.2, 4.6), () => {
+        pin.tabua(12, 304, 246, 54);
+        pin.texto('3 dias · jogo único', COLUNAS / 2, 322, 15, display, COR.placa, { contorno: COR.contorno });
+        pin.texto('oitavas · quartas e semis · final', COLUNAS / 2, 342, pin.caber('oitavas · quartas e semis · final', 226, 10, texto, 700), texto, COR.placaSombra, { peso: 700 });
+      });
+      surge(entre(t, 6.2, 6.6), () => {
+        pin.tabua(12, 366, 246, 64);
+        // Num quadrinho claro: o bronze some na madeira.
+        pin.placa(22, 374, 38, 48, { fundo: COR.placa, luz: '#FFF8E6', sombra: COR.placaSombra });
+        desenharEstrelaSolta(pin.ctx as CanvasRenderingContext2D, 'bronze', 27 * pin.px, 384 * pin.px, 4 * pin.px);
+        pin.texto('Estrela de bronze', 66, 386, pin.caber('Estrela de bronze', 180, 16, display), display, '#E0A060', { alinhar: 'left', contorno: COR.contorno });
+        const premio = `+ ${d.copa?.moedas ?? 40} Moedas para quem jogou`;
+        pin.texto(premio, 66, 410, pin.caber(premio, 184, 11, texto, 700), texto, COR.placa, { alinhar: 'left', peso: 700 });
+      });
+      break;
+    }
     case 'NOVIDADES': {
       titulo('Muita novidade');
-      const blocos: [string, (x: number, y: number) => void][] = [
+      const moeda = (x: number, y: number) => {
+        pin.r(x - 11, y - 11, 22, 22, COR.contorno);
+        pin.r(x - 10, y - 10, 20, 20, '#F2C230');
+        pin.r(x - 10, y + 6, 20, 4, '#C9962A');
+        pin.texto('$', x, y - 1, 14, display, '#8A5A12');
+      };
+      const celularzinho = (x: number, y: number) => {
+        pin.r(x - 8, y - 13, 16, 26, COR.contorno);
+        pin.r(x - 7, y - 12, 14, 22, '#8FD3FF');
+        pin.r(x - 7, y + 9, 14, 1, COR.contorno);
+        pin.r(x - 4, y - 8, 8, 3, COR.amarelo);
+        pin.r(x - 4, y - 3, 8, 2, '#FFFFFF');
+        pin.r(x - 4, y + 1, 6, 2, '#FFFFFF');
+      };
+      const blocosT2: [string, (x: number, y: number) => void][] = [
         ['Dentro de campo', (x, y) => {
           // cartão amarelo e apito
           pin.r(x - 9, y - 12, 14, 20, COR.contorno);
@@ -455,6 +569,14 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
           pin.r(x - 4, y + 1, 6, 2, '#FFFFFF');
         }],
       ];
+      const blocos: [string, (x: number, y: number) => void][] = d.copa
+        ? [
+            blocosT2[0]!,
+            ['Salário e Loja', moeda],
+            ['Palpite e Conquistas', celularzinho],
+            ['Capitão e Batedores', blocosT2[1]![1]],
+          ]
+        : blocosT2;
       blocos.forEach(([nome, icone], k) => {
         const x = 14 + (k % 2) * 124;
         const y = 80 + Math.floor(k / 2) * 92;
@@ -466,7 +588,7 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
       });
       surge(entre(t, 2.8, 3.2), () => {
         pin.tabua(14, 274, 242, 54);
-        pin.texto('Amanhã', COLUNAS / 2, 292, 18, display, COR.amarelo, { contorno: COR.contorno });
+        pin.texto(d.quandoSaemAsNovidades ?? 'Amanhã', COLUNAS / 2, 292, 18, display, COR.amarelo, { contorno: COR.contorno });
         pin.texto('um Reels explicando cada uma', COLUNAS / 2, 312, 9, texto, COR.placa, { peso: 700 });
       });
       if (d.horaDoRebalanceamento) {
@@ -493,7 +615,18 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
         const cursor = Math.floor(t * 3) % 2 === 0 && letras < comando.length ? '|' : '';
         pin.texto(comando.slice(0, letras) + cursor, 50, 120, pin.caber(comando, 196, 16, display), display, COR.tinta, { alinhar: 'left' });
       }, 0);
-      surge(entre(t, 2.8, 3.2), () => {
+      if (d.copa) {
+        surge(entre(t, 2.8, 3.2), () => {
+          pin.tabua(14, 156, 242, 96);
+          pin.texto('Qualquer Time', COLUNAS / 2, 176, 20, display, COR.amarelo, { contorno: COR.contorno });
+          desenharEscudo(pin, d.serieA[0]!, 52, 190, 1.0);
+          pin.texto('A', 96, 206, 18, display, COR.placa, { contorno: COR.contorno });
+          desenharEscudo(pin, d.serieB[0]!, 156, 190, 1.0);
+          pin.texto('B', 200, 206, 18, display, COR.placa, { contorno: COR.contorno });
+          pin.texto('da Série A ou da Série B', COLUNAS / 2, 238, pin.caber('da Série A ou da Série B', 226, 11, texto, 700), texto, COR.placa, { peso: 700 });
+        });
+      }
+      if (!d.copa) surge(entre(t, 2.8, 3.2), () => {
         pin.tabua(14, 156, 242, 96);
         const limite = soA ? `Cada Time: ${d.limiteNaA.goleiros} goleiros, ${d.limiteNaA.porPosicao} por posição` : `Série A: ${d.limiteNaA.goleiros} goleiros, ${d.limiteNaA.porPosicao} por posição`;
         pin.texto(limite, COLUNAS / 2, 174, pin.caber(limite, 226, 15, display), display, COR.amarelo, { contorno: COR.contorno });
@@ -524,6 +657,31 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
     case 'AGENDA': {
       titulo(`Temporada ${d.temporada}`);
       const { dia, mes, semana } = dataDa(d);
+      if (d.copa) {
+        const liga = dataDa({ estreia: d.copa.estreiaDaLiga });
+        const data = (rotulo: string, x: { dia: number; mes: string; semana: string }, y: number, de: number) =>
+          surge(entre(t, de, de + 0.4), () => {
+            pin.tabua(22, y, 226, 70);
+            pin.texto(rotulo, COLUNAS / 2, y + 18, 13, texto, COR.placa, { peso: 700 });
+            const txt = `${x.semana}, ${x.dia} de ${x.mes}`;
+            pin.texto(txt, COLUNAS / 2, y + 46, pin.caber(txt, 206, 24, display), display, COR.amarelo, { contorno: COR.contorno, espessura: 1.5 });
+          });
+        data('A Copa começa', { dia, mes, semana }, 80, 0.3);
+        data('A Fase de Liga começa', liga, 160, 2.0);
+        surge(entre(t, 3.6, 4.0), () => {
+          pin.tabua(14, 240, 242, 96);
+          (['B', 'A'] as const).forEach((serie, linha) => {
+            const y = 252 + linha * 38;
+            pin.texto(`Série ${serie}`, 44, y + 13, 12, display, COR.amarelo, { contorno: COR.contorno });
+            d.horarios[serie].forEach((h, k) => plaquinha(pin, 80 + k * 44, y, 38, 26, `${h}h`, display));
+          });
+        });
+        surge(entre(t, 5.0, 5.4), () => {
+          pin.tabua(22, 346, 226, 48);
+          pin.texto(`${d.horaDoResumo}h: Resumo e votação`, COLUNAS / 2, 370, pin.caber(`${d.horaDoResumo}h: Resumo e votação`, 206, 18, display), display, COR.placa, { contorno: COR.contorno });
+        });
+        break;
+      }
       surge(entre(t, 0.3, 0.7), () => {
         pin.tabua(22, 84, 226, 100);
         pin.texto('Estreia', COLUNAS / 2, 102, 14, texto, COR.placa, { peso: 700 });

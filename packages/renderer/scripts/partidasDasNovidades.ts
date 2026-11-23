@@ -3,7 +3,7 @@
  * novidade. Tudo determinístico: as mesmas sementes dão sempre os mesmos trechos. Os nomes em
  * cima dos bonecos são apelidos inventados (nunca um @ de verdade).
  */
-import { IDENTIDADE, VAGAS_DA_FORMACAO, habilidadesDoPerfil, type Escalacao, type Formacao, type Posicao, type Postura, type TimeId } from '@liga/shared';
+import { IDENTIDADE, VAGAS_DA_FORMACAO, habilidadesDoPerfil, type Escalacao, type Formacao, type PerfilDoJuiz, type Posicao, type Postura, type TimeId } from '@liga/shared';
 import { criarRng, simularPartida, type Lado, type Lance } from '@liga/sim';
 import { climaDaPartida } from '../src/clima.js';
 import type { ClipeDeJogo, ClipeId, DadosDasNovidades, ReelsDeNovidades } from '../src/novidades.js';
@@ -16,6 +16,8 @@ const APELIDOS = ['Rafa', 'Bia', 'Duda', 'Leo', 'Malu', 'Gui', 'Nanda', 'Pedrinh
 export interface OpcoesDaPartidaT2 {
   formacao?: Record<Lado, Formacao>;
   postura?: Record<Lado, Postura>;
+  /** Partida com as regras da T3 (ADR-0094), com esse Perfil do Juiz. */
+  t3?: PerfilDoJuiz;
 }
 
 /** Uma Partida da T2 com Banco (zagueiro, meia e atacante), apelidos e a Formação pedida. */
@@ -50,6 +52,7 @@ export function partidaT2(seed: number, mandante: TimeId, visitante: TimeId, o: 
     seed,
     fase: 'LIGA',
     t2: { postura: o.postura ?? { mandante: 'OFENSIVA', visitante: 'EQUILIBRADA' }, formacao },
+    ...(o.t3 ? { t3: { juiz: o.t3 } } : {}),
   });
   // Número da camisa de exemplo (ADR-0075), com sorteio próprio, que não mexe na Partida: um em
   // cada quatro fica de camisa lisa, como quem ainda não escolheu.
@@ -172,6 +175,28 @@ export function dadosDasNovidades(reels: ReelsDeNovidades, o: { estreia: string;
     jogada('TABELA', '2-3-1', 'TABELA');
     jogada('COBERTURA', '3-2-1', 'COBERTURA');
     jogada('LIGACAO_DIRETA', '3-1-2', 'LIGACAO_DIRETA');
+  }
+  if (reels === 'T3_CAMPO') {
+    // Capivara × Tamanduá com as regras da T3 (ADR-0094).
+    const t3 = (seed: number) => partidaT2(seed, 'CAP', 'TAM', { t3: 'NORMAL' });
+    const quase = (tl: Timeline, i: number) => (r: number): EventoSonoro[] => (tl.janelas[i]!.lance.tipo === 'GOL' ? gol(r) : [{ tipo: 'QUASE', t: r }]);
+    guardar('TRAVE', procurar(t3, (l) => !!l.trave), (tl, i) => trechoDoLance(tl, i, 50, 20, quase(tl, i)));
+    // O rebote que virou gol, desde a defesa do goleiro (o lance anterior).
+    guardar('REBOTE', procurar(t3, (l) => !!l.rebote && l.tipo === 'GOL'), (tl, i) => {
+      const antes = tl.janelas[i - 1]!;
+      const j = tl.janelas[i]!;
+      return { de: Math.max(antes.inicio, antes.resolucao - 25), chave: j.resolucao, ate: j.resolucao + 25, sons: gol(j.resolucao) };
+    });
+    guardar('CHUTE_DE_LONGE', procurar(t3, (l, p) => !!l.chuteDeLonge && (l.tipo === 'GOL' || l.tipo === 'DEFESA') && p.escalacoes[l.ataque].jogadores[l.finalizador?.indice ?? -1]?.posicao === 'MEI'), (tl, i) =>
+      trechoDoLance(tl, i, 40, 22, quase(tl, i)),
+    );
+    guardar('GOL_DE_PLACA', procurar(t3, (l) => !!l.golDePlaca), (tl, i) => trechoDoLance(tl, i, 55, 30, gol));
+    guardar('PRESSAO', procurar(t3, (l) => !!l.pressao && (l.tipo === 'GOL' || l.tipo === 'DEFESA')), (tl, i) => trechoDoLance(tl, i, 50, 22, quase(tl, i)));
+    // A placa dos Acréscimos: do fim dos 90 minutos até um pouco depois.
+    guardar('ACRESCIMOS', procurar(t3, (l) => (l.acrescimo ?? 0) >= 2), (tl, i) => {
+      const j = tl.janelas[i]!;
+      return { de: j.inicio - 12, chave: j.inicio, ate: j.inicio + 40, sons: [] };
+    });
   }
   return { reels, estreia: o.estreia, publicadoEm: o.publicadoEm, partidas, clipes };
 }
