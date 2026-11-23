@@ -16,3 +16,8 @@ ALTER TABLE temporada ADD COLUMN expansao boolean NOT NULL DEFAULT false;
 ALTER TABLE partida DROP CONSTRAINT IF EXISTS partida_copa_etapa_check;
 ALTER TABLE partida ADD CONSTRAINT partida_copa_etapa_check
   CHECK (copa_etapa IN ('CLASSICO', 'OITAVAS', 'REPESCAGEM', 'QUARTAS', 'SEMIFINAL', 'FINAL'));
+
+-- Troca de graça para um Time da Expansão na Janela (ADR-0093): não gasta a da Janela nem a da Temporada.
+ALTER TABLE transferencia ADD COLUMN IF NOT EXISTS gratis boolean NOT NULL DEFAULT false;
+DROP INDEX IF EXISTS transferencia_uma_por_temporada;
+CREATE UNIQUE INDEX IF NOT EXISTS transferencia_uma_por_temporada ON transferencia (jogador_id, temporada_id, janela) WHERE NOT gratis;

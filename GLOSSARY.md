@@ -361,7 +361,7 @@ O Time que forma par fixo com outro. No Rebalanceamento, cada fundador tem como 
 _Avoid_: time irmão, time filial
 
 **Fundador**:
-O título de quem começa a primeira Temporada de um Time novo no Elenco dele (na T2, os 8 Times que chegaram na Série A). Aparece na página de Carreira e dá prioridade na escolha da camisa.
+O título de quem começa a primeira Temporada de um Time novo no Elenco dele (na T2, os 8 Times que chegaram na Série A; na Expansão, quem entra num dos 4 Times novos, pela Inscrição ou pela troca de graça, até o Corte do primeiro jogo da Temporada). Aparece na página de Carreira e dá prioridade na escolha da camisa.
 _Avoid_: pioneiro, membro original
 
 **Selo da Temporada 1**:

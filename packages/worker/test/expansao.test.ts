@@ -7,6 +7,8 @@ import { conferirExpansao, lotacao } from '../src/expansao.js';
 import { avancarMataMata, estruturaDaTemporada } from '../src/mataMata.js';
 import { rodarPartida } from '../src/partida.js';
 import { finalistas, seriesDaTemporada } from '../src/series.js';
+import { processarComentario } from '../src/coletar.js';
+import { legendaDoFimDaTemporada } from '../src/jobs.js';
 import { tabela } from '../src/tabela.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 
@@ -139,4 +141,62 @@ describe('Expansão por lotação (ADR-0093)', () => {
     for (const j of final) await rodarPartida(banco, j.id, { seed: j.id });
     expect(await avancarCopa(banco, t4)).toBe('COPA_ENCERRADA');
   }, 400_000);
+
+  describe('Elencos dos Times novos', () => {
+    const respostas: string[] = [];
+    const ctx = { rodadaEmVotacao: null, responder: async (_id: string, texto: string) => void respostas.push(texto) };
+    const comentario = (id: string, user: string, texto: string, em: string) => ({ igCommentId: id, igMediaId: 'm', igUserId: user, username: user, texto, comentadoEm: new Date(em) });
+    const novosNaA = TIMES_NOVOS.slice(0, 2);
+    const s4 = { A: [...TIMES_FUNDADORES, ...novosNaA], B: [...TIMES_NOVOS.slice(2), ...TIMES_DA_EXPANSAO] };
+    const fundadorDe = async (user: string) =>
+      (await banco.query<{ time_id: TimeId }>(`SELECT f.time_id FROM fundador f JOIN jogador j ON j.id = f.jogador_id WHERE j.username = $1`, [user])).rows.map((r) => r.time_id);
+
+    /** T3 encerrada com a Expansão marcada e a T4 na Pré-temporada, estreando em 14/12. */
+    async function t4() {
+      const t3 = await criarTemporada(banco, { numero: 3, primeiraRodada: '2026-11-30', seed: 4, series });
+      await banco.query(`UPDATE temporada SET expansao = true, status = 'ENCERRADA' WHERE id = $1`, [t3]);
+      return criarTemporada(banco, { numero: 4, primeiraRodada: '2026-12-14', seed: 5, series: s4 });
+    }
+
+    it('quem entra num Time novo antes do primeiro jogo dele vira Fundador; depois do Corte, não', async () => {
+      await t4();
+      respostas.length = 0;
+      expect(await processarComentario(banco, comentario('c1', 'gatinho', 'ENTRO Gato atacante', '2026-12-10T12:00:00Z'), ctx)).toBe('INSCRITO');
+      expect(await fundadorDe('gatinho')).toEqual(['GAT']);
+      expect(respostas.at(-1)).toMatch(/Fundador do Gato/);
+      expect(await processarComentario(banco, comentario('c2', 'atrasado', 'ENTRO Aranha zagueiro', '2026-12-14T13:00:00Z'), ctx)).toBe('INSCRITO');
+      expect(await fundadorDe('atrasado')).toEqual([]);
+      // Time antigo não dá Fundador.
+      expect(await processarComentario(banco, comentario('c3', 'oncinha', 'ENTRO Onça meia', '2026-12-10T12:00:00Z'), ctx)).toBe('INSCRITO');
+      expect(await fundadorDe('oncinha')).toEqual([]);
+    });
+
+    it('com Séries de 10, Posição cheia manda para outro Time com vaga, como nas Séries de 8', async () => {
+      await t4();
+      for (let k = 0; k < 4; k++) expect(await processarComentario(banco, comentario(`a${k}`, `ata${k}`, 'ENTRO Onça atacante', '2026-12-10T12:00:00Z'), ctx)).toBe('INSCRITO');
+      expect(await processarComentario(banco, comentario('a4', 'ata4', 'ENTRO Onça atacante', '2026-12-10T12:00:00Z'), ctx)).toBe('REALOCADO');
+      const time = (await banco.query<{ time_id: TimeId }>(`SELECT time_id FROM jogador WHERE username = 'ata4'`)).rows[0]!.time_id;
+      expect(s4.A).toContain(time);
+      expect(time).not.toBe('ONC');
+    });
+
+    it('na Janela, o veterano troca de graça para um Time novo: não gasta a troca da Janela e vira Fundador', async () => {
+      await t4();
+      await processarComentario(banco, comentario('v0', 'veterano', 'ENTRO Onça meia', '2026-12-01T12:00:00Z'), ctx);
+      expect(await processarComentario(banco, comentario('v1', 'veterano', 'TRANSFERIR Preguiça', '2026-12-10T12:00:00Z'), ctx)).toBe('TRANSFERIDO');
+      respostas.length = 0;
+      expect(await processarComentario(banco, comentario('v2', 'veterano', 'TRANSFERIR Rato', '2026-12-11T12:00:00Z'), ctx)).toBe('TRANSFERIDO');
+      expect(respostas.at(-1)).toMatch(/de graça/);
+      expect(await fundadorDe('veterano')).toEqual(['RAT']);
+      // A troca da Janela já tinha sido usada na Preguiça: para um Time antigo, não dá mais.
+      expect(await processarComentario(banco, comentario('v3', 'veterano', 'TRANSFERIR Capivara', '2026-12-12T12:00:00Z'), ctx)).toBe('TRANSFERENCIA_USADA');
+    });
+
+    it('o Resumo da Temporada anuncia a Expansão na legenda', () => {
+      const craque = { username: 'craque', time: 'ONC' as TimeId, jogos: 7, gols: 5, media: 7.5, votos: 30 };
+      const com = legendaDoFimDaTemporada(3, undefined, craque, { numero: 4, inicio: '2026-12-14' }, null, true);
+      expect(com).toMatch(/A Liga cresceu! Na Temporada 4 entram 4 Times novos na Série B: .*Gato.*Rato.*Escorpião.* e .*Aranha/);
+      expect(legendaDoFimDaTemporada(3, undefined, craque, { numero: 4, inicio: '2026-12-14' }, null, false)).not.toMatch(/cresceu/);
+    });
+  });
 });

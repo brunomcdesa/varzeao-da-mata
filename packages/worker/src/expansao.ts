@@ -53,3 +53,31 @@ export async function conferirExpansao(b: Banco, temporadaId: number): Promise<b
 export async function temExpansao(b: Banco, temporadaId: number): Promise<boolean> {
   return !!(await b.query<{ expansao: boolean }>(`SELECT expansao FROM temporada WHERE id = $1`, [temporadaId])).rows[0]?.expansao;
 }
+
+/**
+ * Fundação de um Time da Expansão (ADR-0093): na primeira Temporada dele, até o Corte do
+ * primeiro jogo (a mesma hora em que fecha a Janela), quem entra no Elenco vira Fundador e o
+ * veterano troca para ele de graça. Devolve a Temporada, ou null fora disso.
+ */
+export async function temporadaDeFundacao(b: Banco, time: TimeId, quando: Date, corteMs: number): Promise<number | null> {
+  if (!TIMES_DA_EXPANSAO.includes(time)) return null;
+  const t = (
+    await b.query<{ id: number; numero: number; primeiro: Date | string | null }>(
+      `SELECT t.id, t.numero, (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id) AS primeiro
+         FROM temporada t WHERE t.status IN ('PRE_TEMPORADA', 'EM_ANDAMENTO') ORDER BY t.status = 'EM_ANDAMENTO' DESC, t.numero LIMIT 1`,
+    )
+  ).rows[0];
+  if (!t) return null;
+  const s = await seriesDaTemporada(b, t.id);
+  if (!s.A.includes(time) && !s.B.includes(time)) return null;
+  // A primeira Temporada do Time: a anterior foi a que marcou a Expansão.
+  const anterior = (await b.query<{ expansao: boolean }>(`SELECT expansao FROM temporada WHERE numero = $1`, [t.numero - 1])).rows[0];
+  if (!anterior?.expansao) return null;
+  if (t.primeiro && quando.getTime() >= new Date(t.primeiro).getTime() - corteMs) return null;
+  return t.id;
+}
+
+/** Grava o Fundador (o primeiro Time da Expansão em que ele entra fica valendo). */
+export async function marcarFundador(b: Banco, jogadorId: string, time: TimeId, temporadaId: number): Promise<void> {
+  await b.query(`INSERT INTO fundador (jogador_id, time_id, temporada_id, remanejado) VALUES ($1, $2, $3, false) ON CONFLICT (jogador_id, time_id) DO NOTHING`, [jogadorId, time, temporadaId]);
+}

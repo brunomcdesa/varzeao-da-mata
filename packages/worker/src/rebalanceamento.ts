@@ -180,11 +180,11 @@ export async function rebalancear(banco: Banco, opcoes: { gravar: boolean; agora
   return { temporada: t.numero, plano, gravado: true, fundadores };
 }
 
-/** O Time do qual o Jogador é Fundador (null se não é). */
+/** O Time do qual o Jogador é Fundador (null se não é); sendo de dois, vale o mais recente. */
 export async function fundadorDe(banco: Banco): Promise<Map<string, { time: TimeId; temporada: number }>> {
   const linhas = (
     await banco.query<{ jogador_id: string; time_id: TimeId; numero: number }>(
-      `SELECT f.jogador_id::text AS jogador_id, f.time_id, t.numero FROM fundador f JOIN temporada t ON t.id = f.temporada_id`,
+      `SELECT f.jogador_id::text AS jogador_id, f.time_id, t.numero FROM fundador f JOIN temporada t ON t.id = f.temporada_id ORDER BY t.numero`,
     )
   ).rows;
   return new Map(linhas.map((l) => [l.jogador_id, { time: l.time_id, temporada: l.numero }]));

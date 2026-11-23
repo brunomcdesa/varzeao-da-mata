@@ -39,3 +39,8 @@ Com o Limite por Posição (2 goleiros e 4 por posição, ADR-0080), cada Time t
 - O gatilho é conferido no fim da Fase de Liga (antes das Semifinais): 90% das vagas da Série A e B ocupadas (202 de 224). Fica marcado em `temporada.expansao` e vale para a Temporada seguinte.
 - Na Repescagem e nas Quartas, "campanha na Temporada anterior" é a ordem da tabela da Série A seguida da tabela da Série B; Time que não jogou a anterior fica no fim.
 - A chave do site mostra as vagas da Repescagem e das Quartas pela colocação ("7º do Clássico") até os jogos existirem.
+- **Prioridade na Inscrição:** sai da regra de equilíbrio de Elencos que já existe. Os Times novos começam vazios, então o pedido para um Time com 5 ou mais Jogadores acima do menor Elenco vai para um deles (respeitando o Limite por Posição), com uma resposta que diz que é um Time novo.
+- **Fundador:** quem entra num Time novo, pela Inscrição ou pela troca, até o Corte do primeiro jogo da Temporada de estreia dele. Quem já era Fundador de outro Time mostra o selo mais recente.
+- **Troca de graça:** no mesmo período, a troca para um Time novo fica marcada como `gratis` e não gasta a troca da Janela nem a da Temporada.
+- **Anúncio:** a legenda do Resumo da Temporada que marcou a Expansão diz quais Times entram e como ficam as Séries.
+- **Séries de 10:** a Inscrição usa a regra das duas Séries (Limite por Posição em todos os Times); a regra da Série A de 16 vale só sem Série B (T2).

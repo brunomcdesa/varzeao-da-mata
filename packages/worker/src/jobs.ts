@@ -14,7 +14,8 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, IDENTIDADE, doTime, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, TIMES_DA_EXPANSAO, doTime, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { temExpansao } from './expansao.js';
 import { colaboradoresDaPartida, perfisDosTimes } from './perfilDoTime.js';
 import { momentosDoAoVivo } from '@liga/renderer';
 import { recompensarT1 } from './recompensaT1.js';
@@ -681,7 +682,7 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
         ref: t.id,
         videoUrl: c.armazenamento.urlPublica(chave),
         capaEmMs: CAPA_DO_RESUMO_MS,
-        legenda: legendaDoFimDaTemporada(t.numero, historia, { username: s.username, time: s.time_id, jogos: Number(s.jogos), gols, media: Number(s.media), votos: Number(s.votos) }, proxima, craqueB),
+        legenda: legendaDoFimDaTemporada(t.numero, historia, { username: s.username, time: s.time_id, jogos: Number(s.jogos), gols, media: Number(s.media), votos: Number(s.votos) }, proxima, craqueB, await temExpansao(c.banco, t.id)),
         containerAtual: null,
         publicarEm,
         salvarContainer: async () => {},
@@ -744,6 +745,8 @@ export function legendaDoFimDaTemporada(
   craque: { username: string; time: TimeId; jogos: number; gols: number; media: number; votos: number },
   proxima: { numero: number; inicio: string },
   craqueB: { username: string; time: TimeId } | null = null,
+  /** A Temporada marcou a Expansão (ADR-0093): a legenda anuncia os 4 Times novos. */
+  expansao = false,
 ): string {
   const nome = (t: TimeId) => FALA_DO_TIME[t].curto;
   const [, mes, dia] = proxima.inicio.split('-');
@@ -755,6 +758,10 @@ export function legendaDoFimDaTemporada(
     craqueB ? `Craque da Temporada (Série B): @${craqueB.username} (${nome(craqueB.time)})` : '',
     h?.artilheiro ? `Artilheiro: ${h.artilheiro.username} (${nome(h.artilheiro.time)}), ${h.artilheiro.gols} ${h.artilheiro.gols === 1 ? 'gol' : 'gols'}` : '',
     h?.goleiro ? `Melhor goleiro: ${h.goleiro.username} (${nome(h.goleiro.time)}), nota média ${h.goleiro.notaMedia.toFixed(1).replace('.', ',')}` : '',
+    '',
+    expansao
+      ? `🐾 A Liga cresceu! Na Temporada ${proxima.numero} entram 4 Times novos na Série B: ${TIMES_DA_EXPANSAO.map((t) => IDENTIDADE[t].nome).join(', ').replace(/, ([^,]*)$/, ' e $1')}. Desta vez ninguém cai da A, 2 sobem da B, e as duas Séries ficam com 10 Times. Quem começar num Time novo vira Fundador, e quem já joga pode trocar para eles de graça na Janela.`
+      : '',
     '',
     `🏁 A Temporada ${proxima.numero} começa em ${dia}/${mes}. Quer jogar? Comente ENTRO + Time + posição.`,
     O_QUE_E,
