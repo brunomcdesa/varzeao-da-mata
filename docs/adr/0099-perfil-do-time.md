@@ -1,6 +1,6 @@
 # 0099 — Perfil do Time
 
-- Status: proposto (aguarda o dono aprovar o branch `perfil-do-time`)
+- Status: aceito (aprovado pelo dono em 23/11/2026)
 - Data: 2026-11-23
 
 ## Contexto
