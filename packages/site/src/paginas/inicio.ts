@@ -199,7 +199,7 @@ export const inicio: Pagina = async (main) => {
                 })
               : html`<ul class="placas" aria-label="Jogos do dia">${jogos.map((p) => linhaDePartida(p, { destaque: p.id === daVez?.id }))}</ul>`
             : ''}
-          ${jogos.length && jogos[0]!.fase === 'MATA_MATA' ? html`<p class="tabela-link"><a href="#/jogos">Ver o chaveamento ${jogos[0]!.copa ? 'da Copa' : 'do Mata-mata'}</a></p>` : ''}
+          ${jogos.length && jogos[0]!.fase === 'MATA_MATA' ? html`<p class="tabela-link"><a href="#/jogos/${jogos[0]!.copa ? 'copa' : 'liga'}">Ver o chaveamento ${jogos[0]!.copa ? 'da Copa' : 'do Mata-mata'}</a></p>` : ''}
           <section class="quadro-negro tabela-bloco" aria-labelledby="titulo-tabela">
             <h2 id="titulo-tabela">${preTemporada(l) ? `Tabela da Temporada ${l.temporada?.numero}` : 'Tabela'}</h2>
             ${temSeries(l)

@@ -20,7 +20,7 @@ import { prepararApp } from './appInstalavel.js';
 const ROTAS: { padrao: RegExp; pagina: Pagina; secao: string; titulo: string }[] = [
   { padrao: /^\/?$/, pagina: inicio, secao: 'inicio', titulo: '' },
   { padrao: /^\/temporada$/, pagina: paginaTemporada, secao: 'temporada', titulo: 'Temporada' },
-  { padrao: /^\/jogos$/, pagina: paginaJogos, secao: 'jogos', titulo: 'Jogos' },
+  { padrao: /^\/jogos(?:\/(liga|copa))?$/, pagina: paginaJogos, secao: 'jogos', titulo: 'Jogos' },
   { padrao: /^\/tabela$/, pagina: paginaTabela, secao: 'tabela', titulo: 'Tabela' },
   { padrao: /^\/times$/, pagina: paginaTimes, secao: 'times', titulo: 'Times' },
   { padrao: /^\/time\/([A-Za-z]{3})$/, pagina: paginaTime, secao: 'times', titulo: 'Time' },
