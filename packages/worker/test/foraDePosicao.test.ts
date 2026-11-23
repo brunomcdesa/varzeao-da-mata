@@ -126,3 +126,23 @@ describe('OVR fora de posição no banco (ADR-0098)', () => {
     ]);
   });
 });
+
+describe('OVR da Escalação no site (ADR-0099)', () => {
+  it('quem foi escalado com o OVR da vaga gravado aparece com o das Habilidades', async () => {
+    const { ovrPelasHabilidades } = await import('../src/site.js');
+    const ata = habilidadesDoPerfil('ATA', 65);
+    expect(ovrPelasHabilidades('ATA', 47, ata)).toBe(65);
+    expect(ovrPelasHabilidades('ATA', 47, JSON.stringify(ata))).toBe(65);
+  });
+
+  it('fora de posição de verdade continua com o OVR da vaga', async () => {
+    const { ovrPelasHabilidades } = await import('../src/site.js');
+    const meia2 = habilidadesDoPerfil('MEI', 65);
+    expect(ovrPelasHabilidades('ZAG', ovrDasHabilidades('ZAG', meia2), meia2)).toBe(ovrDasHabilidades('ZAG', meia2));
+  });
+
+  it('sem Habilidades gravadas, fica o OVR gravado', async () => {
+    const { ovrPelasHabilidades } = await import('../src/site.js');
+    expect(ovrPelasHabilidades('MEI', 60, null)).toBe(60);
+  });
+});
