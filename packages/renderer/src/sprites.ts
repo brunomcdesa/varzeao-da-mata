@@ -17,7 +17,8 @@ export type Pose =
   | 'COSTAS_PARADO' | 'COSTAS_CORRE_A' | 'COSTAS_CORRE_B'
   | 'LADO_PARADO' | 'LADO_CORRE_A' | 'LADO_CORRE_B' | 'LADO_CHUTE'
   | 'MERGULHO'
-  | 'FRENTE_APITO';
+  | 'FRENTE_APITO'
+  | 'FRENTE_AVIAO' | 'JOELHADA';
 
 const CABECA_FRENTE = [
   '....KKKK....',
@@ -113,6 +114,36 @@ const POSES: Record<Pose, string[]> = {
     '..KMK.......',
     '.KKK........',
   ],
+  // Comemoração de gol da Loja (segunda fase): o aviãozinho, de braços abertos.
+  FRENTE_AVIAO: [
+    ...CABECA_FRENTE,
+    '..KCCCCCCK..',
+    'KKCCCccCCCKK',
+    'SCCCCccCCCCS',
+    '.KKKCCCCKKK.',
+    '..KKBBBBKK..',
+    '...KBBBBK...',
+    ...PERNAS_PARADO,
+  ],
+  // De joelhos, deslizando na grama: a comemoração sem as pernas, mais baixa.
+  JOELHADA: [
+    '............',
+    '............',
+    '.S..KKKK..S.',
+    '.SKKHHHHKKS.',
+    '.CKHHHHHHKC.',
+    '.CKHSSSSHKC.',
+    '.CKSKSSKSKC.',
+    '.CKSSKKSSKC.',
+    '.KKKSSSSKKK.',
+    '..KCCCCCCK..',
+    '..KCCccCCK..',
+    '..KCCccCCK..',
+    '..KCCCCCCK..',
+    '..KKBBBBKK..',
+    '.KMMKBBKMMK.',
+    '.KKKK..KKKK.',
+  ],
   // Juiz (ADR-0054): de frente, com o braço direito levantado (apito ou cartão na mão).
   FRENTE_APITO: [
     '....KKKK..S.',
@@ -167,6 +198,9 @@ export interface Visual {
   numero?: number | null;
   /** Cores dos Itens equipados (ADR-0101), já sem a Luva de quem não é goleiro. */
   itens?: Partial<Record<Encaixe, string>>;
+  /** Corte e barba da Loja (segunda fase). */
+  corte?: CorteDaLoja;
+  barba?: BarbaDaLoja;
 }
 
 
@@ -264,6 +298,72 @@ function noRosto(grade: string[], x: number, y: number): boolean {
   return x > l.indexOf('K') && x < l.lastIndexOf('K');
 }
 
+/** Cortes da Loja (ADR-0087, segunda fase): por cima da grade, nas 7 linhas da cabeça. */
+export type CorteDaLoja = 'LONGO' | 'RASPADO' | 'TRANCAS' | 'TOPETE';
+/** Barbas da Loja (segunda fase): na cor do cabelo, só de frente e de lado. */
+export type BarbaDaLoja = 'BIGODE' | 'CAVANHAQUE' | 'CHEIA';
+
+const familia = (pose: Pose): 'FRENTE' | 'COSTAS' | 'LADO' | 'OUTRA' =>
+  pose.startsWith('COSTAS') ? 'COSTAS' : pose.startsWith('LADO') ? 'LADO' : pose === 'MERGULHO' ? 'OUTRA' : 'FRENTE';
+/** Desloca a cabeça da comemoração (braços para cima nas laterais): o rosto fica igual. */
+const pinta = (g: string[][], y: number, x: number, c: string, so?: string) => {
+  const l = g[y];
+  if (!l || x < 0 || x >= l.length) return;
+  if (so !== undefined && !so.includes(l[x]!)) return;
+  l[x] = c;
+};
+
+export function comCorte(grade: string[], corte: CorteDaLoja | undefined, pose: Pose): string[] {
+  const f = familia(pose);
+  if (!corte || f === 'OUTRA') return grade;
+  const g = grade.map((l) => [...l]);
+  // Colunas da cabeça em cada linha (entre o primeiro e o último contorno da cabeça).
+  const dentro = (y: number) => {
+    const l = grade[y]!;
+    const xs = [...l].map((c, x) => (c === 'K' || c === 'H' || c === 'S' ? x : -1)).filter((x) => x >= 0 && x > 0 && x < 11);
+    // Na comemoração, as mãos ficam nas pontas: a cabeça é o miolo.
+    return xs.filter((x) => !(pose === 'FRENTE_COMEMORA' && (x <= 1 || x >= 10)));
+  };
+  if (corte === 'RASPADO') {
+    // Degradê: o cabelo fica só no alto; dos lados e da nuca, pele.
+    for (let y = 3; y < 7; y++) for (const x of dentro(y)) if (g[y]![x] === 'H' && (y >= 4 || f !== 'COSTAS' || x < 4 || x > 7)) g[y]![x] = 'S';
+    if (f === 'FRENTE') { pinta(g, 2, 3, 'S', 'H'); pinta(g, 2, 8, 'S', 'H'); }
+  }
+  if (corte === 'LONGO') {
+    // Cabelo até o ombro: dos lados de frente, a nuca inteira de costas.
+    if (f === 'FRENTE') for (let y = 4; y <= 6; y++) { pinta(g, y, 3, 'H', 'SK'); pinta(g, y, 8, 'H', 'SK'); pinta(g, y, 2, 'K', '.'); pinta(g, y, 9, 'K', '.'); }
+    if (f === 'COSTAS') for (let y = 5; y <= 6; y++) for (const x of dentro(y)) if (g[y]![x] === 'S') g[y]![x] = 'H';
+    if (f === 'LADO') for (let y = 5; y <= 6; y++) { pinta(g, y, 3, 'H', 'SK'); pinta(g, y, 4, 'H', 'SK'); }
+  }
+  if (corte === 'TRANCAS') {
+    // Trança nagô: listras de cabelo e contorno no alto da cabeça.
+    for (let y = 1; y <= (f === 'COSTAS' ? 5 : 2); y++) for (const x of dentro(y)) if (g[y]![x] === 'H' && x % 2 === 1) g[y]![x] = 'K';
+  }
+  if (corte === 'TOPETE') {
+    // Topete: o alto da cabeça sobe e avança um pixel.
+    if (f === 'FRENTE') { pinta(g, 0, 4, 'H', 'K'); pinta(g, 0, 5, 'H', 'K'); pinta(g, 0, 6, 'H', 'K'); pinta(g, 0, 3, 'K', '.'); pinta(g, 0, 7, 'K', 'K'); }
+    if (f === 'LADO') { pinta(g, 0, 9, 'K', '.'); pinta(g, 1, 9, 'H', 'K'); pinta(g, 1, 10, 'K', '.'); pinta(g, 0, 5, 'H', 'K'); pinta(g, 0, 6, 'H', 'K'); }
+    if (f === 'COSTAS') { pinta(g, 0, 5, 'H', 'K'); pinta(g, 0, 6, 'H', 'K'); }
+  }
+  return g.map((l) => l.join(''));
+}
+
+export function comBarba(grade: string[], barba: BarbaDaLoja | undefined, pose: Pose): string[] {
+  const f = familia(pose);
+  if (!barba || f === 'OUTRA' || f === 'COSTAS') return grade;
+  const g = grade.map((l) => [...l]);
+  // De frente, a boca fica na linha 5 e o queixo na 6; de lado, o rosto vai para a direita.
+  const [boca, queixo] = f === 'FRENTE' ? [[4, 5, 6, 7], [4, 5, 6, 7]] : [[8, 9], [5, 6, 7]];
+  if (barba === 'BIGODE') for (const x of boca) pinta(g, 5, x, 'H', 'S');
+  if (barba === 'CAVANHAQUE') for (const x of f === 'FRENTE' ? [5, 6] : [6, 7]) pinta(g, 6, x, 'H', 'S');
+  if (barba === 'CHEIA') {
+    for (const x of queixo) pinta(g, 6, x, 'H', 'S');
+    if (f === 'FRENTE') { pinta(g, 5, 3, 'H', 'S'); pinta(g, 5, 8, 'H', 'S'); pinta(g, 4, 3, 'H', 'S'); pinta(g, 4, 8, 'H', 'S'); }
+    else { pinta(g, 5, 5, 'H', 'S'); pinta(g, 5, 6, 'H', 'S'); }
+  }
+  return g.map((l) => l.join(''));
+}
+
 const CONTORNO = '#15110E';
 const cache = new Map<string, HTMLCanvasElement | OffscreenCanvas>();
 
@@ -334,10 +434,14 @@ export function pontosDoNumero(numero: number): { x: number; y: number }[] {
  */
 export function sprite(pose: Pose, v: Visual, espelhado = false): HTMLCanvasElement | OffscreenCanvas {
   const numero = numeroNasCostas(pose, v.numero);
-  const k = `${pose}|${v.camisa}|${v.detalhe}|${v.calcao}|${v.meiao}|${v.pele}|${v.cabelo}|${v.penteado ?? ''}|${numero ?? ''}|${espelhado ? 'E' : ''}|${v.itens ? Object.entries(v.itens).map((e) => e.join(':')).join(',') : ''}`;
+  const k = `${pose}|${v.camisa}|${v.detalhe}|${v.calcao}|${v.meiao}|${v.pele}|${v.cabelo}|${v.penteado ?? ''}|${numero ?? ''}|${espelhado ? 'E' : ''}|${v.itens ? Object.entries(v.itens).map((e) => e.join(':')).join(',') : ''}|${v.corte ?? ''}|${v.barba ?? ''}`;
   const pronto = cache.get(k);
   if (pronto) return pronto;
-  let grade = comItens(comPenteado(POSES[pose], v.penteado, pose), v.itens, pose);
+  // A joelhada é a comemoração de braços para cima, dois pixels mais baixa e de joelhos: veste
+  // tudo como a comemoração e só depois desce e troca as pernas.
+  const base = pose === 'JOELHADA' ? 'FRENTE_COMEMORA' : pose;
+  let grade = comItens(comBarba(comCorte(comPenteado(POSES[base], v.corte ? 'CURTO' : v.penteado, base), v.corte, base), v.barba, base), v.itens, base);
+  if (pose === 'JOELHADA') grade = ['............', '............', ...grade.slice(0, 12), '.KMMKBBKMMK.', '.KKKK..KKKK.'];
   if (espelhado) grade = grade.map((l) => [...l].reverse().join(''));
   // Com número, a faixa de detalhe das costas sai e o boneco é pintado em dobro (meio pixel
   // para o número caber). Quem desenha sempre passa o tamanho final, então nada mais muda.
