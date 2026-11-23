@@ -208,7 +208,7 @@ export interface JogadorPublico {
   visual: Aparencia | null;
   /** Número da camisa escolhido pelo dono. */
   numero: number | null;
-  /** Itens da Loja equipados agora (ADR-0099); o saldo nunca aparece. */
+  /** Itens da Loja equipados agora (ADR-0101); o saldo nunca aparece. */
   itens?: ItensEquipados;
   /** Fundador de um Time da Série B (ADR-0036): só existe a partir da Temporada 2. */
   fundador?: { time: TimeId; temporada: number };

@@ -198,7 +198,7 @@ export const jogadores = async (fresco = false): Promise<JogadorPublico[]> => {
   const lista = comAjustes(await buscar<JogadorPublico[]>(`${BASE_DADOS}jogadores.json`, fresco));
   // O boneco de cada um como o dono escolheu (ADR-0013); sem escolha, o sorteado pelo @.
   definirAparencias(Object.fromEntries(lista.filter((j) => j.visual).map((j) => [j.username, j.visual!])));
-  // Itens da Loja equipados agora (ADR-0099): aparecem nos cards e no painel.
+  // Itens da Loja equipados agora (ADR-0101): aparecem nos cards e no painel.
   definirItens(Object.fromEntries(lista.filter((j) => j.itens).map((j) => [j.username, j.itens!])));
   return lista;
 };

@@ -1,5 +1,5 @@
 /**
- * #/loja — a Loja (ADRs 0087 e 0099). Com Vínculo: o saldo, os Itens do Jogador e o boneco dele
+ * #/loja — a Loja (ADRs 0087 e 0101). Com Vínculo: o saldo, os Itens do Jogador e o boneco dele
  * de prévia; tocar num Item mostra no boneco e o botão compra, equipa ou tira. Sem Vínculo: os
  * Itens à mostra num boneco de exemplo e o convite para vincular.
  */

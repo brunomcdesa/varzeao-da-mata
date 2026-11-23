@@ -24,7 +24,7 @@ export interface OpcoesDesenho {
   apelidos?: Record<Lado, (string | null)[]>;
   /** Número da camisa de cada lugar, escolhido pelo dono (null = camisa lisa). Só aparece de costas. */
   numeros?: Record<Lado, (number | null)[]>;
-  /** Itens equipados de cada lugar na hora da Escalação (ADR-0099). Sem isso, os de agora. */
+  /** Itens equipados de cada lugar na hora da Escalação (ADR-0101). Sem isso, os de agora. */
   itens?: Record<Lado, (ItensEquipados | null)[]>;
   /** Fonte dos números e letreiros (precisa estar carregada na página). Padrão: Jersey 10. */
   fonteDisplay?: string;

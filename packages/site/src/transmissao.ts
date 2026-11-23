@@ -39,7 +39,7 @@ export function transmitir(
   const apelidos: Record<Lado, (string | null)[]> = { mandante: apelidosDe(p.escalacoes!.mandante), visitante: apelidosDe(p.escalacoes!.visitante) };
   // O número da camisa da época do jogo (ADR-0075), nas costas do boneco.
   const numeros: Record<Lado, (number | null)[]> = { mandante: numerosDe(p.escalacoes!.mandante), visitante: numerosDe(p.escalacoes!.visitante) };
-  // Os Itens da Loja da época do jogo (ADR-0099): a Escalação guardou os equipados no Corte.
+  // Os Itens da Loja da época do jogo (ADR-0101): a Escalação guardou os equipados no Corte.
   const itens = { mandante: itensDe(p.escalacoes!.mandante), visitante: itensDe(p.escalacoes!.visitante) };
   const reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches;
 

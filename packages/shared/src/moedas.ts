@@ -120,7 +120,7 @@ export const CONQUISTAS: readonly Conquista[] = [
 export const CONQUISTA_POR_CODIGO: ReadonlyMap<string, Conquista> = new Map(CONQUISTAS.map((c) => [c.codigo, c]));
 
 /** A Carteira que o dono vê pelo Vínculo (saldo e extrato são privados; ADR-0087). */
-/** A Loja do dono (ADR-0099): Itens dele, os equipados agora, se é goleiro e a fase aberta. */
+/** A Loja do dono (ADR-0101): Itens dele, os equipados agora, se é goleiro e a fase aberta. */
 export interface LojaDoJogador {
   donos: string[];
   equipados: ItensEquipados;

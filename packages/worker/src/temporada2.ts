@@ -258,7 +258,7 @@ export type Escolha =
   | { tipo: 'BATEDORES'; valor: string[] }
   /** Palpite (ADR-0089): "partida:mandante-visitante", até o Corte. */
   | { tipo: 'PALPITE'; valor: string }
-  /** Loja (ADR-0099): comprar (e equipar) ou equipar pelo código do Item; tirar pelo Encaixe. */
+  /** Loja (ADR-0101): comprar (e equipar) ou equipar pelo código do Item; tirar pelo Encaixe. */
   | { tipo: 'COMPRA'; valor: string }
   | { tipo: 'EQUIPAR'; valor: string }
   | { tipo: 'TIRAR'; valor: string };

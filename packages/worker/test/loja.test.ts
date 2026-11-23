@@ -27,7 +27,7 @@ const agora = new Date('2026-11-29T12:00:00Z');
 const escolher = (id: string, tipo: 'COMPRA' | 'EQUIPAR' | 'TIRAR', valor: string) => aplicarEscolha(banco, id, { tipo, valor }, agora, async () => new Set());
 const dar = (id: string, valor: number) => lancar(banco, { jogadorId: id, tipo: 'BONUS_LARGADA', referencia: `teste${valor}`, valor, descricao: 'Teste', visivelEm: new Date('2026-11-28T00:00:00Z') });
 
-describe('Loja (ADR-0099)', () => {
+describe('Loja (ADR-0101)', () => {
   it('compra com Moedas e equipa; não cobra duas vezes; troca e tira sem pagar', async () => {
     await criarTemporada(banco, { numero: 3, primeiraRodada: '2026-11-30', seed: 4, series });
     const id = await inscrever('CAP', 'ATA', 'comprador');

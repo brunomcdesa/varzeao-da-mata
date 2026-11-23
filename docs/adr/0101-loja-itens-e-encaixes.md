@@ -1,4 +1,4 @@
-# 0099 — Loja: Itens, Encaixes e o atalho no topo
+# 0101 — Loja: Itens, Encaixes e o atalho no topo
 
 - Status: aceito (aprovado pelo dono em 23/11/2026)
 - Data: 2026-11-23

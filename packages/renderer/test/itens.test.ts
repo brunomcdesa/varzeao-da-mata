@@ -7,7 +7,7 @@ const FRENTE = [
   '...KMKKMK...', '...KMKKMK...', '...KKKKKK...',
 ];
 
-describe('Itens no boneco (ADR-0099)', () => {
+describe('Itens no boneco (ADR-0101)', () => {
   it('sem Itens a grade não muda', () => {
     expect(comItens(FRENTE, undefined, 'FRENTE_PARADO')).toBe(FRENTE);
   });

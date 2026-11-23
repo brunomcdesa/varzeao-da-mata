@@ -4118,7 +4118,7 @@ a.jogo:hover {
   padding-top: 24px;
 }
 
-/* Loja (ADR-0099): Itens por Encaixe, com o boneco de prévia */
+/* Loja (ADR-0101): Itens por Encaixe, com o boneco de prévia */
 .loja-grade {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -4197,7 +4197,7 @@ a.jogo:hover {
   }
 }
 
-/* Atalho da Loja no canto do topo (ADR-0099): saldo e sacola */
+/* Atalho da Loja no canto do topo (ADR-0101): saldo e sacola */
 .carteira-topo {
   display: flex;
   align-items: center;

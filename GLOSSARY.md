@@ -431,7 +431,7 @@ As Moedas que todo Jogador do Elenco recebe a cada Rodada, jogando ou não, igua
 _Avoid_: pagamento, recompensa, renda
 
 **Loja**:
-A página do site e do App onde o Jogador com Vínculo gasta Moedas em Itens para o boneco. Abre pela sacola no canto do topo, que mostra o saldo a quem tem Vínculo. A Aparência e o Número da camisa continuam grátis e não estão na Loja (ADR-0087 e ADR-0099).
+A página do site e do App onde o Jogador com Vínculo gasta Moedas em Itens para o boneco. Abre pela sacola no canto do topo, que mostra o saldo a quem tem Vínculo. A Aparência e o Número da camisa continuam grátis e não estão na Loja (ADR-0087 e ADR-0101).
 _Avoid_: shop, mercado, vitrine
 
 **Item**:
@@ -439,7 +439,7 @@ Peça visual comprada na Loja (Chuteira colorida, Acessório, penteado ou barba 
 _Avoid_: skin, cosmético, acessório (para o conjunto)
 
 **Encaixe**:
-O lugar do boneco onde vai um Item: Chuteira, Munhequeira, Faixa na cabeça ou Luva do goleiro. Só um Item equipado por Encaixe; a Luva só aparece no goleiro (ADR-0099).
+O lugar do boneco onde vai um Item: Chuteira, Munhequeira, Faixa na cabeça ou Luva do goleiro. Só um Item equipado por Encaixe; a Luva só aparece no goleiro (ADR-0101).
 _Avoid_: slot, espaço, categoria
 
 **Comemoração de gol**:

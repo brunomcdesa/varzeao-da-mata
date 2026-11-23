@@ -192,7 +192,7 @@ describe('Vínculo pela DM (ADR-0013)', () => {
     expect(pedidos).toEqual([{ tipo: 'ESCOLHA', jogadorId: '7', escolha: { tipo: 'BATEDORES', valor: ['12', '7'] } }]);
   });
 
-  it('a Loja (ADR-0099) manda o código do Item ou o Encaixe, só com letras maiúsculas', async () => {
+  it('a Loja (ADR-0101) manda o código do Item ou o Encaixe, só com letras maiúsculas', async () => {
     const t = montar([]);
     const sessao = 'f'.repeat(43);
     const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sessao)))].map((b) => b.toString(16).padStart(2, '0')).join('');

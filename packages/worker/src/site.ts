@@ -43,7 +43,7 @@ interface LinhaPartida {
   copa_etapa: EtapaDaCopa | null;
 }
 
-/** Itens da Escalação (ADR-0099) para a página pública da Partida. */
+/** Itens da Escalação (ADR-0101) para a página pública da Partida. */
 const itensDaLinha = (e: { itens: ItensEquipados | string | null }) => {
   const i = lerItens(e.itens);
   return i ? { itens: i } : {};
@@ -62,7 +62,7 @@ interface LinhaEscalacao {
   apelido: string | null;
   /** Número da camisa na hora da Escalação (ADR-0075). */
   numero: number | null;
-  /** Itens equipados na hora da Escalação (ADR-0099). */
+  /** Itens equipados na hora da Escalação (ADR-0101). */
   itens: ItensEquipados | string | null;
   /** Capitão em campo (T2, ADR-0020). */
   capitao: boolean;

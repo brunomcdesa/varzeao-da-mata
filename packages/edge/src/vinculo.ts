@@ -49,7 +49,7 @@ export type EscolhaDaT2 =
   | { tipo: 'BATEDORES'; valor: string[] }
   /** T3 (ADR-0089): Palpite, "partida:mandante-visitante". */
   | { tipo: 'PALPITE'; valor: string }
-  /** Loja (ADR-0099): código do Item (comprar ou equipar) ou o Encaixe (tirar). */
+  /** Loja (ADR-0101): código do Item (comprar ou equipar) ou o Encaixe (tirar). */
   | { tipo: 'COMPRA' | 'EQUIPAR' | 'TIRAR'; valor: string };
 const TIPOS_DE_ESCOLHA = ['ESPECIALIZACAO', 'TREINO', 'CANTO', 'PRESENCA', 'POSTURA', 'FORMACAO', 'BATEDORES', 'PALPITE', 'COMPRA', 'EQUIPAR', 'TIRAR'] as const;
 /** A Carteira de Moedas (ADR-0087): saldo e extrato só para o dono, pelo Vínculo. */

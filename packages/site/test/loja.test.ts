@@ -4,7 +4,7 @@ import { acaoDoItem, encaixesDaLoja, textoDoBotao, type EstadoDaLoja } from '../
 
 const e: EstadoDaLoja = { saldo: 45, donos: ['LUVA_LARANJA'], equipados: { LUVA: 'LUVA_LARANJA' }, goleiro: true, fase: 1 };
 
-describe('Loja (ADR-0099)', () => {
+describe('Loja (ADR-0101)', () => {
   it('compra, equipa ou tira conforme o Item', () => {
     const azul = ITEM_POR_CODIGO.get('CHUTEIRA_AZUL')!;
     expect(acaoDoItem(azul, e)).toEqual({ tipo: 'COMPRAR', preco: 20, podePagar: true });
@@ -19,7 +19,7 @@ describe('Loja (ADR-0099)', () => {
   });
 });
 
-describe('Atalho da Loja no topo (ADR-0099)', async () => {
+describe('Atalho da Loja no topo (ADR-0101)', async () => {
   const { conteudoDoAtalho, rotuloDoAtalho } = await import('../src/carteiraDoTopo.js');
   it('sem Vínculo só a sacola; com Vínculo o saldo junto', () => {
     expect(conteudoDoAtalho(null)).not.toContain('data-saldo-topo');

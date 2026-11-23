@@ -50,7 +50,7 @@ export interface EscalacaoMontada {
   apelidos: (string | null)[];
   /** Número da camisa de cada lugar na hora da Escalação (ADR-0075); null = camisa lisa. */
   numeros: (number | null)[];
-  /** Itens equipados de cada lugar na hora da Escalação (ADR-0099); null = sem Itens. */
+  /** Itens equipados de cada lugar na hora da Escalação (ADR-0101); null = sem Itens. */
   itens: (ItensEquipados | null)[];
   /** Banco (T2, ADR-0061): @ e apelido de cada reserva, na ordem do Banco. */
   nomesDoBanco?: (string | null)[];
@@ -329,7 +329,7 @@ export interface PartidaEscalada {
   apelidos: { mandante: (string | null)[]; visitante: (string | null)[] };
   /** Número da camisa de cada lugar na hora da Escalação (ADR-0075); null = camisa lisa. */
   numeros: { mandante: (number | null)[]; visitante: (number | null)[] };
-  /** Itens equipados de cada lugar na hora da Escalação (ADR-0099). */
+  /** Itens equipados de cada lugar na hora da Escalação (ADR-0101). */
   itens: { mandante: (ItensEquipados | null)[]; visitante: (ItensEquipados | null)[] };
   /** Banco (T2, ADR-0061): @, apelido e número de cada reserva, na ordem do Banco. */
   banco?: { mandante: ReservaEscalada[]; visitante: ReservaEscalada[] };

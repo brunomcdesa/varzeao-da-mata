@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ITENS, ITEM_POR_CODIGO, PRECO_DO_ITEM, coresDosItens, itensValidos } from '@liga/shared';
 
-describe('Itens da Loja (ADR-0099)', () => {
+describe('Itens da Loja (ADR-0101)', () => {
   it('cada Encaixe tem 7 cores básicas e uma dourada rara, todas na primeira fase', () => {
     expect(ITENS).toHaveLength(32);
     expect(ITENS.filter((i) => i.raridade === 'RARO').map((i) => i.codigo)).toEqual(['CHUTEIRA_DOURADA', 'MUNHEQUEIRA_DOURADA', 'FAIXA_DOURADA', 'LUVA_DOURADA']);

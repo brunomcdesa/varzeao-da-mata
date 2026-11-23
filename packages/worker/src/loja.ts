@@ -1,5 +1,5 @@
 /**
- * Loja (ADRs 0087 e 0099): comprar, equipar e tirar Itens. Parte leve, usada também pela borda.
+ * Loja (ADRs 0087 e 0101): comprar, equipar e tirar Itens. Parte leve, usada também pela borda.
  * A compra é um lançamento negativo no extrato (referência = código do Item), então o mesmo Item
  * nunca é cobrado duas vezes. O equipado fica em `jogador.itens`; a Escalação guarda uma cópia.
  */

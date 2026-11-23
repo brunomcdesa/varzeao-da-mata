@@ -1,5 +1,5 @@
 /**
- * Loja no painel do dono (ADR-0087 e ADR-0099): os Itens por Encaixe, com o boneco de prévia.
+ * Loja no painel do dono (ADR-0087 e ADR-0101): os Itens por Encaixe, com o boneco de prévia.
  * Tocar num Item mostra no boneco; o botão compra (se ainda não é do Jogador), equipa ou tira.
  */
 import { ENCAIXES, ENCAIXE_SO_DO_GOLEIRO, ITENS, ITEM_POR_CODIGO, NOME_DO_ENCAIXE, PRECO_DO_ITEM, type Encaixe, type Item, type ItensEquipados } from '@liga/shared';

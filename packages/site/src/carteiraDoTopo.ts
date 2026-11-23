@@ -1,5 +1,5 @@
 /**
- * Atalho da Loja no canto do topo (ADR-0099): a sacola leva à #/loja. Com Vínculo, o saldo de
+ * Atalho da Loja no canto do topo (ADR-0101): a sacola leva à #/loja. Com Vínculo, o saldo de
  * Moedas aparece ao lado (só o dono vê). Sem Vínculo, só a sacola. Antes da T3, nada.
  */
 import { Html, html } from './ui.js';

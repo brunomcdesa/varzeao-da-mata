@@ -1,5 +1,5 @@
 /**
- * Itens da Loja (ADR-0087 e ADR-0099): peças visuais compradas com Moedas. Cada Item ocupa
+ * Itens da Loja (ADR-0087 e ADR-0101): peças visuais compradas com Moedas. Cada Item ocupa
  * um Encaixe do boneco (só um equipado por Encaixe), é do Jogador para sempre e pode ser
  * trocado sem pagar de novo. A primeira fase da T3 traz a Chuteira colorida e os Acessórios.
  */

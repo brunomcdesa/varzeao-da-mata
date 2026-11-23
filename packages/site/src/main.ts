@@ -87,7 +87,7 @@ adiantarEstadoDasEscolhas();
 void navegar();
 void prepararApp();
 
-// Loja (ADR-0099): a sacola no canto do topo, a partir da T3; com Vínculo, o saldo junto.
+// Loja (ADR-0101): a sacola no canto do topo, a partir da T3; com Vínculo, o saldo junto.
 void liga()
   .then(async (l) => {
     if (!temMoedas(temporadaDoApp(l) ?? 0)) return;

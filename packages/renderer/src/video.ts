@@ -33,7 +33,7 @@ export interface PartidaParaVideo {
   apelidos?: Record<Lado, (string | null)[]>;
   /** Número da camisa de cada lugar (null = camisa lisa). Partidas antigas não têm. */
   numeros?: Record<Lado, (number | null)[]>;
-  /** Itens equipados de cada lugar na hora da Escalação (ADR-0099). Partidas antigas não têm. */
+  /** Itens equipados de cada lugar na hora da Escalação (ADR-0101). Partidas antigas não têm. */
   itens?: Record<Lado, (ItensEquipados | null)[]>;
   /** Itens de agora pelo @ (para quem não está na Escalação); o jogo usa `itens`. */
   itensAtuais?: Record<string, ItensEquipados>;
@@ -457,7 +457,7 @@ function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number
       calcao: goleiro ? '#2B2B2B' : id.secundaria,
       meiao: goleiro ? id.secundaria : id.primaria,
       ...aparencia(arroba),
-      // Itens da Escalação (ADR-0099): o Craque aparece como jogou.
+      // Itens da Escalação (ADR-0101): o Craque aparece como jogou.
       itens: o.itens ? coresDosItens(o.itens[melhor.slot.lado][quem], goleiro) : itensDe(arroba, goleiro),
     };
     const escala = 5;
