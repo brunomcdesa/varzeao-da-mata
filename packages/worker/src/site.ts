@@ -19,6 +19,7 @@ import { gruposDaTemporada, seriesAtivas, seriesDaTemporada, type GruposDaTempor
 import { classificar } from './tabela.js';
 import { horaDeBrasilia } from './briga.js';
 import { habilidadesDe } from './regras.js';
+import { ovrDasHabilidades } from '@liga/shared';
 import { capitaoDaPartida, proximaPartidaDoTime, tamanhoDosElencos } from './temporada2.js';
 
 /** Duração do Ao Vivo de uma Partida (5 min; 7 no Mata-mata, por causa dos pênaltis). */
@@ -67,6 +68,8 @@ interface LinhaEscalacao {
   capitao: boolean;
   /** Banco (ADR-0061). */
   reserva: boolean;
+  /** Fora de posição (ADR-0044): a Posição de inscrição de quem ocupou a vaga. */
+  posicao_de_origem: Posicao | null;
 }
 
 export interface ExportacaoDoSite {
@@ -156,7 +159,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
 
   const escalacoes = (
     await banco.query<LinhaEscalacao>(
-      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.numero, e.itens, e.capitao, e.reserva
+      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.numero, e.itens, e.capitao, e.reserva, e.posicao_de_origem
        FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id ORDER BY e.partida_id, e.lugar`,
     )
   ).rows;
@@ -368,7 +371,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       temporadasDe.set(j.id, (temporadasDe.get(j.id) ?? new Set()).add(p.temporada_id));
       const outro = d.slot.lado === 'mandante' ? 'visitante' : 'mandante';
       j.historico.push({
-        partidaId: p.id, temporada: numero, rodada: p.rodada, fase: p.fase, nota: d.nota, ovr: d.ovrDepois, habilidades: d.habilidadesDepois ?? habilidadesDe(d.posicao, d.ovrDepois, null), gols: d.gols,
+        // Fora de posição, o gráfico segue o OVR da Posição dele, não o da vaga (ADR-0098).
+        partidaId: p.id, temporada: numero, rodada: p.rodada, fase: p.fase, nota: d.nota, ovr: ovrNoHistorico(d, escalacoesDe.get(p.id) ?? []), habilidades: d.habilidadesDepois ?? habilidadesDe(d.posicao, d.ovrDepois, null), gols: d.gols,
         rival: r.times[outro], emCasa: d.slot.lado === 'mandante', pro: r.gols[d.slot.lado], contra: r.gols[outro],
         time: r.times[d.slot.lado], assistencias: d.assistencias,
         ...(comSeries(p.temporada_id) ? { serie: p.serie } : {}),
@@ -714,4 +718,17 @@ async function rankingDePalpites(banco: Banco, temporadaId: number, agora: Date)
     soma.set(l.jogador_id, a);
   }
   return [...soma.values()].filter((a) => a.pontos > 0).sort((a, b) => b.pontos - a.pontos || b.acertos - a.acertos || Number(a.jogadorId) - Number(b.jogadorId)).slice(0, 20);
+}
+
+/**
+ * OVR do Jogador depois da Partida, para o histórico (ADR-0098): fora de posição, o das
+ * Habilidades com os pesos da Posição dele; na Posição, o que a simulação gravou.
+ */
+export function ovrNoHistorico(
+  d: { jogadorId: string | null; posicao: Posicao; posicaoDeOrigem?: Posicao; ovrDepois: number; habilidadesDepois?: Habilidades },
+  linhas: readonly Pick<LinhaEscalacao, 'jogador_id' | 'posicao' | 'posicao_de_origem'>[],
+): number {
+  const linha = linhas.find((l) => l.jogador_id !== null && l.jogador_id === d.jogadorId);
+  const posicao = linha?.posicao_de_origem ?? d.posicaoDeOrigem ?? linha?.posicao ?? d.posicao;
+  return posicao === d.posicao || !d.habilidadesDepois ? d.ovrDepois : ovrDasHabilidades(posicao, d.habilidadesDepois);
 }
