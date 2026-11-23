@@ -18,7 +18,7 @@ export type Pose =
   | 'LADO_PARADO' | 'LADO_CORRE_A' | 'LADO_CORRE_B' | 'LADO_CHUTE'
   | 'MERGULHO'
   | 'FRENTE_APITO'
-  | 'FRENTE_AVIAO' | 'JOELHADA';
+  | 'FRENTE_AVIAO' | 'JOELHADA' | 'AGACHADO' | 'GRUPADO';
 
 const CABECA_FRENTE = [
   '....KKKK....',
@@ -126,6 +126,10 @@ const POSES: Record<Pose, string[]> = {
     ...PERNAS_PARADO,
   ],
   // De joelhos, deslizando na grama: a comemoração sem as pernas, mais baixa.
+  // Mortal: agachado para pular e cair, e grupado (joelhos no peito) no ar. A grade de verdade
+  // sai do boneco de frente já vestido (ver `sprite`); estas só reservam o nome.
+  AGACHADO: [],
+  GRUPADO: [],
   JOELHADA: [
     '............',
     '............',
@@ -379,9 +383,16 @@ export function quadroDaComemoracao(c: ComemoracaoDaLoja, f: number): { pose: Po
       // Braços abertos, balançando as asas.
       return { pose: 'FRENTE_AVIAO', angulo: Math.sin(x * Math.PI * 4) * 0.25, pulo: Math.abs(Math.sin(x * Math.PI * 4)) * 1, espelhar: false };
     case 'MORTAL': {
-      // Pula e dá uma volta inteira; aterrissa de braços para cima.
-      const noAr = x > 0.15 && x < 0.85;
-      return { pose: noAr ? 'FRENTE_PARADO' : 'FRENTE_COMEMORA', angulo: noAr ? ((x - 0.15) / 0.7) * Math.PI * 2 : 0, pulo: Math.sin(x * Math.PI) * 9, espelhar: false };
+      // Agacha, pula grupado girando para trás em passos de 90° (giro liso borra o pixel), cai
+      // agachado e levanta de braços para cima.
+      if (x < 0.12) return { pose: 'AGACHADO', angulo: 0, pulo: 0, espelhar: false };
+      if (x < 0.8) {
+        const voo = (x - 0.12) / 0.68;
+        const passo = Math.min(3, Math.floor(voo * 4));
+        return { pose: 'GRUPADO', angulo: -passo * (Math.PI / 2), pulo: Math.sin(voo * Math.PI) * 12, espelhar: false };
+      }
+      if (x < 0.9) return { pose: 'AGACHADO', angulo: 0, pulo: 0, espelhar: false };
+      return { pose: 'FRENTE_COMEMORA', angulo: 0, pulo: 0, espelhar: false };
     }
     case 'JOELHADA':
       // Cai de joelhos e desliza.
@@ -469,9 +480,26 @@ export function sprite(pose: Pose, v: Visual, espelhado = false): HTMLCanvasElem
   if (pronto) return pronto;
   // A joelhada é a comemoração de braços para cima, dois pixels mais baixa e de joelhos: veste
   // tudo como a comemoração e só depois desce e troca as pernas.
-  const base = pose === 'JOELHADA' ? 'FRENTE_COMEMORA' : pose;
+  const base = pose === 'JOELHADA' ? 'FRENTE_COMEMORA' : pose === 'AGACHADO' || pose === 'GRUPADO' ? 'FRENTE_PARADO' : pose;
   let grade = comItens(comBarba(comCorte(comPenteado(POSES[base], v.corte ? 'CURTO' : v.penteado, base), v.corte, base), v.barba, base), v.itens, base);
   if (pose === 'JOELHADA') grade = ['............', '............', ...grade.slice(0, 12), '.KMMKBBKMMK.', '.KKKK..KKKK.'];
+  // Agachado: a cabeça e o tronco descem dois pixels e as pernas dobram para os lados.
+  if (pose === 'AGACHADO') grade = ['............', '............', ...grade.slice(0, 12), '..KMMKKMMK..', '..KKKKKKKK..'];
+  // Grupado: a cabeça e, logo abaixo, os joelhos no peito com as mãos segurando. Fica no meio
+  // da grade, para girar em volta do próprio centro.
+  if (pose === 'GRUPADO')
+    grade = [
+      '............',
+      '............',
+      ...grade.slice(0, 7),
+      '.KKCCCCCCKK.',
+      '.KSMMKKMMSK.',
+      '.KCMMKKMMCK.',
+      '..KKBBBBKK..',
+      '...KPPPPK...'.replace(/P/g, grade[15]!.includes('P') ? 'P' : 'K'),
+      '............',
+      '............',
+    ];
   if (espelhado) grade = grade.map((l) => [...l].reverse().join(''));
   // Com número, a faixa de detalhe das costas sai e o boneco é pintado em dobro (meio pixel
   // para o número caber). Quem desenha sempre passa o tamanho final, então nada mais muda.

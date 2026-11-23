@@ -24,7 +24,12 @@ describe('Loja, segunda fase, no boneco (ADR-0101)', () => {
       expect(quadroDaComemoracao(c, 0).pulo).toBeCloseTo(0);
       expect(quadroDaComemoracao(c, 1).pulo).toBeCloseTo(0);
     }
-    expect(quadroDaComemoracao('MORTAL', 0.849).angulo).toBeGreaterThan(6);
+    // O mortal gira grupado em passos de 90° e cai de braços para cima.
+    const giros = [0.2, 0.4, 0.6, 0.75].map((f) => quadroDaComemoracao('MORTAL', f));
+    expect(giros.map((q) => q.pose)).toEqual(['GRUPADO', 'GRUPADO', 'GRUPADO', 'GRUPADO']);
+    expect(giros.map((q) => Math.round((-q.angulo * 2) / Math.PI))).toEqual([0, 1, 2, 3]);
+    expect(quadroDaComemoracao('MORTAL', 0.05).pose).toBe('AGACHADO');
+    expect(quadroDaComemoracao('MORTAL', 0.95).pose).toBe('FRENTE_COMEMORA');
     expect(quadroDaComemoracao('JOELHADA', 0.5).pose).toBe('JOELHADA');
   });
 });
