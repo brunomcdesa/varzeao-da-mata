@@ -3,6 +3,7 @@ import { temMoedas, DESTAQUE_DA_POSICAO, IDENTIDADE, ORDEM_DOS_TROFEUS, nomeVisi
 import { jogadores, liga, timesAtivos } from '../dados.js';
 import { bonecoImg, comCamisa, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html, faixaC } from '../ui.js';
 import type { Pagina } from './tipos.js';
+import { abas } from '../abas.js';
 import { blocoDoDono, ligarMeuPersonagem } from '../meuPersonagem.js';
 import { pontosDoOvr, variacaoDoOvr, type PontoDoOvr } from '../pontosDoOvr.js';
 
@@ -252,7 +253,8 @@ export const paginaJogador: Pagina = async (main, [id]) => {
       ${temRegrasT2(temporadaDoApp(l) ?? 0) ? html`<p><a class="botao secundario" href="#/carreira/${j.id}">Ver a Carreira, temporada por temporada</a></p>` : ''}
       ${salaDeTrofeus(j)}
       ${blocoDoDono()}
-      <section aria-labelledby="titulo-numeros">
+      ${abas('jogador', [
+        { id: 'numeros', rotulo: 'Números', conteudo: html`      <section aria-labelledby="titulo-numeros">
         <div class="numeros-cabeca">
           <h2 id="titulo-numeros" class="secao">Números</h2>
           ${j.temporadas > 1 || (l.temporada && j.nestaTemporada.jogos !== j.jogos)
@@ -265,10 +267,17 @@ export const paginaJogador: Pagina = async (main, [id]) => {
         <div data-numeros="temporada">${numeros(j.nestaTemporada, j)}</div>
         <div data-numeros="carreira" hidden>${numeros(j, j)}</div>
       </section>
-      <section aria-labelledby="titulo-ovr"><h2 id="titulo-ovr" class="secao">OVR jogo a jogo</h2>
+      <form class="comparar-com">
+        <label><span>Comparar com</span>
+          <select name="outro"><option value="">Escolha um Jogador</option>${outros.map((o) => html`<option value="${o.id}">@${o.username} (${curto(o.time)}, ${o.ovr})</option>`)}</select>
+        </label>
+      </form>
+` },
+        { id: 'ovr', rotulo: 'OVR', conteudo: html`      <section aria-labelledby="titulo-ovr"><h2 id="titulo-ovr" class="secao">OVR jogo a jogo</h2>
         ${j.historico.length ? graficoOvr([{ j, cor: 'var(--amarelo)' }]) : html`<p class="vazio-pequeno">Ainda não estreou. Cada jogada mexe numa Habilidade, e o OVR é a média delas com os pesos da Posição.</p>`}
       </section>
-      ${j.historico.length
+` },
+        { id: 'jogos', rotulo: `Jogos (${j.historico.length})`, conteudo: j.historico.length
         ? html`<section aria-labelledby="titulo-hist"><h2 id="titulo-hist" class="secao">Jogos</h2>
             <ol class="historico">${[...j.historico].reverse().map(
               (h) => {
@@ -283,12 +292,8 @@ export const paginaJogador: Pagina = async (main, [id]) => {
                 </a></li>`;
               },
             )}</ol></section>`
-        : ''}
-      <form class="comparar-com">
-        <label><span>Comparar com</span>
-          <select name="outro"><option value="">Escolha um Jogador</option>${outros.map((o) => html`<option value="${o.id}">@${o.username} (${curto(o.time)}, ${o.ovr})</option>`)}</select>
-        </label>
-      </form>
+        : '' },
+      ])}
     </div>
   </article>`.s;
   for (const b of main.querySelectorAll<HTMLButtonElement>('[data-periodo]')) {

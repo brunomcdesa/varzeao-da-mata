@@ -396,6 +396,14 @@ Quando os dois zagueiros vão juntos no mesmo finalizador. O Duelo fica mais dif
 O site da Liga instalado no celular (PWA), com ícone na tela inicial e tela cheia. É o mesmo site, não um aplicativo de loja (ADR-0040).
 _Avoid_: aplicativo, app nativo, baixar da loja
 
+**Abas do App**:
+A barra de baixo do site no celular: Rodada, Jogos, Tabela, Times e Mais (Jogadores, Temporada, História, Avisos). No computador fica o menu no topo (ADR-0103).
+_Avoid_: menu inferior, tab bar, rodapé de navegação
+
+**Subaba**:
+Cada parte de uma tela comprida no celular, escolhida na barra logo abaixo do topo: Escalação, Elenco, Jogos e Troféus no Time; Números, OVR e Jogos no Jogador; Replay ou Ao Vivo, Escalações e Lance a lance na Partida; uma por Rodada e o Mata-mata em Jogos; um Grupo (ou Série) por vez na Tabela. No computador a tela mostra tudo, como antes (ADR-0103).
+_Avoid_: aba interna, guia, tab
+
 **Avisos**:
 As notificações de jogo que o App manda no celular para quem ativou e escolheu os Times: Escalação, aviso 5 min antes do Apito Inicial, gols e fim de jogo (ADR-0042).
 _Avoid_: assinatura, push, inscrição nos avisos

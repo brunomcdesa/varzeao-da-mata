@@ -4503,3 +4503,409 @@ a.jogo:hover {
   outline: 2px solid var(--amarelo);
   outline-offset: -2px;
 }
+/* ------------------------------------------------------------ Jeito de app no celular (ADR-0103)
+ * Mobile-first: o padrão é o celular (barra de app no topo, abas embaixo, subabas nas telas
+ * compridas). A partir de 720px volta o site de sempre: menu no topo e tudo numa página só.
+ */
+
+:root {
+  --altura-abas: 64px;
+  --abas-app-fundo: var(--madeira-veio), var(--madeira-escura);
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  overscroll-behavior-y: none;
+}
+
+/* Barra de cima: escudo ou Voltar, o título da tela e o sino. */
+.marca,
+.menu {
+  display: none;
+}
+.topo {
+  padding-top: max(6px, env(safe-area-inset-top));
+  padding-bottom: 6px;
+}
+.barra-app {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+}
+.barra-app-escudo,
+.barra-app-voltar,
+.barra-app-sino {
+  grid-row: 1;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--placa);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.barra-app-escudo,
+.barra-app-voltar {
+  grid-column: 1;
+}
+.barra-app-escudo[hidden],
+.barra-app-voltar[hidden] {
+  display: none;
+}
+.barra-app-voltar:active,
+.barra-app-sino:active {
+  background: rgb(0 0 0 / 0.25);
+  clip-path: var(--canto);
+}
+.barra-app-titulo {
+  grid-column: 2;
+  margin: 0;
+  text-align: center;
+  font: 400 1.75rem/1 var(--display);
+  color: var(--placa);
+  text-shadow: 2px 2px 0 var(--contorno);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.barra-app-sino {
+  grid-column: 3;
+}
+.icone-pixel {
+  display: block;
+  flex: none;
+}
+
+/* O título grande da página repetiria o da barra (continua para leitores de tela). */
+main > .titulo-pagina {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+main {
+  padding-bottom: calc(var(--altura-abas) + env(safe-area-inset-bottom) + 24px);
+}
+.rodape {
+  padding-bottom: calc(var(--altura-abas) + env(safe-area-inset-bottom) + 16px);
+}
+main > * {
+  animation: tela-entra 160ms ease-out;
+}
+@keyframes tela-entra {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* Com Moedas (T3), a sacola da Loja fica na barra, à direita do sino. */
+.topo-interno {
+  flex-wrap: nowrap;
+}
+.carteira-topo {
+  order: 2;
+  margin-left: 0;
+}
+
+/* Abas de baixo. */
+.abas-app {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  padding: 4px max(4px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left));
+  background: var(--abas-app-fundo);
+  border-top: 4px solid var(--contorno);
+  box-shadow: inset 0 4px 0 var(--madeira-luz);
+  user-select: none;
+}
+.abas-app a,
+.abas-app button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 52px;
+  padding: 4px 0 2px;
+  color: var(--placa-sombra);
+  background: none;
+  border: 0;
+  text-decoration: none;
+  font: 600 0.75rem/1 var(--texto);
+  cursor: pointer;
+}
+.abas-app [aria-current='page']:not(:has(~ [aria-expanded='true'])),
+.abas-app [aria-expanded='true'] {
+  color: var(--tinta);
+  background: var(--amarelo);
+  clip-path: var(--canto);
+}
+.abas-app a:active,
+.abas-app button:active {
+  transform: translateY(1px);
+}
+
+/* Folha do "Mais", que sobe de baixo. */
+.folha-mais[hidden] {
+  display: none;
+}
+.folha-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 7;
+  background: rgb(10 20 14 / 0.6);
+  animation: aparece 160ms ease-out;
+}
+.folha {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 8;
+  padding: 10px 16px calc(var(--altura-abas) + env(safe-area-inset-bottom) + 12px);
+  background: var(--placa);
+  color: var(--tinta);
+  box-shadow: inset 0 4px 0 var(--contorno);
+  clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% 100%, 0 100%);
+  animation: folha-sobe 200ms ease-out;
+}
+.folha-alca {
+  display: block;
+  width: 48px;
+  height: 4px;
+  margin: 4px auto 12px;
+  background: var(--placa-sombra);
+}
+.folha-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.folha-lista a {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  min-height: 56px;
+  text-decoration: none;
+  background: #fff8e8;
+  box-shadow: inset 0 0 0 2px var(--placa-sombra), inset 0 -4px 0 var(--placa-sombra);
+  clip-path: var(--canto);
+}
+.folha-lista a:active {
+  background: var(--placa-sombra);
+}
+.folha-lista b {
+  font: 400 1.5rem/1 var(--display);
+}
+.folha-lista small {
+  color: var(--tinta-fraca);
+}
+body.com-folha .abas-app {
+  z-index: 9;
+}
+@keyframes folha-sobe {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes aparece {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Subabas: barra presa logo abaixo do topo, uma parte por vez. */
+.subabas {
+  min-width: 0;
+}
+.subabas-barra {
+  position: sticky;
+  top: var(--altura-topo, 60px);
+  z-index: 4;
+  display: flex;
+  gap: 6px;
+  margin: 16px -16px 12px;
+  padding: 8px 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  background: var(--mata);
+  box-shadow: 0 4px 0 var(--mata-media);
+}
+.subabas-barra::-webkit-scrollbar {
+  display: none;
+}
+.subabas-barra button {
+  flex: none;
+  min-height: 40px;
+  padding: 8px 14px 6px;
+  scroll-snap-align: center;
+  font: 600 0.9375rem/1 var(--texto);
+  color: var(--placa);
+  background: var(--mata-media);
+  border: 0;
+  clip-path: var(--canto);
+  cursor: pointer;
+}
+.subabas-barra button[aria-selected='true'] {
+  color: var(--tinta);
+  background: var(--placa);
+  box-shadow: inset 0 -4px 0 var(--placa-sombra);
+}
+.subaba-painel {
+  display: none;
+}
+.subaba-painel.ativa {
+  display: block;
+  animation: aparece 140ms ease-out;
+}
+.subaba-painel > :first-child,
+.subaba-painel > :first-child > .secao:first-child {
+  margin-top: 0;
+}
+
+/* Faixa do Time mais baixa no celular: escudo ao lado do nome. */
+.faixa-time {
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+}
+.faixa-time img {
+  width: 64px;
+}
+.faixa-time h1 {
+  font-size: 2rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main > *,
+  .subaba-painel.ativa,
+  .folha,
+  .folha-fundo {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------- Computador e tablet: o site de sempre */
+@media (min-width: 720px) {
+  .marca {
+    display: flex;
+  }
+  .menu {
+    display: flex;
+  }
+  .barra-app,
+  .abas-app,
+  .folha-mais {
+    display: none;
+  }
+  .topo {
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-bottom: 8px;
+  }
+  .topo-interno {
+    flex-wrap: wrap;
+  }
+  .carteira-topo {
+    order: 0;
+    margin-left: auto;
+  }
+  main > .titulo-pagina {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+  main {
+    padding-bottom: 48px;
+  }
+  .rodape {
+    padding-bottom: 16px;
+  }
+  main > * {
+    animation: none;
+  }
+  /* Sem barra de subabas: as partes voltam a ser blocos da página, no lugar de antes. */
+  .subabas,
+  .subaba-painel,
+  .subaba-painel.ativa {
+    display: contents;
+  }
+  .subabas-barra {
+    display: none;
+  }
+  .faixa-time {
+    align-items: center;
+    gap: 18px;
+    padding: 18px;
+  }
+  .faixa-time img {
+    width: clamp(64px, 20vw, 100px);
+  }
+  .faixa-time h1 {
+    font-size: clamp(2rem, 7vw, 3rem);
+  }
+}
+@media (min-width: 720px) {
+  /* O chaveamento continua em cima, na largura toda, antes das Rodadas. */
+  .grade-rodadas [data-painel='chave'] > * {
+    grid-column: 1 / -1;
+  }
+}
+@media (min-width: 720px) {
+  /* Página do Time no computador, como antes: Plano e Sala em cima, Escalação e Elenco à esquerda, Jogos à direita. */
+  .time-colunas [data-plano] {
+    order: -2;
+    grid-area: plano;
+  }
+  .time-colunas [data-painel='trofeus'] > * {
+    order: -1;
+    grid-area: sala;
+  }
+  .time-colunas [data-painel='escalacao'] > section {
+    grid-area: esc;
+  }
+  .time-colunas [data-painel='elenco'] > * {
+    grid-area: elenco;
+  }
+  .time-colunas [data-painel='jogos'] > * {
+    grid-area: jogos;
+  }
+  .time-colunas {
+    grid-template-areas: 'plano' 'sala' 'esc' 'elenco' 'jogos';
+  }
+}
+@media (min-width: 900px) {
+  .time-colunas {
+    grid-template-areas: 'plano plano' 'sala sala' 'esc jogos' 'elenco jogos';
+    grid-template-rows: auto auto auto 1fr;
+  }
+}
+@media (min-width: 720px) {
+  /* No computador, o "Comparar com" continua no fim da página do Jogador. */
+  .jogador-detalhes {
+    display: flex;
+    flex-direction: column;
+  }
+  .jogador-detalhes .comparar-com {
+    order: 1;
+  }
+}

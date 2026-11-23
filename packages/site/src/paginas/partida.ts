@@ -10,6 +10,7 @@ import { enviarEscolhaDoVinculo, jogadorVinculado } from '../meuPersonagem.js';
 import type { Timeline } from '@liga/renderer';
 import { bonecoImg, campinho, curto, duelaDeForcas, escudoImg, html, jogadorLink, nota, NOME_DA_POSICAO, rotuloClassico, type Html, comCamisa, comFaixa } from '../ui.js';
 import type { Pagina } from './tipos.js';
+import { abas, mostrarAba } from '../abas.js';
 
 const CORTE_MIN = 30;
 
@@ -197,7 +198,8 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
         </div>
       </header>
 
-      ${timeline && s !== 'AGENDADA'
+      ${abas('partida', [
+        { id: 'jogo', rotulo: s === 'AO_VIVO' ? 'Ao Vivo' : s === 'AGENDADA' ? 'Palpite' : 'Replay', conteudo: html`      ${timeline && s !== 'AGENDADA'
         ? html`<section class="transmissao" aria-label="${s === 'AO_VIVO' ? 'Transmissão ao vivo' : 'Replay'}">
             ${s === 'AO_VIVO' ? html`<div class="campo-ao-vivo"><canvas width="540" height="960"></canvas></div>` : html`<canvas width="540" height="960"></canvas>`}
             ${s === 'AO_VIVO'
@@ -221,7 +223,6 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
           </section>`
         : ''}
       ${mostrarFinal && timeline ? linhaDoTempo(r, timeline) : ''}
-
       ${p.palpite && Date.now() < Date.parse(p.apito) - CORTE_MIN * 60_000 && jogadorVinculado()
         ? html`<section class="placa palpite" aria-labelledby="titulo-palpite">
             <h2 id="titulo-palpite" class="secao">Seu Palpite <small>até o Corte</small></h2>
@@ -234,8 +235,8 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
             <p class="legenda">Resultado certo vale 2 Moedas; placar exato, 5. Até 10 Moedas de Palpite por dia.</p>
             <p class="estado-escolha" role="status" aria-live="polite"></p>
           </section>`
-        : ''}
-      ${p.escalacoes
+        : ''}` },
+        { id: 'escalacoes', rotulo: 'Escalações', conteudo: html`      ${p.escalacoes
         ? html`<section aria-labelledby="titulo-forca"><h2 id="titulo-forca" class="secao">Força em campo <small>OVR antes do jogo</small></h2>
             ${duelaDeForcas(
               forcaDaEscalacao(p.escalacoes.mandante.jogadores.map((j) => ({ posicao: j.posicao, ovr: j.jogadorId ? j.ovr : null }))),
@@ -249,9 +250,8 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
             <div class="escalacoes">${escalacao(p.escalacoes.mandante, 'mandante', mostrarFinal ? r : null, camisas)}${escalacao(p.escalacoes.visitante, 'visitante', mostrarFinal ? r : null, camisas)}</div>
             ${p.juiz ? html`<p class="juiz-da-partida juiz-${p.juiz.toLowerCase()}">Juiz: <strong>${NOME_DO_PERFIL_DO_JUIZ[p.juiz]}</strong> <small>${p.juiz === 'RIGOROSO' ? 'marca mais faltas e dá mais cartões' : p.juiz === 'DEIXA_JOGAR' ? 'deixa o jogo correr: menos faltas e cartões' : 'arbitragem normal'}</small></p>` : ''}
             ${mostrarFinal ? html`<p class="legenda">● gol · ▲▼ OVR depois do jogo · Nota de 0 a 10, comparada ao que se espera do OVR.</p>` : html`<p class="legenda">OVR antes do jogo. Vaga sem inscrito é completada pela Base (OVR 55).</p>`}`
-        : html`<section class="placa vazio"><p>A escalação sai no Corte, ${CORTE_MIN} minutos antes do apito: quem tem menos jogos entra primeiro.</p></section>`}
-
-      ${mostrarFinal
+        : html`<section class="placa vazio"><p>A escalação sai no Corte, ${CORTE_MIN} minutos antes do apito: quem tem menos jogos entra primeiro.</p></section>`}` },
+        { id: 'lances', rotulo: 'Lance a lance', conteudo: html`      ${mostrarFinal
         ? html`<section aria-labelledby="titulo-lances"><h2 id="titulo-lances" class="secao">Lance a lance</h2>
             <ol class="lances">${r.lances.map(
               (l, i) => html`<li><button type="button" class="lance tipo-${l.tipo.toLowerCase()}" data-indice="${i}">
@@ -272,7 +272,8 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
                     </button></li>`;
                   })}</ol></section>`
               : ''}`
-        : ''}
+        : ''}` },
+      ])}
     </article>`.s;
 
   if (!timeline || s === 'AGENDADA') {
@@ -318,12 +319,17 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
   for (const b of botoes) {
     b.addEventListener('click', () => {
       tx.irPara(Math.max(0, timeline.instanteDoLance(Number(b.dataset.indice)) - 20));
+      // No celular, o lance mora noutra subaba: volta para o campo.
+      const grupo = b.closest('.subabas');
+      if (grupo) mostrarAba(grupo, 'jogo');
       caixa.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
     });
   }
   for (const b of main.querySelectorAll<HTMLButtonElement>('[data-cobranca]')) {
     b.addEventListener('click', () => {
       tx.irPara(Math.max(0, timeline.instanteDaCobranca(Number(b.dataset.cobranca)) - 60));
+      const grupo = b.closest('.subabas');
+      if (grupo) mostrarAba(grupo, 'jogo');
       caixa.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
     });
   }
