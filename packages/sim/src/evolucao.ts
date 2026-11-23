@@ -9,8 +9,10 @@ import {
   LIMITE_DELTA_HABILIDADE,
   LIMITE_DELTA_HABILIDADE_CLASSICO,
   MULTIPLICADOR_CLASSICO,
+  PESOS_OVR,
   type HabilidadeId,
   type Habilidades,
+  type Posicao,
 } from '@liga/shared';
 
 /** Pontos por ação (ponto de partida do ADR-0010, ajustados pela calibração). */
@@ -68,6 +70,37 @@ export const ACOES_T2: Partial<Record<Acao, number>> = {
 /** Valor da ação: o da T2 quando ela tem um próprio, senão o de sempre. */
 export function valorDaAcao(a: Acao, t2: boolean): number {
   return (t2 ? ACOES_T2[a] : undefined) ?? ACOES[a].valor;
+}
+
+/**
+ * Ações principais protegem (ADR-0104, VERSAO_SIM 20 na T2 e 21 na T3): cada ação principal da Posição
+ * em que o Jogador jogou vale pontos de proteção, que cancelam perdas da mesma Partida. Não
+ * somam ganho: quem jogou bem não cai por causa do resto do jogo, sem inflar o OVR.
+ */
+export const PROTECAO: Readonly<Record<Posicao, Partial<Record<Acao, number>>>> = {
+  ATA: { gol: 1.5, assistencia: 1 },
+  MEI: { gol: 1.5, assistencia: 1 },
+  ZAG: { gol: 1.5, assistencia: 1, desarme: 0.3, bloqueio: 0.3 },
+  GOL: { defesa: 0.3, penaltiPego: 1, semSofrerGol: 0.5 },
+};
+
+/**
+ * Gasta a proteção nas perdas: primeiro na Habilidade que mais pesa no OVR da Posição, depois
+ * nas outras. Só reduz pontos negativos; os positivos ficam iguais.
+ */
+export function protegerPerdas(pontos: Record<HabilidadeId, number>, protecao: number, posicao: Posicao): Record<HabilidadeId, number> {
+  const depois = { ...pontos };
+  let resta = protecao;
+  const peso = (h: HabilidadeId) => PESOS_OVR[posicao][h] ?? 0;
+  const ordem = [...HABILIDADES].sort((a, b) => peso(b) - peso(a));
+  for (const h of ordem) {
+    if (resta <= 0) break;
+    if (depois[h] >= 0) continue;
+    const usado = Math.min(resta, -depois[h]);
+    depois[h] += usado;
+    resta -= usado;
+  }
+  return depois;
 }
 
 /** Ritmo: perto de 99 o ganho encolhe; perto de 40 a perda encolhe. */

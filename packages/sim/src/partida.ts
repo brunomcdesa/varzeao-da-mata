@@ -16,7 +16,7 @@ import {
   type Posicao,
 } from '@liga/shared';
 import { duelo, probabilidadeDuelo } from './duelo.js';
-import { ACOES, evoluir, valorDaAcao, zeradas, type Acao } from './evolucao.js';
+import { ACOES, PROTECAO, evoluir, protegerPerdas, valorDaAcao, zeradas, type Acao } from './evolucao.js';
 import { notaDaPartida } from './nota.js';
 import { ESPECIALIZACAO, PARAMETROS, PARAMETROS_T2, PARAMETROS_T3, VERSAO_SIM, VERSAO_SIM_T1, VERSAO_SIM_T3 } from './parametros.js';
 import { criarRng, type Rng } from './rng.js';
@@ -190,8 +190,14 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     visitante: elenco.visitante.map(zeradas),
   };
   const conta = (s: SlotRef): Contadores => contadores[s.lado][quem(s)]!;
+  /** Ações principais protegem (ADR-0104, da T2 em diante): proteção juntada pela Posição da vaga. */
+  const protecao: Record<Lado, number[]> = {
+    mandante: elenco.mandante.map(() => 0),
+    visitante: elenco.visitante.map(() => 0),
+  };
   const acao = (s: SlotRef, a: Acao): void => {
     pontos[s.lado][quem(s)]![ACOES[a].hab] += valorDaAcao(a, t2 !== undefined);
+    if (t2) protecao[s.lado][quem(s)]! += PROTECAO[escalacoes[s.lado].jogadores[s.indice]!.posicao][a] ?? 0;
   };
 
   const gols: Record<Lado, number> = { mandante: 0, visitante: 0 };
@@ -912,7 +918,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
       const treino = t2 && jogador.treino ? { hab: jogador.treino, multiplicador: PARAMETROS_T2.multiplicadorTreino } : undefined;
       // Ganho maior da T2 (ADR-0056), Resenha (ADR-0034) e Bônus da Temporada 1 (ADR-0047) somam.
       const ganhos = (t2 ? PARAMETROS_T2.multiplicadorGanho : 1) + (jogador.resenha ? PARAMETROS.multiplicadorResenha - 1 : 0) + (t2 && jogador.bonusT1 ? PARAMETROS_T2.multiplicadorBonusT1 - 1 : 0);
-      const { depois, delta } = daBase ? { depois: antes, delta: zeradas() } : evoluir(antes, pontos[lado][indice]!, classico, treino, ganhos, t2 ? PARAMETROS_T2.referenciaGanho : undefined);
+      const { depois, delta } = daBase ? { depois: antes, delta: zeradas() } : evoluir(antes, t2 ? protegerPerdas(pontos[lado][indice]!, protecao[lado][indice]!, escalacoes[lado].jogadores[lugar]!.posicao) : pontos[lado][indice]!, classico, treino, ganhos, t2 ? PARAMETROS_T2.referenciaGanho : undefined);
       // A vaga do lugar: o reserva fora de posição joga com o OVR da vaga (como na Formação).
       const posicao = escalacoes[lado].jogadores[lugar]!.posicao;
       const ovrAntes = ovrDasHabilidades(posicao, antes);

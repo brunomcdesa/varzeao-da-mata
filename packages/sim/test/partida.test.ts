@@ -11,7 +11,7 @@ import {
 } from '@liga/shared';
 import { simularPartida, chanceDeFora, chanceDeDriblar, ritmoDaPartida } from '../src/partida.js';
 import { notaDaPartida } from '../src/nota.js';
-import { RITMO, evoluir, fatorDeGanho, fatorDePerda, valorDaAcao, zeradas } from '../src/evolucao.js';
+import { PROTECAO, RITMO, evoluir, fatorDeGanho, fatorDePerda, protegerPerdas, valorDaAcao, zeradas } from '../src/evolucao.js';
 import { PARAMETROS_T2 } from '../src/parametros.js';
 import { escalacao, escalacaoNa } from './fabricas.js';
 import { FORMACOES, type Formacao } from '@liga/shared';
@@ -344,7 +344,7 @@ describe('trava da Temporada 1', () => {
   });
 });
 
-describe('regras da Temporada 2 (VERSAO_SIM 18)', () => {
+describe('regras da Temporada 2 (VERSAO_SIM 20)', () => {
   const neutra = { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } as const;
   /** `t2`: null joga com as regras da T1. */
   const jogo = (seed: number, t2: Parameters<typeof simularPartida>[0]['t2'] | null = neutra, a = escalacao('CAP', 70), b = escalacao('ONC', 70, 'R')) =>
@@ -352,7 +352,7 @@ describe('regras da Temporada 2 (VERSAO_SIM 18)', () => {
 
   it('com as regras da T2 a Partida é da versão 18, guarda Postura e Ritmo e é determinística', () => {
     const r = jogo(11);
-    expect(r.versaoSim).toBe(18);
+    expect(r.versaoSim).toBe(20);
     expect(r.postura).toEqual(neutra.postura);
     expect(r.ritmo).toBeGreaterThanOrEqual(6);
     expect(jogo(11)).toEqual(r);
@@ -572,7 +572,7 @@ describe('saída de bola depois do gol (ADR-0045)', () => {
     const t1 = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('ONC', 70), seed: 1 });
     const t2 = simularPartida({ ...base, mandante: escalacao('CAP', 70), visitante: escalacao('ONC', 70), seed: 1, t2: { postura: { mandante: 'EQUILIBRADA', visitante: 'EQUILIBRADA' } } });
     expect(t1.versaoSim).toBe(12);
-    expect(t2.versaoSim).toBe(18);
+    expect(t2.versaoSim).toBe(20);
   });
 });
 
@@ -773,16 +773,20 @@ describe('pontos por ação da T2 (ADR-0055)', () => {
     return Object.fromEntries(Object.keys(soma).map((p) => [p, soma[p]! / n[p]!]));
   };
 
-  it('com as regras da T2 (sem o Ganho maior), a Habilidade principal de cada Posição varia como na T1', () => {
+  it('com as regras da T2 (sem o Ganho maior e sem a proteção), a Habilidade principal de cada Posição varia como na T1', () => {
     const t2Params = PARAMETROS_T2 as { multiplicadorGanho: number; referenciaGanho: number };
     const { multiplicadorGanho, referenciaGanho } = t2Params;
+    const protecao = PROTECAO as Record<string, Record<string, number>>;
+    const guardada = Object.fromEntries(Object.entries(protecao).map(([p, v]) => [p, { ...v }]));
     try {
+      for (const p of Object.keys(protecao)) protecao[p] = {};
       t2Params.multiplicadorGanho = 1;
       t2Params.referenciaGanho = RITMO.referenciaGanho;
       const t1 = deriva(false);
       const t2 = deriva(true);
       for (const p of ['GOL', 'ZAG', 'MEI', 'ATA']) expect(Math.abs(t2[p]! - t1[p]!), p).toBeLessThan(0.08);
     } finally {
+      for (const p of Object.keys(guardada)) protecao[p] = guardada[p]!;
       t2Params.multiplicadorGanho = multiplicadorGanho;
       t2Params.referenciaGanho = referenciaGanho;
     }
@@ -813,5 +817,59 @@ describe('pontos por ação da T2 (ADR-0055)', () => {
     expect(valorDaAcao('cometeuFalta', true)).toBe(0);
     expect(valorDaAcao('cometeuFalta', false)).toBe(-0.25);
     expect(valorDaAcao('gol', true)).toBe(valorDaAcao('gol', false));
+  });
+});
+
+describe('ações principais protegem (ADR-0104)', () => {
+  it('a proteção cancela perdas, primeiro na Habilidade que mais pesa no OVR da Posição', () => {
+    const pontos = { ...zeradas(), FIN: 1.5, PAS: -0.6, DEF: -1.2 };
+    expect(protegerPerdas(pontos, 1, 'ZAG')).toEqual({ ...pontos, DEF: expect.closeTo(-0.2) });
+    expect(protegerPerdas(pontos, 1.5, 'ZAG')).toEqual({ ...pontos, DEF: 0, PAS: expect.closeTo(-0.3) });
+    expect(protegerPerdas(pontos, 1, 'MEI')).toEqual({ ...pontos, PAS: 0, DEF: expect.closeTo(-0.8) });
+  });
+
+  it('a proteção nunca vira ganho nem mexe no que já era positivo', () => {
+    const pontos = { ...zeradas(), FIN: 1.5, DEF: -0.4 };
+    expect(protegerPerdas(pontos, 10, 'ATA')).toEqual({ ...pontos, DEF: 0 });
+    expect(protegerPerdas(pontos, 0, 'ATA')).toEqual(pontos);
+  });
+
+  it('cada Posição se protege com as próprias ações principais', () => {
+    expect(PROTECAO.ATA.gol).toBeGreaterThan(0);
+    expect(PROTECAO.MEI.assistencia).toBeGreaterThan(0);
+    expect(PROTECAO.ZAG.gol).toBeGreaterThan(0);
+    expect(PROTECAO.ZAG.desarme).toBeGreaterThan(0);
+    expect(PROTECAO.GOL.defesa).toBeGreaterThan(0);
+    expect(PROTECAO.GOL.semSofrerGol).toBeGreaterThan(0);
+  });
+
+  /** Quantos de quem fez a ação caíram de OVR, com ou sem as regras da T2. */
+  const quedas = (t2: boolean) => {
+    const conta = { ataDoisGols: [0, 0], zagComGol: [0, 0], comGol: [0, 0] };
+    for (let seed = 1; seed <= 3000; seed++) {
+      const r = simularPartida({
+        mandante: escalacao('CAP', [62, 64, 70, 66, 68, 72, 65]),
+        visitante: escalacao('ONC', [70, 66, 61, 69, 63, 64, 71]),
+        seed,
+        fase: 'LIGA',
+        ...(t2 ? { t2: { postura: { mandante: 'OFENSIVA', visitante: 'OFENSIVA' } } as const } : {}),
+      });
+      for (const d of r.desempenhos) {
+        const caiu = d.deltaOvr < 0 ? 1 : 0;
+        if (d.posicao === 'ATA' && d.gols >= 2) (conta.ataDoisGols[0]! += caiu), conta.ataDoisGols[1]!++;
+        if (d.posicao === 'ZAG' && d.gols >= 1) (conta.zagComGol[0]! += caiu), conta.zagComGol[1]!++;
+        if (d.posicao !== 'GOL' && d.gols >= 1) (conta.comGol[0]! += caiu), conta.comGol[1]!++;
+      }
+    }
+    return Object.fromEntries(Object.entries(conta).map(([k, [c, n]]) => [k, c! / n!]));
+  };
+
+  it('no Clássico da T2, quem faz gol praticamente não cai de OVR (antes, o zagueiro caía muito)', () => {
+    const t2 = quedas(true);
+    expect(t2.ataDoisGols).toBe(0);
+    expect(t2.zagComGol).toBeLessThan(0.06);
+    expect(t2.comGol).toBeLessThan(0.02);
+    // Nas regras da T1 (sem proteção), o zagueiro que fazia gol caía bem mais.
+    expect(quedas(false).zagComGol).toBeGreaterThan(t2.zagComGol! * 3);
   });
 });
