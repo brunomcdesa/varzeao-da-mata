@@ -30,6 +30,7 @@ O equilíbrio da Liga foi construído para não ter "pagar para ganhar" (ADR-008
 - **Quem cancela fica com o que ganhou:** o Item continua dele, e o Selo vira o histórico. Só deixa de ganhar o Item novo de uma Temporada futura, se houver.
 - **Créditos:** a lista de Apoiadores da Temporada (por @, sem valor) aparece no fim do Resumo da Temporada.
 - **Divulgação:** um Reels próprio, com rascunho aprovado pelo dono, e o link na bio e no site.
+- **Só vale a partir da T3:** quem apoiar durante a T2 conta como Apoiador da T3. Os créditos da T2 não existem, e o Selo só aparece no site a partir da T3.
 - **Contagem:** quem apoiar antes de o Selo ou o Item estar pronto ganha os dois quando saírem, contando desde o primeiro mês.
 
 ### T4: Patrocinador

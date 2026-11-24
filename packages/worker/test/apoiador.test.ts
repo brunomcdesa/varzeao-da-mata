@@ -67,6 +67,17 @@ describe('Apoiador no banco (ADR-0108)', () => {
     expect((await banco.query(`SELECT 1 FROM apoio`)).rows).toHaveLength(2);
   });
 
+  it('só vale a partir da T3: apoio aberto durante a T2 conta como da T3, e o Selo não aparece no site da T2', async () => {
+    await criarTemporada(banco, { numero: 2, primeiraRodada: '2026-11-19', seed: 4, series });
+    await inscrever('CAP', 'ATA', 'adiantado');
+    await registrarApoio(banco, { username: 'adiantado', nivel: 15, agora: dia('2026-11-24'), gravar: true });
+    expect((await apoiadores(banco)).get('adiantado')).toEqual({ ativo: true, temporadas: [3] });
+    expect(await creditosDaTemporada(banco, 2)).toEqual([]);
+    expect(await creditosDaTemporada(banco, 3)).toEqual(['adiantado']);
+    const { arquivos } = await exportarSite(banco, dia('2026-11-24'));
+    expect((arquivos.get('jogadores.json') as JogadorPublico[]).find((x) => x.username === 'adiantado')!.apoiador).toBeUndefined();
+  });
+
   it('recusa nível que não existe e @ inválido', async () => {
     await criarTemporada(banco, { numero: 3, primeiraRodada: '2026-11-30', seed: 4, series });
     await expect(registrarApoio(banco, { username: 'x', nivel: 10 as 5, agora: dia('2026-11-24'), gravar: true })).rejects.toThrow('5 ou 15');

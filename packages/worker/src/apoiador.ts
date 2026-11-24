@@ -20,11 +20,17 @@ export const NIVEL_DO_ITEM: NivelDeApoio = 15;
 /** O @ como fica guardado: sem @, sem espaços, minúsculo. */
 export const normalizarArroba = (u: string) => u.trim().replace(/^@+/, '').toLowerCase();
 
-/** A Temporada mais recente já criada (a da Pré-temporada, se ela já existe). */
+/** O Apoiador só vale a partir da T3: apoio de antes conta como da T3. */
+export const PRIMEIRA_TEMPORADA_DO_APOIO = 3;
+
+/**
+ * A Temporada em que o apoio conta: a mais recente já criada (a da Pré-temporada, se ela já
+ * existe), mas nunca antes da T3. Quem apoia durante a T2 aparece como Apoiador da T3.
+ */
 async function temporadaMaisRecente(b: Banco): Promise<number> {
   const n = (await b.query<{ numero: number | null }>(`SELECT max(numero) AS numero FROM temporada`)).rows[0]?.numero;
   if (n == null) throw new Error('Nenhuma Temporada criada.');
-  return n;
+  return Math.max(n, PRIMEIRA_TEMPORADA_DO_APOIO);
 }
 
 interface PeriodoAberto {
