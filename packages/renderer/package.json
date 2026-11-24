@@ -22,7 +22,8 @@
     "pronuncia": "tsx scripts/pronuncia.ts",
     "testar-grito": "tsx scripts/testar-grito.ts",
     "perfil-do-time": "tsx scripts/perfil-do-time.ts",
-    "mudanca-de-endereco": "tsx scripts/mudanca-de-endereco.ts"
+    "mudanca-de-endereco": "tsx scripts/mudanca-de-endereco.ts",
+    "destaques-do-perfil": "tsx scripts/destaques-do-perfil.ts"
   },
   "dependencies": {
     "@liga/shared": "workspace:*",
@@ -39,6 +40,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./gravacao": "./scripts/gravacao.ts",
-    "./explicacao": "./src/explicacaoEscalacao.ts"
+    "./explicacao": "./src/explicacaoEscalacao.ts",
+    "./destaquesDoPerfil": "./src/destaquesDoPerfil.ts"
   }
 }
