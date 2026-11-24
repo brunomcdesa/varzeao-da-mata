@@ -513,7 +513,7 @@ O selo da página de Carreira de quem é ou foi Apoiador. Com o apoio ativo diz 
 _Avoid_: selo VIP, selo pago
 
 **Item de Apoiador**:
-O Item exclusivo de quem teve apoio de R$ 15. Não está à venda na Loja nem custa Moedas, e continua do Jogador depois que o apoio acaba. Sai na Rodada 4 da T3, junto com a segunda fase da Loja (ADR-0108).
+O Item exclusivo de quem teve apoio de R$ 15: a Faixa da Mata, dourada com a folha verde-mata no centro. Não está à venda na Loja nem custa Moedas, e continua do Jogador depois que o apoio acaba. Sai na Rodada 4 da T3, junto com a segunda fase da Loja (ADR-0108).
 _Avoid_: item pago, item premium
 
 **Patrocinador**:

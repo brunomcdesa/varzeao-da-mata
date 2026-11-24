@@ -1,6 +1,6 @@
 # 0108 — Monetização: Apoiador na T3, Patrocinador na T4
 
-- Status: proposto (decidido com o dono em 24/11/2026; o código da T3 espera a prévia)
+- Status: aceito (decidido com o dono em 24/11/2026; prévias do Selo, dos créditos e da Faixa da Mata aprovadas)
 - Data: 2026-11-24
 
 ## Contexto
@@ -25,8 +25,8 @@ O equilíbrio da Liga foi construído para não ter "pagar para ganhar" (ADR-008
 - **Item de Apoiador:** sai na Rodada 4 da T3, junto com a segunda fase da Loja (ADR-0101).
   - Não está à venda e não custa Moedas.
   - É de quem teve apoio de R$ 15 em algum momento.
-  - Ocupa um Encaixe como os outros Itens, e a Escalação guarda a cópia (ADR-0087).
-  - O desenho será escolhido pelo dono na prévia.
+  - É a **Faixa da Mata**: faixa dourada com a folha verde-mata nos pixels do centro. A folha separa a Faixa da Mata da Faixa dourada da Loja, que continua à venda. Por isso o Item ganhou uma segunda cor (`detalhe`).
+  - Ocupa o Encaixe da Faixa como os outros Itens, e a Escalação guarda a cópia (ADR-0087).
 - **Quem cancela fica com o que ganhou:** o Item continua dele, e o Selo vira o histórico. Só deixa de ganhar o Item novo de uma Temporada futura, se houver.
 - **Créditos:** a lista de Apoiadores da Temporada (por @, sem valor) aparece no fim do Resumo da Temporada.
 - **Divulgação:** um Reels próprio, com rascunho aprovado pelo dono, e o link na bio e no site.

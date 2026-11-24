@@ -31,6 +31,8 @@ export interface Item {
   fase: 1 | 2;
   /** Itens de desenho (corte, barba, comemoração): qual. A `cor` é só a da amostra na Loja. */
   estilo?: string;
+  /** Segunda cor, no centro da peça (a folha verde da Faixa da Mata, ADR-0108). */
+  detalhe?: string;
   /** Item exclusivo (ADR-0108): não está à venda; só aparece na Loja para quem já é dono. */
   exclusivo?: 'APOIADOR';
 }
@@ -82,14 +84,16 @@ const ITENS_DE_DESENHO: readonly Item[] = [
   deDesenho('COMEMORACAO', 'DANCINHA', 'Dancinha', 'RARO'),
 ];
 /**
- * Item de Apoiador (ADR-0108): de quem teve apoio de R$ 15 pelo Apoia-se. Cor que a Loja não
- * vende, fora da venda e sem preço em Moedas. Sai com a segunda fase da Loja (Rodada 4 da T3).
+ * Item de Apoiador (ADR-0108): de quem teve apoio de R$ 15 pelo Apoia-se. Faixa dourada com a
+ * folha verde-mata no centro, para não confundir com a Faixa dourada da Loja. Fora da venda e
+ * sem preço em Moedas. Sai com a segunda fase da Loja (Rodada 4 da T3).
  */
 export const ITEM_DE_APOIADOR: Item = {
   codigo: 'FAIXA_DA_MATA',
   encaixe: 'FAIXA',
   nome: 'Faixa da Mata',
-  cor: '#1F7A3A',
+  cor: DOURADO,
+  detalhe: '#1F7A3A',
   raridade: 'RARO',
   fase: 2,
   exclusivo: 'APOIADOR',
@@ -116,6 +120,19 @@ export function coresDosItens(itens: ItensEquipados | null | undefined, goleiro:
     cores[encaixe] = item.cor;
   }
   return cores;
+}
+
+/** Segundas cores dos Itens equipados (o centro da Faixa da Mata). Códigos desconhecidos são ignorados. */
+export function detalhesDosItens(itens: ItensEquipados | null | undefined, goleiro: boolean): Partial<Record<Encaixe, string>> {
+  const detalhes: Partial<Record<Encaixe, string>> = {};
+  if (!itens) return detalhes;
+  for (const encaixe of ENCAIXES_DE_COR) {
+    const item = ITEM_POR_CODIGO.get(itens[encaixe] ?? '');
+    if (!item?.detalhe || item.encaixe !== encaixe) continue;
+    if (encaixe === ENCAIXE_SO_DO_GOLEIRO && !goleiro) continue;
+    detalhes[encaixe] = item.detalhe;
+  }
+  return detalhes;
 }
 
 /** Aceita só um código por Encaixe e só Itens que existem. */

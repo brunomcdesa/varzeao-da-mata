@@ -49,6 +49,9 @@ const DESENHOS: Record<string, string[]> = {
   ],
 };
 
+/** A faixa com a folha: os dois pixels do centro da frente (linha 1) na segunda cor. */
+const comFolha = (grade: string[]) => grade.map((l, y) => (y === 1 ? `${l.slice(0, 5)}DD${l.slice(7)}` : l));
+
 /** Clareia a cor do Item para o brilho do desenho. */
 function clarear(hex: string, k = 0.35): string {
   const n = parseInt(hex.slice(1), 16);
@@ -56,11 +59,11 @@ function clarear(hex: string, k = 0.35): string {
   return `rgb(${c.join(',')})`;
 }
 
-function desenharGrade(ctx: CanvasRenderingContext2D, grade: string[], cor: string, w: number, h: number): void {
+function desenharGrade(ctx: CanvasRenderingContext2D, grade: string[], cor: string, w: number, h: number, detalhe?: string): void {
   const px = Math.floor(Math.min(w / grade[0]!.length, h / grade.length));
   const x0 = Math.floor((w - grade[0]!.length * px) / 2);
   const y0 = Math.floor((h - grade.length * px) / 2);
-  const cores: Record<string, string> = { K: CONTORNO, P: cor, L: clarear(cor), W: '#f3e6c9' };
+  const cores: Record<string, string> = { K: CONTORNO, P: cor, L: clarear(cor), W: '#f3e6c9', D: detalhe ?? cor };
   grade.forEach((linha, y) =>
     [...linha].forEach((c, x) => {
       const f = cores[c];
@@ -81,7 +84,8 @@ export function desenharIcone(canvas: HTMLCanvasElement, item: Item, base: Visua
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const { width: w, height: h } = canvas;
   const grade = DESENHOS[item.encaixe];
-  if (grade) return desenharGrade(ctx, grade, item.cor, w, h);
+  // Com segunda cor (Faixa da Mata, ADR-0108): a frente da faixa ganha a folha no centro.
+  if (grade) return desenharGrade(ctx, item.detalhe && item.encaixe === 'FAIXA' ? comFolha(grade) : grade, item.cor, w, h, item.detalhe);
   if (item.encaixe === 'COMEMORACAO') {
     const q = quadroDaComemoracao(item.estilo as never, PARADA[item.estilo!] ?? 0.5);
     const img = sprite(q.pose, base) as CanvasImageSource;

@@ -7,7 +7,7 @@
  *          B calção · M meião · L luva/mão do goleiro (cor da camisa)
  *          Itens da Loja (ADR-0101): P chuteira · W munhequeira · F faixa · G luva do goleiro
  */
-import { CABELOS, PELES, coresDosItens, estilosDosItens, type Aparencia, type BarbaDaLoja, type ComemoracaoDaLoja, type CorteDaLoja, type Encaixe, type ItensEquipados, type Penteado } from '@liga/shared';
+import { CABELOS, PELES, coresDosItens, detalhesDosItens, estilosDosItens, type Aparencia, type BarbaDaLoja, type ComemoracaoDaLoja, type CorteDaLoja, type Encaixe, type ItensEquipados, type Penteado } from '@liga/shared';
 import type { AcaoJogador } from './jogada.js';
 import { contraste } from './pixel.js';
 
@@ -202,6 +202,8 @@ export interface Visual {
   numero?: number | null;
   /** Cores dos Itens equipados (ADR-0101), já sem a Luva de quem não é goleiro. */
   itens?: Partial<Record<Encaixe, string>>;
+  /** Segundas cores dos Itens (o centro da Faixa da Mata, ADR-0108). */
+  detalhesDosItens?: Partial<Record<Encaixe, string>>;
   /** Corte e barba da Loja (segunda fase). */
   corte?: CorteDaLoja;
   barba?: BarbaDaLoja;
@@ -224,11 +226,12 @@ export function definirItens(lista: Record<string, ItensEquipados>): void {
   for (const [nome, i] of Object.entries(lista)) itensAtuais.set(chaveDoNome(nome), i);
 }
 /** O que os Itens mudam no Visual: as cores (a Luva só no goleiro), o corte, a barba e a comemoração. */
-export function vestir(itens: ItensEquipados | null | undefined, goleiro: boolean): Pick<Visual, 'itens' | 'corte' | 'barba' | 'comemoracao'> {
-  return { itens: coresDosItens(itens, goleiro), ...estilosDosItens(itens) };
+export function vestir(itens: ItensEquipados | null | undefined, goleiro: boolean): Pick<Visual, 'itens' | 'detalhesDosItens' | 'corte' | 'barba' | 'comemoracao'> {
+  const detalhes = detalhesDosItens(itens, goleiro);
+  return { itens: coresDosItens(itens, goleiro), ...(Object.keys(detalhes).length ? { detalhesDosItens: detalhes } : {}), ...estilosDosItens(itens) };
 }
 /** Os Itens equipados agora pelo dono do @, prontos para espalhar no Visual. */
-export function itensDe(nome: string, goleiro: boolean): Pick<Visual, 'itens' | 'corte' | 'barba' | 'comemoracao'> {
+export function itensDe(nome: string, goleiro: boolean): Pick<Visual, 'itens' | 'detalhesDosItens' | 'corte' | 'barba' | 'comemoracao'> {
   return vestir(itensAtuais.get(chaveDoNome(nome)), goleiro);
 }
 
@@ -271,9 +274,10 @@ function comPenteado(grade: string[], penteado: Penteado | undefined, pose: Pose
  * - Munhequeira: no braço (pele fora do rosto com pele logo abaixo), o pixel do
  *   pulso, que é o de cima com o braço para baixo e o de baixo com o braço levantado.
  * - Luva: a mão do goleiro (a outra ponta do braço) e a luva do mergulho.
- * - Faixa: a terceira linha da cabeça, por cima do cabelo (ou da careca).
+ * - Faixa: a terceira linha da cabeça, por cima do cabelo (ou da careca). Com segunda cor
+ *   (Faixa da Mata, ADR-0108), os pixels do centro da faixa ficam com ela.
  */
-export function comItens(grade: string[], itens: Visual['itens'], pose: Pose): string[] {
+export function comItens(grade: string[], itens: Visual['itens'], pose: Pose, detalhes?: Visual['detalhesDosItens']): string[] {
   if (!itens || !Object.keys(itens).length) return grade;
   const g = grade.map((l) => [...l]);
   const cabeca = pose === 'MERGULHO' ? -1 : 6;
@@ -297,6 +301,12 @@ export function comItens(grade: string[], itens: Visual['itens'], pose: Pose): s
   if (itens.FAIXA && cabeca > 0) {
     const l = g[2]!;
     for (let x = 0; x < l.length; x++) if (l[x] === 'H' || (l[x] === 'S' && grade[2]![x] !== '.' && x > l.indexOf('K') && x < l.lastIndexOf('K'))) l[x] = 'F';
+    if (detalhes?.FAIXA) {
+      const faixa = l.flatMap((c, x) => (c === 'F' ? [x] : []));
+      const meio = faixa.length / 2;
+      // O centro: dois pixels se a faixa tem largura par, um se ímpar.
+      for (const x of faixa.length % 2 ? [faixa[Math.floor(meio)]!] : [faixa[meio - 1]!, faixa[meio]!]) l[x] = 'f';
+    }
   }
   return g.map((l) => l.join(''));
 }
@@ -475,13 +485,13 @@ export function pontosDoNumero(numero: number): { x: number; y: number }[] {
  */
 export function sprite(pose: Pose, v: Visual, espelhado = false): HTMLCanvasElement | OffscreenCanvas {
   const numero = numeroNasCostas(pose, v.numero);
-  const k = `${pose}|${v.camisa}|${v.detalhe}|${v.calcao}|${v.meiao}|${v.pele}|${v.cabelo}|${v.penteado ?? ''}|${numero ?? ''}|${espelhado ? 'E' : ''}|${v.itens ? Object.entries(v.itens).map((e) => e.join(':')).join(',') : ''}|${v.corte ?? ''}|${v.barba ?? ''}`;
+  const k = `${pose}|${v.camisa}|${v.detalhe}|${v.calcao}|${v.meiao}|${v.pele}|${v.cabelo}|${v.penteado ?? ''}|${numero ?? ''}|${espelhado ? 'E' : ''}|${v.itens ? Object.entries(v.itens).map((e) => e.join(':')).join(',') : ''}|${v.detalhesDosItens ? Object.entries(v.detalhesDosItens).map((e) => e.join(':')).join(',') : ''}|${v.corte ?? ''}|${v.barba ?? ''}`;
   const pronto = cache.get(k);
   if (pronto) return pronto;
   // A joelhada é a comemoração de braços para cima, dois pixels mais baixa e de joelhos: veste
   // tudo como a comemoração e só depois desce e troca as pernas.
   const base = pose === 'JOELHADA' ? 'FRENTE_COMEMORA' : pose === 'AGACHADO' || pose === 'GRUPADO' ? 'FRENTE_PARADO' : pose;
-  let grade = comItens(comBarba(comCorte(comPenteado(POSES[base], v.corte ? 'CURTO' : v.penteado, base), v.corte, base), v.barba, base), v.itens, base);
+  let grade = comItens(comBarba(comCorte(comPenteado(POSES[base], v.corte ? 'CURTO' : v.penteado, base), v.corte, base), v.barba, base), v.itens, base, v.detalhesDosItens);
   if (pose === 'JOELHADA') grade = ['............', '............', ...grade.slice(0, 12), '.KMMKBBKMMK.', '.KKKK..KKKK.'];
   // Agachado: a cabeça e o tronco descem dois pixels e as pernas dobram para os lados.
   if (pose === 'AGACHADO') grade = ['............', '............', ...grade.slice(0, 12), '..KMMKKMMK..', '..KKKKKKKK..'];
@@ -509,7 +519,7 @@ export function sprite(pose: Pose, v: Visual, espelhado = false): HTMLCanvasElem
   const g = c.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
   const cores: Record<string, string> = {
     K: CONTORNO, H: v.cabelo, S: v.pele, C: v.camisa, c: v.detalhe, B: v.calcao, M: v.meiao, L: v.detalhe,
-    P: v.itens?.CHUTEIRA ?? CONTORNO, W: v.itens?.MUNHEQUEIRA ?? v.pele, F: v.itens?.FAIXA ?? v.cabelo, G: v.itens?.LUVA ?? v.pele,
+    P: v.itens?.CHUTEIRA ?? CONTORNO, W: v.itens?.MUNHEQUEIRA ?? v.pele, F: v.itens?.FAIXA ?? v.cabelo, f: v.detalhesDosItens?.FAIXA ?? v.itens?.FAIXA ?? v.cabelo, G: v.itens?.LUVA ?? v.pele,
   };
   grade.forEach((linha, y) => {
     for (let x = 0; x < linha.length; x++) {
