@@ -69,3 +69,12 @@ export function temporadasDaCarreira(j: JogadorPublico): TemporadaDaCarreira[] {
     });
 }
 
+/**
+ * Selo de Apoiador (ADR-0108): "Apoiador" com o apoio aberto; depois, as Temporadas em que
+ * apoiou ("Apoiou na T3", "Apoiou na T3 e T4"). O valor do apoio nunca aparece.
+ */
+export function textoDoSeloDeApoiador(a: NonNullable<JogadorPublico['apoiador']>): string {
+  if (a.ativo || !a.temporadas.length) return 'Apoiador';
+  const ts = a.temporadas.map((n) => `T${n}`);
+  return `Apoiou na ${ts.length > 1 ? `${ts.slice(0, -1).join(', ')} e ${ts.at(-1)}` : ts[0]}`;
+}

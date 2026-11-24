@@ -6,13 +6,13 @@
 import { aparenciasEscolhidas } from './perfil.js';
 import type { Aparencia, Estrelas, ItensEquipados } from '@liga/shared';
 import { randomInt } from 'node:crypto';
-import { mataMataDaPartida, type EtapaDaCopa, nomeDaEtapa, ovrDasHabilidades, perfilDoJuiz, temRegrasT3, type Posicao, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
+import { mataMataDaPartida, type EtapaDaCopa, nomeDaEtapa, ovrDasHabilidades, perfilDoJuiz, temRegrasT3, type Posicao, type BrigaPeloMataMata, type Escalacao, type Grupo, grupoDoTime, type MataMataDaPartida, type Serie, type TimeId } from '@liga/shared';
 import { brigaDe } from './briga.js';
 import { estrelasNoBanco } from './mataMata.js';
 import { simularPartida, type Desempenho, type Lado, type ResultadoPartida } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA } from './calendario.js';
-import { seriesDaTemporada } from './series.js';
+import { gruposDaTemporada, seriesDaTemporada } from './series.js';
 import { escalarPartida, type PartidaEscalada } from './escalacao.js';
 import { pagarPartida } from './moedas.js';
 import { capitaoEmCampo, gritosDaPartida } from './planoDoTime.js';
@@ -41,6 +41,8 @@ export interface DadosDoVideo {
   mataMata?: MataMataDaPartida | null;
   /** Última Rodada da Fase de Liga (ADR-0053): quem já está Garantido e o que vale a Partida. */
   briga?: BrigaPeloMataMata | null;
+  /** Grupo da Partida na Fase de Liga com Grupos (T2), mostrado na capa do Reels (ADR-0106). */
+  grupo?: Grupo | null;
 }
 
 /** Grava o MP4 da Partida em `saida`. Injetado para os testes não dependerem do navegador. */
@@ -226,6 +228,11 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
   const mataMata = await mataMataDe(banco, p);
   if (mataMata) dados.mataMata = mataMata;
   if (briga) dados.briga = briga;
+  // Capa do Reels (ADR-0106): o Grupo só existe na Fase de Liga com Grupos.
+  if (p.fase === 'LIGA') {
+    const grupo = grupoDoTime(await gruposDaTemporada(banco, p.temporada_id), p.mandante_id);
+    if (grupo) dados.grupo = grupo;
+  }
   if (resultado.postura != null) {
     const elencos = await tamanhoDosElencos(banco);
     dados.torcida = { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 };

@@ -16,9 +16,16 @@ export interface EstadoDaLoja {
   fase: 1 | 2;
 }
 
+/**
+ * Itens que aparecem na prateleira: os à venda na fase aberta e, dos exclusivos (Item de
+ * Apoiador, ADR-0108), só os que já são do Jogador.
+ */
+export const itensDaPrateleira = (fase: 1 | 2, donos: readonly string[] = []): Item[] =>
+  ITENS.filter((i) => i.fase <= fase && (!i.exclusivo || donos.includes(i.codigo)));
+
 /** Encaixes que aparecem: a Luva só para o goleiro, e só os que já têm Item na fase aberta. */
-export const encaixesDaLoja = (goleiro: boolean, fase: 1 | 2 = 1): Encaixe[] =>
-  ENCAIXES.filter((e) => (goleiro || e !== ENCAIXE_SO_DO_GOLEIRO) && ITENS.some((i) => i.encaixe === e && i.fase <= fase));
+export const encaixesDaLoja = (goleiro: boolean, fase: 1 | 2 = 1, donos: readonly string[] = []): Encaixe[] =>
+  ENCAIXES.filter((e) => (goleiro || e !== ENCAIXE_SO_DO_GOLEIRO) && itensDaPrateleira(fase, donos).some((i) => i.encaixe === e));
 
 /** O que o botão faz com o Item selecionado. */
 export type AcaoDaLoja = { tipo: 'COMPRAR'; preco: number; podePagar: boolean } | { tipo: 'EQUIPAR' } | { tipo: 'TIRAR' };
@@ -69,11 +76,11 @@ export function corpoDaLoja(e: EstadoDaLoja, selecionado: string | null) {
       </div>
     </div>
     <div class="prateleiras">
-      ${encaixesDaLoja(e.goleiro, e.fase).map(
+      ${encaixesDaLoja(e.goleiro, e.fase, e.donos).map(
         (encaixe) => html`<section class="prateleira" aria-label="${NOME_DO_ENCAIXE[encaixe]}">
           <h2>${NOME_DO_ENCAIXE[encaixe]}</h2>
           <div class="estante">
-            ${ITENS.filter((i) => i.encaixe === encaixe && i.fase <= e.fase).map((i) => {
+            ${itensDaPrateleira(e.fase, e.donos).filter((i) => i.encaixe === encaixe).map((i) => {
               const etiqueta = etiquetaDoItem(i, e);
               const rotulo = `${i.nome}${etiqueta === 'Usando' ? ', no seu boneco' : etiqueta === 'Seu' ? ', já é sua' : `, ${etiqueta} Moedas`}`;
               return html`<button type="button" class="peca ${i.raridade === 'RARO' ? 'rara' : ''} ${etiqueta === 'Usando' ? 'usando' : etiqueta === 'Seu' ? 'sua' : ''}" data-item="${i.codigo}" aria-pressed="${String(i.codigo === selecionado)}" aria-label="${rotulo}" title="${i.nome}">

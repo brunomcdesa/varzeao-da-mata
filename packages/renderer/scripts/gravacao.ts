@@ -37,6 +37,7 @@ import { NARRADOR_DO_PERFIL_DO_TIME, RoteiroPerfilDoTime, narracaoDoPerfilDoTime
 import { NARRADOR_DA_MUDANCA_DE_ENDERECO, RoteiroMudancaDeEndereco, narracaoDaMudancaDeEndereco } from '../src/mudancaDeEndereco.js';
 import { NARRADOR_DO_REBALANCEAMENTO, RoteiroRebalanceamentoT2, narracaoDoRebalanceamentoT2, type DadosDoRebalanceamentoT2 } from '../src/rebalanceamentoT2.js';
 import type { Fala } from '../src/narracao.js';
+import { DESTAQUES, pastaDoDestaque, type CampeaoNoDestaque } from '../src/destaquesDoPerfil.js';
 import { RoteiroNovidades, narracaoDasNovidades, type DadosDasNovidades } from '../src/novidades.js';
 
 /** Acima disso o Instagram para de recomendar o Reels para quem não segue (3 min), com folga. */
@@ -922,6 +923,39 @@ export async function exportarEscudos(dir: string): Promise<void> {
   }
 }
 
+/**
+ * Destaques do perfil (ADR-0109): uma capa PNG por destaque e os Stories em JPEG, com nomes
+ * na ordem de postagem (ex.: 1-como-entrar/1.jpg).
+ */
+export async function exportarDestaques(dir: string, campeao?: CampeaoNoDestaque): Promise<string[]> {
+  await mkdir(dir, { recursive: true });
+  const tmp = await mkdtemp(join(tmpdir(), 'varzea-destaques-'));
+  const navegador = await chromium.launch();
+  const feitos: string[] = [];
+  try {
+    const pagina = await navegador.newPage({ viewport: { width: 1080, height: 1920 } });
+    pagina.on('pageerror', (e) => console.error('[página]', e.message));
+    await pagina.goto(await montarPagina(tmp));
+    for (const [i, d] of DESTAQUES.entries()) {
+      const pasta = join(dir, `${i + 1}-${pastaDoDestaque(d.nome)}`);
+      await mkdir(pasta, { recursive: true });
+      const capa = await pagina.evaluate(([id]) => window.varzea.capaDoDestaque(id), [d.id] as const);
+      await writeFile(join(pasta, 'capa.png'), Buffer.from(capa, 'base64'));
+      feitos.push(join(pasta, 'capa.png'));
+      for (const [k, s] of d.stories.entries()) {
+        const jpg = await pagina.evaluate(([story, c]) => window.varzea.storyDoDestaque(story, c ?? undefined), [s, campeao ?? null] as const);
+        await writeFile(join(pasta, `${k + 1}.jpg`), Buffer.from(jpg, 'base64'));
+        feitos.push(join(pasta, `${k + 1}.jpg`));
+      }
+    }
+    console.log(`Destaques: ${feitos.length} imagens em ${dir}`);
+    return feitos;
+  } finally {
+    await navegador.close();
+    await rm(tmp, { recursive: true, force: true });
+  }
+}
+
 /** Um quadro de cada momento: abertura, cada lance (logo depois da resolução) e fim. */
 /** A página de gravação expõe `window.varzea` (contrato em video/api.ts). */
 export type { VarzeaApi };
@@ -944,7 +978,7 @@ async function gravarPrevia(pagina: import('playwright').Page, dir: string, fps:
       momentos.push([`${String(i).padStart(2, '0')}-lance-b`, Math.floor((r + (s.fim - r) * 0.45) * fps)]);
     }
   });
-  for (const t of instantes) momentos.push([`t-${t.toFixed(1).padStart(5, '0')}`, Math.floor(t * fps)]);
+  for (const t of instantes) momentos.push([`t-${t.toFixed(2).padStart(6, '0')}`, Math.floor(t * fps)]);
   for (const [nome, n] of momentos) {
     const [jpeg] = await pagina.evaluate(([q]) => window.varzea.capturar(q, 1, 0.95), [n] as const);
     await writeFile(join(dir, `${nome}.jpg`), Buffer.from(jpeg!, 'base64'));

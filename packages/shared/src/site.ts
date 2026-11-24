@@ -220,6 +220,11 @@ export interface JogadorPublico {
   fundador?: { time: TimeId; temporada: number };
   /** Selo da Temporada 1 (ADR-0047): se inscreveu na T1. Só aparece no site a partir da T2. */
   seloT1?: true;
+  /**
+   * Selo de Apoiador (ADR-0108): apoio aberto agora (`ativo`) e as Temporadas em que apoiou.
+   * Só aparece no site a partir da T3. O valor do apoio nunca vem aqui.
+   */
+  apoiador?: { ativo: boolean; temporadas: number[] };
   /** Conquistas (ADR-0090): selos da Carreira, a partir da T3 (código e Temporada em que saiu). */
   conquistas?: { codigo: string; temporada: number }[];
   /** Piso da Temporada 1 (ADR-0047): o OVR antes e depois, só para quem subiu. Marca o degrau no gráfico do OVR (ADR-0078). */

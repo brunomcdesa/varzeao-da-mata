@@ -3,13 +3,13 @@
  * mais as cartelas de abertura e de fim e o escurecimento dos cortes.
  */
 import { ocupanteDoDesempenho } from './substituicao.js';
-import { FALA_DO_TIME, IDENTIDADE, NOME_DO_PERFIL_DO_JUIZ, TAMANHO_ESCALACAO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type ItensEquipados, type MataMataDaPartida, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, NOME_DO_PERFIL_DO_JUIZ, TAMANHO_ESCALACAO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type Grupo, type ItensEquipados, type MataMataDaPartida, type TimeId } from '@liga/shared';
 import type { Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { cenario } from './cenario.js';
-import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, faixaDeTorcida, noCampo, plaquinha, rotulo, type Camera, type OpcoesDesenho } from './desenho.js';
+import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, noCampo, plaquinha, rotulo, type Camera, type OpcoesDesenho } from './desenho.js';
 import type { EstadoQuadro, Timeline } from './timeline.js';
-import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
-import { LARGURA_ESCUDO } from './escudos.js';
+import { COLUNAS, COR, LINHAS, Pincel } from './pixel.js';
+import { ALTURA_ESCUDO, LARGURA_ESCUDO } from './escudos.js';
 import type { OpcoesRoteiro, QuadroRoteiro, Roteiro, Segmento } from './roteiro.js';
 import { aparencia, itensDe, sprite, vestir } from './sprites.js';
 import { narradorDa } from './narradores.js';
@@ -21,6 +21,8 @@ export interface OpcoesVideo extends OpcoesDesenho {
   escudo?: CanvasImageSource;
   /** Partida do Mata-mata: o fim mostra quem foi pra Final ou o campeão (ADR-0048). */
   mataMata?: MataMataDaPartida | null;
+  /** Grupo da Partida na Fase de Liga (T2 em diante), mostrado na capa. */
+  grupo?: Grupo | null;
 }
 
 /** Tudo que a página do vídeo precisa para gravar uma Partida (montado pelo worker a partir do banco). */
@@ -51,6 +53,8 @@ export interface PartidaParaVideo {
   mataMata?: MataMataDaPartida | null;
   /** Última Rodada da Fase de Liga (ADR-0053). */
   briga?: BrigaPeloMataMata | null;
+  /** Grupo da Partida (Fase de Liga com Grupos), para a capa. */
+  grupo?: Grupo | null;
 }
 
 export function desenharQuadroVideo(ctx: CanvasRenderingContext2D, roteiro: Roteiro, tVideo: number, o: OpcoesVideo): QuadroRoteiro {
@@ -264,127 +268,167 @@ export function veu(pin: Pincel, alpha: number): void {
   pin.ctx.restore();
 }
 
-/** Texto acompanhando a onda da faixa, letra por letra. */
-export function textoNaFaixa(pin: Pincel, txt: string, y: number, tamanho: number, fonte: string, cor: string, onda: (x: number) => number, centro = COLUNAS / 2): void {
-  pin.ctx.font = `400 ${tamanho * pin.px}px ${fonte}`;
-  const larguras = [...txt].map((ch) => pin.ctx.measureText(ch).width / pin.px);
-  let x = centro - larguras.reduce((s, w) => s + w, 0) / 2;
-  [...txt].forEach((ch, i) => {
-    const cx = x + larguras[i]! / 2;
-    pin.texto(ch, cx, y + onda(Math.round(cx)), tamanho, fonte, cor);
-    x += larguras[i]!;
-  });
-}
-
 /**
- * Capa do Reels (cover_url): a abertura completa, parada, "Time A x Time B" com os
- * escudos, descida para o centro da tela para caber no recorte 3:4 da grade do perfil.
+ * Capa do Reels (cover_url), sem placar (ADR-0106): os dois escudos grandes frente a frente, com
+ * Rodada e horário, Grupo e os selos (Clássico, jogo decisivo). Tudo o que importa fica no recorte
+ * 3:4 da grade do perfil (linhas 60 a 420), fora do canto do contador de visualizações.
  */
 export function desenharCapa(ctx: CanvasRenderingContext2D, r: ResultadoPartida, o: OpcoesVideo): void {
   const pin = new Pincel(ctx);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(cenario(), 0, 0, COLUNAS * pin.px, LINHAS * pin.px);
-  veu(pin, 0.84);
-  ctx.save();
-  ctx.translate(0, 50 * pin.px);
-  desenharAbertura(pin, r, 0.6, 0, o, false);
-  ctx.restore();
+  veu(pin, 0.86);
+  desenharConfronto(pin, r, o, PARADO);
 }
 
-function desenharAbertura(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number, o: OpcoesVideo, comVeu = true): void {
+/** Quanto de cada parte do Confronto já entrou (0 a 1). A capa usa tudo em 1. */
+interface EntradaDoConfronto {
+  topo: number;
+  mandante: number;
+  visitante: number;
+  /** Batida dos escudos: 1 no instante do encontro, caindo até 0 (tremor da tela). */
+  impacto: number;
+  nomes: number;
+  selos: number;
+  briga: number;
+}
+const PARADO: EntradaDoConfronto = { topo: 1, mandante: 1, visitante: 1, impacto: 0, nomes: 1, selos: 1, briga: 1 };
+
+/**
+ * Abertura do Reels (ADR-0107): a capa ganha vida. Os escudos entram cada um do seu lado, batem
+ * no "x" com um tremor e depois vêm nomes, selos e, na última Rodada, do que cada Time precisa.
+ * Os tempos são em segundos de vídeo, para a abertura curta (3 s) também mostrar tudo.
+ */
+export function entradaDoConfronto(t: number): EntradaDoConfronto {
+  const batida = 1.1;
+  return {
+    topo: entre(t, 0, 0.4),
+    mandante: entre(t, 0.3, 0.8),
+    visitante: entre(t, 0.6, batida),
+    impacto: t < batida ? 0 : Math.max(0, 1 - (t - batida) / 0.35),
+    nomes: entre(t, batida, batida + 0.3),
+    selos: entre(t, 1.4, 1.7),
+    briga: entre(t, 1.7, 2.2),
+  };
+}
+
+function desenharConfronto(pin: Pincel, r: ResultadoPartida, o: OpcoesVideo, e: EntradaDoConfronto): void {
+  const ctx = pin.ctx;
   const display = o.fonteDisplay ?? FONTE_DISPLAY;
   const texto = o.fonteTexto ?? FONTE_TEXTO;
-  const alpha = 1 - entre(p, 0.78, 1);
-  pin.ctx.save();
-  pin.ctx.globalAlpha = alpha;
-  if (comVeu) veu(pin, 0.84);
+  const base = ctx.globalAlpha;
+  const cx = COLUNAS / 2;
+  const tremor = e.impacto > 0 ? Math.round(Math.sin(e.impacto * 40) * 3 * e.impacto) : 0;
+  // O bloco todo desce para ficar no meio do recorte 3:4 (centro na linha 240).
+  ctx.save();
+  ctx.translate(tremor * pin.px, 28 * pin.px);
 
-  if (o.escudo) {
-    const t = 92;
-    const e = entre(p, 0, 0.15);
-    pin.ctx.globalAlpha = alpha * e;
-    desenharEscudoDaLiga(pin, o.escudo, COLUNAS / 2, 76 - (1 - e) * 10, t);
-    pin.ctx.globalAlpha = alpha;
+  ctx.globalAlpha = base * e.topo;
+  pin.placa(cx - 66, 66, 132, 20, { fundo: COR.amarelo, sombra: '#C99500' });
+  pin.texto('Melhores momentos', cx, 76, pin.caber('Melhores momentos', 120, 15, display), display, COR.tinta);
+  if (o.escudo) desenharEscudoDaLiga(pin, o.escudo, cx, 114 - (1 - e.topo) * 8, 36);
+  const linha = linhaDaCapa(o.subtitulo);
+  if (linha) pin.texto(linha, cx, 148, pin.caber(linha, 240, 26, display), display, COR.amarelo, { contorno: COR.mata });
+  if (o.grupo) pin.texto(NOME_DO_GRUPO[o.grupo], cx, 170, 11, texto, COR.placa, { peso: 700 });
+
+  const escala = 4;
+  const w = LARGURA_ESCUDO * escala;
+  const topo = 188;
+  const fimDosEscudos = topo + ALTURA_ESCUDO * escala;
+  const lados = ['mandante', 'visitante'] as const;
+  lados.forEach((lado, i) => {
+    const entrou = i === 0 ? e.mandante : e.visitante;
+    if (entrou <= 0) return;
+    const alvo = i === 0 ? 24 : COLUNAS - 24 - w;
+    const fora = i === 0 ? -w - 10 : COLUNAS + 10;
+    ctx.globalAlpha = base;
+    desenharEscudo(pin, r.times[lado], Math.round(fora + (alvo - fora) * entrou), topo, escala);
+    if (e.nomes > 0) {
+      ctx.globalAlpha = base * e.nomes;
+      const nome = FALA_DO_TIME[r.times[lado]].curto;
+      pin.texto(nome, alvo + w / 2, fimDosEscudos + 14, pin.caber(nome, 112, 22, display), display, '#FFFFFF', { contorno: COR.mata });
+    }
+  });
+  if (e.visitante >= 1) {
+    // O "x" aparece na batida, um pouco maior, e assenta.
+    const meio = topo + (ALTURA_ESCUDO * escala) / 2;
+    const k = 1 + e.impacto * 0.35;
+    ctx.globalAlpha = base;
+    pin.placa(cx - 15 * k, meio - 12 * k, 30 * k, 24 * k, { fundo: COR.placa, luz: '#FFF8E6', sombra: COR.placaSombra });
+    pin.texto('x', cx, meio - 1, 20 * k, display, COR.tinta);
   }
-  // Selo no topo: o Reels mostra só os melhores momentos; o jogo inteiro é no site (ADR-0052).
-  pin.ctx.globalAlpha = alpha * entre(p, 0, 0.1);
-  pin.placa(COLUNAS / 2 - 66, 6, 132, 20, { fundo: COR.amarelo, sombra: '#C99500' });
-  pin.texto('Melhores momentos', COLUNAS / 2, 16, pin.caber('Melhores momentos', 120, 15, display), display, COR.tinta);
-  pin.ctx.globalAlpha = alpha;
-  if (o.subtitulo) pin.texto(o.subtitulo, COLUNAS / 2, 138, 9, texto, COR.placa, { peso: 600 });
-  if (r.classico) {
-    const w = 84;
-    pin.ctx.globalAlpha = alpha * entre(p, 0.12, 0.22);
-    pin.placa(COLUNAS / 2 - w / 2, 152, w, 22, { fundo: COR.amarelo, sombra: '#C99500' });
-    pin.texto('Clássico', COLUNAS / 2, 164, 18, display, COR.tinta);
-    pin.ctx.globalAlpha = alpha;
-  }
-  // Última Rodada (ADR-0053): o que vale a Partida e do que cada Time precisa.
+
+  // Última Rodada (ADR-0053): do que cada Time precisa, embaixo do nome dele.
   const b = o.briga;
-  if (b) {
-    const vale = `Vale vaga no Mata-mata${b.serie ? ` da Série ${b.serie}` : ''}`;
-    const y = r.classico ? 178 : 150;
-    pin.ctx.globalAlpha = alpha * entre(p, 0.12, 0.22);
-    if (r.classico) pin.texto(vale, COLUNAS / 2, y, 9, texto, COR.amarelo, { peso: 700 });
-    else {
-      pin.placa(COLUNAS / 2 - 80, y, 160, 22, { fundo: COR.amarelo, sombra: '#C99500' });
-      pin.texto(vale, COLUNAS / 2, y + 12, pin.caber(vale, 150, 16, display), display, COR.tinta);
-    }
-    // Garantidos que não jogam esta Partida (os daqui aparecem na plaquinha de cada Time).
-    const fora = [...situacoesNaBriga(b, r.times, null)].filter(([t, s]) => s === 'GARANTIDO' && t !== r.times.mandante && t !== r.times.visitante).map(([t]) => FALA_DO_TIME[t].curto);
-    if (fora.length) {
-      const linha = `Já garantid${fora.length > 1 ? 'os' : 'o'}: ${fora.join(', ')}`;
-      pin.texto(linha, COLUNAS / 2, r.classico ? 187 : 182, pin.caber(linha, 230, r.classico ? 7 : 8, texto, 700), texto, '#9FE08A', { peso: 700 });
-    }
-    (['mandante', 'visitante'] as const).forEach((lado, i) => {
-      const a = entre(p, 0.3 + i * 0.12, 0.42 + i * 0.12);
-      if (a <= 0) return;
+  const comBriga = !!b && e.briga > 0;
+  if (b && comBriga) {
+    lados.forEach((lado, i) => {
       const antes = situacoesNaBriga(b, r.times, null).get(r.times[lado])!;
       const txt = antes === 'GARANTIDO' ? 'Já garantido' : antes === 'ELIMINADO' ? 'Já eliminado' : textoDaNecessidade(necessidadeNaBriga(b, r.times, lado));
       const fundo = antes === 'GARANTIDO' ? '#3E9B3A' : antes === 'ELIMINADO' ? '#B8442F' : COR.amarelo;
       const sombra = antes === 'GARANTIDO' ? '#2A6E27' : antes === 'ELIMINADO' ? '#82301F' : '#C99500';
       const tinta = antes === 'DEPENDE' ? COR.tinta : '#FFFFFF';
-      const cw = 96;
-      const cx = i === 0 ? 14 : COLUNAS - 14 - cw;
-      const cy = i === 0 ? 254 : 352;
-      pin.ctx.globalAlpha = alpha * a;
-      pin.placa(cx, cy, cw, 14, { fundo, sombra, degrau: 1 });
-      pin.texto(txt, cx + cw / 2, cy + 6.5, pin.caber(txt, cw - 8, 8, texto, 700), texto, tinta, { peso: 700 });
+      const cw = 104;
+      const x = (i === 0 ? 24 + w / 2 : COLUNAS - 24 - w / 2) - cw / 2;
+      ctx.globalAlpha = base * e.briga;
+      pin.placa(x, fimDosEscudos + 26, cw, 14, { fundo, sombra, degrau: 1 });
+      pin.texto(txt, x + cw / 2, fimDosEscudos + 32.5, pin.caber(txt, cw - 8, 8, texto, 700), texto, tinta, { peso: 700 });
     });
-    pin.ctx.globalAlpha = alpha;
   }
 
-  const lados: Lado[] = ['mandante', 'visitante'];
-  lados.forEach((lado, i) => {
-    const id = IDENTIDADE[r.times[lado]];
-    const abre = entre(p, 0.08 + i * 0.12, 0.3 + i * 0.12);
-    if (abre <= 0) return;
-    const y = i === 0 ? 192 : 290;
-    const onda = faixaDeTorcida(pin, y, 58, id, tVideo * 2.2 + i * 1.7, abre);
-    // Escudo grande na ponta da faixa (mandante à esquerda, visitante à direita), nome no resto.
-    const esq = i === 0;
-    if (abre > 0.7) {
-      const centro = esq ? 158 : 112;
-      const tam = pin.caber(id.nome, 172, 30, display);
-      textoNaFaixa(pin, id.nome, y + 30, tam, display, contraste(id.primaria), onda, centro);
-    }
-    const ee = entre(p, 0.2 + i * 0.12, 0.32 + i * 0.12);
-    if (ee > 0) {
-      const ex = esq ? 12 : COLUNAS - 12 - 50;
-      desenharEscudo(pin, r.times[lado], ex, y - 2 + onda(ex + 25) - (1 - ee) * 30, 2.5);
-    }
-  });
-
-  const ex = entre(p, 0.32, 0.42);
-  if (ex > 0) {
-    pin.ctx.globalAlpha = alpha * ex;
-    pin.placa(COLUNAS / 2 - 15, 262, 30, 24, { fundo: COR.placa, luz: '#FFF8E6', sombra: COR.placaSombra });
-    pin.texto('x', COLUNAS / 2, 273, 20, display, COR.tinta);
-    // Quem narra esta Partida (sorteado pela semente).
-    pin.texto(`Narração: ${narradorDa(r.seed).nome}`, COLUNAS / 2, 372, 10, texto, COR.placa, { peso: 600 });
-    // T3 (ADR-0094): o Perfil do Juiz da Partida, como na Escalação.
-    if (r.juiz) pin.texto(`Juiz: ${NOME_DO_PERFIL_DO_JUIZ[r.juiz]}`, COLUNAS / 2, 386, 10, texto, r.juiz === 'RIGOROSO' ? '#FF6B5B' : r.juiz === 'DEIXA_JOGAR' ? '#3DDC64' : COR.placa, { peso: 600 });
+  const selos = selosDaCapa(r, o);
+  const ySelos = b ? 352 : 322;
+  if (selos.length && e.selos > 0) {
+    const tam = 15;
+    ctx.font = `400 ${tam * pin.px}px ${display}`;
+    const ws = selos.map((s) => Math.min(250 / selos.length - 4, Math.ceil(ctx.measureText(s).width / pin.px) + 16));
+    let x = cx - (ws.reduce((a, c) => a + c, 0) + (ws.length - 1) * 8) / 2;
+    ctx.globalAlpha = base * e.selos;
+    selos.forEach((s, k) => {
+      pin.placa(x, ySelos + (1 - e.selos) * 6, ws[k]!, 22, { fundo: COR.amarelo, sombra: '#C99500' });
+      pin.texto(s, x + ws[k]! / 2, ySelos + 11 + (1 - e.selos) * 6, pin.caber(s, ws[k]! - 10, tam, display), display, COR.tinta);
+      x += ws[k]! + 8;
+    });
   }
+  if (b && comBriga) {
+    // Garantidos que não jogam esta Partida (os daqui aparecem na plaquinha de cada Time).
+    const fora = [...situacoesNaBriga(b, r.times, null)].filter(([t, s]) => s === 'GARANTIDO' && t !== r.times.mandante && t !== r.times.visitante).map(([t]) => FALA_DO_TIME[t].curto);
+    if (fora.length) {
+      const l = `Já garantid${fora.length > 1 ? 'os' : 'o'}: ${fora.join(', ')}`;
+      ctx.globalAlpha = base * e.briga;
+      pin.texto(l, cx, ySelos + 34, pin.caber(l, 240, 9, texto, 700), texto, '#9FE08A', { peso: 700 });
+    }
+  }
+  ctx.restore();
+
+  // Fora do recorte da grade: aparece só na capa inteira e no fim da abertura.
+  ctx.globalAlpha = base * e.selos;
+  pin.texto(`Narração: ${narradorDa(r.seed).nome}`, cx, 438, 10, texto, COR.placa, { peso: 600 });
+  if (r.juiz) pin.texto(`Juiz: ${NOME_DO_PERFIL_DO_JUIZ[r.juiz]}`, cx, 452, 10, texto, r.juiz === 'RIGOROSO' ? '#FF6B5B' : r.juiz === 'DEIXA_JOGAR' ? '#3DDC64' : COR.placa, { peso: 600 });
+  ctx.globalAlpha = base;
+}
+
+/** "Rodada 5, jogo das 17h" vira "Rodada 5 · 17h" na capa; o Mata-mata fica como está. */
+export function linhaDaCapa(subtitulo: string | undefined): string | null {
+  if (!subtitulo) return null;
+  return subtitulo.replace(/, jogo das (\d+h)$/, ' · $1');
+}
+
+/** Selos da capa: Clássico e, quando a Partida decide algo de verdade, o que ela vale. */
+export function selosDaCapa(r: ResultadoPartida, o: Pick<OpcoesVideo, 'mataMata' | 'briga'>): string[] {
+  const selos: string[] = [];
+  if (r.classico) selos.push('Clássico');
+  const mm = o.mataMata;
+  if (mm) selos.push(mm.etapa === 'FINAL' ? 'Vale o título' : mm.copa ? 'Mata-mata' : 'Vale a Final');
+  else if (o.briga) selos.push('Vale a Semifinal');
+  return selos;
+}
+
+function desenharAbertura(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number, o: OpcoesVideo, comVeu = true): void {
+  pin.ctx.save();
+  pin.ctx.globalAlpha = 1 - entre(p, 0.85, 1);
+  if (comVeu) veu(pin, 0.86);
+  desenharConfronto(pin, r, o, entradaDoConfronto(tVideo));
   pin.ctx.restore();
 }
 

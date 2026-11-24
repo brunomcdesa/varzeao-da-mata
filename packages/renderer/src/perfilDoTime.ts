@@ -115,7 +115,7 @@ const suave = (f: number) => f * f * (3 - 2 * f);
 const entre = (f: number, a: number, b: number) => suave(Math.min(1, Math.max(0, (f - a) / (b - a))));
 
 /** Ícone do Instagram em pixel art (quadrado arredondado, lente e flash), `l` de lado. */
-function iconeInstagram(pin: Pincel, x: number, y: number, l: number, cor: string): void {
+export function iconeInstagram(pin: Pincel, x: number, y: number, l: number, cor: string): void {
   const e = Math.max(1, Math.round(l / 9));
   pin.r(x + e, y, l - 2 * e, e, cor);
   pin.r(x + e, y + l - e, l - 2 * e, e, cor);

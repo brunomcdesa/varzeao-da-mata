@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ITEM_POR_CODIGO } from '@liga/shared';
-import { acaoDoItem, encaixesDaLoja, textoDoBotao, type EstadoDaLoja } from '../src/loja.js';
+import { ITEM_DE_APOIADOR, ITEM_POR_CODIGO } from '@liga/shared';
+import { acaoDoItem, encaixesDaLoja, itensDaPrateleira, textoDoBotao, type EstadoDaLoja } from '../src/loja.js';
 
 const e: EstadoDaLoja = { saldo: 45, donos: ['LUVA_LARANJA'], equipados: { LUVA: 'LUVA_LARANJA' }, goleiro: true, fase: 1 };
 
@@ -38,5 +38,13 @@ describe('Loja sem Vínculo', () => {
     const sem = { saldo: null, donos: [], equipados: {}, goleiro: false, fase: 1 as const };
     expect(corpoDaLoja(sem, null).s).not.toContain('saldo-moedas');
     expect(acao(ITEM_POR_CODIGO.get('CHUTEIRA_AZUL')!, sem)).toEqual({ tipo: 'COMPRAR', preco: 20, podePagar: false });
+  });
+});
+
+describe('Item de Apoiador na prateleira (ADR-0108)', () => {
+  it('só aparece para quem já é dono, e só na segunda fase', () => {
+    expect(itensDaPrateleira(2).some((i) => i.exclusivo)).toBe(false);
+    expect(itensDaPrateleira(1, [ITEM_DE_APOIADOR.codigo]).some((i) => i.exclusivo)).toBe(false);
+    expect(itensDaPrateleira(2, [ITEM_DE_APOIADOR.codigo]).map((i) => i.codigo)).toContain(ITEM_DE_APOIADOR.codigo);
   });
 });
