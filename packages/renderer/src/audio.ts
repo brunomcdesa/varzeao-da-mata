@@ -308,6 +308,24 @@ export function mixar(o: { duracao: number; segmentos: Segmento[]; eventos: Even
   return { esq, dir };
 }
 
+/** Duração do Story em vídeo dos destaques do perfil: duas voltas do tema (7,5 s cada). */
+export const DURACAO_DO_STORY = 15;
+
+/**
+ * Trilha dos Stories dos destaques (ADR-0110): o tema completo das cartelas dos Reels, a 60%,
+ * com entrada de 0,3 s e saída de 0,8 s.
+ */
+export function trilhaDoStory(duracao = DURACAO_DO_STORY): { esq: Float32Array; dir: Float32Array } {
+  const m = trilha(duracao, () => 1);
+  for (const c of [m.esq, m.dir]) {
+    for (let i = 0; i < c.length; i++) {
+      const t = i / TAXA;
+      c[i] = c[i]! * 0.6 * Math.max(0, Math.min(1, t / 0.3, (duracao - t) / 0.8));
+    }
+  }
+  return m;
+}
+
 // ---------------------------------------------------------------- WAV
 
 export function codificarWav(esq: Float32Array, dir: Float32Array): Uint8Array {
