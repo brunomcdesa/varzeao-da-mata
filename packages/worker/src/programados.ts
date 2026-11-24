@@ -41,6 +41,7 @@ const ESTREIA_PREVISTA: Record<string, { temporada: number; estreia: string }> =
   'novidades-site': { temporada: 2, estreia: '2026-11-19' },
   'rebalanceamento-t2': { temporada: 2, estreia: '2026-11-19' },
   'perfil-do-time': { temporada: 2, estreia: '2026-11-19' },
+  'mudanca-de-endereco': { temporada: 2, estreia: '2026-11-19' },
   // T3 (ADR-0088): a estreia é o 1º dia da Copa (a Final da T2 é sexta 27/11; a T3 começa 3 dias depois).
   'abertura-t3': { temporada: 3, estreia: '2026-11-30' },
   'novidades-t3-campo': { temporada: 3, estreia: '2026-11-30' },
@@ -61,6 +62,7 @@ async function legendaDe(banco: Banco, p: ReelsProgramado, temporada: number, es
   }
   if (p.id === 'rebalanceamento-t2') return legendaDoRebalanceamentoT2(await dadosDoRebalanceamentoT2(banco, estreia));
   if (p.id === 'perfil-do-time') return legendaDoPerfilDoTime(await dadosDoPerfilDoTime(banco));
+  if (p.id === 'mudanca-de-endereco') return legendaDaMudancaDeEndereco();
   return legendaDaAbertura(temporada, estreia);
 }
 
@@ -441,5 +443,31 @@ export function legendaDoPerfilDoTime(d: DadosDoPerfilDoTime): string {
     '🎁 O perfil oficial ganha link na página do Time no site e no App, é seguido pela Liga, pode aparecer nos Stories e entra de colaborador em todo Reels de jogo do Time.',
     '',
     '#varzeaodamata #futebol #varzea',
+  ].join('\n');
+}
+
+/** Legenda do Reels da Mudança de Endereço (ADR-0104). */
+export function legendaDaMudancaDeEndereco(): string {
+  return [
+    '📍 O Varzeão da Mata tem endereço novo: varzeaodamata.com.br',
+    '',
+    'O site e o App agora ficam lá. O endereço antigo ainda abre e mostra o aviso da mudança.',
+    '',
+    '📲 Já tinha o App?',
+    '1. Abra varzeaodamata.com.br',
+    '2. Instale o App de novo (menu ⋮ → Instalar app)',
+    '3. Refaça o Vínculo com o código da DM da Liga',
+    '4. Reative os Avisos no sininho',
+    '',
+    '✅ Seu Jogador, seu Time e sua Carreira continuam iguais. Só mudou o endereço.',
+    '',
+    '✨ E o App está de cara nova no celular:',
+    '👉 Abas embaixo: Rodada, Jogos, Tabela, Times e Mais',
+    '👉 Sino dos Avisos na barra de cima',
+    '👉 Subabas nas telas do Time, do Jogador e da Partida, pra rolar menos',
+    '',
+    'Link novo na bio.',
+    '',
+    '#futebol #varzea #jogo #liga',
   ].join('\n');
 }

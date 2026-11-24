@@ -98,6 +98,7 @@ try {
         else if (id === 'agradecimento-t1') await gravacao!.gravarAgradecimentoT1(await dadosDoAgradecimentoT1(banco), { saida, crf: 18 });
         else if (id === 'rebalanceamento-t2') await gravacao!.gravarRebalanceamentoT2(await dadosDoRebalanceamentoT2(banco, o.estreia), { saida, crf: 18 });
         else if (id === 'perfil-do-time') await gravacao!.gravarPerfilDoTime(await dadosDoPerfilDoTime(banco), { saida, crf: 18 });
+        else if (id === 'mudanca-de-endereco') await gravacao!.gravarMudancaDeEndereco({ saida, crf: 18 });
         else if (id.startsWith('novidades-')) {
           // Novidades da T2 (ADR-0063) e da T3 (ADR-0092): Partidas de exemplo, sempre as mesmas.
           // "novidades-t3-loja" vira o Reels T3_LOJA.

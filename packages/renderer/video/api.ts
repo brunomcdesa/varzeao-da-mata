@@ -26,6 +26,7 @@ export interface VarzeaApi {
   prepararRebalanceamentoT2(dados: DadosDoRebalanceamentoT2, minimos?: Record<number, { antes?: number }>, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
   prepararNovidades(dados: DadosDasNovidades, minimos?: Record<number, { antes?: number }>, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
   prepararPerfilDoTime(dados: DadosDoPerfilDoTime, minimos?: Record<number, { antes?: number }>, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
+  prepararMudancaDeEndereco(minimos?: Record<number, { antes?: number }>, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
   desenhar(n: number): void;
   /** Desenha `quantos` quadros a partir de `inicio` e devolve cada um como JPEG em base64. */
   capturar(inicio: number, quantos: number, qualidade?: number): string[];
