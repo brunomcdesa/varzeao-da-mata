@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GRUPOS_DA_A_DE_16, TIMES_FUNDADORES, TIMES_NOVOS, ehClassico } from '@liga/shared';
 import { DESTAQUES, POSICOES_NO_DESTAQUE, classicosDoGrupo, pastaDoDestaque } from '../src/destaquesDoPerfil.js';
 
-describe('Destaques do perfil (ADR-0108)', () => {
+describe('Destaques do perfil (ADR-0109)', () => {
   it('seis destaques, na ordem do perfil, e nenhum Story repetido', () => {
     expect(DESTAQUES.map((d) => d.nome)).toEqual(['Como entrar', 'Como funciona', 'Site e App', 'Times', 'Perfis dos Times', 'Campeões']);
     const stories = DESTAQUES.flatMap((d) => d.stories);

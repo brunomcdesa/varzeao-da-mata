@@ -3,7 +3,7 @@ import { FALA_DO_TIME, GRUPOS_DA_A_DE_16 } from '@liga/shared';
 import { EXEMPLO_DE_INSCRICAO, POSICOES_NO_DESTAQUE } from '@liga/renderer/destaquesDoPerfil';
 import { interpretar } from '../src/comandos.js';
 
-/** O que os Stories ensinam a escrever o leitor de comentários entende (ADR-0108). */
+/** O que os Stories ensinam a escrever o leitor de comentários entende (ADR-0109). */
 describe('Destaques do perfil: o que o Story ensina, o Varzeão entende', () => {
   it('o exemplo de Inscrição', () => {
     expect(interpretar(EXEMPLO_DE_INSCRICAO)).toEqual({ tipo: 'INSCRICAO', time: 'CAP', posicao: 'ATA' });

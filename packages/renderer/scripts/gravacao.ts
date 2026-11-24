@@ -924,7 +924,7 @@ export async function exportarEscudos(dir: string): Promise<void> {
 }
 
 /**
- * Destaques do perfil (ADR-0108): uma capa PNG por destaque e os Stories em JPEG, com nomes
+ * Destaques do perfil (ADR-0109): uma capa PNG por destaque e os Stories em JPEG, com nomes
  * na ordem de postagem (ex.: 1-como-entrar/1.jpg).
  */
 export async function exportarDestaques(dir: string, campeao?: CampeaoNoDestaque): Promise<string[]> {

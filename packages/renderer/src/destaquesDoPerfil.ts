@@ -1,5 +1,5 @@
 /**
- * Destaques do perfil do Instagram (ADR-0108): capas (1080 × 1080) e Stories estáticos
+ * Destaques do perfil do Instagram (ADR-0109): capas (1080 × 1080) e Stories estáticos
  * (1080 × 1920) no estilo dos Reels. A Liga posta os Stories e o dono põe cada um no seu
  * destaque pelo app (a API do Instagram não mexe em destaques).
  *

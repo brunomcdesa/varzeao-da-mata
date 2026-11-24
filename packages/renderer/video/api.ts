@@ -35,7 +35,7 @@ export interface VarzeaApi {
   capa(qualidade?: number): string;
   segmentos(): { tipo: string; inicio: number; fim: number; resolucao?: number }[];
   escudoPng(time: TimeId, escala: number): string;
-  /** Destaques do perfil (ADR-0108): capa (PNG 1080 × 1080) ou Story (JPEG 1080 × 1920), em base64. */
+  /** Destaques do perfil (ADR-0109): capa (PNG 1080 × 1080) ou Story (JPEG 1080 × 1920), em base64. */
   capaDoDestaque(id: Destaque): Promise<string>;
   storyDoDestaque(story: Story, campeao?: CampeaoNoDestaque): Promise<string>;
   times(): TimeId[];

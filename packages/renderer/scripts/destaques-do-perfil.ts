@@ -1,5 +1,5 @@
 /**
- * Exporta as capas e os Stories dos destaques do perfil (ADR-0108).
+ * Exporta as capas e os Stories dos destaques do perfil (ADR-0109).
  *
  *   pnpm destaques-do-perfil <pasta> [--campeao CAP] [--temporada 1] [--craque apelido]
  *
