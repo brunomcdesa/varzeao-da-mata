@@ -4918,3 +4918,246 @@ body.com-folha .abas-app {
     order: 1;
   }
 }
+
+/* ------------------------------------------------------------ Técnico e Interesse (ADR-0106/0107)
+ * O painel do Time ganha a "prancheta": quem decide (Técnico ou Capitão), o Plano do Time com
+ * titulares fixados, cobradores e Marcação, e a aba de Contratações (Pedidos, Convites, Trocas
+ * casadas e Fila). Quem é de outro Time vê "Jogar aqui" com as vagas por Posição.
+ */
+.quem-decide {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  background: #fffaf0;
+  border: 2px solid var(--placa-sombra);
+}
+.quem-decide .cargo {
+  flex: none;
+  padding: 3px 6px 2px;
+  font: 400 1.125rem/1 var(--display);
+  background: var(--tinta);
+  color: var(--placa);
+}
+.quem-decide p {
+  margin: 0;
+  font-size: 0.9375rem;
+}
+.quem-decide small {
+  display: block;
+  color: var(--tinta-fraca);
+}
+.linhas-do-plano {
+  display: grid;
+  gap: 2px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.linhas-do-plano li {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 2px dashed var(--placa-sombra);
+  font-size: 0.9375rem;
+}
+.linhas-do-plano li > span:first-child {
+  color: var(--tinta-fraca);
+}
+.fixados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.fixado {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: var(--tinta);
+  color: var(--placa);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.fixado::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  background: var(--amarelo);
+  box-shadow: 0 0 0 1px var(--contorno);
+}
+.segredo {
+  display: inline-block;
+  padding: 0 4px;
+  font-size: 0.75rem;
+  background: var(--madeira);
+  color: #fffaf0;
+}
+.sugestao-do-capitao {
+  margin: 12px 0 0;
+  padding: 8px 10px;
+  background: #fff3c7;
+  border-left: 4px solid var(--amarelo);
+  font-size: 0.9375rem;
+}
+/* Vagas por Posição: 4 quadros; cheio fica em terra. */
+.vagas-posicao {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: 8px 0 14px;
+}
+.vaga-posicao {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 8px 4px 6px;
+  background: #fffaf0;
+  border: 2px solid var(--placa-sombra);
+  text-align: center;
+}
+.vaga-posicao > * {
+  display: block;
+}
+.vaga-posicao strong {
+  font: 400 1.5rem/1 var(--display);
+}
+.vaga-posicao small {
+  font-size: 0.75rem;
+  color: var(--tinta-fraca);
+}
+.vaga-posicao.cheia {
+  background: #f6dccb;
+  border-color: #c98a68;
+}
+.vaga-posicao.cheia small {
+  color: #8a3b1c;
+}
+/* Cartões de Pedido, Convite, Troca casada e Fila. */
+.lista-mercado {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 18px;
+  padding: 0;
+  list-style: none;
+}
+.cartao-mercado {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  background: #fffaf0;
+  border: 2px solid var(--placa-sombra);
+}
+.cartao-mercado .quem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cartao-mercado .quem img {
+  width: 28px;
+  height: 28px;
+  image-rendering: pixelated;
+}
+.cartao-mercado .quem p {
+  margin: 0;
+  line-height: 1.2;
+}
+.cartao-mercado .quem small {
+  display: block;
+  color: var(--tinta-fraca);
+}
+.cartao-mercado .ovr {
+  margin-left: auto;
+  font: 400 1.5rem/1 var(--display);
+}
+.prazo {
+  font-size: 0.8125rem;
+  color: var(--tinta-fraca);
+}
+.prazo strong {
+  color: var(--tinta);
+}
+.acoes-mercado {
+  display: flex;
+  gap: 8px;
+}
+.acoes-mercado .botao {
+  flex: 1;
+  text-align: center;
+  padding: 10px 12px 8px;
+}
+.troca-casada {
+  display: grid;
+  gap: 4px;
+}
+.troca-casada .seta {
+  justify-self: center;
+  transform: rotate(90deg);
+}
+@media (min-width: 560px) {
+  .troca-casada {
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+  }
+  .troca-casada .seta {
+    transform: none;
+  }
+}
+.troca-casada .seta {
+  font: 400 1.5rem/1 var(--display);
+}
+.aceites {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+}
+.aceites li::before {
+  content: '○ ';
+}
+.aceites li.ok::before {
+  content: '● ';
+  color: #2f6b22;
+}
+.fila-posicao h4 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+.fila-posicao ol {
+  margin: 0;
+  padding-left: 1.4rem;
+}
+.contador-mercado {
+  font-size: 0.875rem;
+  color: var(--tinta-fraca);
+}
+/* Jogar aqui: quem é de outro Time escolhe a Posição. */
+.jogar-aqui .opcao-t2.cheia {
+  background: #f6dccb;
+  border-color: #c98a68;
+}
+.jogar-aqui .acoes-mercado {
+  margin-top: 10px;
+}
+/* Convite recebido, no painel do Jogador. */
+.convite-recebido {
+  border-left: 6px solid var(--amarelo);
+}
+.convite-recebido .titulo-convite {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.convite-recebido .titulo-convite img {
+  width: 48px;
+  image-rendering: pixelated;
+}
+.mesa-do-tecnico .legenda,
+.jogar-aqui .legenda {
+  color: var(--tinta-fraca);
+}
