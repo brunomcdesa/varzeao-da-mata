@@ -205,3 +205,24 @@ export async function chamarPresenca(b: Banco, pessoaId: string, agora: Date, co
 
 /** Quem decide no Time de uma pessoa (para o painel do site). */
 export { quemDecide };
+
+/**
+ * Capitão em campo na Partida (ADR-0107): cobradores de escanteio e Marcação individual de cada
+ * lado, para a simulação (VERSAO_SIM_T3 22). Sem escolha, o lado fica de fora e vale o sorteio.
+ */
+export async function capitaoEmCampo(
+  b: Banco,
+  partidaId: number,
+  mandante: TimeId,
+  visitante: TimeId,
+): Promise<{ escanteio: Partial<Record<'mandante' | 'visitante', string[]>>; marcacao: Partial<Record<'mandante' | 'visitante', { marcador: string; alvo: string }>> }> {
+  const planos = await planosDaPartida(b, partidaId);
+  const escanteio: Partial<Record<'mandante' | 'visitante', string[]>> = {};
+  const marcacao: Partial<Record<'mandante' | 'visitante', { marcador: string; alvo: string }>> = {};
+  for (const [lado, time] of [['mandante', mandante], ['visitante', visitante]] as const) {
+    const p = planos.get(time);
+    if (p?.escanteio.length) escanteio[lado] = p.escanteio;
+    if (p?.marcacao) marcacao[lado] = { marcador: String(p.marcacao.marcador), alvo: String(p.marcacao.alvo) };
+  }
+  return { escanteio, marcacao };
+}

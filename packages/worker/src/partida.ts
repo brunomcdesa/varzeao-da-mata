@@ -15,6 +15,7 @@ import { FUSO_BRASILIA } from './calendario.js';
 import { seriesDaTemporada } from './series.js';
 import { escalarPartida, type PartidaEscalada } from './escalacao.js';
 import { pagarPartida } from './moedas.js';
+import { capitaoEmCampo } from './planoDoTime.js';
 import { batedoresDaPartida, formacoesDaPartida, partidaTemRegrasT2, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
 
 /** O que o renderer precisa para gravar o Reels (mesmo formato de PartidaParaVideo). */
@@ -123,7 +124,10 @@ export async function simular(banco: Banco, partidaId: number, escalada: Partida
       ...(p.vantagem_do_empate ? { vantagemDoEmpate: p.vantagem_do_empate } : {}),
       ...(t2 ? { t2 } : {}),
       // Regras da Temporada 3 (ADRs 0091 e 0094): Juiz sorteado pelo id da Partida e Batedores.
-      ...(t2 && temRegrasT3(p.temporada) ? { t3: { juiz: perfilDoJuiz(partidaId), batedores: await batedoresDaPartida(b, partidaId, p.mandante_id, p.visitante_id) } } : {}),
+      // Capitão em campo (ADR-0107): cobradores de escanteio e Marcação individual.
+      ...(t2 && temRegrasT3(p.temporada)
+        ? { t3: { juiz: perfilDoJuiz(partidaId), batedores: await batedoresDaPartida(b, partidaId, p.mandante_id, p.visitante_id), ...(await capitaoEmCampo(b, partidaId, p.mandante_id, p.visitante_id)) } }
+        : {}),
     });
 
     for (const d of resultado.desempenhos) {

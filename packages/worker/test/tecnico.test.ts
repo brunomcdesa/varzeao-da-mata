@@ -198,4 +198,27 @@ describe('Plano do Time com Técnico (ADRs 0106 e 0107)', () => {
     const r = (await banco.query<{ fixado: boolean; reserva: boolean }>(`SELECT fixado, reserva FROM escalacao WHERE partida_id = $1 AND jogador_id = $2`, [p.id, ultimo])).rows[0];
     expect(r).toMatchObject({ fixado: true, reserva: false });
   });
+
+  it('escanteio e Marcação do Capitão chegam à simulação; Marcação só com marcador ZAG/MEI e alvo de linha rival', async () => {
+    const { aplicarEscolha } = await import('../src/temporada2.js');
+    const { capitaoEmCampo } = await import('../src/planoDoTime.js');
+    for (const u of ['cap1', 'z1']) await comentar(u, `ENTRO Onça ${u === 'z1' ? 'zagueiro' : 'atacante'}`);
+    const [cap, z1] = [await idDe('cap1'), await idDe('z1')];
+    const p = (await banco.query<{ id: number; mandante_id: TimeId; visitante_id: TimeId }>(`SELECT id, mandante_id, visitante_id FROM partida WHERE mandante_id = 'ONC' OR visitante_id = 'ONC' ORDER BY apito_inicial LIMIT 1`)).rows[0]!;
+    const rival = p.mandante_id === 'ONC' ? p.visitante_id : p.mandante_id;
+    const nomeDoRival = { TAT: 'Tatu', CAP: 'Capivara', LEA: 'Leão', JAC: 'Jacaré', TUC: 'Tucano', LOB: 'Lobo', ARA: 'Arara', COR: 'Coruja' }[rival as string] ?? rival;
+    await comentar('alvo1', `ENTRO ${nomeDoRival} atacante`);
+    await comentar('golrival', `ENTRO ${nomeDoRival} goleiro`);
+    const [alvo, gol] = [await idDe('alvo1'), await idDe('golrival')];
+    const vinc = async () => new Set([cap]);
+    expect((await aplicarEscolha(banco, cap, { tipo: 'ESCANTEIO', valor: [z1, cap] }, PRE, vinc)).ok).toBe(true);
+    expect((await aplicarEscolha(banco, cap, { tipo: 'MARCACAO', valor: `${cap}:${alvo}` }, PRE, vinc)).ok).toBe(false);
+    expect((await aplicarEscolha(banco, cap, { tipo: 'MARCACAO', valor: `${z1}:${gol}` }, PRE, vinc)).ok).toBe(false);
+    expect((await aplicarEscolha(banco, cap, { tipo: 'MARCACAO', valor: `${z1}:${alvo}` }, PRE, vinc)).ok).toBe(true);
+    const lado = p.mandante_id === 'ONC' ? 'mandante' : 'visitante';
+    const r = await capitaoEmCampo(banco, p.id, p.mandante_id, p.visitante_id);
+    expect(r.escanteio[lado]).toEqual([z1, cap]);
+    expect(r.marcacao[lado]).toEqual({ marcador: z1, alvo });
+    expect(r.marcacao[lado === 'mandante' ? 'visitante' : 'mandante']).toBeUndefined();
+  });
 });

@@ -185,3 +185,39 @@ describe('Batedores escolhidos pelo Capitão (ADR-0091)', () => {
     expect(quemBateu(r, 'visitante').slice(0, 2)).toEqual(['R-5', 'R-6']);
   });
 });
+
+describe('Capitão em campo (ADR-0107)', () => {
+  const com = (seed: number, t3: Omit<NonNullable<EntradaPartida['t3']>, 'juiz'>) => simularPartida({ ...entrada(seed), t3: { juiz: 'NORMAL', ...t3 } });
+  const id = (r: ResultadoPartida, s: { lado: 'mandante' | 'visitante'; indice: number }) => (s.lado === 'mandante' ? a : b).jogadores[s.indice]!.jogadorId;
+
+  it('o escanteio é do cobrador escolhido; fora de campo, vale o reserva', () => {
+    const rs = Array.from({ length: 400 }, (_, i) => com(i + 1, { escanteio: { mandante: ['NAO-EXISTE', 'CAP-6'] } }));
+    const cobrancas = rs.flatMap((r) => r.lances.filter((l) => l.bolaParada === 'ESCANTEIO' && l.ataque === 'mandante').map((l) => id(r, l.criador)));
+    expect(cobrancas.length).toBeGreaterThan(20);
+    expect(new Set(cobrancas)).toEqual(new Set(['CAP-6']));
+  });
+
+  it('o pênalti no jogo é do primeiro Batedor em campo', () => {
+    const rs = Array.from({ length: 1500 }, (_, i) => com(i + 1, { batedores: { mandante: ['CAP-1', 'CAP-3'] } }));
+    const cobradores = rs.flatMap((r) => r.lances.filter((l) => l.bolaParada === 'PENALTI' && l.ataque === 'mandante').map((l) => id(r, l.criador)));
+    // Se o 1º foi expulso, bate o 2º Batedor.
+    expect(cobradores.length).toBeGreaterThan(50);
+    expect(cobradores.filter((c) => c === 'CAP-1').length).toBeGreaterThan(cobradores.length * 0.95);
+    expect(cobradores.every((c) => c === 'CAP-1' || c === 'CAP-3')).toBe(true);
+  });
+
+  it('a Marcação individual tira gols do alvo e dá mais faltas ao marcador', () => {
+    const n = 1500;
+    const marcacao = { marcador: 'R-1', alvo: 'CAP-5' };
+    const sem = Array.from({ length: n }, (_, i) => com(i + 1, {}));
+    const comM = Array.from({ length: n }, (_, i) => com(i + 1, { marcacao: { visitante: marcacao } }));
+    const golsDoAlvo = (rs: ResultadoPartida[]) => rs.reduce((s, r) => s + r.lances.filter((l) => l.tipo === 'GOL' && l.finalizador && id(r, l.finalizador) === 'CAP-5').length, 0);
+    const faltasDoMarcador = (rs: ResultadoPartida[]) => rs.reduce((s, r) => s + r.lances.filter((l) => l.falta && id(r, l.falta.autor) === 'R-1').length, 0);
+    expect(golsDoAlvo(comM)).toBeLessThan(golsDoAlvo(sem) * 0.99);
+    expect(faltasDoMarcador(comM)).toBeGreaterThan(faltasDoMarcador(sem) * 1.05);
+  });
+
+  it('marcador ou alvo fora de campo: a Partida sai igual a sem Marcação', () => {
+    expect(com(7, { marcacao: { visitante: { marcador: 'R-1', alvo: 'NAO-EXISTE' } } })).toEqual(com(7, {}));
+  });
+});

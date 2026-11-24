@@ -98,9 +98,10 @@ export const VERSAO_SIM_T1 = 12;
 /**
  * Temporada 3 (ADRs 0091 e 0094): Trave, Rebote, Chute de longe, Pressão final, Acréscimos,
  * Perfil do Juiz, Gol de placa e Batedores. Só com `entrada.t3`; a T2 segue na VERSAO_SIM.
- * 21 com as ações principais que protegem o OVR (ADR-0105); 19 antes.
+ * 21 com as ações principais que protegem o OVR (ADR-0105); 19 antes. 22 com o Capitão em campo:
+ * cobradores de escanteio, pênalti do primeiro Batedor e Marcação individual (ADR-0107).
  */
-export const VERSAO_SIM_T3 = 21;
+export const VERSAO_SIM_T3 = 22;
 
 export const PARAMETROS_T2 = {
   /**
@@ -228,6 +229,13 @@ export const PESOS_NOTA = {
  * Goleadas ficar perto da T2.
  */
 export const PARAMETROS_T3 = {
+  /**
+   * Marcação individual (ADR-0107): chance de o marcador ser quem duela com o alvo (quando ele
+   * está em campo na mesma linha), a vantagem dele nesses duelos e quanto mais falta ele faz.
+   */
+  marcacaoChance: 0.7,
+  marcacaoBonus: 0.15,
+  marcacaoFalta: 1.6,
   /** Trave: parte dos chutes que vão para fora bate no poste (só o desenho e a fala; não muda o placar). */
   chanceTrave: 0.2,
   /** Rebote: chance de a defesa do goleiro (em jogada) soltar a bola. */
