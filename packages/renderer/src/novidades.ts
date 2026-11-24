@@ -483,6 +483,7 @@ function opcoesDoJogo(p: PartidaParaVideo, o: OpcoesNovidades) {
     ...(p.apelidos ? { apelidos: p.apelidos } : {}),
     ...(p.numeros ? { numeros: p.numeros } : {}),
     ...(p.itens ? { itens: p.itens } : {}),
+    ...(p.gritos ? { gritos: p.gritos } : {}),
     ...(o.fonteDisplay ? { fonteDisplay: o.fonteDisplay } : {}),
     ...(o.fonteTexto ? { fonteTexto: o.fonteTexto } : {}),
   };

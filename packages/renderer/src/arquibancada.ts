@@ -83,7 +83,7 @@ export function desenharArquibancada(pin: Pincel, e: EstadoQuadro, times: Record
  * Close na torcida de quem marcou (T2): uma tábua com torcedores grandes pulando e a faixa
  * com o Grito de guerra, enquanto o letreiro do gol está na tela.
  */
-export function desenharCloseDaTorcida(pin: Pincel, e: EstadoQuadro, times: Record<Lado, TimeId>, texto: string): void {
+export function desenharCloseDaTorcida(pin: Pincel, e: EstadoQuadro, times: Record<Lado, TimeId>, texto: string, gritos?: Partial<Record<Lado, string>>): void {
   const d = e.destaque;
   if (!e.t2 || !d || d.tipo !== 'GOL' || e.penaltis) return;
   const p = d.progresso;
@@ -107,7 +107,7 @@ export function desenharCloseDaTorcida(pin: Pincel, e: EstadoQuadro, times: Reco
     pin.r(x + 10, y - 3 + ((i + 1) % 2), 2, 7, pele);
   }
   // Faixa com o Grito de guerra, segurada por cima.
-  const grito = GRITO_DO_TIME[times[d.lado]];
+  const grito = gritos?.[d.lado] ?? GRITO_DO_TIME[times[d.lado]];
   pin.r(x0 + 8, y0 + 6, w - 16, 18, id.primaria);
   pin.r(x0 + 8, y0 + 6, w - 16, 2, id.secundaria);
   pin.r(x0 + 8, y0 + 22, w - 16, 2, id.secundaria);

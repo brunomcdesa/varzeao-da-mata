@@ -5240,3 +5240,8 @@ body.com-folha .abas-app {
 .ser-tecnico > summary {
   font-weight: 600;
 }
+
+/* Grito da Temporada (ADR-0107): as 3 opções do Time. */
+.escolha-t2.grito .opcao-grito { display: flex; gap: 8px; align-items: center; padding: 8px 10px; margin: 6px 0; border: 2px solid var(--tabua-escura, #6b4a2b); background: #fff8e6; cursor: pointer; }
+.escolha-t2.grito .opcao-grito:has(input:checked) { background: #f6c400; }
+.escolha-t2.grito .opcao-grito span { font-weight: 700; }

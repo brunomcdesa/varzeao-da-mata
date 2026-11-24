@@ -38,6 +38,8 @@ export interface OpcoesDesenho {
   rastro?: { pos: Ponto; altura: number }[];
   /** Reels (ADR-0074): sem o letreiro do lance (o cartão gigante já está na tela). */
   semLetreiro?: boolean;
+  /** Grito da Temporada de cada lado (ADR-0107). Sem ele, o Grito de guerra de sempre. */
+  gritos?: Partial<Record<Lado, string>>;
 }
 
 /**
@@ -127,7 +129,7 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
   if (estado.penaltis) desenharFaixaDosPenaltis(pin, estado, o, display, texto);
   if (estado.destaque && !o.semLetreiro) desenharDestaque(pin, estado, o, display, texto);
   else if (estado.trocas) desenharLetreiroDaTroca(pin, estado, o, display, texto);
-  if (estado.t2) desenharCloseDaTorcida(pin, estado, o.times, texto);
+  if (estado.t2) desenharCloseDaTorcida(pin, estado, o.times, texto, o.gritos);
 }
 
 function visualDe(j: JogadorNoQuadro, o: OpcoesDesenho, e?: EstadoQuadro): Visual {

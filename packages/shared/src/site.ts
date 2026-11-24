@@ -294,6 +294,8 @@ export interface PartidaPublica {
   narracao: string | null;
   /** Temporada 2: tamanho de cada Elenco, para a Arquibancada. Ausente nas Partidas da T1. */
   torcida?: Record<'mandante' | 'visitante', number>;
+  /** Grito da Temporada (ADR-0107): o texto da faixa de cada lado, quando o Capitão escolheu. */
+  gritos?: Partial<Record<'mandante' | 'visitante', string>>;
   /** Mata-mata (ADR-0048): Semifinal ou Final, Temporada e Série. No fim mostra quem foi pra Final ou o campeão. */
   mataMata?: import('./rodada.js').MataMataDaPartida;
   /** Última Rodada da Fase de Liga (ADR-0053): faixa e plaquinhas da Briga pelo Mata-mata no Ao Vivo e no Replay. */

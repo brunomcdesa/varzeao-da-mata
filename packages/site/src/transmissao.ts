@@ -66,7 +66,7 @@ export function transmitir(
       marcar();
     }
     // Efeitos de momento do Reels (ADR-0095); quem pediu menos movimento fica sem tremor e clarão.
-    desenharQuadroDoSite(ctx, timeline, t, { times: timeline.resultado.times, nomes, apelidos, numeros, itens, semMovimento: reduzido, ...(p.briga ? { briga: p.briga } : {}) });
+    desenharQuadroDoSite(ctx, timeline, t, { times: timeline.resultado.times, nomes, apelidos, numeros, itens, semMovimento: reduzido, ...(p.briga ? { briga: p.briga } : {}), ...(p.gritos ? { gritos: p.gritos } : {}) });
     if (barra) barra.value = String(Math.round(t));
     o.aoMudar?.(t);
     if (t >= FIM && !acabou) {

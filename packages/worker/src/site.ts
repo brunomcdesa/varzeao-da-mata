@@ -21,7 +21,7 @@ import { gruposDaTemporada, seriesAtivas, seriesDaTemporada, type GruposDaTempor
 import { classificar } from './tabela.js';
 import { horaDeBrasilia } from './briga.js';
 import { habilidadesDe } from './regras.js';
-import { ovrDasHabilidades } from '@liga/shared';
+import { gritoDoTime, ovrDasHabilidades } from '@liga/shared';
 import { capitaoDaPartida, proximaPartidaDoTime, tamanhoDosElencos } from './temporada2.js';
 
 /** Duração do Ao Vivo de uma Partida (5 min; 7 no Mata-mata, por causa dos pênaltis). */
@@ -646,6 +646,18 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   arquivos.set('jogadores.json', [...porJogador.values()]);
 
   const elencos = await tamanhoDosElencos(banco);
+  // Grito da Temporada (ADR-0107): opção de cada Time em cada Temporada.
+  const gritosEscolhidos = new Map(
+    (await banco.query<{ temporada_id: number; time_id: TimeId; opcao: number }>(`SELECT temporada_id, time_id, opcao FROM grito_da_temporada`)).rows.map((g) => [`${g.temporada_id}:${g.time_id}`, g.opcao]),
+  );
+  const gritosDe = (temporadaId: number, mandante: TimeId, visitante: TimeId) => {
+    const r: Partial<Record<'mandante' | 'visitante', string>> = {};
+    for (const [lado, t] of [['mandante', mandante], ['visitante', visitante]] as const) {
+      const o = gritosEscolhidos.get(`${temporadaId}:${t}`);
+      if (o !== undefined) r[lado] = gritoDoTime(t, o);
+    }
+    return Object.keys(r).length ? { gritos: r } : {};
+  };
   // ---- uma página por Partida escalada (de todas as Temporadas: o histórico aponta para elas)
   for (const p of todas) {
     const linhas = escalacoesDe.get(p.id);
@@ -697,7 +709,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       ...(linhas && temRegrasT3(temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0) ? { juiz: perfilDoJuiz(p.id) } : {}),
       // Arquibancada (T2): só nas Partidas simuladas com as regras da Temporada 2.
       ...(revelada(p) && (p.resultado as { postura?: unknown } | null)?.postura != null
-        ? { torcida: { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 } }
+        ? { torcida: { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 }, ...gritosDe(p.temporada_id, p.mandante_id, p.visitante_id) }
         : {}),
     };
     arquivos.set(`partidas/${p.id}.json`, publica);

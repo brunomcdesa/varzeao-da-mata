@@ -15,7 +15,7 @@ import { FUSO_BRASILIA } from './calendario.js';
 import { seriesDaTemporada } from './series.js';
 import { escalarPartida, type PartidaEscalada } from './escalacao.js';
 import { pagarPartida } from './moedas.js';
-import { capitaoEmCampo } from './planoDoTime.js';
+import { capitaoEmCampo, gritosDaPartida } from './planoDoTime.js';
 import { batedoresDaPartida, formacoesDaPartida, partidaTemRegrasT2, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
 
 /** O que o renderer precisa para gravar o Reels (mesmo formato de PartidaParaVideo). */
@@ -36,6 +36,7 @@ export interface DadosDoVideo {
   estrelas?: Partial<Record<TimeId, Estrelas>>;
   /** Temporada 2: tamanho de cada Elenco, para a Arquibancada (ADR-0019). Nunca na T1. */
   torcida?: Record<Lado, number>;
+  gritos?: Partial<Record<Lado, string>>;
   /** Mata-mata (ADR-0048): o Narrador e o fim do Reels falam da Semifinal ou da Final. */
   mataMata?: MataMataDaPartida | null;
   /** Última Rodada da Fase de Liga (ADR-0053): quem já está Garantido e o que vale a Partida. */
@@ -229,6 +230,9 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
     const elencos = await tamanhoDosElencos(banco);
     dados.torcida = { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 };
   }
+  // Grito da Temporada (ADR-0107) na faixa da Arquibancada.
+  const gritos = await gritosDaPartida(banco, p.id);
+  if (Object.keys(gritos).length) dados.gritos = gritos;
 
   let video = p.video_url;
   let status = p.status;

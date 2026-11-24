@@ -406,6 +406,46 @@ export const GRITO_DO_TIME: Readonly<Record<TimeId, string>> = {
   ARN: 'Tece a teia, Aranha!',
 };
 
+/**
+ * Grito da Temporada (ADR-0107): 3 opções por Time. O Capitão escolhe uma na Janela e ela vale a
+ * Temporada toda na faixa da Arquibancada. Sem escolha, fica o Grito de guerra de sempre.
+ */
+export const GRITOS_DA_TEMPORADA: Readonly<Record<TimeId, readonly [string, string, string]>> = {
+  CAP: ['Capivara não corre, chega!', 'Na beira do rio, é Capivara!', 'Calma na alma, Capivara!'],
+  ONC: ['Pintou a Onça no pedaço!', 'Mostra a pinta, Onça!', 'A mata ruge, é Onça!'],
+  TAT: ['Tatu cava e faz o gol!', 'Debaixo da terra, Tatu!', 'Bola no buraco, Tatu!'],
+  TAM: ['Fareja o gol, Tamanduá!', 'Língua de fora, Tamanduá!', 'Abraço de Tamanduá!'],
+  PRE: ['Preguiça, mas não perdoa!', 'Devagarinho, é gol!', 'Pendura na rede, Preguiça!'],
+  SAG: ['Galho em galho, Sagui!', 'Pequeno e abusado, Sagui!', 'Mico não, é Sagui!'],
+  TUC: ['Bicuda de Tucano!', 'Cor no peito, Tucano!', 'Bico afiado, Tucano!'],
+  ARA: ['Grita alto, Arara!', 'Colorida e brava, Arara!', 'Rasga o céu, Arara!'],
+  JAC: ['Fecha a boca no gol, Jacaré!', 'Rabo na água, Jacaré!', 'Jacaré não dorme!'],
+  SUC: ['Enrola e engole, Sucuri!', 'Abraço de Sucuri!', 'Sem soltar, Sucuri!'],
+  LOB: ['Pernas longas, Lobo-guará!', 'Uiva pro gol, Lobo!', 'Lobo-guará na espreita!'],
+  LEA: ['O rei da várzea é o Leão!', 'Juba ao vento, Leão!', 'Sacode a juba, Leão!'],
+  BOT: ['Mergulha e encanta, Boto!', 'Boto cor-de-rosa no gol!', 'Do rio pro gol, Boto!'],
+  TAR: ['Casco firme, Tartaruga!', 'Põe a cabeça, Tartaruga!', 'Tartaruga não recua!'],
+  COR: ['A Coruja vê o gol!', 'De olho na rede, Coruja!', 'Noite de Coruja!'],
+  BES: ['Blindado, Besouro!', 'Voa baixo, Besouro!', 'Casca dura, Besouro!'],
+  QUA: ['Rabo pra cima, Quati!', 'Em bando, Quati!', 'Nariz no gol, Quati!'],
+  GAM: ['Abre espaço, é o Gambá!', 'Ninguém chega no Gambá!', 'Cheiro de gol, Gambá!'],
+  JAB: ['Devagar e sempre, Jabuti!', 'Casco de ferro, Jabuti!', 'Jabuti não volta!'],
+  TEI: ['Esquenta e morde, Teiú!', 'Língua de fora, Teiú!', 'Sol na cabeça, Teiú!'],
+  ARI: ['Em bando, Ariranha!', 'Do rio pro gol, Ariranha!', 'Bigode molhado, Ariranha!'],
+  ANT: ['Passa por cima, Anta!', 'Tromba no gol, Anta!', 'Ninguém segura a Anta!'],
+  SER: ['Canta alto, Seriema!', 'Perna longa, Seriema!', 'Seriema avisa: é gol!'],
+  BUG: ['O Bugio já gritou!', 'Ronca a mata, Bugio!', 'De galho em galho, Bugio!'],
+  GAT: ['Cai de pé, Gato!', 'Sete vidas, Gato!', 'Unha de fora, Gato!'],
+  RAT: ['Rói a rede, Rato!', 'Entra no buraco, Rato!', 'Ninguém pega o Rato!'],
+  ESC: ['O ferrão vem no fim!', 'Rabo pra cima, Escorpião!', 'Pica, Escorpião!'],
+  ARN: ['Caiu na teia, Aranha!', 'Oito pernas, Aranha!', 'Teia na rede, Aranha!'],
+};
+
+/** O Grito na faixa: a opção escolhida pelo Capitão (0 a 2) ou o de sempre. */
+export function gritoDoTime(time: TimeId, opcao?: number | null): string {
+  return opcao === null || opcao === undefined ? GRITO_DO_TIME[time] : (GRITOS_DA_TEMPORADA[time][opcao] ?? GRITO_DO_TIME[time]);
+}
+
 /** Temporada 2: as regras que só valem a partir da Temporada 2 (ADRs 0020, 0021, 0023, 0024). */
 export const PRIMEIRA_TEMPORADA_COM_REGRAS_T2 = 2;
 export function temRegrasT2(numeroDaTemporada: number): boolean {

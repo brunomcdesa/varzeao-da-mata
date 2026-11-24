@@ -4,7 +4,7 @@
  * que fica sempre com o Capitão (Batedores, cobradores de escanteio, Marcação individual,
  * Grito da Temporada e Chamada da Presença).
  */
-import { FORMACAO_PADRAO, POSTURAS, ehFormacao, type Formacao, type Postura, type TimeId } from '@liga/shared';
+import { FORMACAO_PADRAO, POSTURAS, ehFormacao, gritoDoTime, type Formacao, type Postura, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { MAXIMO_DE_FIXADOS, cargoDe, marcarDecisao, quemDecide, tecnicoDoTime } from './tecnico.js';
 import { capitaoDaPartida, proximaPartidaDoTime, suspensos } from './temporada2.js';
@@ -225,4 +225,20 @@ export async function capitaoEmCampo(
     if (p?.marcacao) marcacao[lado] = { marcador: String(p.marcacao.marcador), alvo: String(p.marcacao.alvo) };
   }
   return { escanteio, marcacao };
+}
+
+/** Grito da Temporada de cada lado da Partida (ADR-0107), já em texto; lado sem escolha fica de fora. */
+export async function gritosDaPartida(b: Banco, partidaId: number): Promise<Partial<Record<'mandante' | 'visitante', string>>> {
+  const linhas = (
+    await b.query<{ mandante_id: TimeId; visitante_id: TimeId; time_id: TimeId; opcao: number }>(
+      `SELECT p.mandante_id, p.visitante_id, g.time_id, g.opcao
+         FROM partida p JOIN rodada r ON r.id = p.rodada_id
+         JOIN grito_da_temporada g ON g.temporada_id = r.temporada_id AND g.time_id IN (p.mandante_id, p.visitante_id)
+        WHERE p.id = $1`,
+      [partidaId],
+    )
+  ).rows;
+  const r: Partial<Record<'mandante' | 'visitante', string>> = {};
+  for (const l of linhas) r[l.time_id === l.mandante_id ? 'mandante' : 'visitante'] = gritoDoTime(l.time_id, l.opcao);
+  return r;
 }

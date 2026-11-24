@@ -221,4 +221,19 @@ describe('Plano do Time com Técnico (ADRs 0106 e 0107)', () => {
     expect(r.marcacao[lado]).toEqual({ marcador: z1, alvo });
     expect(r.marcacao[lado === 'mandante' ? 'visitante' : 'mandante']).toBeUndefined();
   });
+
+  it('o Grito da Temporada escolhido na Janela vai para a faixa das Partidas do Time', async () => {
+    const { aplicarEscolha } = await import('../src/temporada2.js');
+    const { gritosDaPartida } = await import('../src/planoDoTime.js');
+    const { GRITOS_DA_TEMPORADA } = await import('@liga/shared');
+    await comentar('cap1', 'ENTRO Onça atacante');
+    const cap = await idDe('cap1');
+    const p = (await banco.query<{ id: number; mandante_id: TimeId }>(`SELECT id, mandante_id FROM partida WHERE mandante_id = 'ONC' OR visitante_id = 'ONC' ORDER BY apito_inicial LIMIT 1`)).rows[0]!;
+    expect(await gritosDaPartida(banco, p.id)).toEqual({});
+    expect((await aplicarEscolha(banco, cap, { tipo: 'GRITO', valor: '2' }, PRE, async () => new Set([cap]))).ok).toBe(true);
+    const lado = p.mandante_id === 'ONC' ? 'mandante' : 'visitante';
+    expect(await gritosDaPartida(banco, p.id)).toEqual({ [lado]: GRITOS_DA_TEMPORADA.ONC[2] });
+    // Depois do primeiro jogo, o Grito não muda mais.
+    expect((await aplicarEscolha(banco, cap, { tipo: 'GRITO', valor: '0' }, new Date('2026-12-30T12:00:00Z'), async () => new Set([cap]))).ok).toBe(false);
+  });
 });

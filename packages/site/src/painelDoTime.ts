@@ -7,7 +7,7 @@
  * Os dados vêm da borda (`escolha/estado`) só para quem tem Vínculo; cada botão manda uma
  * escolha (`/escolha`) e a regra fica no worker.
  */
-import { DESCRICAO_DA_FORMACAO, FALA_DO_TIME, FORMACOES, POSTURAS, doTime, type Formacao, type JogadorPublico, type Posicao, type Postura, type TimeId } from '@liga/shared';
+import { DESCRICAO_DA_FORMACAO, FALA_DO_TIME, FORMACOES, GRITOS_DA_TEMPORADA, POSTURAS, doTime, gritoDoTime, type Formacao, type JogadorPublico, type Posicao, type Postura, type TimeId } from '@liga/shared';
 import { desenhoDaFormacao } from './formacao.js';
 import { NOME_DA_POSTURA } from './planoDoTime.js';
 import { contraO, quandoDoJogo } from './presenca.js';
@@ -148,7 +148,7 @@ function blocoDoCapitao(p: PainelDoTime): Html {
     <ul class="linhas-do-plano">
       <li><span>Escanteio</span><span>${escanteio}</span></li>
       <li><span>Marcação</span><span>${marcacao}</span></li>
-      <li><span>Grito</span><span>${p.grito === null || p.grito === undefined ? 'o de sempre' : `opção ${p.grito + 1}`}</span></li>
+      <li><span>Grito</span><span>${gritoDoTime(p.time, p.grito)}</span></li>
     </ul>
     ${capitao
       ? html`<form class="escolha-t2" data-tipo="ESCANTEIO">
@@ -161,6 +161,11 @@ function blocoDoCapitao(p: PainelDoTime): Html {
           <label>Quem é marcado${p.jogo ? ` (${curto(p.jogo.adversario)})` : ''}<select name="alvo"><option value="">—</option>${(p.adversarios ?? []).map((x) => html`<option value="${x.id}" ${pl.marcacao?.alvo === x.id ? 'selected' : ''}>${x.nome} (${NOME_DA_POSICAO[x.posicao]})</option>`)}</select></label>
           <p class="legenda">O marcador ganha vantagem nos duelos com ele, mas faz mais faltas. Fica em segredo até o jogo.</p>
           <p><button type="submit" class="botao">Salvar a Marcação</button></p>${estado()}
+        </form>
+        <form class="escolha-t2 grito" data-tipo="GRITO">
+          <p><strong>Grito da Temporada</strong>: vai na faixa da torcida depois de cada gol. Escolha na Janela; vale a Temporada toda.</p>
+          ${GRITOS_DA_TEMPORADA[p.time].map((g, k) => html`<label class="opcao-grito"><input type="radio" name="valor" value="${k}" ${p.grito === k ? 'checked' : ''}><span>${g}</span></label>`)}
+          <p><button type="submit" class="botao">Salvar o Grito</button></p>${estado()}
         </form>
         <div class="escolha-t2"><p><strong>Chamada da Presença</strong>: avisa o Elenco no App para confirmar antes do Corte (uma por jogo).</p>
           <p><button type="button" class="botao secundario" data-acao="CHAMADA">Chamar o Elenco</button></p>${estado()}</div>`
