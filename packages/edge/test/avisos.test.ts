@@ -238,3 +238,61 @@ describe('só a partir da Temporada 2', () => {
     expect(abriu).toBe(true);
   });
 });
+
+describe('Avisos pessoais (ADR-0106)', () => {
+  const base = async () => {
+    const c = await chaves();
+    const AGENDA = kv();
+    const env = {
+      AGENDA,
+      PUBLICO: r2({ 'dados/liga.json': { temporada: { numero: 3 }, calendario: [] } }),
+      PRIVADO: r2({}),
+      DATABASE_URL: 'postgres://x',
+      VAPID_PUBLICA: c.publica,
+      VAPID_PRIVADA: c.privada,
+    } as unknown as AmbienteDosAvisos;
+    return { c, AGENDA, env };
+  };
+
+  it('sem a marca no KV, o cron não abre o banco; com ela, manda a fila pessoal e tira a marca', async () => {
+    const { c, AGENDA, env } = await base();
+    let abriu = 0;
+    const banco = {
+      async query(sql: string) {
+        abriu++;
+        return { rows: sql.includes('aviso_pessoal') ? [{ id: 9, tipo: 'CONVITE', titulo: 'Convite da Onça', corpo: 'x', url: '#/jogador/1', endpoint: 'https://push.exemplo.com/p', p256dh: c.p256dh, auth: c.auth }] : [] };
+      },
+    };
+    const enviados: Headers[] = [];
+    const f = (async (_url: string, init: RequestInit) => {
+      enviados.push(new Headers(init.headers));
+      return new Response(null, { status: 201 });
+    }) as unknown as typeof fetch;
+    const meioDia = new Date('2026-12-01T05:00:00Z');
+    expect(await rodarAvisos(env, meioDia, (fn) => fn(banco as never), f)).toBe(0);
+    expect(abriu).toBe(0);
+    AGENDA.m.set('aviso/pessoal', '1');
+    expect(await rodarAvisos(env, meioDia, (fn) => fn(banco as never), f)).toBe(1);
+    expect(AGENDA.m.has('aviso/pessoal')).toBe(false);
+    // Sem topic: um pessoal não substitui outro pendente.
+    expect(enviados[0]!.has('topic')).toBe(false);
+  });
+
+  it('com a sessão do Vínculo, a ativação liga o aparelho à pessoa; /avisos/pessoa liga depois', async () => {
+    const { env } = await base();
+    const consultas: { sql: string; params: unknown[] }[] = [];
+    const banco = {
+      async query(sql: string, params: unknown[] = []) {
+        consultas.push({ sql, params });
+        return { rows: [] };
+      },
+    };
+    const pessoa = async (s: string) => (s === 'sessao-boa' ? '42' : null);
+    const assinatura = { endpoint: 'https://push.exemplo.com/1', keys: { p256dh: 'B', auth: 'A' } };
+    const r1 = await rotaDosAvisos(new Request('https://borda/avisos', { method: 'POST', body: JSON.stringify({ assinatura, times: ['ONC'], sessao: 'sessao-boa' }) }), env, (fn) => fn(banco as never), {}, pessoa);
+    expect(r1!.status).toBe(200);
+    expect(consultas.some((q) => q.sql.includes('SET jogador_id') && q.params[1] === '42')).toBe(true);
+    const r2 = await rotaDosAvisos(new Request('https://borda/avisos/pessoa', { method: 'POST', body: JSON.stringify({ endpoint: assinatura.endpoint, sessao: 'sessao-ruim' }) }), env, (fn) => fn(banco as never), {}, pessoa);
+    expect(r2!.status).toBe(400);
+  });
+});

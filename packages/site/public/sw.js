@@ -45,7 +45,8 @@ self.addEventListener('fetch', (e) => {
 
 /*
  * Avisos do App (ADR-0042): a borda manda { titulo, corpo, url, partidaId } e o service worker
- * mostra. A mesma Partida usa a mesma tag: o aviso novo substitui o anterior na bandeja.
+ * mostra. A mesma Partida usa a mesma tag: o aviso novo substitui o anterior na bandeja. Os
+ * Avisos pessoais (ADR-0106) vêm com a própria tag e não se substituem.
  */
 self.addEventListener('push', (e) => {
   let a = {};
@@ -59,7 +60,7 @@ self.addEventListener('push', (e) => {
       body: a.corpo || '',
       icon: 'icones/icone-192.png',
       badge: 'icones/badge-96.png',
-      tag: a.partidaId ? `partida-${a.partidaId}` : 'varzeao',
+      tag: a.partidaId ? `partida-${a.partidaId}` : a.tag || 'varzeao',
       renotify: true,
       data: { url: a.url || '#/' },
     }),

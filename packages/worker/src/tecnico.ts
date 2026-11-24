@@ -8,7 +8,11 @@
  * Os prazos (24 horas ou até o Corte do próximo jogo do Time) são resolvidos na coleta
  * (`resolverPrazos`): o silêncio do Técnico vale como aceito.
  */
-import { CORTE_MINUTOS, temRegrasT3, type Posicao, type TimeId } from '@liga/shared';
+import { CORTE_MINUTOS, FALA_DO_TIME, temRegrasT3, type Posicao, type TimeId } from '@liga/shared';
+
+const NOME_DA_POSICAO: Record<Posicao, string> = { GOL: 'goleiro', ZAG: 'zagueiro', MEI: 'meia', ATA: 'atacante' };
+const doTimeCurto = (t: TimeId) => `d${FALA_DO_TIME[t].artigo} ${FALA_DO_TIME[t].curto}`;
+import { avisarPessoas, avisoDaTransferencia } from './avisosPessoais.js';
 import type { Banco } from './banco.js';
 import { LIMITE_POR_POSICAO, transferirJogador, type Resultado } from './coletar.js';
 import { seriesAtivas, seriesDaTemporada } from './series.js';
@@ -303,7 +307,7 @@ export async function abrirPedido(
 ): Promise<number> {
   // Um pedido aberto por Jogador: o novo substitui o anterior.
   await b.query(`UPDATE pedido_transferencia SET status = 'CAIU', motivo = 'NOVO_PEDIDO', decidido_em = $2 WHERE jogador_id = $1 AND status = 'ABERTO'`, [o.jogadorId, iso(o.quando)]);
-  return Number(
+  const id = Number(
     (
       await b.query<{ id: number }>(
         `INSERT INTO pedido_transferencia (jogador_id, temporada_id, de_time, para_time, posicao, origem, ref, pedido_em, prazo, decisor_id)
@@ -312,6 +316,17 @@ export async function abrirPedido(
       )
     ).rows[0]!.id,
   );
+  // Aviso pessoal para quem decide (ADR-0106).
+  if (o.decisorId) {
+    const quem = (await b.query<{ nome: string }>(`SELECT coalesce(apelido, '@' || username) AS nome FROM jogador_todos WHERE id = $1`, [o.jogadorId])).rows[0]?.nome ?? 'Um Jogador';
+    await avisarPessoas(b, [o.decisorId], {
+      tipo: 'PEDIDO',
+      titulo: 'Pedido de Transferência',
+      corpo: `${quem} (${NOME_DA_POSICAO[o.posicao]}) quer jogar no seu Time. Sem resposta até o prazo, vale como aceito.`,
+      url: `#/time/${o.para}`,
+    });
+  }
+  return id;
 }
 
 /** Aviso de uma decisão para quem pediu: a resposta no comentário (ref) ou no site. */
@@ -329,6 +344,11 @@ interface PedidoAberto {
   ref: string;
   pedido_em: Date | string;
   decisor_id: string | null;
+}
+
+/** Avisos pessoais (no App) das respostas de Pedido, Troca casada e Fila. */
+async function avisarTransferencias(b: Banco, avisos: readonly AvisoDoPedido[]): Promise<void> {
+  for (const a of avisos) await avisarPessoas(b, [a.jogadorId], avisoDaTransferencia(a.jogadorId, a.mensagem));
 }
 
 /** Aplica um Pedido aceito: a Transferência de verdade, conferindo tudo de novo. */
@@ -374,13 +394,12 @@ export async function decidirPedido(
   await marcarDecisao(b, decisorId, agora);
   if (!aceitar) {
     await b.query(`UPDATE pedido_transferencia SET status = 'RECUSADO', decidido_em = $2, motivo = 'RECUSADO' WHERE id = $1`, [p.id, iso(agora)]);
-    return {
-      ok: true,
-      mensagem: 'Pedido recusado.',
-      aviso: { jogadorId: p.jogador_id, ref: p.ref, mensagem: `o time ${p.para_time} recusou o pedido. Não gastou a sua troca: dá para pedir outro time. ⚽` },
-    };
+    const recusa = { jogadorId: p.jogador_id, ref: p.ref, mensagem: `o time ${p.para_time} recusou o pedido. Não gastou a sua troca: dá para pedir outro time. ⚽` };
+    await avisarTransferencias(b, [recusa]);
+    return { ok: true, mensagem: 'Pedido recusado.', aviso: recusa };
   }
   const aviso = await efetivarPedido(b, p, agora, 'ACEITO');
+  await avisarTransferencias(b, [aviso]);
   return { ok: true, mensagem: aviso.mensagem.startsWith('o pedido foi aceito') ? 'Pedido aceito: o Jogador já é do Time.' : 'Não deu para aceitar: o pedido caiu.', aviso };
 }
 
@@ -401,6 +420,7 @@ export async function resolverPrazos(b: Banco, agora: Date): Promise<AvisoDoPedi
   await b.query(`UPDATE convite SET status = 'EXPIRADO', decidido_em = $1 WHERE status = 'ABERTO' AND expira_em <= $1`, [iso(agora)]);
   avisos.push(...(await resolverTrocasVencidas(b, agora)));
   avisos.push(...(await chamarFila(b, agora)));
+  await avisarTransferencias(b, avisos);
   return avisos;
 }
 
@@ -437,6 +457,12 @@ export async function convidar(
     [time, o.autorId, o.jogadorId, alvo.posicao, iso(o.agora), iso(expira)],
   );
   await marcarDecisao(b, o.autorId, o.agora);
+  await avisarPessoas(b, [o.jogadorId], {
+    tipo: 'CONVITE',
+    titulo: `Convite ${doTimeCurto(time)}`,
+    corpo: `${cargo ? 'O Técnico' : 'O Capitão'} ${doTimeCurto(time)} quer você no Time. Responda no site: vale 24 horas (ou até o Corte).`,
+    url: `#/jogador/${o.jogadorId}`,
+  });
   return { ok: true, mensagem: 'Convite enviado. Vale 24 horas (ou até o Corte).' };
 }
 
@@ -492,6 +518,15 @@ export async function proporTroca(
     [o.autorId, a.id, bb.id, a.time_id, bb.time_id, a.posicao, iso(o.agora), iso(expira), o.autorId === a.id, o.autorId === bb.id],
   );
   if (!ehJogador) await marcarDecisao(b, o.autorId, o.agora);
+  // Avisos pessoais: os dois Jogadores e quem decide em cada Time (menos quem propôs).
+  const [da, db] = await Promise.all([quemDecide(b, a.time_id, o.agora, o.comVinculo), quemDecide(b, bb.time_id, o.agora, o.comVinculo)]);
+  const avisar = [a.id, bb.id, da?.jogadorId, db?.jogadorId].filter((x) => x && x !== o.autorId);
+  await avisarPessoas(b, avisar, (id) => ({
+    tipo: 'TROCA',
+    titulo: 'Troca casada',
+    corpo: `Proposta: ${NOME_DA_POSICAO[a.posicao]} ${doTimeCurto(a.time_id)} ⇄ ${doTimeCurto(bb.time_id)}. Responda no site até o prazo.`,
+    url: id === a.id || id === bb.id ? `#/jogador/${id}` : `#/time/${id === da?.jogadorId ? a.time_id : bb.time_id}`,
+  }));
   return { ok: true, mensagem: 'Troca casada proposta. Os dois Jogadores precisam aceitar; os Times têm até o prazo.' };
 }
 
@@ -540,6 +575,7 @@ export async function responderTroca(
   const atual = (await b.query<TrocaAberta>(`${SELECT_TROCA} WHERE id = $1`, [t.id])).rows[0]!;
   if (atual.aceite_a && atual.aceite_b && atual.time_a_ok === true && atual.time_b_ok === true) {
     const avisos = await fazerTroca(b, atual, o.agora);
+    await avisarTransferencias(b, avisos);
     return { ok: true, mensagem: 'Troca casada feita.', avisos };
   }
   return { ok: true, mensagem: 'Resposta salva. A troca acontece quando todos aceitarem (ou no prazo, se os Times não responderem).' };

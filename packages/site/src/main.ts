@@ -16,6 +16,7 @@ import { adiantarEstadoDasEscolhas, carteiraDoVinculo, jogadorVinculado, paginaV
 import type { Pagina } from './paginas/tipos.js';
 import { html } from './ui.js';
 import { prepararApp } from './appInstalavel.js';
+import { ligarAvisosPessoais } from './avisosApp.js';
 import { centralizarAbas, ligarAbas } from './abas.js';
 import { atualizarNavegacaoApp, prepararNavegacaoApp } from './navegacaoApp.js';
 
@@ -95,6 +96,8 @@ prepararNavegacaoApp({ meuJogador: jogadorVinculado });
 adiantarEstadoDasEscolhas();
 void navegar();
 void prepararApp();
+// Avisos pessoais (ADR-0106): liga o aparelho ao Vínculo, se os dois existirem.
+void ligarAvisosPessoais().catch(() => undefined);
 
 // Loja (ADR-0101): a sacola no canto do topo, a partir da T3; com Vínculo, o saldo junto.
 void liga()

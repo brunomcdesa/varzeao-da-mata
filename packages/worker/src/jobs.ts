@@ -19,6 +19,7 @@ import { temExpansao } from './expansao.js';
 import { colaboradoresDaPartida, perfisDosTimes } from './perfilDoTime.js';
 import { momentosDoAoVivo } from '@liga/renderer';
 import { recompensarT1 } from './recompensaT1.js';
+import { CHAVE_AVISO_PESSOAL, houveAvisoPessoal } from './avisosPessoais.js';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA, criarTemporada, somarDias } from './calendario.js';
 import { processarComentario, type Comentario, type Resultado } from './coletar.js';
@@ -216,6 +217,8 @@ export async function jobColetar(c: ContextoDoJob): Promise<RelatorioColeta> {
   const { importados } = await sincronizarVotacao(c.banco, c.agenda, { importar: pendente('votos') });
   const pedidosDoSite = await processarPedidosDoSite(c.banco, c.agenda, agoraDe(c), pendente);
   const arquivosDoSite = await publicarSite(c, { recarregarVinculos: pendente('vinculos') });
+  // Avisos pessoais (ADR-0106) na fila: a borda manda no minuto seguinte.
+  if (houveAvisoPessoal()) await c.agenda.gravar(CHAVE_AVISO_PESSOAL, '1', { validadeS: 86400 });
   const rel = { comentarios: comentarios.length, resultados, votosDoSite: importados, pedidosDoSite, publicados, arquivosDoSite };
   logDe(c)(`coletar: ${JSON.stringify(rel)}`);
   return rel;

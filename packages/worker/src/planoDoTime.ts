@@ -4,7 +4,8 @@
  * que fica sempre com o Capitão (Batedores, cobradores de escanteio, Marcação individual,
  * Grito da Temporada e Chamada da Presença).
  */
-import { FORMACAO_PADRAO, POSTURAS, ehFormacao, gritoDoTime, type Formacao, type Postura, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, FORMACAO_PADRAO, POSTURAS, ehFormacao, gritoDoTime, type Formacao, type Postura, type TimeId } from '@liga/shared';
+import { avisarPessoas } from './avisosPessoais.js';
 import type { Banco } from './banco.js';
 import { MAXIMO_DE_FIXADOS, cargoDe, marcarDecisao, quemDecide, tecnicoDoTime } from './tecnico.js';
 import { capitaoDaPartida, proximaPartidaDoTime, suspensos } from './temporada2.js';
@@ -200,7 +201,18 @@ export async function chamarPresenca(b: Banco, pessoaId: string, agora: Date, co
     pessoaId,
     iso(agora),
   ]);
-  return r.rows.length ? { ok: true, mensagem: 'Chamada feita: o Elenco recebe o Aviso para confirmar a Presença.' } : { ok: false, mensagem: 'A Chamada deste jogo já foi feita.' };
+  if (!r.rows.length) return { ok: false, mensagem: 'A Chamada deste jogo já foi feita.' };
+  // Aviso pessoal para o Elenco (quem tem Vínculo e Avisos ligados).
+  const elenco = (await b.query<{ id: string }>(`SELECT id::text AS id FROM jogador WHERE time_id = $1 AND NOT banido AND id::text <> $2`, [papel.time, pessoaId])).rows.map((j) => j.id);
+  const jogo = (await b.query<{ mandante_id: TimeId; visitante_id: TimeId }>(`SELECT mandante_id, visitante_id FROM partida WHERE id = $1`, [papel.partidaId])).rows[0];
+  const rival = jogo ? (jogo.mandante_id === papel.time ? jogo.visitante_id : jogo.mandante_id) : null;
+  await avisarPessoas(b, elenco, (id) => ({
+    tipo: 'CHAMADA',
+    titulo: 'Chamada da Presença',
+    corpo: `O Capitão chamou o Elenco${rival ? ` para o jogo contra ${FALA_DO_TIME[rival].artigo} ${FALA_DO_TIME[rival].curto}` : ''}. Confirme a Presença antes do Corte.`,
+    url: `#/jogador/${id}`,
+  }));
+  return { ok: true, mensagem: 'Chamada feita: o Elenco recebe o Aviso para confirmar a Presença.' };
 }
 
 /** Quem decide no Time de uma pessoa (para o painel do site). */

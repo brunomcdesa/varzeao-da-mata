@@ -49,6 +49,7 @@ const ESTREIA_PREVISTA: Record<string, { temporada: number; estreia: string }> =
   'novidades-t3-palpite': { temporada: 3, estreia: '2026-11-30' },
   'novidades-t3-capitao': { temporada: 3, estreia: '2026-11-30' },
   'novidades-t3-loja2': { temporada: 3, estreia: '2026-11-30' },
+  'novidades-t3-tecnico': { temporada: 3, estreia: '2026-11-30' },
 };
 
 /** Legenda de cada Programado. */
@@ -225,6 +226,20 @@ export function legendaDasNovidadesT3(id: string, estreia: string, publicarEm: s
       `🎉 Comemoração de gol: aviãozinho, mortal, joelhada ou dancinha. Item raro, ${PRECO_DO_ITEM.RARO} Moedas. Aparece no gol, no Ao Vivo, no Replay e no Reels.`,
       '',
       'Tá tudo na sacola no topo do site e do App, com Vínculo. Vale a partir do próximo jogo.',
+    ],
+    'novidades-t3-tecnico': [
+      '📋 Chegou o Técnico ao Varzeão da Mata!',
+      '',
+      'Cada Time pode ter um Técnico: um seguidor que não joga e cuida do Time de fora do campo. Para virar Técnico, peça na DM (vale o primeiro pedido de cada Time). Quem já joga pode pendurar as chuteiras pelo site.',
+      'O Técnico decide a Postura, a Formação e até 3 titulares fixados.',
+      '',
+      '🔁 Quero jogar aqui: peça a transferência com TRANSFERIR no comentário ou no botão da página do Time. O Técnico tem 24 horas (ou até o Corte) para responder; sem resposta, vale como aceito. Recusou? Não gasta a sua troca.',
+      '✉️ Convite: o Técnico chama quem tem Vínculo. Aceitou, troca na hora.',
+      '🤝 Posição cheia? Troca casada entre dois da mesma Posição, ou a Fila de espera por ordem de chegada.',
+      '',
+      '©️ Sem Técnico, o Capitão assume tudo. Com Técnico, o Capitão fica com a Braçadeira, os Batedores, o cobrador de escanteio, a Marcação individual e o Grito da Temporada.',
+      '',
+      '⏳ A Janela de transferências vai até o Corte do primeiro jogo da Copa.',
     ],
     'novidades-t3-capitao': [
       '©️ Novidades da Temporada 3 (4/4): Capitão e Batedores!',

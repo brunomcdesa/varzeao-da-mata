@@ -18,31 +18,31 @@ import { Timeline } from './timeline.js';
 import { DURACAO_DO_CARTAO, cameraQueSegue, closeNoJuiz, desenharCartaoGigante, desenharEscudoDaLiga, tempoComPausa, veu, type MomentoDoCartao, type PartidaParaVideo } from './video.js';
 import { desenharEstrelaSolta } from './escudos.js';
 
-export type ReelsDeNovidades = 'CAMPO' | 'CAPITAO' | 'JOGADOR' | 'SITE' | 'T3_CAMPO' | 'T3_LOJA' | 'T3_PALPITE' | 'T3_CAPITAO' | 'T3_LOJA2';
+export type ReelsDeNovidades = 'CAMPO' | 'CAPITAO' | 'JOGADOR' | 'SITE' | 'T3_CAMPO' | 'T3_LOJA' | 'T3_PALPITE' | 'T3_CAPITAO' | 'T3_LOJA2' | 'T3_TECNICO';
 /** As séries de Reels de cada Temporada: a T2 (ADR-0063) e a T3 (ADR-0092). */
 export const SERIE_DE_NOVIDADES: Record<2 | 3, readonly ReelsDeNovidades[]> = {
   2: ['CAMPO', 'CAPITAO', 'JOGADOR', 'SITE'],
   3: ['T3_CAMPO', 'T3_LOJA', 'T3_PALPITE', 'T3_CAPITAO'],
 };
-/** Fora das séries: o anúncio da segunda fase da Loja, no meio da T3 (ADR-0101). */
-export const REELS_DE_NOVIDADES: readonly ReelsDeNovidades[] = [...SERIE_DE_NOVIDADES[2], ...SERIE_DE_NOVIDADES[3], 'T3_LOJA2'];
+/** Fora das séries: Técnico e Interesse (ADR-0106) e a segunda fase da Loja, no meio da T3 (ADR-0101). */
+export const REELS_DE_NOVIDADES: readonly ReelsDeNovidades[] = [...SERIE_DE_NOVIDADES[2], ...SERIE_DE_NOVIDADES[3], 'T3_LOJA2', 'T3_TECNICO'];
 export const temporadaDasNovidades = (r: ReelsDeNovidades): 2 | 3 => (r.startsWith('T3_') ? 3 : 2);
 const serieDe = (r: ReelsDeNovidades) => SERIE_DE_NOVIDADES[temporadaDasNovidades(r)];
 /** O id do Reels Programado (e do vídeo) de cada um. */
 export const ID_DAS_NOVIDADES: Record<ReelsDeNovidades, string> = {
   CAMPO: 'novidades-campo', CAPITAO: 'novidades-capitao', JOGADOR: 'novidades-jogador', SITE: 'novidades-site',
   T3_CAMPO: 'novidades-t3-campo', T3_LOJA: 'novidades-t3-loja', T3_PALPITE: 'novidades-t3-palpite', T3_CAPITAO: 'novidades-t3-capitao',
-  T3_LOJA2: 'novidades-t3-loja2',
+  T3_LOJA2: 'novidades-t3-loja2', T3_TECNICO: 'novidades-t3-tecnico',
 };
 /** Narrador de cada Reels. */
 export const NARRADOR_DAS_NOVIDADES: Record<ReelsDeNovidades, string> = {
   CAMPO: 'RITA', CAPITAO: 'TURBO', JOGADOR: 'BETO', SITE: 'ZE',
-  T3_CAMPO: 'TURBO', T3_LOJA: 'ZE', T3_PALPITE: 'BETO', T3_CAPITAO: 'RITA', T3_LOJA2: 'ZE',
+  T3_CAMPO: 'TURBO', T3_LOJA: 'ZE', T3_PALPITE: 'BETO', T3_CAPITAO: 'RITA', T3_LOJA2: 'ZE', T3_TECNICO: 'BETO',
 };
 /** Hora (Brasília) de cada um; o Reels anterior chama o seguinte. */
 export const HORA_DAS_NOVIDADES: Record<ReelsDeNovidades, number> = {
   CAMPO: 12, CAPITAO: 14, JOGADOR: 16, SITE: 18,
-  T3_CAMPO: 12, T3_LOJA: 14, T3_PALPITE: 16, T3_CAPITAO: 18, T3_LOJA2: 10,
+  T3_CAMPO: 12, T3_LOJA: 14, T3_PALPITE: 16, T3_CAPITAO: 18, T3_LOJA2: 10, T3_TECNICO: 10,
 };
 
 /** Os trechos de jogo que os Reels usam (achados nas Partidas de exemplo pelo script de gravação). */
@@ -99,12 +99,12 @@ export interface CenaNovidade {
 
 const TITULO: Record<ReelsDeNovidades, string> = {
   CAMPO: 'Dentro de campo', CAPITAO: 'O Capitão', JOGADOR: 'Seu Jogador', SITE: 'Site e App',
-  T3_CAMPO: 'Dentro de campo', T3_LOJA: 'Salário e Loja', T3_PALPITE: 'Palpite e Conquistas', T3_CAPITAO: 'Capitão e Batedores', T3_LOJA2: 'Loja nova',
+  T3_CAMPO: 'Dentro de campo', T3_LOJA: 'Salário e Loja', T3_PALPITE: 'Palpite e Conquistas', T3_CAPITAO: 'Capitão e Batedores', T3_LOJA2: 'Loja nova', T3_TECNICO: 'Técnico e Interesse',
 };
 /** Como o Reels anterior chama o seguinte ("às duas da tarde, tem mais: ..."). */
 const CHAMADA_DO_PROXIMO: Record<ReelsDeNovidades, string> = {
   CAMPO: '', CAPITAO: 'o capitão', JOGADOR: 'o seu jogador', SITE: 'o site e o app',
-  T3_CAMPO: '', T3_LOJA: 'o salário e a loja', T3_PALPITE: 'o palpite e as conquistas', T3_CAPITAO: 'o capitão e os batedores', T3_LOJA2: '',
+  T3_CAMPO: '', T3_LOJA: 'o salário e a loja', T3_PALPITE: 'o palpite e as conquistas', T3_CAPITAO: 'o capitão e os batedores', T3_LOJA2: '', T3_TECNICO: '',
 };
 const HORA_FALADA: Record<number, string> = { 10: 'às dez da manhã', 11: 'às onze', 12: 'ao meio-dia', 13: 'à uma da tarde', 14: 'às duas da tarde', 15: 'às três da tarde', 16: 'às quatro da tarde', 17: 'às cinco da tarde', 18: 'às seis da tarde', 19: 'às sete da noite', 20: 'às oito da noite', 21: 'às nove da noite' };
 const DIA_DA_SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
@@ -326,6 +326,34 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
           ['O Time vê o plano', 'Quem tem Vínculo com o Time\nvê. Os rivais, não.'],
         ], 'E o capitão pode escolher tudo também na página do time: formação, postura e batedores. Os companheiros com vínculo veem o plano. Os rivais não veem nada.', 'Escolhe até o Corte', 8),
         c('chamada', 5, `A temporada três começa ${estreia}, com a Copa! Entra no site e confere tudo. Link na bio!`, { cartela: 'CHAMADA' }, 'animado'),
+      ];
+      break;
+    case 'T3_TECNICO':
+      cenas = [
+        c('abertura', 4.5, 'Novidade da temporada três: chegou o técnico! E agora dá pra pedir pra jogar no time que você quiser.', { cartela: 'ABERTURA' }, 'animado'),
+        lista('tecnico', 'O Técnico', [
+          ['Um por Time', 'Um seguidor que não joga:\ncuida do Time de fora do campo.'],
+          ['Como virar', 'Pede na DM, ou o Jogador\npendura as chuteiras no site.'],
+          ['O que decide', 'Postura, Formação e até\n3 titulares fixados.'],
+        ], 'Cada time pode ter um técnico: um seguidor que não joga e cuida do time de fora do campo. Pra virar técnico, é só pedir na DM. E quem já joga pode pendurar as chuteiras pelo site. O técnico decide a postura, a formação, e pode fixar até três titulares.', 'Um por Time: vale o primeiro pedido', 10),
+        lista('pedido', 'Quero jogar aqui', [
+          ['O Pedido', 'TRANSFERIR no comentário, ou o\nbotão na página do Time.'],
+          ['24 horas', 'O Técnico aceita ou recusa.\nSem resposta, vale aceito.'],
+          ['Recusou?', 'Não gasta a sua troca:\ndá para pedir outro Time.'],
+        ], 'Quer jogar em outro time? Pede! Pelo comentário, com transferir, ou no botão da página do time. O técnico tem vinte e quatro horas pra responder. Se ficar em silêncio, vale como aceito. E se recusar, a sua troca não é gasta: dá pra pedir outro time.', 'Ou até o Corte, o que vier antes', 10),
+        lista('convite', 'O Time chama você', [
+          ['Convite', 'O Técnico convida quem tem\nVínculo. Até 3 abertos.'],
+          ['Aceitou?', 'Troca na hora, usando\na sua troca.'],
+        ], 'E o caminho contrário também existe: o técnico pode convidar quem tem vínculo, até três convites abertos. Aceitou, troca na hora.', 'O Aviso chega no App', 8),
+        lista('posicao-cheia', 'Posição cheia?', [
+          ['Troca casada', 'Dois da mesma Posição trocam\nde Time, se os dois aceitarem.'],
+          ['Fila de espera', 'Por ordem de chegada:\nabriu vaga, você entra.'],
+        ], 'Posição cheia no time que você quer? Tem dois jeitos. A troca casada: dois jogadores da mesma posição trocam de time, se os dois aceitarem. Ou a fila de espera, por ordem de chegada: abriu vaga, você entra.', undefined, 9),
+        lista('capitao', 'E o Capitão?', [
+          ['Sem Técnico', 'Assume o que o Técnico faria.'],
+          ['Com Técnico', 'Braçadeira, Batedores, escanteio,\nMarcação e o Grito do Time.'],
+        ], 'E o capitão? Se o time não tem técnico, ele assume tudo. Se tem, o capitão usa a braçadeira, escolhe os batedores, quem cobra o escanteio, a marcação individual em um rival, e o grito da torcida na temporada.', 'Ele também sugere o plano ao Técnico', 10),
+        c('chamada', 5, `A janela vai até o corte do primeiro jogo da Copa, ${estreia}. Corre! Link na bio.`, { cartela: 'CHAMADA' }, 'animado'),
       ];
       break;
     case 'T3_LOJA2':

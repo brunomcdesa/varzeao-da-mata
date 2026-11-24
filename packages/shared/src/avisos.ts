@@ -22,8 +22,12 @@ export interface MomentosDoAoVivo {
 
 /** Corpo da notificação que a borda manda e o service worker mostra. */
 export interface AvisoNoCelular {
-  tipo: TipoDeAviso;
-  partidaId: number;
+  /** Os de jogo (por Time) ou os pessoais da T3 (ADR-0106: Pedido, Convite, Troca...). */
+  tipo: TipoDeAviso | 'PEDIDO' | 'CONVITE' | 'TROCA' | 'TRANSFERENCIA' | 'CHAMADA';
+  /** Só nos de jogo: o aviso novo da mesma Partida substitui o anterior na bandeja. */
+  partidaId?: number;
+  /** Só nos pessoais: cada um fica na bandeja até ser visto. */
+  tag?: string;
   titulo: string;
   corpo: string;
   /** Rota do site para abrir ao tocar. */

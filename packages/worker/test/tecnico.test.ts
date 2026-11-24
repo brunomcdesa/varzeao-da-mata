@@ -236,4 +236,34 @@ describe('Plano do Time com Técnico (ADRs 0106 e 0107)', () => {
     // Depois do primeiro jogo, o Grito não muda mais.
     expect((await aplicarEscolha(banco, cap, { tipo: 'GRITO', valor: '0' }, new Date('2026-12-30T12:00:00Z'), async () => new Set([cap]))).ok).toBe(false);
   });
+
+  it('Avisos pessoais: Pedido para o Técnico, Convite e resposta, só para quem tem aparelho ligado', async () => {
+    const { tomarAvisosPessoais, houveAvisoPessoal } = await import('../src/avisosPessoais.js');
+    const ligar = (id: string, n: number) =>
+      banco.query(`INSERT INTO aviso_aparelho (endpoint, p256dh, auth, times, jogador_id) VALUES ($1, 'B', 'A', '{}', $2)`, [`https://push.exemplo.com/${n}`, id]);
+    await comentar('gabi', 'ENTRO Tatu meia');
+    await comentar('nina', 'ENTRO Capivara meia');
+    const tec = await aprovarTecnico(banco, { username: 'seu.tonho', time: 'ONC', agora: PRE, naJanela: true });
+    const [gabi, nina] = [await idDe('gabi'), await idDe('nina')];
+    await ligar(tec.jogadorId, 1);
+    await ligar(gabi, 2);
+    houveAvisoPessoal();
+    // Pedido: o Técnico é avisado.
+    expect(await comentar('gabi', 'TRANSFERIR Onça', '2026-11-28T14:00:00Z')).toBe('PEDIDO_ENVIADO');
+    expect(houveAvisoPessoal()).toBe(true);
+    let fila = await tomarAvisosPessoais(banco);
+    expect(fila.map((e) => [e.aparelho.endpoint, e.aviso.tipo])).toEqual([['https://push.exemplo.com/1', 'PEDIDO']]);
+    expect(fila[0]!.aviso.url).toBe('#/time/ONC');
+    // Resposta: quem pediu é avisado. A fila já tomada não volta.
+    const p = (await banco.query<{ id: number }>(`SELECT id FROM pedido_transferencia WHERE status = 'ABERTO'`)).rows[0]!;
+    await decidirPedido(banco, tec.jogadorId, p.id, false, new Date('2026-11-28T15:00:00Z'), new Set());
+    fila = await tomarAvisosPessoais(banco);
+    expect(fila.map((e) => [e.aparelho.endpoint, e.aviso.tipo])).toEqual([['https://push.exemplo.com/2', 'TRANSFERENCIA']]);
+    expect(fila[0]!.aviso.corpo).toMatch(/^O time ONC recusou/);
+    // Convite para quem não ligou os Avisos: nada na fila.
+    houveAvisoPessoal();
+    expect(await convidar(banco, { autorId: tec.jogadorId, jogadorId: nina, agora: PRE, comVinculo: new Set([nina]) })).toMatchObject({ ok: true });
+    expect(await tomarAvisosPessoais(banco)).toEqual([]);
+    expect(houveAvisoPessoal()).toBe(false);
+  });
 });
