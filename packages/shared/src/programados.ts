@@ -31,9 +31,9 @@ export const REELS_PROGRAMADOS: readonly ReelsProgramado[] = [
   // Perfil do Time (ADR-0100): segunda 23/11, 11h de Brasília, logo depois de aprovado (o dono pediu
   // para postar assim que subisse; a gravação foi disparada à mão).
   { id: 'perfil-do-time', ref: 2008, publicarEm: '2026-11-23T14:00:00Z' },
-  // Mudança de Endereço (ADR-0104): o site e o App foram para varzeaodamata.com.br. Terça 24/11,
-  // 10h de Brasília, antes do primeiro jogo do dia (11h).
-  { id: 'mudanca-de-endereco', ref: 2015, publicarEm: '2026-11-24T13:00:00Z' },
+  // Mudança de Endereço (ADR-0104): o site e o App foram para varzeaodamata.com.br. Segunda 23/11,
+  // 22h10 de Brasília, logo depois de aprovado (o dono pediu para postar já; gravação disparada à mão).
+  { id: 'mudanca-de-endereco', ref: 2015, publicarEm: '2026-11-24T01:10:00Z' },
   // Abertura da Temporada 3, com a Copa (ADRs 0088 e 0092): sábado 28/11, 21h de Brasília, depois
   // do Resumo da Temporada 2 (19h). A T3 nasce na sexta à noite, quando sai o Craque da Temporada.
   { id: 'abertura-t3', ref: 2009, publicarEm: '2026-11-29T00:00:00Z' },

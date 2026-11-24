@@ -120,9 +120,9 @@ describe('Reels Programados (ADR-0051)', () => {
     expect(l).not.toContain('@');
   });
 
-  it('Mudança de Endereço (ADR-0104): terça 24/11 às 10h, antes do primeiro jogo; legenda com o domínio novo e os passos do App', () => {
+  it('Mudança de Endereço (ADR-0104): segunda 23/11 às 22h10, logo depois de aprovado; legenda com o domínio novo e os passos do App', () => {
     const p = REELS_PROGRAMADOS.find((x) => x.id === 'mudanca-de-endereco')!;
-    expect(p.publicarEm).toBe('2026-11-24T13:00:00Z');
+    expect(p.publicarEm).toBe('2026-11-24T01:10:00Z');
     expect(new Set(REELS_PROGRAMADOS.map((x) => x.ref)).size).toBe(REELS_PROGRAMADOS.length);
     const l = legendaDaMudancaDeEndereco();
     expect(l).toContain('varzeaodamata.com.br');
