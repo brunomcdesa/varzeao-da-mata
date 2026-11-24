@@ -21,7 +21,8 @@
     "narradores": "tsx scripts/narradores.ts",
     "pronuncia": "tsx scripts/pronuncia.ts",
     "testar-grito": "tsx scripts/testar-grito.ts",
-    "perfil-do-time": "tsx scripts/perfil-do-time.ts"
+    "perfil-do-time": "tsx scripts/perfil-do-time.ts",
+    "mudanca-de-endereco": "tsx scripts/mudanca-de-endereco.ts"
   },
   "dependencies": {
     "@liga/shared": "workspace:*",

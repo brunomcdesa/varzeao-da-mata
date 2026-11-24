@@ -21,3 +21,7 @@ Para o navegador, outro domínio é outro site. O App instalado, a sessão do V�
 - Quem migra instala o App de novo, refaz o Vínculo e reativa os Avisos no domínio novo.
 - Se o Turnstile das votações estiver configurado, o widget precisa ter o hostname novo, senão o desafio falha no domínio novo. Em 23/11/2026 ele não estava configurado.
 - O e-mail do domínio fica desligado (MX nulo, SPF e DMARC de rejeição) até alguém pedir o Email Routing.
+
+## Reels da Mudança de Endereço
+
+Pedido pelo dono em 23/11/2026, junto com a aprovação da placa; ele pediu também para incluir a repaginada do App (ADR-0103). Reels Programado (`mudanca-de-endereco`, ADR-0051), narrado pelo Seu Dito, nas cartelas: Endereço novo, O site mudou (o antigo riscado), Já tinha o App? (abrir o endereço novo, instalar de novo, refazer o Vínculo, reativar os Avisos), Nada se perde (Jogador, Time e Carreira continuam), App de cara nova (celular com Abas do App, barra de cima com o sino e Subabas) e Link novo na bio. São seis cartelas. O Narrador soletra o fim do endereço ("ponto com, ponto bê érre") e não fala @. Sai terça 24/11 às 10h, antes do primeiro jogo do dia.

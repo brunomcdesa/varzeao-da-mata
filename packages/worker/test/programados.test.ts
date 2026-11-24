@@ -6,7 +6,7 @@ import { criarTemporada } from '../src/calendario.js';
 import { AgendaNaMemoria, PastaLocal, type ItemDaAgenda } from '../src/nuvem.js';
 import { jobProgramados, legendaDaAbertura, legendaDaAberturaT3, legendaDasNovidades, legendaDasNovidadesT3 } from '../src/programados.js';
 import { REELS_PROGRAMADOS } from '@liga/shared';
-import { dadosDoPerfilDoTime, legendaDoPerfilDoTime, legendaDoRebalanceamentoT2 } from '../src/programados.js';
+import { dadosDoPerfilDoTime, legendaDaMudancaDeEndereco, legendaDoPerfilDoTime, legendaDoRebalanceamentoT2 } from '../src/programados.js';
 import { definirPerfilDoTime } from '../src/perfilDoTime.js';
 import type { Instagram } from '../src/instagram.js';
 import { bancoDeTeste } from './banco-de-teste.js';
@@ -118,6 +118,18 @@ describe('Reels Programados (ADR-0051)', () => {
     expect(l).toContain('61 mudaram de Time e 56 ficaram');
     expect(l).toContain('Estreia quinta, 19/11, primeiro jogo às 11h');
     expect(l).not.toContain('@');
+  });
+
+  it('Mudança de Endereço (ADR-0104): terça 24/11 às 10h, antes do primeiro jogo; legenda com o domínio novo e os passos do App', () => {
+    const p = REELS_PROGRAMADOS.find((x) => x.id === 'mudanca-de-endereco')!;
+    expect(p.publicarEm).toBe('2026-11-24T13:00:00Z');
+    expect(new Set(REELS_PROGRAMADOS.map((x) => x.ref)).size).toBe(REELS_PROGRAMADOS.length);
+    const l = legendaDaMudancaDeEndereco();
+    expect(l).toContain('varzeaodamata.com.br');
+    expect(l).toContain('Refaça o Vínculo');
+    expect(l).toContain('Reative os Avisos');
+    expect(l).toContain('Abas embaixo');
+    expect(l).not.toContain('pages.dev');
   });
 
   it('Perfil do Time (ADR-0100): segunda 23/11 às 11h, logo depois de aprovado; perfis do banco na ordem em que viraram oficiais', async () => {
