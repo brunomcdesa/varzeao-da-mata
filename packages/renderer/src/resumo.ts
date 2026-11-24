@@ -53,6 +53,8 @@ export interface DadosDoResumo {
     artilheiro?: { username: string; apelido?: string | null; time: TimeId; posicao: Posicao; gols: number };
     goleiro?: { username: string; time: TimeId; notaMedia: number };
     proxima?: { numero: number; inicio: string };
+    /** Créditos (ADR-0108): os @ de quem apoiou a Liga na Temporada, sem valor. */
+    apoiadores?: string[];
   };
   /** Anúncio do Craque da Temporada (o dia seguinte à Final): só essa cartela e a chamada. */
   craqueDaTemporada?: { username: string; apelido?: string | null; time: TimeId; posicao: Posicao; notaMedia: number; gols: number; jogos: number; votos: number };
@@ -83,7 +85,7 @@ export interface DadosDoResumo {
   estrelas?: Partial<Record<TimeId, Estrelas>>;
 }
 
-export type Cartela = 'ABERTURA' | 'PLACARES' | 'FINALISTAS' | 'CAMPEAO' | 'TABELA' | 'CHANCES' | 'NOVOS' | 'CANDIDATOS' | 'CRAQUE' | 'DESTAQUES' | 'POSICOES' | 'CHAMADA' | 'COMPARTILHE';
+export type Cartela = 'ABERTURA' | 'PLACARES' | 'FINALISTAS' | 'CAMPEAO' | 'TABELA' | 'CHANCES' | 'NOVOS' | 'CANDIDATOS' | 'CRAQUE' | 'DESTAQUES' | 'POSICOES' | 'APOIADORES' | 'CHAMADA' | 'COMPARTILHE';
 
 /**
  * Segmento do Roteiro com a cartela que ele mostra (tipo 'ABERTURA' = trilha cheia na mixagem).
@@ -105,7 +107,7 @@ export function dadosDaSerie(d: DadosDoResumo, serie: Serie | undefined): Pick<D
   };
 }
 
-const DURACAO_BASE: Record<Cartela, number> = { ABERTURA: 3, PLACARES: 5, FINALISTAS: 5, CAMPEAO: 6, TABELA: 6, CHANCES: 7, NOVOS: 4, CANDIDATOS: 7, CRAQUE: 7, DESTAQUES: 6, POSICOES: 7, CHAMADA: 5, COMPARTILHE: 6 };
+const DURACAO_BASE: Record<Cartela, number> = { ABERTURA: 3, PLACARES: 5, FINALISTAS: 5, CAMPEAO: 6, TABELA: 6, CHANCES: 7, NOVOS: 4, CANDIDATOS: 7, CRAQUE: 7, DESTAQUES: 6, POSICOES: 7, APOIADORES: 6, CHAMADA: 5, COMPARTILHE: 6 };
 const CORTE = 0.3;
 
 export class RoteiroResumo {
@@ -123,6 +125,7 @@ export class RoteiroResumo {
       if (dados.craqueDaTemporada) cartelas.push('CRAQUE');
       if (dados.fimDaTemporada?.artilheiro || dados.fimDaTemporada?.goleiro) cartelas.push('DESTAQUES');
       if (dados.fimDaTemporada && dados.destaques?.length) cartelas.push('POSICOES');
+      if (dados.fimDaTemporada?.apoiadores?.length) cartelas.push('APOIADORES');
     }
     else {
       if (dados.craqueDaRodada || dados.craqueDaRodadaB) cartelas.push('CRAQUE');
@@ -257,6 +260,12 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
         // Pela Posição e pelo Time, nunca pelo @ (o apelido fica para gols e Craque).
         const quem = (x.destaques ?? []).map((j) => `${DESTAQUE_DA_POSICAO[j.posicao]}: o ${POSICAO_FALADA[j.posicao]} ${doTime(j.time)}`);
         texto = `${s.serie ? `Na Série ${s.serie}, a` : 'A'} Seleção ${d.fimDaTemporada ? 'da Temporada' : 'da Rodada'}, a maior nota de cada posição! ${quem.join('. ')}.`;
+        break;
+      }
+      case 'APOIADORES': {
+        // O Narrador agradece sem falar @ nem valor: os nomes estão na tela.
+        const n = d.fimDaTemporada!.apoiadores!.length;
+        texto = `Valeu ${n === 1 ? 'a quem apoiou' : `aos ${n} apoiadores que bancaram`} o Varzeão nessa Temporada! Quer apoiar também? O link está na bio.`;
         break;
       }
       case 'PLACARES':
@@ -847,6 +856,33 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       let k = 0;
       if (f.artilheiro) cartao(k++, 'Artilheiro', f.artilheiro, String(f.artilheiro.gols), f.artilheiro.gols === 1 ? 'gol' : 'gols');
       if (f.goleiro) cartao(k++, 'Melhor goleiro', { ...f.goleiro, posicao: 'GOL' }, f.goleiro.notaMedia.toFixed(1).replace('.', ','), 'nota média');
+      break;
+    }
+    case 'APOIADORES': {
+      // Créditos (ADR-0108): os @ em duas colunas, como os créditos de um filme, sem valor.
+      titulo('Apoiadores');
+      const nomes = d.fimDaTemporada!.apoiadores!;
+      const porColuna = Math.ceil(Math.min(nomes.length, 36) / (nomes.length > 12 ? 2 : 1));
+      const colunas = nomes.length > 12 ? [COLUNAS / 2 - 62, COLUNAS / 2 + 62] : [COLUNAS / 2];
+      const largura = nomes.length > 12 ? 118 : 220;
+      const passo = Math.min(22, 300 / Math.max(porColuna, 1));
+      // A tábua cresce com a lista e fica centrada entre o título e o rodapé.
+      const altura = 46 + porColuna * passo;
+      const topo = Math.round(92 + (330 - altura) / 2);
+      pin.tabua(14, topo, 242, altura);
+      pin.texto('Obrigado por bancar a Liga!', COLUNAS / 2, topo + 18, 9, texto, COR.placa, { peso: 600 });
+      nomes.slice(0, 36).forEach((u, k) => {
+        const a = aparece(k, 0.08, 0.4);
+        if (a <= 0) return;
+        const x = colunas[Math.floor(k / porColuna)]!;
+        const y = topo + 42 + (k % porColuna) * passo;
+        pin.ctx.globalAlpha = a;
+        const nome = `@${u}`;
+        pin.texto(nome, x, y, pin.caber(nome, largura, 11, display), display, '#FFFFFF', { contorno: COR.contorno });
+      });
+      pin.ctx.globalAlpha = 1;
+      if (nomes.length > 36) pin.texto(`e mais ${nomes.length - 36}`, COLUNAS / 2, topo + altura - 8, 9, texto, COR.amarelo, { peso: 600 });
+      pin.texto('Apoie também: link na bio', COLUNAS / 2, 440, 11, display, COR.amarelo, { contorno: COR.contorno });
       break;
     }
     case 'POSICOES': {

@@ -11,6 +11,7 @@ import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBr
 import { lerItens } from './escalacao.js';
 import { perfisDosTimes } from './perfilDoTime.js';
 import { fundadorDe } from './rebalanceamento.js';
+import { apoiadores } from './apoiador.js';
 import { comSeloT1, subiramPeloPiso } from './recompensaT1.js';
 import { ajustesDeOvr } from './aMao.js';
 import { TEMPORADA_DOS_DESTAQUES, desempenhosDasPartidas } from './destaques.js';
@@ -297,6 +298,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       conquistasDe.set(c.jogador_id, l);
     }
   }
+  // Selo de Apoiador (ADR-0108): a partir da T3, pelo @.
+  const apoioDe = temporada && temMoedas(temporada.numero) ? await apoiadores(banco) : new Map<string, { ativo: boolean; temporadas: number[] }>();
   const ajustes = await ajustesDeOvr(banco, agora);
   const porJogador = new Map<string, JogadorPublico>();
   const resumido = (id: string): JogadorResumido | null => {
@@ -328,6 +331,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       ...(comRegrasT2 ? { especializacao: j.especializacao ?? null, treino: j.treino ?? null } : {}),
       ...(fundadores.has(j.id) ? { fundador: fundadores.get(j.id)! } : {}),
       ...(seloT1.has(j.id) ? { seloT1: true as const } : {}),
+      ...(apoioDe.has(j.username.toLowerCase()) ? { apoiador: apoioDe.get(j.username.toLowerCase())! } : {}),
       ...(conquistasDe.has(j.id) ? { conquistas: conquistasDe.get(j.id)! } : {}),
       ...(pisoT1.has(j.id) ? { pisoT1: pisoT1.get(j.id)! } : {}),
       ...estatisticasVazias(),

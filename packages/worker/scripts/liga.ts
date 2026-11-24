@@ -6,6 +6,7 @@
  *   USUARIO=fulano TIME=onca POSICAO=zagueiro pnpm liga mover   muda o Time à mão (ADR-0029)
  *   pnpm liga rebalancear [--gravar]                Rebalanceamento da T2 (ADR-0036); sem --gravar só mostra o plano
  *   pnpm liga limite-por-posicao [--gravar]         Move o excedente do Limite por Posição (ADR-0080); sem --gravar só mostra
+ *   USUARIO=fulano NIVEL=15 pnpm liga apoiador [--gravar]   Apoiador (ADR-0108): abre o apoio (5 ou 15); NIVEL vazio encerra
  *   pnpm liga recompensa-t1 [--gravar]              Selo e Piso da Temporada 1 (ADR-0047); sem --gravar só mostra quem sobe
  *   USUARIO=fulano pnpm liga capitao [--gravar]     Capitão à mão do Time do Jogador (ADR-0079)
  *   TIME=onca pnpm liga capitao [--gravar]          tira o Capitão à mão: a faixa volta à regra de mais Partidas
@@ -74,6 +75,7 @@ import {
   type Banco,
   type DadosDoVideo,
 } from '../src/index.js';
+import { registrarApoio, type NivelDeApoio } from '../src/apoiador.js';
 import { bancoLocal } from './banco-local.js';
 
 const raizRepo = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -371,6 +373,27 @@ async function main(): Promise<void> {
         for (const c of r.correcoes) console.log(`  @${c.jogador.username} (id ${c.jogador.id}, inscrito em ${c.jogador.inscritoEm}): ${c.jogador.posicao} ${nomeCurto(c.jogador.time)} → ${nomeCurto(c.para)}`);
         console.log('Rascunhos dos avisos (só saem com aprovação):');
         for (const c of r.correcoes) console.log(`  ${avisoDaCorrecao(c)}`);
+        break;
+      }
+
+      case 'apoiador': {
+        // Apoiador (ADR-0108): liga o apoio do Apoia-se ao @. NIVEL 5 ou 15 abre (ou troca de
+        // nível); NIVEL vazio encerra. Sem --gravar é a simulação.
+        const usuario = process.env.USUARIO ?? '';
+        const nivelTexto = (process.env.NIVEL ?? '').trim();
+        if (!usuario.trim()) throw new Error('Use: USUARIO=fulano NIVEL=15 pnpm liga apoiador [--gravar] (NIVEL vazio encerra o apoio)');
+        if (nivelTexto && nivelTexto !== '5' && nivelTexto !== '15') throw new Error('NIVEL é 5 ou 15 (vazio para encerrar).');
+        const r = await registrarApoio(banco, { username: usuario, nivel: nivelTexto ? (Number(nivelTexto) as NivelDeApoio) : null, agora: new Date(), gravar: args.gravar });
+        const nivel = (n: number | null) => (n === null ? 'sem apoio' : `R$ ${n}`);
+        const frase: Record<typeof r.acao, string> = {
+          ABERTO: `apoio aberto (${nivel(r.depois)})`,
+          TROCOU_DE_NIVEL: `troca de nível: ${nivel(r.antes)} → ${nivel(r.depois)}`,
+          JA_ESTAVA: `já apoia com ${nivel(r.antes)}: nada muda`,
+          ENCERRADO: `apoio encerrado (era ${nivel(r.antes)}); fica com o Selo e o que já ganhou`,
+          SEM_APOIO: 'não tinha apoio aberto: nada muda',
+        };
+        console.log(`@${r.username}: ${frase[r.acao]}.${r.gravado ? ' Gravado.' : ' SIMULAÇÃO: nada foi gravado.'}`);
+        if (!r.jogador) console.log(`@${r.username} não joga na Liga: entra só nos créditos do Resumo da Temporada. Confira o @ exato (sublinhados repetidos são comuns).`);
         break;
       }
 

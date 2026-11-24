@@ -31,6 +31,8 @@ export interface Item {
   fase: 1 | 2;
   /** Itens de desenho (corte, barba, comemoração): qual. A `cor` é só a da amostra na Loja. */
   estilo?: string;
+  /** Item exclusivo (ADR-0108): não está à venda; só aparece na Loja para quem já é dono. */
+  exclusivo?: 'APOIADOR';
 }
 
 const CORES_BASICAS: readonly [string, string][] = [
@@ -79,7 +81,22 @@ const ITENS_DE_DESENHO: readonly Item[] = [
   deDesenho('COMEMORACAO', 'JOELHADA', 'Joelhada', 'RARO'),
   deDesenho('COMEMORACAO', 'DANCINHA', 'Dancinha', 'RARO'),
 ];
-export const ITENS: readonly Item[] = [...ITENS_DE_COR, ...ITENS_DE_DESENHO];
+/**
+ * Item de Apoiador (ADR-0108): de quem teve apoio de R$ 15 pelo Apoia-se. Cor que a Loja não
+ * vende, fora da venda e sem preço em Moedas. Sai com a segunda fase da Loja (Rodada 4 da T3).
+ */
+export const ITEM_DE_APOIADOR: Item = {
+  codigo: 'FAIXA_DA_MATA',
+  encaixe: 'FAIXA',
+  nome: 'Faixa da Mata',
+  cor: '#1F7A3A',
+  raridade: 'RARO',
+  fase: 2,
+  exclusivo: 'APOIADOR',
+};
+export const ITENS: readonly Item[] = [...ITENS_DE_COR, ...ITENS_DE_DESENHO, ITEM_DE_APOIADOR];
+/** Os Itens que a Loja vende (sem os exclusivos). */
+export const ITENS_A_VENDA: readonly Item[] = ITENS.filter((i) => !i.exclusivo);
 export const ITEM_POR_CODIGO: ReadonlyMap<string, Item> = new Map(ITENS.map((i) => [i.codigo, i]));
 
 /** Os Itens equipados, um código por Encaixe. A Escalação guarda uma cópia (ADR-0087). */

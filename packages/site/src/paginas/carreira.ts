@@ -8,7 +8,7 @@ import { CONQUISTA_POR_CODIGO, FALA_DO_TIME, IDENTIDADE, NOME_DA_ESPECIALIZACAO,
 import { jogadores, liga } from '../dados.js';
 import { bonecoImg, curto, escudoImg, html, nota, NOME_DA_POSICAO, type Html } from '../ui.js';
 import type { Pagina } from './tipos.js';
-import { temporadasDaCarreira, type TemporadaDaCarreira } from '../carreira.js';
+import { temporadasDaCarreira, textoDoSeloDeApoiador, type TemporadaDaCarreira } from '../carreira.js';
 
 const NOME_DO_TROFEU: Record<TipoTrofeu, [string, string]> = {
   CAMPEAO: ['Título', 'Títulos'],
@@ -36,6 +36,10 @@ function seloConquista(codigo: string): Html {
 /** Selo da Temporada 1 (ADR-0047): quem se inscreveu na primeira Temporada da Liga. */
 function seloT1(): Html {
   return html`<span class="selo-fundador selo-t1"><span class="estrela-t1" aria-hidden="true">★</span><span>Temporada 1</span></span>`;
+}
+
+function seloApoiador(a: NonNullable<JogadorPublico['apoiador']>): Html {
+  return html`<span class="selo-fundador selo-apoiador${a.ativo ? ' ativo' : ''}"><span class="coracao-apoiador" aria-hidden="true">♥</span><span>${textoDoSeloDeApoiador(a)}</span></span>`;
 }
 
 function cartaoDaTemporada(t: TemporadaDaCarreira, atual: boolean, fundador?: JogadorPublico['fundador'], comSeloT1 = false): Html {
@@ -82,6 +86,7 @@ export const paginaCarreira: Pagina = async (main, [id]) => {
         <p class="tabua-titulo">Carreira</p>
         <h1><a href="#/jogador/${j.id}">${nomeVisivel(j)}</a></h1>
         ${j.seloT1 ? html`<p class="linha-fundador">${seloT1()} <small>na Liga desde o começo</small></p>` : ''}
+        ${j.apoiador ? html`<p class="linha-fundador">${seloApoiador(j.apoiador)} <small>${j.apoiador.ativo ? 'ajuda a bancar a Liga' : 'ajudou a bancar a Liga'}</small></p>` : ''}
         ${j.fundador ? html`<p class="linha-fundador">${seloFundador(j.fundador, true)} <small>desde a Temporada ${j.fundador.temporada}</small></p>` : ''}
         ${j.conquistas?.length ? html`<p class="selos-conquista" aria-label="Conquistas">${j.conquistas.map((x) => seloConquista(x.codigo))}</p>` : ''}
         <p>${NOME_DA_POSICAO[j.posicao]} do ${curto(j.time)} · OVR ${j.ovr} · ${j.temporadas} ${j.temporadas === 1 ? 'Temporada' : 'Temporadas'} · ${j.jogos} jogos, ${j.gols} gols</p>

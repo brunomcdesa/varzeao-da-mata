@@ -4066,6 +4066,21 @@ a.jogo:hover {
 .selo-fundador.selo-t1 .estrela-t1 {
   color: #f2c14e;
 }
+/* Selo de Apoiador (ADR-0108): verde da Mata com borda dourada; quem já parou fica com a borda clara. */
+.selo-apoiador {
+  --fundador-cor: #1f7a3a;
+  --fundador-borda: #c9d6c0;
+  padding-left: 9px;
+}
+.selo-apoiador.ativo {
+  --fundador-borda: #f2c14e;
+}
+.selo-fundador.selo-apoiador .coracao-apoiador {
+  color: #ffb3b3;
+}
+.selo-fundador.selo-apoiador.ativo .coracao-apoiador {
+  color: #ff6b6b;
+}
 /* No cartão da Temporada, o selo fica do tamanho dos troféus, mas nas cores do Time. */
 .trofeus-carreira .selo-fundador {
   background: var(--fundador-cor);
