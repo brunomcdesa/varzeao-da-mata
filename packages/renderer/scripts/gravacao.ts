@@ -944,7 +944,7 @@ async function gravarPrevia(pagina: import('playwright').Page, dir: string, fps:
       momentos.push([`${String(i).padStart(2, '0')}-lance-b`, Math.floor((r + (s.fim - r) * 0.45) * fps)]);
     }
   });
-  for (const t of instantes) momentos.push([`t-${t.toFixed(1).padStart(5, '0')}`, Math.floor(t * fps)]);
+  for (const t of instantes) momentos.push([`t-${t.toFixed(2).padStart(6, '0')}`, Math.floor(t * fps)]);
   for (const [nome, n] of momentos) {
     const [jpeg] = await pagina.evaluate(([q]) => window.varzea.capturar(q, 1, 0.95), [n] as const);
     await writeFile(join(dir, `${nome}.jpg`), Buffer.from(jpeg!, 'base64'));
