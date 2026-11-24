@@ -97,3 +97,20 @@ describe('Seleção da Rodada no Resumo (ADR-0041)', () => {
     expect(cartelas.indexOf('POSICOES')).toBe(cartelas.indexOf('DESTAQUES') + 1);
   });
 });
+
+describe('Créditos dos Apoiadores (ADR-0108)', () => {
+  const fim = { ...base, placares: [], candidatos: [] };
+  it('a cartela só entra no Resumo da Temporada com Apoiadores, antes da chamada', () => {
+    const com = new RoteiroResumo({ ...fim, fimDaTemporada: { apoiadores: ['ana', 'bia'] } }).segmentos.map((s) => s.cartela);
+    expect(com.indexOf('APOIADORES')).toBe(com.indexOf('CHAMADA') - 1);
+    expect(new RoteiroResumo({ ...fim, fimDaTemporada: { apoiadores: [] } }).segmentos.map((s) => s.cartela)).not.toContain('APOIADORES');
+    expect(new RoteiroResumo(base).segmentos.map((s) => s.cartela)).not.toContain('APOIADORES');
+  });
+
+  it('o Narrador agradece sem falar @ nem valor', () => {
+    const r = new RoteiroResumo({ ...fim, fimDaTemporada: { apoiadores: ['ana_mata', 'bia.gol', 'caio'] } });
+    const fala = narracaoDoResumo(r).find((f) => r.segmentos[f.segmento!]?.cartela === 'APOIADORES')!.texto;
+    expect(fala).toContain('3 apoiadores');
+    expect(fala).not.toMatch(/@|ana_mata|R\$/);
+  });
+});

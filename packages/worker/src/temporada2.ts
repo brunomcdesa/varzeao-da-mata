@@ -348,7 +348,7 @@ export async function aplicarEscolha(b: Banco, jogadorId: string, e: Escolha, ag
       if (!temMoedas(t.numero)) return { ok: false, mensagem: 'A Loja abre na Temporada 3.' };
       const valor = String(e.valor ?? '');
       if (e.tipo === 'COMPRA') return comprarItem(b, jogadorId, valor, agora);
-      return e.tipo === 'EQUIPAR' ? equiparItem(b, jogadorId, valor) : tirarItem(b, jogadorId, valor);
+      return e.tipo === 'EQUIPAR' ? equiparItem(b, jogadorId, valor, agora) : tirarItem(b, jogadorId, valor);
     }
     case 'BATEDORES': {
       // ADR-0091: mesma regra da Postura (só o Capitão, até o Corte), a partir da T3.

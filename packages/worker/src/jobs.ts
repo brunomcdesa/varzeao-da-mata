@@ -14,10 +14,11 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, IDENTIDADE, TIMES_DA_EXPANSAO, doTime, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, TIMES_DA_EXPANSAO, doTime, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, temMoedas, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
 import { temExpansao } from './expansao.js';
 import { colaboradoresDaPartida, perfisDosTimes } from './perfilDoTime.js';
 import { momentosDoAoVivo } from '@liga/renderer';
+import { creditosDaTemporada } from './apoiador.js';
 import { recompensarT1 } from './recompensaT1.js';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA, criarTemporada, somarDias } from './calendario.js';
@@ -665,6 +666,8 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
       ...(historia?.artilheiro ? { artilheiro: { username: historia.artilheiro.username, apelido: historia.artilheiro.apelido ?? null, time: historia.artilheiro.time, posicao: historia.artilheiro.posicao, gols: historia.artilheiro.gols } } : {}),
       ...(historia?.goleiro && !destaques.length ? { goleiro: { username: historia.goleiro.username, time: historia.goleiro.time, notaMedia: historia.goleiro.notaMedia } } : {}),
       proxima,
+      // Créditos dos Apoiadores (ADR-0108), a partir da T3.
+      ...(temMoedas(t.numero) && (await creditosDaTemporada(c.banco, t.numero)).length ? { apoiadores: await creditosDaTemporada(c.banco, t.numero) } : {}),
     },
     ...(destaques.length ? { destaques } : {}),
     craqueDaTemporada: { username: s.username, apelido: s.apelido ?? null, time: s.time_id, posicao: s.posicao, notaMedia: Number(s.media), gols, jogos: Number(s.jogos), votos: Number(s.votos) },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { JogadorPublico } from '@liga/shared';
-import { temporadasDaCarreira } from '../src/carreira.js';
+import { temporadasDaCarreira, textoDoSeloDeApoiador } from '../src/carreira.js';
 
 const jogo = (temporada: number, o: Partial<JogadorPublico['historico'][number]>): JogadorPublico['historico'][number] => ({
   partidaId: 1, temporada, rodada: 1, fase: 'LIGA', nota: 6, ovr: 60, habilidades: { FIN: 60, PAS: 60, DRI: 60, DEF: 30, GOL: 10 }, gols: 0, rival: 'ONC', emCasa: true, pro: 1, contra: 0, ...o,
@@ -21,5 +21,13 @@ describe('Página de Carreira', () => {
     const [t2, t1] = temporadasDaCarreira(j);
     expect(t1).toMatchObject({ numero: 1, times: [{ time: 'CAP' }], jogos: 2, vitorias: 1, derrotas: 1, gols: 2, assistencias: 1, notaMedia: 6, ovrInicio: 55, ovrFim: 59, amarelos: 0, expulsoes: 0, trofeus: [['CRAQUE_RODADA', 2]] });
     expect(t2).toMatchObject({ numero: 2, times: [{ time: 'CAP', serie: 'A' }, { time: 'LOB', serie: 'B' }], jogos: 2, empates: 1, ovrInicio: 59, ovrFim: 62, amarelos: 1, expulsoes: 1 });
+  });
+});
+
+describe('Selo de Apoiador (ADR-0108)', () => {
+  it('"Apoiador" com o apoio aberto; depois, as Temporadas em que apoiou', () => {
+    expect(textoDoSeloDeApoiador({ ativo: true, temporadas: [3] })).toBe('Apoiador');
+    expect(textoDoSeloDeApoiador({ ativo: false, temporadas: [3] })).toBe('Apoiou na T3');
+    expect(textoDoSeloDeApoiador({ ativo: false, temporadas: [3, 4, 6] })).toBe('Apoiou na T3, T4 e T6');
   });
 });

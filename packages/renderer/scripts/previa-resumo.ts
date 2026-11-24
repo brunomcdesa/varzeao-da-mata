@@ -7,6 +7,7 @@
  * A com 16 Times (8 jogos, dois por horário) e B com os 8 Times novos. Com --fim, mostra o
  * anúncio do fim da Temporada (campeão e Craque, e os da Série B com --series). Com --so-a, a T2
  * só com a Série A de 16 em dois Grupos (ADR-0064): um jogo por hora e uma tabela por Grupo.
+ * Com --fim --apoiadores, o Resumo da Temporada com os créditos dos Apoiadores (ADR-0108).
  */
 import { resolve } from 'node:path';
 import { GRUPOS_DA_A_DE_16, TIMES_DA_SERIE_B, TIMES_FUNDADORES as FUNDADORES, TIMES_NOVOS as NOVOS, rotuloDoCandidato, type Posicao, type Serie, type TimeId } from '@liga/shared';
@@ -71,7 +72,14 @@ const fim: DadosDoResumo = {
   campeao: 'ONC',
   ...(comSeries ? { campeaoB: 'COR' as TimeId, craqueDaTemporadaB: craque('coruja.noturna', 'COR', 'ATA') } : {}),
   craqueDaTemporada: craque('rafa.gol', 'CAP', 'MEI'),
-  fimDaTemporada: { artilheiro: { username: 'rafa.gol', time: 'PRE', posicao: 'ATA', gols: 11 }, proxima: { numero: 3, inicio: '2026-12-01' } },
+  fimDaTemporada: {
+    artilheiro: { username: 'rafa.gol', time: 'PRE', posicao: 'ATA', gols: 11 },
+    proxima: { numero: 3, inicio: '2026-12-01' },
+    // Com --apoiadores, os créditos dos Apoiadores (ADR-0108).
+    ...(process.argv.includes('--apoiadores')
+      ? { apoiadores: ['ana_da_mata', 'bia.gol', 'caio.varzea', 'duda10', 'edu_torcedor', 'fefe.fc', 'gui_oficial', 'helo.onca', 'iago.capivara', 'juju_zag', 'leo.varzea', 'malu_fc', 'nanda.jr', 'pedrinho'] }
+      : {}),
+  },
   destaques: [...destaques(TIMES_FUNDADORES, 'A'), ...(comSeries ? destaques(TIMES_NOVOS, 'B') : [])].map((d) => ({ ...d, nota: d.nota - 1.2 })),
 };
 

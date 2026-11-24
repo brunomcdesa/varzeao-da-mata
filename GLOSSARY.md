@@ -505,3 +505,25 @@ _Avoid_: tempo extra, prorrogação
 **Gol de placa**:
 O gol com drible no marcador que ainda vence a Cobertura, ou o Chute de longe muito acima do Goleiro, a partir da T3. Ganha câmera lenta e fala especial; o primeiro de cada Jogador é uma Conquista (ADR-0094).
 _Avoid_: golaço, pintura
+
+### Monetização
+
+**Apoiador**:
+Quem apoia a Liga todo mês pelo Apoia-se, a partir da T3: R$ 5 dá o Selo de Apoiador e o nome nos créditos do Resumo da Temporada; R$ 15 dá também o Item de Apoiador. Só ganha coisas visuais: dinheiro real nunca compra OVR, Habilidade, Escalação, Transferência nem Moedas. O dono liga o apoio ao Jogador pelo workflow apoiador, com o @ (ADR-0108).
+_Avoid_: assinante, doador, sócio-torcedor, membro
+
+**Selo de Apoiador**:
+O selo da página de Carreira de quem é ou foi Apoiador. Com o apoio ativo diz "Apoiador"; quando o apoio acaba, vira "Apoiou na T3" (com as Temporadas em que apoiou) e fica para sempre (ADR-0108).
+_Avoid_: selo VIP, selo pago
+
+**Item de Apoiador**:
+O Item exclusivo de quem teve apoio de R$ 15: a Faixa da Mata, dourada com a folha verde-mata no centro. Não está à venda na Loja nem custa Moedas, e continua do Jogador depois que o apoio acaba. Sai na Rodada 4 da T3, junto com a segunda fase da Loja (ADR-0108).
+_Avoid_: item pago, item premium
+
+**Patrocinador**:
+Marca que paga um pacote por Temporada para aparecer na Liga, a partir da T4: Placa, quadro "oferecido por" no Resumo ou camisa de um Time (uma marca por Time). Bets, álcool, cigarro, política e clubes reais ficam de fora. Quem fecha no meio de uma Temporada só aparece na seguinte, e a Escalação guarda os Patrocinadores da época (ADR-0108).
+_Avoid_: anunciante, parceiro, publi
+
+**Placa**:
+A placa de publicidade na lateral do campo, a partir da T4, que aparece no Reels, no Ao Vivo e no Replay. Sem Patrocinador, mostra anúncios da própria Liga (Apoia-se, App, "Anuncie aqui") (ADR-0108).
+_Avoid_: banner, outdoor, faixa (Faixa é o Encaixe da cabeça)
