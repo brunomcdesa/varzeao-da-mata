@@ -1,6 +1,6 @@
 # 0108 — Destaques do perfil do Instagram
 
-- Status: proposto (aguardando aprovação da prévia)
+- Status: aceito (prévia aprovada pelo dono em 24/11/2026)
 - Data: 2026-11-24
 
 ## Contexto
@@ -9,8 +9,8 @@ O perfil tinha um único destaque, "Novidades", com capa ilegível (um pedaço d
 
 ## Decisão
 
-1. Sete Destaques, nesta ordem: Como entrar, Como funciona, Site e App, Times, Perfis dos Times, Campeões e Novidades.
-2. Cada destaque tem uma capa própria (PNG 1080 × 1080, ícone em pixel art num anel dourado, legível no círculo) e Stories estáticos (JPEG 1080 × 1920) no estilo dos Reels: Como entrar (4), Como funciona (4), Site e App (3), Times (4: os dois Grupos e os Clássicos de cada um), Perfis dos Times (3) e Campeões (1 por Temporada). Novidades continua com os Reels da série de Novidades.
+1. Seis Destaques, nesta ordem: Como entrar, Como funciona, Site e App, Times, Perfis dos Times e Campeões. O destaque Novidades sai do perfil: o que ele contava está nos outros, e as novidades seguem nos Reels.
+2. Cada destaque tem uma capa própria (PNG 1080 × 1080, ícone em pixel art num anel dourado, legível no círculo) e Stories estáticos (JPEG 1080 × 1920) no estilo dos Reels: Como entrar (4), Como funciona (4), Site e App (3), Times (4: os dois Grupos e os Clássicos de cada um), Perfis dos Times (3) e Campeões (1 por Temporada).
 3. O conteúdo fica entre a barra do Story e a caixa de resposta (linhas 70 a 405 da tela de 270 × 480). Sem rodapé com o @: o Story já mostra o perfil.
 4. Os textos vêm das regras do código e dos Reels já aprovados. Um teste no worker confere que o exemplo de Inscrição, cada jeito de escrever a Posição e o nome de cada Time no Story são entendidos pelo leitor de comentários.
 5. `pnpm --filter @liga/renderer destaques-do-perfil <pasta> [--campeao TIME --temporada N --craque nome]` gera tudo. Sem `--campeao`, o destaque Campeões sai só com a capa.

@@ -13,7 +13,7 @@ import { iconeInstagram } from './perfilDoTime.js';
 import { COLUNAS, COR, Pincel } from './pixel.js';
 import { desenharEscudoDaLiga, veu } from './video.js';
 
-export type Destaque = 'ENTRAR' | 'FUNCIONA' | 'SITE' | 'TIMES' | 'PERFIS' | 'CAMPEOES' | 'NOVIDADES';
+export type Destaque = 'ENTRAR' | 'FUNCIONA' | 'SITE' | 'TIMES' | 'PERFIS' | 'CAMPEOES';
 
 export type Story =
   | 'ENTRAR_COMO' | 'ENTRAR_POSICOES' | 'ENTRAR_TIMES' | 'ENTRAR_DEPOIS'
@@ -31,8 +31,6 @@ export const DESTAQUES: readonly { id: Destaque; nome: string; stories: readonly
   { id: 'TIMES', nome: 'Times', stories: ['TIMES_BARRO', 'TIMES_GALHO', 'TIMES_CLASSICOS_BARRO', 'TIMES_CLASSICOS_GALHO'] },
   { id: 'PERFIS', nome: 'Perfis dos Times', stories: ['PERFIS_QUEM', 'PERFIS_REGRAS', 'PERFIS_GANHA'] },
   { id: 'CAMPEOES', nome: 'Campeões', stories: ['CAMPEOES_T1'] },
-  // Novidades: os Stories são os Reels da série de Novidades, compartilhados pelo app.
-  { id: 'NOVIDADES', nome: 'Novidades', stories: [] },
 ];
 
 /** "Perfis dos Times" → "perfis-dos-times". */
@@ -213,10 +211,6 @@ export function desenharCapaDoDestaque(ctx: CanvasRenderingContext2D, id: Destaq
     }
     case 'CAMPEOES': {
       trofeu(pin, c, c - 6, 1);
-      break;
-    }
-    case 'NOVIDADES': {
-      tabuaComTexto(pin, 'NOVO', c, c - 34, 168, 68, 54);
       break;
     }
   }
