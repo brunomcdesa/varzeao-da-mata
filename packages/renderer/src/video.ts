@@ -3,13 +3,13 @@
  * mais as cartelas de abertura e de fim e o escurecimento dos cortes.
  */
 import { ocupanteDoDesempenho } from './substituicao.js';
-import { FALA_DO_TIME, IDENTIDADE, NOME_DO_PERFIL_DO_JUIZ, TAMANHO_ESCALACAO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type ItensEquipados, type MataMataDaPartida, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, NOME_DO_PERFIL_DO_JUIZ, TAMANHO_ESCALACAO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type Grupo, type ItensEquipados, type MataMataDaPartida, type TimeId } from '@liga/shared';
 import type { Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { cenario } from './cenario.js';
 import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, faixaDeTorcida, noCampo, plaquinha, rotulo, type Camera, type OpcoesDesenho } from './desenho.js';
 import type { EstadoQuadro, Timeline } from './timeline.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste } from './pixel.js';
-import { LARGURA_ESCUDO } from './escudos.js';
+import { ALTURA_ESCUDO, LARGURA_ESCUDO } from './escudos.js';
 import type { OpcoesRoteiro, QuadroRoteiro, Roteiro, Segmento } from './roteiro.js';
 import { aparencia, itensDe, sprite, vestir } from './sprites.js';
 import { narradorDa } from './narradores.js';
@@ -21,6 +21,8 @@ export interface OpcoesVideo extends OpcoesDesenho {
   escudo?: CanvasImageSource;
   /** Partida do Mata-mata: o fim mostra quem foi pra Final ou o campeão (ADR-0048). */
   mataMata?: MataMataDaPartida | null;
+  /** Grupo da Partida na Fase de Liga (T2 em diante), mostrado na capa. */
+  grupo?: Grupo | null;
 }
 
 /** Tudo que a página do vídeo precisa para gravar uma Partida (montado pelo worker a partir do banco). */
@@ -49,6 +51,8 @@ export interface PartidaParaVideo {
   mataMata?: MataMataDaPartida | null;
   /** Última Rodada da Fase de Liga (ADR-0053). */
   briga?: BrigaPeloMataMata | null;
+  /** Grupo da Partida (Fase de Liga com Grupos), para a capa. */
+  grupo?: Grupo | null;
 }
 
 export function desenharQuadroVideo(ctx: CanvasRenderingContext2D, roteiro: Roteiro, tVideo: number, o: OpcoesVideo): QuadroRoteiro {
@@ -275,18 +279,76 @@ export function textoNaFaixa(pin: Pincel, txt: string, y: number, tamanho: numbe
 }
 
 /**
- * Capa do Reels (cover_url): a abertura completa, parada, "Time A x Time B" com os
- * escudos, descida para o centro da tela para caber no recorte 3:4 da grade do perfil.
+ * Capa do Reels (cover_url), sem placar (ADR-0106): os dois escudos grandes frente a frente, com
+ * Rodada e horário, Grupo e os selos (Clássico, jogo decisivo). Tudo o que importa fica no recorte
+ * 3:4 da grade do perfil (linhas 60 a 420), fora do canto do contador de visualizações.
  */
 export function desenharCapa(ctx: CanvasRenderingContext2D, r: ResultadoPartida, o: OpcoesVideo): void {
   const pin = new Pincel(ctx);
+  const display = o.fonteDisplay ?? FONTE_DISPLAY;
+  const texto = o.fonteTexto ?? FONTE_TEXTO;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(cenario(), 0, 0, COLUNAS * pin.px, LINHAS * pin.px);
-  veu(pin, 0.84);
+  veu(pin, 0.86);
+  const cx = COLUNAS / 2;
+  // O bloco todo desce para ficar no meio do recorte 3:4 (centro na linha 240).
   ctx.save();
-  ctx.translate(0, 50 * pin.px);
-  desenharAbertura(pin, r, 0.6, 0, o, false);
+  ctx.translate(0, 28 * pin.px);
+
+  pin.placa(cx - 66, 66, 132, 20, { fundo: COR.amarelo, sombra: '#C99500' });
+  pin.texto('Melhores momentos', cx, 76, pin.caber('Melhores momentos', 120, 15, display), display, COR.tinta);
+  if (o.escudo) desenharEscudoDaLiga(pin, o.escudo, cx, 114, 36);
+
+  const linha = linhaDaCapa(o.subtitulo);
+  if (linha) pin.texto(linha, cx, 148, pin.caber(linha, 240, 26, display), display, COR.amarelo, { contorno: COR.mata });
+  if (o.grupo) pin.texto(NOME_DO_GRUPO[o.grupo], cx, 170, 11, texto, COR.placa, { peso: 700 });
+
+  const escala = 4;
+  const w = LARGURA_ESCUDO * escala;
+  const topo = 188;
+  (['mandante', 'visitante'] as const).forEach((lado, i) => {
+    const x = i === 0 ? 24 : COLUNAS - 24 - w;
+    desenharEscudo(pin, r.times[lado], x, topo, escala);
+    const nome = FALA_DO_TIME[r.times[lado]].curto;
+    pin.texto(nome, x + w / 2, topo + ALTURA_ESCUDO * escala + 14, pin.caber(nome, 112, 22, display), display, '#FFFFFF', { contorno: COR.mata });
+  });
+  const meio = topo + (ALTURA_ESCUDO * escala) / 2;
+  pin.placa(cx - 15, meio - 12, 30, 24, { fundo: COR.placa, luz: '#FFF8E6', sombra: COR.placaSombra });
+  pin.texto('x', cx, meio - 1, 20, display, COR.tinta);
+
+  const selos = selosDaCapa(r, o);
+  if (selos.length) {
+    const tam = 15;
+    pin.ctx.font = `400 ${tam * pin.px}px ${display}`;
+    const ws = selos.map((s) => Math.min(250 / selos.length - 4, Math.ceil(pin.ctx.measureText(s).width / pin.px) + 16));
+    let x = cx - (ws.reduce((a, b) => a + b, 0) + (ws.length - 1) * 8) / 2;
+    selos.forEach((s, k) => {
+      pin.placa(x, 322, ws[k]!, 22, { fundo: COR.amarelo, sombra: '#C99500' });
+      pin.texto(s, x + ws[k]! / 2, 333, pin.caber(s, ws[k]! - 10, tam, display), display, COR.tinta);
+      x += ws[k]! + 8;
+    });
+  }
   ctx.restore();
+
+  // Fora do recorte da grade: aparece só na capa inteira do Reels.
+  pin.texto(`Narração: ${narradorDa(r.seed).nome}`, cx, 438, 10, texto, COR.placa, { peso: 600 });
+  if (r.juiz) pin.texto(`Juiz: ${NOME_DO_PERFIL_DO_JUIZ[r.juiz]}`, cx, 452, 10, texto, r.juiz === 'RIGOROSO' ? '#FF6B5B' : r.juiz === 'DEIXA_JOGAR' ? '#3DDC64' : COR.placa, { peso: 600 });
+}
+
+/** "Rodada 5, jogo das 17h" vira "Rodada 5 · 17h" na capa; o Mata-mata fica como está. */
+export function linhaDaCapa(subtitulo: string | undefined): string | null {
+  if (!subtitulo) return null;
+  return subtitulo.replace(/, jogo das (\d+h)$/, ' · $1');
+}
+
+/** Selos da capa: Clássico e, quando a Partida decide algo de verdade, o que ela vale. */
+export function selosDaCapa(r: ResultadoPartida, o: Pick<OpcoesVideo, 'mataMata' | 'briga'>): string[] {
+  const selos: string[] = [];
+  if (r.classico) selos.push('Clássico');
+  const mm = o.mataMata;
+  if (mm) selos.push(mm.etapa === 'FINAL' ? 'Vale o título' : mm.copa ? 'Mata-mata' : 'Vale a Final');
+  else if (o.briga) selos.push('Vale a Semifinal');
+  return selos;
 }
 
 function desenharAbertura(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number, o: OpcoesVideo, comVeu = true): void {

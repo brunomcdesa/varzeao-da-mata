@@ -58,6 +58,8 @@ const { values: args } = parseArgs({
     serie: { type: 'string' },
     /** Última Rodada (ADR-0053): usa a Briga de exemplo (Arara e Capivara garantidas, 16h e 18h depois). */
     briga: { type: 'boolean' },
+    /** Grupo da Partida (CHAO = Barro, COPA = Galho), mostrado na capa (ADR-0106). */
+    grupo: { type: 'string' },
   },
 });
 
@@ -112,6 +114,7 @@ async function main(): Promise<void> {
     }
     partida.mataMata = { etapa, temporada: Number(args.temporada), serie: args.serie === 'A' || args.serie === 'B' ? args.serie : null };
   }
+  if (args.grupo === 'CHAO' || args.grupo === 'COPA') partida.grupo = args.grupo;
   if (args.briga) {
     const l = (time: TimeId, pontos: number, vitorias: number, saldo: number) => ({ time, pontos, vitorias, saldo, golsPro: 10 + saldo });
     partida.briga = {
