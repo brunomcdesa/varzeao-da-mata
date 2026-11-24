@@ -38,7 +38,7 @@ export function timesComAviso(): TimeId[] | null {
   }
 }
 
-/** O Vínculo deste navegador (meuPersonagem.ts), para os Avisos pessoais (ADR-0110). */
+/** O Vínculo deste navegador (meuPersonagem.ts), para os Avisos pessoais (ADR-0111). */
 function vinculo(): { sessao: string; jogadorId: string } | null {
   try {
     const v = JSON.parse(localStorage.getItem('varzeao:vinculo') ?? 'null') as { sessao?: string; jogadorId?: string } | null;
@@ -90,7 +90,7 @@ export async function ativarAvisos(times: TimeId[]): Promise<void> {
 }
 
 /**
- * Avisos pessoais (ADR-0110): quem já tinha os Avisos ligados e fez o Vínculo depois passa a
+ * Avisos pessoais (ADR-0111): quem já tinha os Avisos ligados e fez o Vínculo depois passa a
  * receber os dela (Pedido, Convite, Troca casada, Chamada). Sem toque e sem tela: só liga.
  */
 export async function ligarAvisosPessoais(): Promise<void> {

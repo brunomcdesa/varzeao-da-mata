@@ -282,55 +282,55 @@ A descida de um Time da Série A para a Série B no fim da Temporada. Os Jogador
 _Avoid_: descenso, queda, degola
 
 **Capitão**:
-O Jogador com mais Partidas por um Time, que escolhe a Postura e a Formação antes de cada Partida. Se não tiver Vínculo ou estiver suspenso, a faixa passa para o próximo com Vínculo. O dono pode pôr a faixa à mão num Jogador, que fica na frente da ordem até o dono tirar ou ele mudar de Time (ADR-0079). A partir da T3, com Técnico ativo, fica com os Batedores, os cobradores, a Chamada da Presença, a Marcação individual, o Grito da Temporada, a Braçadeira e as Sugestões; sem Técnico, decide também tudo o que seria do Técnico (ADR-0110, ADR-0111).
+O Jogador com mais Partidas por um Time, que escolhe a Postura e a Formação antes de cada Partida. Se não tiver Vínculo ou estiver suspenso, a faixa passa para o próximo com Vínculo. O dono pode pôr a faixa à mão num Jogador, que fica na frente da ordem até o dono tirar ou ele mudar de Time (ADR-0079). A partir da T3, com Técnico ativo, fica com os Batedores, os cobradores, a Chamada da Presença, a Marcação individual, o Grito da Temporada, a Braçadeira e as Sugestões; sem Técnico, decide também tudo o que seria do Técnico (ADR-0111, ADR-0112).
 _Avoid_: líder, dono do time
 
 **Técnico**:
-O seguidor que não joga e cuida de um Time a partir da T3: decide a Postura, a Formação, até 3 titulares fixados, os Pedidos de Transferência, os Convites e a Fila. Precisa da aprovação do dono e de um Vínculo de Técnico. Um Jogador vira Técnico pendurando as chuteiras (ADR-0110).
+O seguidor que não joga e cuida de um Time a partir da T3: decide a Postura, a Formação, até 3 titulares fixados, os Pedidos de Transferência, os Convites e a Fila. Precisa da aprovação do dono e de um Vínculo de Técnico. Um Jogador vira Técnico pendurando as chuteiras (ADR-0111).
 _Avoid_: treinador, professor, comandante
 
 **Pendurar as chuteiras**:
-Deixar de jogar para virar Técnico. O Jogador sai do Elenco quando o dono aprova, guarda o boneco, a Carreira, as Moedas e os Itens, e pode voltar a jogar na Janela seguinte (ADR-0110).
+Deixar de jogar para virar Técnico. O Jogador sai do Elenco quando o dono aprova, guarda o boneco, a Carreira, as Moedas e os Itens, e pode voltar a jogar na Janela seguinte (ADR-0111).
 _Avoid_: aposentar, parar
 
 **Titular fixado**:
-Um dos até 3 Jogadores que o Técnico (ou o Capitão, sem Técnico) garante no próximo jogo, mesmo sem Presença; as outras vagas seguem o rodízio (ADR-0110).
+Um dos até 3 Jogadores que o Técnico (ou o Capitão, sem Técnico) garante no próximo jogo, mesmo sem Presença; as outras vagas seguem o rodízio (ADR-0111).
 _Avoid_: titular absoluto, intocável
 
 **Sugestão do Capitão**:
-A Postura, a Formação e até 3 titulares que o Capitão sugere ao Técnico. Vale se o Técnico não decidir até o Corte (ADR-0110).
+A Postura, a Formação e até 3 titulares que o Capitão sugere ao Técnico. Vale se o Técnico não decidir até o Corte (ADR-0111).
 _Avoid_: recomendação, palpite
 
 **Pedido de Transferência**:
-A Transferência que, a partir da T3, espera o aceite do Técnico (ou do Capitão) do Time de destino: 24 horas ou até o Corte, e o silêncio vale como aceito. Recusado, não gasta a troca (ADR-0110).
+A Transferência que, a partir da T3, espera o aceite do Técnico (ou do Capitão) do Time de destino: 24 horas ou até o Corte, e o silêncio vale como aceito. Recusado, não gasta a troca (ADR-0111).
 _Avoid_: proposta, solicitação
 
 **Convite**:
-O Interesse de um Time por um Jogador de outro Time, mandado pelo Técnico (ou pelo Capitão). Aceito, o Jogador troca na hora (ADR-0110).
+O Interesse de um Time por um Jogador de outro Time, mandado pelo Técnico (ou pelo Capitão). Aceito, o Jogador troca na hora (ADR-0111).
 _Avoid_: proposta, sondagem, oferta
 
 **Troca casada**:
-Dois Jogadores da mesma Posição, em Times diferentes, trocando de lugar sem precisar de vaga. Os dois precisam aceitar (ADR-0110).
+Dois Jogadores da mesma Posição, em Times diferentes, trocando de lugar sem precisar de vaga. Os dois precisam aceitar (ADR-0111).
 _Avoid_: permuta, troca simples
 
 **Fila de espera**:
-A ordem de chegada de quem quer uma Posição cheia num Time, novato ou veterano. Quando abre a vaga, o primeiro entra ou vira Pedido (ADR-0110).
+A ordem de chegada de quem quer uma Posição cheia num Time, novato ou veterano. Quando abre a vaga, o primeiro entra ou vira Pedido (ADR-0111).
 _Avoid_: lista de espera, reserva
 
 **Marcação individual**:
-O rival de linha que o Capitão manda um zagueiro ou meia seu marcar de perto, em segredo até o Corte: mais vantagem nos duelos contra ele, mais faltas (ADR-0111).
+O rival de linha que o Capitão manda um zagueiro ou meia seu marcar de perto, em segredo até o Corte: mais vantagem nos duelos contra ele, mais faltas (ADR-0112).
 _Avoid_: marcação homem a homem, encaixe
 
 **Chamada da Presença**:
-O Aviso que o Capitão manda, uma vez por jogo, para o Elenco confirmar a Presença antes do Corte (ADR-0111).
+O Aviso que o Capitão manda, uma vez por jogo, para o Elenco confirmar a Presença antes do Corte (ADR-0112).
 _Avoid_: convocação
 
 **Grito da Temporada**:
-O Grito de guerra que o Capitão escolhe na Janela entre 3 opções, valendo a Temporada toda (ADR-0111).
+O Grito de guerra que o Capitão escolhe na Janela entre 3 opções, valendo a Temporada toda (ADR-0112).
 _Avoid_: hino, música
 
 **Braçadeira**:
-A faixa de Capitão no braço do boneco em campo (ADR-0111).
+A faixa de Capitão no braço do boneco em campo (ADR-0112).
 _Avoid_: faixa, tarja
 
 **Postura**:
@@ -342,7 +342,7 @@ A ordem dos 5 primeiros cobradores da Disputa de pênaltis, escolhida pelo Capit
 _Avoid_: cobradores, lista de pênaltis
 
 **Plano do Time**:
-A Formação, a Postura e, a partir da T3, os Batedores, os titulares fixados, os cobradores e a Marcação escolhidos para o próximo jogo, mostrados na página do Time para o Técnico e para quem tem Vínculo com um Jogador daquele Time (a Marcação fica em segredo para o rival). O Técnico e o Capitão fazem as escolhas ali. A escalação provável dessa página sai na Formação do plano. ADR-0086, ADR-0091 e ADR-0110. Antes da T3, Plano do Capitão.
+A Formação, a Postura e, a partir da T3, os Batedores, os titulares fixados, os cobradores e a Marcação escolhidos para o próximo jogo, mostrados na página do Time para o Técnico e para quem tem Vínculo com um Jogador daquele Time (a Marcação fica em segredo para o rival). O Técnico e o Capitão fazem as escolhas ali. A escalação provável dessa página sai na Formação do plano. ADR-0086, ADR-0091 e ADR-0111. Antes da T3, Plano do Capitão.
 
 **Formação**:
 O desenho do Time em campo na Temporada 2: quantos zagueiros, meias e atacantes jogam (2-2-2, 2-3-1, 3-2-1 ou 3-1-2; o goleiro é sempre um). Escolhida pelo Capitão junto da Postura, até o Corte; sem escolha, 2-2-2. As vagas da Escalação seguem a Formação. ADR-0044.

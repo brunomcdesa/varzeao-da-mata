@@ -207,7 +207,7 @@ export async function jobColetar(c: ContextoDoJob): Promise<RelatorioColeta> {
   const publicados = pendente('publicados') ? await sincronizarPublicados(c) : 0;
   const comentarios = await coletarComentarios(c);
   const resultados: RelatorioColeta['resultados'] = {};
-  // Quem tem Vínculo (ADR-0110): o Capitão só decide Pedido se tiver (a cópia guardada basta).
+  // Quem tem Vínculo (ADR-0111): o Capitão só decide Pedido se tiver (a cópia guardada basta).
   const comVinculo = await jogadoresComVinculo(c.agenda, { recarregar: false });
   const votacao = { ...(await contextoDaVotacao(c.banco)), responder: responderComentario(c), comVinculo };
   for (const com of comentarios) {
@@ -218,7 +218,7 @@ export async function jobColetar(c: ContextoDoJob): Promise<RelatorioColeta> {
   const { importados } = await sincronizarVotacao(c.banco, c.agenda, { importar: pendente('votos') });
   const pedidosDoSite = await processarPedidosDoSite(c.banco, c.agenda, agoraDe(c), pendente);
   const arquivosDoSite = await publicarSite(c, { recarregarVinculos: pendente('vinculos') });
-  // Avisos pessoais (ADR-0110) na fila: a borda manda no minuto seguinte.
+  // Avisos pessoais (ADR-0111) na fila: a borda manda no minuto seguinte.
   if (houveAvisoPessoal()) await c.agenda.gravar(CHAVE_AVISO_PESSOAL, '1', { validadeS: 86400 });
   const rel = { comentarios: comentarios.length, resultados, votosDoSite: importados, pedidosDoSite, publicados, arquivosDoSite };
   logDe(c)(`coletar: ${JSON.stringify(rel)}`);
@@ -226,7 +226,7 @@ export async function jobColetar(c: ContextoDoJob): Promise<RelatorioColeta> {
 }
 
 /**
- * Técnico e Interesse (ADR-0110): Pedidos sem resposta no prazo valem como aceitos, Convites
+ * Técnico e Interesse (ADR-0111): Pedidos sem resposta no prazo valem como aceitos, Convites
  * expiram, Trocas casadas acontecem, a Fila chama quem tem vaga, e o Técnico sem decisão em 3
  * jogos sai. Quem pediu por comentário recebe a resposta lá.
  */

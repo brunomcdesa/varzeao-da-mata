@@ -21,7 +21,7 @@ O Capitão continua sendo o Jogador com mais Partidas pelo Time. Com Técnico at
 
 - a Braçadeira no boneco em campo e o selo na Carreira (com ou sem Técnico);
 - os Batedores, e com eles o pênalti durante a Partida (bate o primeiro Batedor em campo);
-- os cobradores de escanteio (1 e 1 reserva), a Chamada da Presença, a Marcação individual e o Grito da Temporada (ADR-0111);
+- os cobradores de escanteio (1 e 1 reserva), a Chamada da Presença, a Marcação individual e o Grito da Temporada (ADR-0112);
 - as Sugestões: Postura, Formação e até 3 titulares (nunca ele mesmo), que o Técnico vê antes de decidir. Se o Técnico não decidir até o Corte, vale a Sugestão.
 
 Sem Técnico, o Capitão com Vínculo decide tudo o que seria do Técnico, com os mesmos prazos, com duas travas: Pedido ou Troca casada na Posição dele não passa por ele (vale o prazo e depois o aceite), e ele nunca fixa a si mesmo como titular.
@@ -34,7 +34,7 @@ Sem Técnico, o Capitão com Vínculo decide tudo o que seria do Técnico, com o
 - **Posição cheia:** o Pedido nem chega ao Técnico, não gasta a troca e a resposta lista os Times com vaga. No site, a Posição aparece travada, e ninguém convida para ela.
 - **Troca casada:** dois Jogadores da mesma Posição, em Times diferentes, trocam de lugar sem precisar de vaga. Propõe o Jogador ou o Técnico. Os dois Jogadores precisam aceitar de forma explícita, e os Técnicos (ou Capitães) têm o prazo, com silêncio valendo como aceito. Só com Vínculo, até 3 propostas abertas por pessoa, cada uma valendo 24 horas ou até o Corte. Gasta a troca de cada um; quem já gastou não pode propor nem receber.
 - **Fila de espera:** quem pede uma Posição cheia entra na fila do Time e da Posição, em ordem de chegada, numa fila por vez. Novato e veterano dividem a mesma fila. Quando abre a vaga, o novato entra direto e o veterano vira Pedido; se o Técnico recusar, sobe o próximo. A fila vale até o fim da Janela ou da Temporada, e cada um vê a sua vez no site.
-- **Avisos:** Aviso no App para o Técnico (Pedido novo) e para o Jogador (Convite, Troca casada e resposta), quando o aparelho tem Vínculo e Avisos ligados; tudo também fica no painel. Pedido feito por comentário é respondido no comentário. Como funciona: o aparelho ganha o dono quando os Avisos são ligados com Vínculo (ou na abertura do App, se o Vínculo veio depois); cada Aviso entra na fila `aviso_pessoal` e o worker marca `aviso/pessoal` no KV; o cron da borda só abre o banco quando há a marca (o banco não acorda a cada minuto). Os pessoais não se substituem na bandeja. A Chamada da Presença do Capitão (ADR-0111) usa a mesma fila.
+- **Avisos:** Aviso no App para o Técnico (Pedido novo) e para o Jogador (Convite, Troca casada e resposta), quando o aparelho tem Vínculo e Avisos ligados; tudo também fica no painel. Pedido feito por comentário é respondido no comentário. Como funciona: o aparelho ganha o dono quando os Avisos são ligados com Vínculo (ou na abertura do App, se o Vínculo veio depois); cada Aviso entra na fila `aviso_pessoal` e o worker marca `aviso/pessoal` no KV; o cron da borda só abre o banco quando há a marca (o banco não acorda a cada minuto). Os pessoais não se substituem na bandeja. A Chamada da Presença do Capitão (ADR-0112) usa a mesma fila.
 
 ## Ajustes
 

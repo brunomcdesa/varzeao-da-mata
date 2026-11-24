@@ -1,4 +1,4 @@
-# Técnico do Time (ADR-0110): aprova quem pediu (na DM ou pelo site, pendurando as chuteiras) e
+# Técnico do Time (ADR-0111): aprova quem pediu (na DM ou pelo site, pendurando as chuteiras) e
 # manda o link de Vínculo na DM; sem @, tira o Técnico do Time. O link não aparece no log (o
 # repositório é público). Só à mão: Actions → tecnico → Run workflow.
 name: tecnico

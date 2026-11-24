@@ -166,7 +166,7 @@ export async function enviarEscolhaDoVinculo(tipo: TipoDeEscolha, valor: string 
 }
 
 /**
- * Painel do Time e Mercado (ADR-0110) de quem tem Vínculo neste navegador: o guardado na hora
+ * Painel do Time e Mercado (ADR-0111) de quem tem Vínculo neste navegador: o guardado na hora
  * (`guardado`) e a resposta da borda depois. `novo`: pede de novo, sem a resposta recente.
  */
 export function painelGuardado(): { jogadorId: string; painel: PainelDoTime | null; mercado: MercadoDoJogador | null } | null {

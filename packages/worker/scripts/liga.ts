@@ -13,7 +13,7 @@
  *   USUARIO=fulano OVR=72 pnpm liga ovr [--gravar]  OVR à mão (ADR-0079): todas as Habilidades na mesma proporção
  *   USUARIO=fulano pnpm liga vincular-conta        liga o Jogador da DM (id provisório) à conta do Instagram
  *   USUARIO=fulano pnpm liga link-de-vinculo       manda na DM um link que vincula o navegador ao Jogador (ADR-0082)
- *   USUARIO=fulano TIME=onca pnpm liga tecnico [--gravar]  aprova o Técnico do Time e manda o link de Vínculo na DM (ADR-0110)
+ *   USUARIO=fulano TIME=onca pnpm liga tecnico [--gravar]  aprova o Técnico do Time e manda o link de Vínculo na DM (ADR-0111)
  *   TIME=onca pnpm liga tecnico [--gravar]          tira o Técnico do Time
  *   pnpm liga webhook-mensagens [--gravar]         mostra (e com --gravar faz) a inscrição da conta no webhook `messages` (ADR-0083)
  *   pnpm liga corrigir-trocas-de-posicao            devolve o OVR de quem trocou de posição pela regra antiga (ADR-0030)
@@ -467,7 +467,7 @@ async function main(): Promise<void> {
       }
 
       case 'tecnico': {
-        // Técnico (ADR-0110): com USUARIO, aprova (o primeiro pedido de cada Time) e manda o link
+        // Técnico (ADR-0111): com USUARIO, aprova (o primeiro pedido de cada Time) e manda o link
         // de Vínculo na DM; sem USUARIO, tira o Técnico do Time. Sem --gravar, só mostra.
         const usuario = (process.env.USUARIO ?? '').replace(/^@/, '').trim();
         const time = citacoes(process.env.TIME ?? '').times[0];

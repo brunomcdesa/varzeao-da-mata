@@ -196,7 +196,7 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
           return { resultado: r.resultado, mensagem: m.charAt(0).toUpperCase() + m.slice(1) };
         }),
       );
-      // Avisos pessoais na fila (ADR-0110): o cron manda no minuto seguinte.
+      // Avisos pessoais na fila (ADR-0111): o cron manda no minuto seguinte.
       if (houveAvisoPessoal()) await env.AGENDA.put(CHAVE_AVISO_PESSOAL, '1', { expirationTtl: 86400 });
       return r;
     },
@@ -204,7 +204,7 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
       if (!env.DATABASE_URL) return null;
       const b = bancoDeLeitura(env.DATABASE_URL);
       const vinculos = comVinculo(env);
-      // Capitania, Painel do Time e Mercado (ADR-0110) ao mesmo tempo.
+      // Capitania, Painel do Time e Mercado (ADR-0111) ao mesmo tempo.
       const [capitania, painel, mercado] = await Promise.all([
         capitaniaDoJogador(b, jogadorId, agora, () => vinculos),
         vinculos.then((v) => painelDoTime(b, jogadorId, agora, v)).catch(() => null),

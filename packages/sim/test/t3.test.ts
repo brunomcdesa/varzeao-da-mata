@@ -186,7 +186,7 @@ describe('Batedores escolhidos pelo Capitão (ADR-0091)', () => {
   });
 });
 
-describe('Capitão em campo (ADR-0111)', () => {
+describe('Capitão em campo (ADR-0112)', () => {
   const com = (seed: number, t3: Omit<NonNullable<EntradaPartida['t3']>, 'juiz'>) => simularPartida({ ...entrada(seed), t3: { juiz: 'NORMAL', ...t3 } });
   const id = (r: ResultadoPartida, s: { lado: 'mandante' | 'visitante'; indice: number }) => (s.lado === 'mandante' ? a : b).jogadores[s.indice]!.jogadorId;
 

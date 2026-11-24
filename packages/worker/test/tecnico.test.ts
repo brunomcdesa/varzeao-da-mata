@@ -39,7 +39,7 @@ afterEach(async () => {
   await banco.fechar();
 });
 
-describe('Técnico (ADR-0110)', () => {
+describe('Técnico (ADR-0111)', () => {
   it('o seguidor aprovado vira Técnico fora do Elenco; o Time passa a ter quem decide', async () => {
     const a = await aprovarTecnico(banco, { username: 'seu.tonho', time: 'ONC', agora: PRE, naJanela: true });
     expect(a).toMatchObject({ novo: true, pendurou: false });
@@ -85,7 +85,7 @@ describe('Técnico (ADR-0110)', () => {
   });
 });
 
-describe('Pedido de Transferência (ADR-0110)', () => {
+describe('Pedido de Transferência (ADR-0111)', () => {
   it('com Técnico no destino, o TRANSFERIR vira Pedido; recusado não gasta a troca', async () => {
     await comentar('gabi', 'ENTRO Tatu meia');
     const tec = await aprovarTecnico(banco, { username: 'seu.tonho', time: 'ONC', agora: PRE, naJanela: true });
@@ -126,7 +126,7 @@ describe('Pedido de Transferência (ADR-0110)', () => {
   });
 });
 
-describe('Fila de espera, Convite e Troca casada (ADR-0110)', () => {
+describe('Fila de espera, Convite e Troca casada (ADR-0111)', () => {
   it('Posição cheia: o veterano entra na Fila e é chamado quando abre vaga', async () => {
     for (let k = 0; k < 4; k++) await comentar(`ata${k}`, 'ENTRO Onça atacante');
     await comentar('gabi', 'ENTRO Tatu atacante');
@@ -164,7 +164,7 @@ describe('Fila de espera, Convite e Troca casada (ADR-0110)', () => {
   });
 });
 
-describe('Plano do Time com Técnico (ADRs 0110 e 0111)', () => {
+describe('Plano do Time com Técnico (ADRs 0111 e 0112)', () => {
   it('o Técnico decide; com Técnico, o Capitão sugere e a Sugestão vale no que ele não decidiu', async () => {
     const { aplicarEscolha } = await import('../src/temporada2.js');
     const { planosDaPartida } = await import('../src/planoDoTime.js');

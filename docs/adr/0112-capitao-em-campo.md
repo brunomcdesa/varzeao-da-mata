@@ -1,6 +1,6 @@
 # Capitão em campo
 
-A partir da T3, o Capitão ganha influências que ficam com ele mesmo quando o Time tem Técnico (ADR-0110). Sem Capitão com Vínculo, cada uma volta ao automático.
+A partir da T3, o Capitão ganha influências que ficam com ele mesmo quando o Time tem Técnico (ADR-0111). Sem Capitão com Vínculo, cada uma volta ao automático.
 
 - **Cobradores no jogo:** o pênalti durante a Partida é batido pelo primeiro da ordem dos Batedores que estiver em campo. No escanteio, o Capitão escolhe 1 cobrador e 1 reserva entre os Jogadores de linha; sem nenhum dos dois em campo, volta o sorteio. Muda a simulação: sobe a versão da simulação da T3 (VERSAO_SIM_T3 22), que vale para os jogos escalados depois.
 - **Chamada da Presença:** um botão por jogo, até o Corte, manda Aviso no App para os Jogadores do Elenco que têm o App com Vínculo e Avisos ligados. O site mostra quantos já confirmaram.

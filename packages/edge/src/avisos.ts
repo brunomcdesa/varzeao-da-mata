@@ -250,7 +250,7 @@ export async function rodarAvisos(env: AmbienteDosAvisos, agora: Date, comBanco:
   const antes = (await env.AGENDA.get<EnvioPendente[]>(CHAVE_FILA, 'json')) ?? [];
   const novos = await avisosNovos(env, agora);
   let fila = antes;
-  // Avisos pessoais (ADR-0110): só olha o banco quando a coleta ou a borda marcou o KV.
+  // Avisos pessoais (ADR-0111): só olha o banco quando a coleta ou a borda marcou o KV.
   if ((await env.AGENDA.get(CHAVE_AVISO_PESSOAL)) !== null) {
     await env.AGENDA.delete(CHAVE_AVISO_PESSOAL);
     const pessoais = await comBanco((b) => tomarAvisosPessoais(b));
@@ -289,7 +289,7 @@ const resposta = (dados: unknown, status: number, cors: Record<string, string>) 
 
 /**
  * POST /avisos (ativar ou trocar os Times) e POST /avisos/desativar. Com `sessao` do Vínculo, o
- * aparelho também recebe os Avisos pessoais da pessoa (ADR-0110); POST /avisos/pessoa liga um
+ * aparelho também recebe os Avisos pessoais da pessoa (ADR-0111); POST /avisos/pessoa liga um
  * aparelho que já tinha os Avisos dos Times.
  */
 export async function rotaDosAvisos(

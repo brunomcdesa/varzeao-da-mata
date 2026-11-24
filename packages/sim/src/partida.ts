@@ -209,7 +209,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
   const rngCA = criarRng(((entrada.seed >>> 0) ^ 0x27d4eb2f) >>> 0);
   // Marcação dupla (VERSAO_SIM 12/13): sorteio próprio também.
   const rngDobra = criarRng(((entrada.seed >>> 0) ^ 0x165667b1) >>> 0);
-  // Marcação individual (ADR-0111): sorteio próprio, só usado quando há Marcação.
+  // Marcação individual (ADR-0112): sorteio próprio, só usado quando há Marcação.
   const rngM = criarRng(((entrada.seed >>> 0) ^ 0x27d4eb2f) >>> 0);
   /** O slot em campo (não expulso) de um Jogador, pelo id. */
   const slotDoId = (lado: Lado, id: string | undefined): SlotRef | null => {
@@ -264,7 +264,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     const defesa = outro(ataque);
     const min = Math.min(90, minuto + 1);
     const sorteado = rngBP.pick(meio(ataque));
-    // Cobrador escolhido pelo Capitão (ADR-0111): o primeiro em campo; sem nenhum, o sorteio.
+    // Cobrador escolhido pelo Capitão (ADR-0112): o primeiro em campo; sem nenhum, o sorteio.
     const escolhidos = (t3?.escanteio?.[ataque] ?? []).map((id) => slotDoId(ataque, id)).filter((x): x is SlotRef => !!x && posicaoDe(x) !== 'GOL');
     const cobrador = escolhidos[0] ?? sorteado;
     const finalizador = rngBP.chance(PARAMETROS.chanceZagueiroCabeceia) ? rngBP.pick(zaga(ataque)) : rngBP.pick(frente(ataque));
@@ -382,7 +382,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     const goleiro = slotsDa(defesa, 'GOL')[0]!;
 
     if (local === 'AREA') {
-      // Pênalti no jogo (ADR-0111): o primeiro Batedor em campo; sem escolha, quem finaliza melhor.
+      // Pênalti no jogo (ADR-0112): o primeiro Batedor em campo; sem escolha, quem finaliza melhor.
       const primeiroBatedor = (t3?.batedores?.[ataque] ?? []).map((id) => slotDoId(ataque, id)).find((x): x is SlotRef => !!x);
       const cobrador = primeiroBatedor ?? melhorEm(ataque, 'FIN');
       const canto = { cobrador: cantoDe(cobrador), goleiro: cantoDe(goleiro) };
@@ -663,7 +663,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
       const zagaInteira = zaga(defesa);
       const sobra = zagaInteira.length > 2 ? rngF.pick(zagaInteira) : undefined;
       const [z1, z2] = embaralharDois(rng, sobra ? zagaInteira.filter((z) => z.indice !== sobra.indice) : zagaInteira);
-      // Marcação individual (ADR-0111): o zagueiro marcador vai em quem criou, se for o alvo.
+      // Marcação individual (ADR-0112): o zagueiro marcador vai em quem criou, se for o alvo.
       const zagueiro1 = comMarcador(defesa, criador, [z1!, z2!].filter(Boolean), z1!);
       const zagueiro2 = mesmo(zagueiro1, z2) ? z1! : z2!;
 
@@ -743,7 +743,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
             ? escolherComPeso(rng, frente(ataque), (s) => mod(s, 'pesoFinalizador') || 1)
             : rng.pick(slotsDa(ataque, 'ATA'));
       const bonusMarcador = ligacao ? PARAMETROS_T2.bonusLigacao : 0;
-      // Marcação individual (ADR-0111): o zagueiro marcador vai no finalizador, se for o alvo.
+      // Marcação individual (ADR-0112): o zagueiro marcador vai no finalizador, se for o alvo.
       const marcador = mesmo(zagueiro1, zagueiro2) ? zagueiro2 : comMarcador(defesa, finalizador, [zagueiro2].filter((z) => !mesmo(z, zagueiro1)), zagueiro2);
       const goleiro = rng.pick(slotsDa(defesa, 'GOL'));
       const drible = rng.chance(limitar01(chanceDeDriblar(hab(finalizador, 'DRI'), hab(finalizador, 'FIN')) + mod(finalizador, 'escolhaDrible')));

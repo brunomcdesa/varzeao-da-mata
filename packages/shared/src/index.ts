@@ -407,7 +407,7 @@ export const GRITO_DO_TIME: Readonly<Record<TimeId, string>> = {
 };
 
 /**
- * Grito da Temporada (ADR-0111): 3 opções por Time. O Capitão escolhe uma na Janela e ela vale a
+ * Grito da Temporada (ADR-0112): 3 opções por Time. O Capitão escolhe uma na Janela e ela vale a
  * Temporada toda na faixa da Arquibancada. Sem escolha, fica o Grito de guerra de sempre.
  */
 export const GRITOS_DA_TEMPORADA: Readonly<Record<TimeId, readonly [string, string, string]>> = {

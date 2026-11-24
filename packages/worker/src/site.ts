@@ -143,7 +143,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       };
   const numeroDa = new Map(temporadas.map((t) => [t.id, t.numero]));
   const perfis = await perfisDosTimes(banco);
-  // Técnico e Fila de espera (ADR-0110).
+  // Técnico e Fila de espera (ADR-0111).
   const tecnicos = new Map((await tecnicosAtivos(banco)).map((t) => [t.time, t]));
   const filas = new Map<string, Partial<Record<Posicao, number>>>();
   for (const f of (await banco.query<{ time_id: TimeId; posicao: Posicao; n: string }>(`SELECT time_id, posicao, count(*) AS n FROM fila_espera WHERE status = 'ESPERANDO' GROUP BY time_id, posicao`)).rows) {
@@ -650,7 +650,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   arquivos.set('jogadores.json', [...porJogador.values()]);
 
   const elencos = await tamanhoDosElencos(banco);
-  // Grito da Temporada (ADR-0111): opção de cada Time em cada Temporada.
+  // Grito da Temporada (ADR-0112): opção de cada Time em cada Temporada.
   const gritosEscolhidos = new Map(
     (await banco.query<{ temporada_id: number; time_id: TimeId; opcao: number }>(`SELECT temporada_id, time_id, opcao FROM grito_da_temporada`)).rows.map((g) => [`${g.temporada_id}:${g.time_id}`, g.opcao]),
   );

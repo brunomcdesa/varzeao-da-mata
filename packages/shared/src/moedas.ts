@@ -20,7 +20,7 @@ export const MOEDAS = {
   TITULO_A: 50,
   TITULO_B: 30,
   TITULO_COPA: 40,
-  /** Técnico (ADR-0110): por vitória do Time dele. */
+  /** Técnico (ADR-0111): por vitória do Time dele. */
   VITORIA_DO_TECNICO: 3,
   BONUS_POR_TEMPORADA: 20,
   PALPITE_RESULTADO: 2,

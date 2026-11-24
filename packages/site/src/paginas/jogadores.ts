@@ -239,7 +239,7 @@ export const paginaJogador: Pagina = async (main, [id]) => {
   const [todos, l] = await Promise.all([jogadores(), liga()]);
   const j = todos.find((x) => x.id === id);
   if (!j) {
-    // Técnico (ADR-0110): fora do Elenco, a página dele leva ao Time que ele cuida.
+    // Técnico (ADR-0111): fora do Elenco, a página dele leva ao Time que ele cuida.
     const cuida = l.times.find((x) => x.tecnico?.id === id);
     if (cuida?.tecnico) {
       const nome = cuida.tecnico.apelido ?? `@${cuida.tecnico.username}`;
@@ -332,7 +332,7 @@ export const paginaJogador: Pagina = async (main, [id]) => {
     if (v) location.hash = `#/comparar/${j.id}/${v}`;
   });
   // Transferência só para os Times que jogam a Temporada (com a Série B, os 16).
-  // T3 (ADR-0110): os Convites e Trocas casadas que chegaram, só para o dono.
+  // T3 (ADR-0111): os Convites e Trocas casadas que chegaram, só para o dono.
   const lugarDoMercado = main.querySelector<HTMLElement>('[data-mercado]');
   if (lugarDoMercado && jogadorVinculado() === j.id && temRegrasT3(temporadaDoApp(l) ?? 0)) ligarMercado(lugarDoMercado, j.id);
   return ligarMeuPersonagem(main, j, todos, timesAtivos(l), temRegrasT2(temporadaDoApp(l) ?? 0), temMoedas(temporadaDoApp(l) ?? 0));

@@ -51,7 +51,7 @@ export type EscolhaDaT2 =
   | { tipo: 'PALPITE'; valor: string }
   /** Loja (ADR-0101): código do Item (comprar ou equipar) ou o Encaixe (tirar). */
   | { tipo: 'COMPRA' | 'EQUIPAR' | 'TIRAR'; valor: string }
-  /** Técnico e Interesse (ADR-0110) e Capitão em campo (ADR-0111). */
+  /** Técnico e Interesse (ADR-0111) e Capitão em campo (ADR-0112). */
   | { tipo: 'FIXADOS' | 'ESCANTEIO'; valor: string[] }
   | { tipo: 'PEDIDO' | 'CONVIDAR' | 'CONVITE' | 'TROCA_PROPOR' | 'TROCA' | 'SER_TECNICO' | 'MARCACAO' | 'GRITO'; valor: string }
   | { tipo: 'SAIR_DO_CARGO' | 'CHAMADA' };
@@ -233,7 +233,7 @@ export interface CapitaniaPublica {
   batedores?: string[];
   elenco?: { id: string; nome: string; posicao: string }[];
 }
-/** A capitania sozinha, ou (T3, ADR-0110) junto do Painel do Time e do Mercado do Jogador. */
+/** A capitania sozinha, ou (T3, ADR-0111) junto do Painel do Time e do Mercado do Jogador. */
 export type ConsultarCapitania = (jogadorId: string) => Promise<CapitaniaPublica | { capitania: CapitaniaPublica | null; painel: unknown; mercado: unknown } | null>;
 
 export async function rotasDoVinculo(
@@ -393,7 +393,7 @@ export async function rotasDoVinculo(
       ]);
       const estado: Record<string, unknown> = {};
       TIPOS_DE_ESCOLHA.forEach((t, i) => (estado[t] = escolhas[i] ?? null));
-      // T3 (ADR-0110): a consulta traz também o Painel do Time e o Mercado do Jogador.
+      // T3 (ADR-0111): a consulta traz também o Painel do Time e o Mercado do Jogador.
       const junto = cap as { capitania?: unknown; painel?: unknown; mercado?: unknown } | null;
       if (junto && typeof junto === 'object' && 'painel' in junto) {
         estado.capitania = junto.capitania ?? null;

@@ -37,7 +37,7 @@ export interface EntradaPartida {
     /** Batedores escolhidos pelo Capitão (ids dos Jogadores, em ordem). Sem escolha, a ordem automática. */
     batedores?: Partial<Record<Lado, readonly string[]>>;
     /**
-     * Capitão em campo (ADR-0111, VERSAO_SIM_T3 22): cobradores de escanteio (1 e o reserva) e a
+     * Capitão em campo (ADR-0112, VERSAO_SIM_T3 22): cobradores de escanteio (1 e o reserva) e a
      * Marcação individual (o lado que marca: um zagueiro ou meia seu num rival de linha). O
      * pênalti no jogo é do primeiro Batedor em campo.
      */
