@@ -38,6 +38,7 @@ import { RoteiroAgradecimentoT1, desenharQuadroAgradecimentoT1, type DadosDoAgra
 import { RoteiroRebalanceamentoT2, desenharQuadroRebalanceamentoT2, type DadosDoRebalanceamentoT2 } from '../src/rebalanceamentoT2.js';
 import { RoteiroPerfilDoTime, desenharQuadroPerfilDoTime, type DadosDoPerfilDoTime } from '../src/perfilDoTime.js';
 import { RoteiroMudancaDeEndereco, desenharQuadroMudancaDeEndereco } from '../src/mudancaDeEndereco.js';
+import { desenharCapaDoDestaque, desenharStory, type CampeaoNoDestaque, type Destaque, type Story } from '../src/destaquesDoPerfil.js';
 import { Roteiro, Timeline, desenharCapa, desenharQuadroVideo, type OpcoesVideo, type PartidaParaVideo } from '../src/index.js';
 
 const FONTES: [string, string, string][] = [
@@ -431,5 +432,21 @@ function escudoPng(time: TimeId, escala: number): string {
   return c.toDataURL('image/png').slice('data:image/png;base64,'.length);
 }
 
-const api: VarzeaApi = { preparar, prepararResumo, prepararApresentacao, prepararAberturaDaTemporada, prepararAnuncio, prepararExplicacao, prepararExplicacaoOvr, prepararAgradecimentoT1, prepararRebalanceamentoT2, prepararNovidades, prepararPerfilDoTime, prepararMudancaDeEndereco, desenhar, capturar, capa, segmentos, escudoPng, times: () => [...TIMES] };
+/** Capa de destaque num canvas quadrado próprio (o do vídeo é 9:16). */
+async function capaDoDestaque(id: Destaque): Promise<string> {
+  await Promise.all([fontesProntas, escudoPronto]);
+  const c = document.createElement('canvas');
+  c.width = 1080;
+  c.height = 1080;
+  desenharCapaDoDestaque(c.getContext('2d')!, id, { escudo });
+  return c.toDataURL('image/png').slice('data:image/png;base64,'.length);
+}
+
+async function storyDoDestaque(story: Story, campeao?: CampeaoNoDestaque): Promise<string> {
+  await Promise.all([fontesProntas, escudoPronto]);
+  desenharStory(ctx, story, { escudo, ...(campeao ? { campeao } : {}) });
+  return canvas.toDataURL('image/jpeg', 0.95).slice('data:image/jpeg;base64,'.length);
+}
+
+const api: VarzeaApi = { preparar, prepararResumo, prepararApresentacao, prepararAberturaDaTemporada, prepararAnuncio, prepararExplicacao, prepararExplicacaoOvr, prepararAgradecimentoT1, prepararRebalanceamentoT2, prepararNovidades, prepararPerfilDoTime, prepararMudancaDeEndereco, desenhar, capturar, capa, segmentos, escudoPng, capaDoDestaque, storyDoDestaque, times: () => [...TIMES] };
 window.varzea = api;

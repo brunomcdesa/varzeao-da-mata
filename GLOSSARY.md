@@ -396,6 +396,10 @@ Quando os dois zagueiros vão juntos no mesmo finalizador. O Duelo fica mais dif
 
 ### Espetáculo
 
+**Destaque do perfil**:
+Cada bolinha fixa no perfil do Instagram da Liga (Como entrar, Como funciona, Site e App, Times, Perfis dos Times e Campeões), com capa própria e Stories estáticos que explicam a Liga. ADR-0108.
+_Avoid_: highlight, story fixo (e não confundir com a Seleção da Rodada nem com o Craque da Rodada)
+
 **App**:
 O site da Liga instalado no celular (PWA), com ícone na tela inicial e tela cheia. É o mesmo site, não um aplicativo de loja (ADR-0040).
 _Avoid_: aplicativo, app nativo, baixar da loja

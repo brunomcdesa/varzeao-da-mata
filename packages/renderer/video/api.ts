@@ -13,6 +13,7 @@ import type { DadosDoAgradecimentoT1 } from '../src/agradecimentoT1.js';
 import type { DadosDoRebalanceamentoT2 } from '../src/rebalanceamentoT2.js';
 import type { DadosDasNovidades } from '../src/novidades.js';
 import type { DadosDoPerfilDoTime } from '../src/perfilDoTime.js';
+import type { CampeaoNoDestaque, Destaque, Story } from '../src/destaquesDoPerfil.js';
 
 export interface VarzeaApi {
   preparar(dados: PartidaParaVideo, fps?: number): Promise<{ duracao: number; totalQuadros: number }>;
@@ -34,6 +35,9 @@ export interface VarzeaApi {
   capa(qualidade?: number): string;
   segmentos(): { tipo: string; inicio: number; fim: number; resolucao?: number }[];
   escudoPng(time: TimeId, escala: number): string;
+  /** Destaques do perfil (ADR-0108): capa (PNG 1080 × 1080) ou Story (JPEG 1080 × 1920), em base64. */
+  capaDoDestaque(id: Destaque): Promise<string>;
+  storyDoDestaque(story: Story, campeao?: CampeaoNoDestaque): Promise<string>;
   times(): TimeId[];
 }
 
