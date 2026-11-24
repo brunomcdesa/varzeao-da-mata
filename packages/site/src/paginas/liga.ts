@@ -103,7 +103,7 @@ export const paginaJogos: Pagina = async (main, params) => {
             }),
           ],
           // Depois da Fase de Liga, o Mata-mata é o que importa; antes, a Rodada da vez.
-          rodadas.includes(daVez ?? -1) ? `r${daVez}` : l.calendario.some((p) => p.fase === 'MATA_MATA') ? 'chave' : `r${rodadas[0]}`,
+          rodadas.includes(daVez ?? -1) ? `r${daVez}` : l.calendario.some((p) => p.fase === 'MATA_MATA' && !p.copa) ? 'chave' : `r${rodadas[0]}`,
         )}</div>`
       : html`<p class="placa vazio">A Temporada ainda não tem jogos marcados.</p>`}`.s;
   // No computador, a página desce até a Rodada da vez (no celular, ela é a subaba aberta).

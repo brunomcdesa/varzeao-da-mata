@@ -4472,32 +4472,35 @@ a.jogo:hover {
   }
 }
 
-/* Sub-abas de Jogos (Liga e Copa): uma tábua com duas placas, como o menu. */
+/* Liga ou Copa em Jogos: um seletor de duas metades, acima das subabas das Rodadas e com as
+ * mesmas cores delas (ADR-0103), só que maior, porque troca a competição inteira. */
 .sub-abas {
-  display: flex;
-  gap: 4px;
-  width: fit-content;
-  margin: 4px 0 18px;
-  padding: 4px;
-  background: var(--madeira-veio), var(--madeira);
-  box-shadow: inset 0 -3px 0 var(--madeira-escura);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  max-width: 420px;
+  margin: 8px 0 4px;
+  padding: 6px;
+  background: var(--mata-media);
   clip-path: var(--canto);
 }
 .sub-abas a {
-  min-width: 96px;
-  padding: 7px 16px 5px;
-  text-align: center;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 8px 14px 6px;
   text-decoration: none;
-  font: 400 1.5rem/1 var(--display);
+  font: 400 1.375rem/1 var(--display);
   color: var(--placa);
+  clip-path: var(--canto);
 }
 .sub-abas a:hover {
-  background: rgb(0 0 0 / 0.2);
+  background: rgb(0 0 0 / 0.18);
 }
 .sub-abas a[aria-current='page'] {
-  background: var(--placa);
   color: var(--tinta);
-  clip-path: var(--canto);
+  background: var(--placa);
+  box-shadow: inset 0 -4px 0 var(--placa-sombra);
 }
 .sub-abas a:focus-visible {
   outline: 2px solid var(--amarelo);
