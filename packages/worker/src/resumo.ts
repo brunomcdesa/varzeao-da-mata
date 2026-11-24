@@ -133,7 +133,7 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
                  CROSS JOIN LATERAL jsonb_array_elements(p.resultado->'desempenhos') d
                 WHERE (p.rodada_id = c.rodada_id OR ($2 AND p.rodada_id IN (SELECT id FROM rodada WHERE temporada_id = $3)))
                   AND d->>'jogadorId' = j.id::text) AS gols
-       FROM candidato c JOIN jogador j ON j.id = c.jogador_id
+       FROM candidato c JOIN jogador_todos j ON j.id = c.jogador_id
        WHERE c.rodada_id = $1 ORDER BY c.numero NULLS LAST, c.nota DESC, j.id`,
       [rodadaId, etapaDa(r.fase, r.numero) === 'FINAL', r.temporada_id],
     )
@@ -262,7 +262,7 @@ async function anuncioDoCraque(banco: Banco, temporadaId: number, numero: number
               (SELECT coalesce(sum((d->>'gols')::int), 0) FROM partida p
                  CROSS JOIN LATERAL jsonb_array_elements(p.resultado->'desempenhos') d
                 WHERE p.rodada_id = c.rodada_id AND d->>'jogadorId' = j.id::text) AS gols
-       FROM candidato c JOIN jogador j ON j.id = c.jogador_id WHERE c.rodada_id = $1 AND c.jogador_id = $2`,
+       FROM candidato c JOIN jogador_todos j ON j.id = c.jogador_id WHERE c.rodada_id = $1 AND c.jogador_id = $2`,
       [anterior.id, eleito.id],
     )
   ).rows[0];
@@ -294,7 +294,7 @@ export async function rodadaEmVotacao(b: Banco): Promise<number | null> {
 export async function craqueDaRodada(b: Banco, rodadaId: number, serie: Serie = 'A'): Promise<{ id: string; username: string } | null> {
   const r = (
     await b.query<{ id: string; username: string }>(
-      `SELECT j.id::text AS id, j.username FROM candidato c JOIN jogador j ON j.id = c.jogador_id
+      `SELECT j.id::text AS id, j.username FROM candidato c JOIN jogador_todos j ON j.id = c.jogador_id
        LEFT JOIN voto_total v ON v.rodada_id = c.rodada_id AND v.jogador_id = c.jogador_id
        WHERE c.rodada_id = $1 AND c.serie = $2 GROUP BY j.id, j.username, c.nota ORDER BY count(v.eleitor) DESC, c.nota DESC, j.id LIMIT 1`,
       [rodadaId, serie],

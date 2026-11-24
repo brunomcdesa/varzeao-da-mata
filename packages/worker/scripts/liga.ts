@@ -12,6 +12,8 @@
  *   USUARIO=fulano OVR=72 pnpm liga ovr [--gravar]  OVR à mão (ADR-0079): todas as Habilidades na mesma proporção
  *   USUARIO=fulano pnpm liga vincular-conta        liga o Jogador da DM (id provisório) à conta do Instagram
  *   USUARIO=fulano pnpm liga link-de-vinculo       manda na DM um link que vincula o navegador ao Jogador (ADR-0082)
+ *   USUARIO=fulano TIME=onca pnpm liga tecnico [--gravar]  aprova o Técnico do Time e manda o link de Vínculo na DM (ADR-0106)
+ *   TIME=onca pnpm liga tecnico [--gravar]          tira o Técnico do Time
  *   pnpm liga webhook-mensagens [--gravar]         mostra (e com --gravar faz) a inscrição da conta no webhook `messages` (ADR-0083)
  *   pnpm liga corrigir-trocas-de-posicao            devolve o OVR de quem trocou de posição pela regra antiga (ADR-0030)
  *   pnpm liga corrigir-ovr-fora-de-posicao          devolve o OVR da Posição a quem ficou com o da vaga (ADR-0098)
@@ -71,6 +73,10 @@ import {
   tokenGuardado,
   Instagram,
   tabela,
+  aprovarTecnico,
+  tecnicoDoTime,
+  deixarCargo,
+  citacoes,
   type Banco,
   type DadosDoVideo,
 } from '../src/index.js';
@@ -437,13 +443,62 @@ async function main(): Promise<void> {
         break;
       }
 
+      case 'tecnico': {
+        // Técnico (ADR-0106): com USUARIO, aprova (o primeiro pedido de cada Time) e manda o link
+        // de Vínculo na DM; sem USUARIO, tira o Técnico do Time. Sem --gravar, só mostra.
+        const usuario = (process.env.USUARIO ?? '').replace(/^@/, '').trim();
+        const time = citacoes(process.env.TIME ?? '').times[0];
+        if (!time) throw new Error('Use: USUARIO=fulano TIME=onca pnpm liga tecnico [--gravar]  (sem USUARIO, tira o Técnico do Time)');
+        const atual = await tecnicoDoTime(banco, time);
+        if (!usuario) {
+          if (!atual) throw new Error(`O ${nomeCurto(time)} não tem Técnico.`);
+          console.log(`${args.gravar ? 'Tirando' : 'Tiraria'} @${atual.username} do cargo de Técnico do ${nomeCurto(time)}.`);
+          if (args.gravar) await banco.transacao((b) => deixarCargo(b, atual.id, 'TIRADO', new Date()));
+          break;
+        }
+        const t = (await banco.query<{ status: string; primeiro: Date | string | null }>(
+          `SELECT t.status, (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id) AS primeiro
+             FROM temporada t WHERE t.status IN ('PRE_TEMPORADA', 'EM_ANDAMENTO') ORDER BY t.status = 'EM_ANDAMENTO' DESC, t.numero LIMIT 1`,
+        )).rows[0];
+        const naJanela = !!t && (t.primeiro ? Date.now() < new Date(t.primeiro).getTime() - 20 * 60_000 : t.status === 'PRE_TEMPORADA');
+        const token = (await tokenGuardado(banco))?.token ?? process.env.IG_ACCESS_TOKEN;
+        const ig = process.env.IG_USER_ID && token ? new Instagram({ userId: process.env.IG_USER_ID, token }) : null;
+        const ultima = ig ? await ig.ultimaMensagemDe(usuario).catch(() => null) : null;
+        if (!args.gravar) {
+          console.log(`Aprovaria @${usuario} como Técnico do ${nomeCurto(time)}${atual ? ` (hoje: @${atual.username})` : ''}. ${ultima ? 'Achado na DM.' : 'Não achado na DM (o link não sairia).'} Rode com --gravar.`);
+          break;
+        }
+        const a = await banco.transacao((b) => aprovarTecnico(b, { username: usuario, igUserId: ultima?.id ?? null, time, agora: new Date(), naJanela }));
+        console.log(`@${usuario} é o Técnico do ${nomeCurto(time)}${a.pendurou ? ' (pendurou as chuteiras)' : a.novo ? ' (nunca jogou)' : ''}.`);
+        // O link de Vínculo vai na DM (nunca no log: o repositório é público).
+        const nuvem = nuvemDoAmbiente();
+        if (!nuvem || !ig || !ultima) {
+          console.log('Link de Vínculo não enviado (sem Cloudflare/Instagram ou sem mensagem recente na DM). Rode o link-de-vinculo depois.');
+          break;
+        }
+        if (Date.now() - ultima.em.getTime() > 24 * 3600_000) {
+          console.log('Passou das 24 h desde a última mensagem dele na DM: o link não pode sair. Peça uma mensagem e rode o link-de-vinculo.');
+          break;
+        }
+        const site = process.env.SITE_URL || 'https://varzeaodamata.com.br';
+        const link = await criarLinkDeVinculo(nuvem.agenda, { id: a.jogadorId, username: usuario }, { site, agora: new Date() });
+        try {
+          await ig.enviarDm(ultima.id, `Pronto, @${usuario}! Você é o Técnico do ${nomeCurto(time)}. Abra este link no celular para cuidar do Time pelo site (vale 24 h, uma vez só): ${link.url}`);
+          console.log('Link de Vínculo enviado na DM.');
+        } catch (e) {
+          await nuvem.agenda.apagar(link.chave);
+          console.log(`A DM não saiu (${(e as Error).message}). O link foi apagado; rode o link-de-vinculo depois.`);
+        }
+        break;
+      }
+
       case 'link-de-vinculo': {
         // Link de Vínculo (ADR-0082): a Liga manda na DM um link de uso único (24 h). O link
         // nunca aparece no log: o repositório é público e quem abre o link vincula o navegador.
         const usuario = (process.env.USUARIO ?? '').replace(/^@/, '').trim();
         if (!usuario) throw new Error('Use: USUARIO=fulano pnpm liga link-de-vinculo');
         const achados = (await banco.query<{ id: string; username: string }>(
-          `SELECT id::text AS id, username FROM jogador WHERE lower(username) = lower($1) AND NOT banido AND ($2::text IS NULL OR id::text = $2) ORDER BY id`, [usuario, process.env.ID || null],
+          `SELECT id::text AS id, username FROM jogador_todos WHERE lower(username) = lower($1) AND NOT banido AND ($2::text IS NULL OR id::text = $2) ORDER BY id`, [usuario, process.env.ID || null],
         )).rows;
         if (achados.length > 1) throw new Error(`Há ${achados.length} Jogadores @${usuario} (ids ${achados.map((x) => x.id).join(', ')}): informe o ID.`);
         const j = achados[0];

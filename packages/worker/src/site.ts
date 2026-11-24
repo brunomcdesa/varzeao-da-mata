@@ -162,7 +162,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   const escalacoes = (
     await banco.query<LinhaEscalacao>(
       `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.numero, e.itens, e.capitao, e.reserva, e.posicao_de_origem
-       FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id ORDER BY e.partida_id, e.lugar`,
+       FROM escalacao e LEFT JOIN jogador_todos j ON j.id = e.jogador_id ORDER BY e.partida_id, e.lugar`,
     )
   ).rows;
   const escalacoesDe = new Map<number, LinhaEscalacao[]>();
@@ -233,7 +233,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       ? (
           await banco.query<{ jogador_id: string; username: string; apelido: string | null; time_id: TimeId; posicao: Posicao; nota: string; numero: number | null; votos: string; serie: Serie }>(
             `SELECT c.jogador_id::text AS jogador_id, j.username, j.apelido, j.time_id, j.posicao, c.nota, c.numero, c.serie, count(v.eleitor) AS votos
-             FROM candidato c JOIN jogador j ON j.id = c.jogador_id
+             FROM candidato c JOIN jogador_todos j ON j.id = c.jogador_id
              LEFT JOIN voto_total v ON v.rodada_id = c.rodada_id AND v.jogador_id = c.jogador_id
              WHERE c.rodada_id = $1 GROUP BY c.jogador_id, j.username, j.apelido, j.time_id, j.posicao, c.nota, c.numero, c.serie, j.id
              ORDER BY c.numero NULLS LAST, c.nota DESC, j.id`,
@@ -708,7 +708,7 @@ async function rankingDePalpites(banco: Banco, temporadaId: number, agora: Date)
   const linhas = (
     await banco.query<{ jogador_id: string; username: string; apelido: string | null; pontos: string; acertos: string; apito: Date | string; fase: 'LIGA' | 'MATA_MATA' }>(
       `SELECT x.jogador_id::text AS jogador_id, j.username, j.apelido, x.pontos::text AS pontos, (x.pontos > 0)::int::text AS acertos, p.apito_inicial AS apito, r.fase
-       FROM palpite x JOIN partida p ON p.id = x.partida_id JOIN rodada r ON r.id = p.rodada_id JOIN jogador j ON j.id = x.jogador_id
+       FROM palpite x JOIN partida p ON p.id = x.partida_id JOIN rodada r ON r.id = p.rodada_id JOIN jogador_todos j ON j.id = x.jogador_id
        WHERE r.temporada_id = $1 AND x.pontos IS NOT NULL AND NOT j.banido`,
       [temporadaId],
     )

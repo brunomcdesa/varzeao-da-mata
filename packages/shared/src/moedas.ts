@@ -20,6 +20,8 @@ export const MOEDAS = {
   TITULO_A: 50,
   TITULO_B: 30,
   TITULO_COPA: 40,
+  /** Técnico (ADR-0106): por vitória do Time dele. */
+  VITORIA_DO_TECNICO: 3,
   BONUS_POR_TEMPORADA: 20,
   PALPITE_RESULTADO: 2,
   PALPITE_EXATO: 5,
@@ -39,6 +41,7 @@ export const TIPOS_DE_LANCAMENTO = [
   'PALPITE',
   'CONQUISTA',
   'COMPRA',
+  'VITORIA',
 ] as const;
 export type TipoDeLancamento = (typeof TIPOS_DE_LANCAMENTO)[number];
 
@@ -54,6 +57,7 @@ export const NOME_DO_LANCAMENTO: Record<TipoDeLancamento, string> = {
   PALPITE: 'Palpite',
   CONQUISTA: 'Conquista',
   COMPRA: 'Compra na Loja',
+  VITORIA: 'Vitória do Time',
 };
 
 // ---------------------------------------------------------------- Palpite (ADR-0089)

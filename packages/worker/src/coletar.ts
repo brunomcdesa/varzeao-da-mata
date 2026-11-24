@@ -15,7 +15,7 @@ import { FOLGA_DE_ELENCO, FORMACAO, OVR_INICIAL, OVR_INICIAL_DEPOIS_DA_T1, REALO
 import { normalizar } from './vocabulario.js';
 import { CORTE_MINUTOS } from './escalacao.js';
 import { marcarFundador, temporadaDeFundacao } from './expansao.js';
-import { abrirPedido, aceiteNecessario, aoChamarNovato, entrarNaFila, tecnicoQuerJogar, voltarAJogar, type AvisoDoPedido } from './tecnico.js';
+import { abrirPedido, aceiteNecessario, entrarNaFila, tecnicoQuerJogar, voltarAJogar, type AvisoDoPedido } from './tecnico.js';
 
 const CORTE_MS = CORTE_MINUTOS * 60_000;
 
@@ -711,7 +711,7 @@ async function temporadaAtualComT3(b: Banco): Promise<boolean> {
  * A Fila chamou um novato (ADR-0106): entra no Time e na Posição da Fila, como uma Inscrição
  * do dono (a vaga já foi conferida).
  */
-aoChamarNovato(async (b, n, agora): Promise<AvisoDoPedido | null> => {
+export async function inscreverDaFila(b: Banco, n: { igUserId: string; username: string; ref: string; time: TimeId; posicao: Posicao }, agora: Date): Promise<AvisoDoPedido | null> {
   let resposta = '';
   const r = await inscrever(
     b,
@@ -723,7 +723,7 @@ aoChamarNovato(async (b, n, agora): Promise<AvisoDoPedido | null> => {
   if (r !== 'INSCRITO' && r !== 'REALOCADO') return null;
   const id = (await b.query<{ id: string }>(`SELECT id::text AS id FROM jogador WHERE ig_user_id = $1`, [n.igUserId])).rows[0]?.id;
   return id ? { jogadorId: id, ref: n.ref, mensagem: resposta.replace(/^@\S+ /, '') } : null;
-});
+}
 
 async function temporadaComRegrasT3(b: Banco, temporadaId: number): Promise<boolean> {
   const t = (await b.query<{ numero: number }>(`SELECT numero FROM temporada WHERE id = $1`, [temporadaId])).rows[0];

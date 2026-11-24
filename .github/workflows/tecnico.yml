@@ -1,0 +1,46 @@
+# Técnico do Time (ADR-0106): aprova quem pediu (na DM ou pelo site, pendurando as chuteiras) e
+# manda o link de Vínculo na DM; sem @, tira o Técnico do Time. O link não aparece no log (o
+# repositório é público). Só à mão: Actions → tecnico → Run workflow.
+name: tecnico
+on:
+  workflow_dispatch:
+    inputs:
+      time:
+        description: 'Time (ex.: onca)'
+        required: true
+      usuario:
+        description: '@ de quem vira Técnico (sem o @). Vazio: tira o Técnico do Time'
+        required: false
+      gravar:
+        description: 'Aplicar (sem marcar, só mostra o que faria)'
+        type: boolean
+        default: false
+jobs:
+  tecnico:
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      IG_APP_ID: ${{ vars.IG_APP_ID }}
+      IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET_PUBLICO: ${{ vars.R2_BUCKET_PUBLICO }}
+      R2_BUCKET_PRIVADO: ${{ vars.R2_BUCKET_PRIVADO }}
+      R2_URL_PUBLICA: ${{ vars.R2_URL_PUBLICA }}
+      SITE_URL: ${{ vars.LIGA_SITE_URL || 'https://varzeaodamata.com.br' }}
+      USUARIO: ${{ inputs.usuario }}
+      TIME: ${{ inputs.time }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+      - run: pnpm liga tecnico ${{ inputs.gravar && '--gravar' || '' }}
+      # A coleta republica os dados do site (com o Técnico novo).
+      - if: ${{ inputs.gravar }}
+        run: pnpm job coletar

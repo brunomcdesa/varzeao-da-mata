@@ -34,6 +34,8 @@ ALTER TABLE postura ADD COLUMN IF NOT EXISTS tecnico_id bigint REFERENCES tecnic
 ALTER TABLE postura ADD COLUMN IF NOT EXISTS sugestao jsonb;
 ALTER TABLE postura ADD COLUMN IF NOT EXISTS escanteio jsonb;
 ALTER TABLE postura ADD COLUMN IF NOT EXISTS marcacao jsonb;
+-- Campos do Plano que o Técnico decidiu (o resto vale a Sugestão do Capitão, se houver).
+ALTER TABLE postura ADD COLUMN IF NOT EXISTS do_tecnico jsonb NOT NULL DEFAULT '[]'::jsonb;
 -- Quem fixou: a Escalação guarda que a vaga veio do Técnico (a cartela marca).
 ALTER TABLE escalacao ADD COLUMN IF NOT EXISTS fixado boolean NOT NULL DEFAULT false;
 
@@ -128,3 +130,8 @@ CREATE TABLE IF NOT EXISTS chamada_da_presenca (
   feita_em    timestamptz NOT NULL,
   PRIMARY KEY (partida_id, time_id)
 );
+
+-- Moedas do Técnico (ADR-0106): vitória do Time.
+ALTER TABLE lancamento_moedas DROP CONSTRAINT IF EXISTS lancamento_moedas_tipo_check;
+ALTER TABLE lancamento_moedas ADD CONSTRAINT lancamento_moedas_tipo_check
+  CHECK (tipo IN ('SALARIO', 'GOL', 'ASSISTENCIA', 'SELECAO_RODADA', 'CRAQUE_RODADA', 'TITULO', 'TITULO_COPA', 'BONUS_LARGADA', 'PALPITE', 'CONQUISTA', 'COMPRA', 'VITORIA'));

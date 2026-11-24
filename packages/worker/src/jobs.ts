@@ -36,6 +36,7 @@ import { rodarPartida, type DadosDoVideo } from './partida.js';
 import { craqueDaRodada, dadosDoResumo, fecharRodada, HORA_DO_RESUMO, type DadosDoResumo } from './resumo.js';
 import { exportarSite } from './site.js';
 import { jogadoresComVinculo } from './temporada2.js';
+import { conferirInatividade, resolverPrazos } from './tecnico.js';
 import { contextoDaVotacao, importarVotosDoSite, sincronizarVotacao } from './votoSite.js';
 import { processarPedidosDoSite } from './pedidosSite.js';
 import { tomarPendencias } from './pendencias.js';
@@ -204,17 +205,38 @@ export async function jobColetar(c: ContextoDoJob): Promise<RelatorioColeta> {
   const publicados = pendente('publicados') ? await sincronizarPublicados(c) : 0;
   const comentarios = await coletarComentarios(c);
   const resultados: RelatorioColeta['resultados'] = {};
-  const votacao = { ...(await contextoDaVotacao(c.banco)), responder: responderComentario(c) };
+  // Quem tem Vínculo (ADR-0106): o Capitão só decide Pedido se tiver (a cópia guardada basta).
+  const comVinculo = await jogadoresComVinculo(c.agenda, { recarregar: false });
+  const votacao = { ...(await contextoDaVotacao(c.banco)), responder: responderComentario(c), comVinculo };
   for (const com of comentarios) {
     const r = await processarComentario(c.banco, com, votacao);
     resultados[r] = (resultados[r] ?? 0) + 1;
   }
+  await prazosDoTecnico(c);
   const { importados } = await sincronizarVotacao(c.banco, c.agenda, { importar: pendente('votos') });
   const pedidosDoSite = await processarPedidosDoSite(c.banco, c.agenda, agoraDe(c), pendente);
   const arquivosDoSite = await publicarSite(c, { recarregarVinculos: pendente('vinculos') });
   const rel = { comentarios: comentarios.length, resultados, votosDoSite: importados, pedidosDoSite, publicados, arquivosDoSite };
   logDe(c)(`coletar: ${JSON.stringify(rel)}`);
   return rel;
+}
+
+/**
+ * Técnico e Interesse (ADR-0106): Pedidos sem resposta no prazo valem como aceitos, Convites
+ * expiram, Trocas casadas acontecem, a Fila chama quem tem vaga, e o Técnico sem decisão em 3
+ * jogos sai. Quem pediu por comentário recebe a resposta lá.
+ */
+async function prazosDoTecnico(c: ContextoDoJob): Promise<void> {
+  const agora = agoraDe(c);
+  const avisos = await c.banco.transacao((b) => resolverPrazos(b, agora));
+  const sairam = await c.banco.transacao((b) => conferirInatividade(b, agora));
+  const responder = responderComentario(c);
+  for (const a of avisos) {
+    if (!/^\d+$/.test(a.ref)) continue; // só comentários do Instagram têm id numérico
+    const u = (await c.banco.query<{ username: string }>(`SELECT username FROM jogador_todos WHERE id = $1`, [a.jogadorId])).rows[0];
+    if (u) await responder(a.ref, `@${u.username} ${a.mensagem}`);
+  }
+  if (avisos.length || sairam.length) logDe(c)(`Técnico: ${avisos.length} decisão(ões) de prazo${sairam.length ? `; sem Técnico por inatividade: ${sairam.join(', ')}` : ''}.`);
 }
 
 // ------------------------------------------------------------------ partida
@@ -705,7 +727,7 @@ async function numerosDoCraque(banco: Banco, temporadaId: number, finalId: numbe
               (SELECT count(*) FROM escalacao e JOIN partida p ON p.id = e.partida_id JOIN rodada r ON r.id = p.rodada_id
                 WHERE r.temporada_id = $3 AND e.jogador_id = j.id AND e.nota IS NOT NULL) AS jogos,
               (SELECT count(*) FROM voto_total v WHERE v.rodada_id = c.rodada_id AND v.jogador_id = j.id) AS votos
-       FROM candidato c JOIN jogador j ON j.id = c.jogador_id WHERE c.rodada_id = $1 AND j.id = $2`,
+       FROM candidato c JOIN jogador_todos j ON j.id = c.jogador_id WHERE c.rodada_id = $1 AND j.id = $2`,
       [finalId, jogadorId, temporadaId],
     )
   ).rows[0]!;

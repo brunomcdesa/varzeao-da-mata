@@ -49,6 +49,12 @@ export async function pagarPartida(b: Banco, partidaId: number): Promise<void> {
   if (!p?.resultado || !temMoedas(p.temporada)) return;
   const visivelEm = new Date(new Date(p.apito).getTime() + duracaoAoVivoMs(p.fase));
   const ref = `p${p.id}`;
+  // Técnico (ADR-0106): 3 por vitória do Time dele (na Copa também).
+  if (p.resultado.vencedor) {
+    const venceu = p.resultado.times[p.resultado.vencedor];
+    const tec = (await b.query<{ id: string }>(`SELECT jogador_id::text AS id FROM tecnico WHERE time_id = $1 AND status = 'ATIVO'`, [venceu])).rows[0];
+    if (tec) await lancar(b, { jogadorId: tec.id, tipo: 'VITORIA', referencia: ref, valor: MOEDAS.VITORIA_DO_TECNICO, descricao: 'Vitória do Time', visivelEm });
+  }
   for (const d of p.resultado.desempenhos) {
     if (!d.jogadorId) continue;
     if (d.gols > 0) await lancar(b, { jogadorId: d.jogadorId, tipo: 'GOL', referencia: ref, valor: d.gols * MOEDAS.GOL, descricao: d.gols === 1 ? 'Gol' : `${d.gols} gols`, visivelEm });
@@ -97,6 +103,11 @@ export async function pagarRodada(b: Banco, rodadaId: number): Promise<void> {
     )
   ).rows;
   for (const j of elenco) await lancar(b, { jogadorId: j.id, tipo: 'SALARIO', referencia: ref, valor: MOEDAS.SALARIO, descricao: 'Salário do dia', visivelEm });
+  // Técnico (ADR-0106): o mesmo Salário, pelos Times da Temporada.
+  const tecnicos = (
+    await b.query<{ id: string }>(`SELECT t.jogador_id::text AS id FROM tecnico t JOIN serie_do_time s ON s.time_id = t.time_id AND s.temporada_id = $1 WHERE t.status = 'ATIVO'`, [r.temporada_id])
+  ).rows;
+  for (const t of tecnicos) await lancar(b, { jogadorId: t.id, tipo: 'SALARIO', referencia: ref, valor: MOEDAS.SALARIO, descricao: 'Salário de Técnico', visivelEm });
   // Seleção da Rodada: a mesma conta do Resumo (por Série).
   const partidas = (await b.query<{ resultado: ResultadoPartida; serie: Serie }>(`SELECT resultado, serie FROM partida WHERE rodada_id = $1 AND resultado IS NOT NULL`, [rodadaId])).rows;
   for (const d of destaquesDaRodada(desempenhosDasPartidas(partidas, true))) {
@@ -122,11 +133,16 @@ export async function pagarTitulos(b: Banco, temporadaId: number): Promise<void>
   const visivelEm = new Date(new Date(fim).getTime() + duracaoAoVivoMs('MATA_MATA'));
   for (const [time, valor, serie] of [[t.a, MOEDAS.TITULO_A, 'A'], [t.b, MOEDAS.TITULO_B, 'B']] as const) {
     if (!time) continue;
-    for (const j of await quemJogouPor(b, temporadaId, time, false)) {
+    for (const j of [...(await quemJogouPor(b, temporadaId, time, false)), ...(await tecnicoDoTitulo(b, time))]) {
       await lancar(b, { jogadorId: j, tipo: 'TITULO', referencia: `t${temporadaId}`, valor, descricao: `Título da Série ${serie}`, visivelEm });
     }
   }
   await atualizarConquistas(b);
+}
+
+/** O Técnico ativo do Time campeão também ganha o Título (ADR-0106). */
+async function tecnicoDoTitulo(b: Banco, time: TimeId): Promise<string[]> {
+  return (await b.query<{ id: string }>(`SELECT jogador_id::text AS id FROM tecnico WHERE time_id = $1 AND status = 'ATIVO'`, [time])).rows.map((r) => r.id);
 }
 
 /** Título da Copa (ADR-0088): 40 para cada Jogador do campeão que entrou em campo na Copa. */
@@ -137,7 +153,7 @@ export async function pagarTituloDaCopa(b: Banco, temporadaId: number): Promise<
     await b.query<{ fim: Date | string }>(`SELECT max(p.apito_inicial) AS fim FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND p.copa_etapa IS NOT NULL`, [temporadaId])
   ).rows[0]!.fim;
   const visivelEm = new Date(new Date(fim).getTime() + duracaoAoVivoMs('MATA_MATA'));
-  for (const j of await quemJogouPor(b, temporadaId, t.copa, true)) {
+  for (const j of [...(await quemJogouPor(b, temporadaId, t.copa, true)), ...(await tecnicoDoTitulo(b, t.copa))]) {
     await lancar(b, { jogadorId: j, tipo: 'TITULO_COPA', referencia: `c${temporadaId}`, valor: MOEDAS.TITULO_COPA, descricao: 'Título da Copa', visivelEm });
   }
   await atualizarConquistas(b);
@@ -159,7 +175,7 @@ export async function pagarBonusDeLargada(b: Banco, agora: Date): Promise<number
   const linhas = (
     await b.query<{ id: string; numero: number }>(
       `SELECT DISTINCT e.jogador_id::text AS id, t.numero FROM escalacao e JOIN partida p ON p.id = e.partida_id JOIN rodada r ON r.id = p.rodada_id JOIN temporada t ON t.id = r.temporada_id
-       JOIN jogador j ON j.id = e.jogador_id WHERE e.jogador_id IS NOT NULL AND e.nota IS NOT NULL AND NOT j.banido`,
+       JOIN jogador_todos j ON j.id = e.jogador_id WHERE e.jogador_id IS NOT NULL AND e.nota IS NOT NULL AND NOT j.banido`,
     )
   ).rows.filter((l) => !temMoedas(l.numero));
   let pagos = 0;

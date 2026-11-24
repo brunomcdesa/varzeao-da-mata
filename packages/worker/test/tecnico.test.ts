@@ -163,3 +163,39 @@ describe('Fila de espera, Convite e Troca casada (ADR-0106)', () => {
     expect(await timeDe('tat0')).toBe('ONC');
   });
 });
+
+describe('Plano do Time com Técnico (ADRs 0106 e 0107)', () => {
+  it('o Técnico decide; com Técnico, o Capitão sugere e a Sugestão vale no que ele não decidiu', async () => {
+    const { aplicarEscolha } = await import('../src/temporada2.js');
+    const { planosDaPartida } = await import('../src/planoDoTime.js');
+    for (const u of ['cap1', 'z1', 'm1']) await comentar(u, `ENTRO Onça ${u === 'z1' ? 'zagueiro' : u === 'm1' ? 'meia' : 'atacante'}`);
+    const [cap, z1, m1] = [await idDe('cap1'), await idDe('z1'), await idDe('m1')];
+    const tec = await aprovarTecnico(banco, { username: 'seu.tonho', time: 'ONC', agora: PRE, naJanela: true });
+    const vinc = async () => new Set([cap, tec.jogadorId]);
+    expect((await aplicarEscolha(banco, tec.jogadorId, { tipo: 'FORMACAO', valor: '2-3-1' }, PRE, vinc)).ok).toBe(true);
+    expect((await aplicarEscolha(banco, tec.jogadorId, { tipo: 'FIXADOS', valor: [z1, m1] }, PRE, vinc)).ok).toBe(true);
+    // O Capitão sugere Postura e Formação: a Formação é do Técnico; a Postura vale a sugestão.
+    expect((await aplicarEscolha(banco, cap, { tipo: 'POSTURA', valor: 'OFENSIVA' }, PRE, vinc)).mensagem).toMatch(/Sugestão/);
+    await aplicarEscolha(banco, cap, { tipo: 'FORMACAO', valor: '3-2-1' }, PRE, vinc);
+    // O Capitão não fixa a si mesmo, e o Técnico não faz Presença.
+    expect((await aplicarEscolha(banco, tec.jogadorId, { tipo: 'PRESENCA' }, PRE, vinc)).ok).toBe(false);
+    const p = (await banco.query<{ id: number }>(`SELECT id FROM partida WHERE mandante_id = 'ONC' OR visitante_id = 'ONC' ORDER BY apito_inicial LIMIT 1`)).rows[0]!;
+    expect((await planosDaPartida(banco, p.id)).get('ONC')).toMatchObject({ formacao: '2-3-1', postura: 'OFENSIVA', fixados: [z1, m1] });
+    // Os Batedores continuam do Capitão.
+    expect((await aplicarEscolha(banco, cap, { tipo: 'BATEDORES', valor: [cap] }, PRE, vinc)).ok).toBe(true);
+    expect((await aplicarEscolha(banco, tec.jogadorId, { tipo: 'BATEDORES', valor: [cap] }, PRE, vinc)).ok).toBe(false);
+  });
+
+  it('o titular fixado entra mesmo sem Presença, na frente do rodízio', async () => {
+    const { aplicarEscolha } = await import('../src/temporada2.js');
+    const { escalarPartida } = await import('../src/escalacao.js');
+    for (let k = 0; k < 4; k++) await comentar(`a${k}`, 'ENTRO Onça atacante');
+    const tec = await aprovarTecnico(banco, { username: 'seu.tonho', time: 'ONC', agora: PRE, naJanela: true });
+    const ultimo = await idDe('a3');
+    await aplicarEscolha(banco, tec.jogadorId, { tipo: 'FIXADOS', valor: [ultimo] }, PRE, async () => new Set());
+    const p = (await banco.query<{ id: number }>(`SELECT id FROM partida WHERE mandante_id = 'ONC' OR visitante_id = 'ONC' ORDER BY apito_inicial LIMIT 1`)).rows[0]!;
+    await escalarPartida(banco, p.id);
+    const r = (await banco.query<{ fixado: boolean; reserva: boolean }>(`SELECT fixado, reserva FROM escalacao WHERE partida_id = $1 AND jogador_id = $2`, [p.id, ultimo])).rows[0];
+    expect(r).toMatchObject({ fixado: true, reserva: false });
+  });
+});

@@ -603,15 +603,6 @@ export async function vezNaFila(b: Banco, igUserId: string): Promise<number> {
 
 /** Quem a Fila chama agora: veterano vira Pedido (ou troca direto sem decisor); novato entra. */
 export type ChamadaDaFila = { novato: { igUserId: string; username: string; ref: string; time: TimeId; posicao: Posicao } } | AvisoDoPedido;
-type InscreverNovato = (b: Banco, n: { igUserId: string; username: string; ref: string; time: TimeId; posicao: Posicao }, agora: Date) => Promise<AvisoDoPedido | null>;
-// `var` sem valor inicial: a coleta registra isto ao carregar, e o import circular pode rodar antes.
-// eslint-disable-next-line no-var
-var inscreverNovatoDaFila: InscreverNovato | undefined;
-/** A coleta registra aqui como inscrever o novato chamado pela Fila (evita import circular). */
-export function aoChamarNovato(f: InscreverNovato): void {
-  inscreverNovatoDaFila = f;
-}
-
 /** Chama o primeiro da Fila de cada Time e Posição que tem vaga. */
 async function chamarFila(b: Banco, agora: Date): Promise<AvisoDoPedido[]> {
   // A Fila expira com a Temporada: quem esperou noutra Temporada sai.
@@ -632,7 +623,8 @@ async function chamarFila(b: Banco, agora: Date): Promise<AvisoDoPedido[]> {
     if (!prox) continue;
     await b.query(`UPDATE fila_espera SET status = 'CHAMADO' WHERE id = $1`, [prox.id]);
     if (!prox.jogador_id) {
-      const a = await inscreverNovatoDaFila?.(b, { igUserId: prox.ig_user_id, username: prox.username, ref: prox.ref, time: g.time_id, posicao: g.posicao }, agora);
+      const { inscreverDaFila } = await import('./coletar.js');
+      const a = await inscreverDaFila(b, { igUserId: prox.ig_user_id, username: prox.username, ref: prox.ref, time: g.time_id, posicao: g.posicao }, agora);
       if (a) avisos.push(a);
       continue;
     }
