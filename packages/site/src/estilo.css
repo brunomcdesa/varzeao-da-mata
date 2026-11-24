@@ -49,11 +49,17 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* A Pixelify junta "fi" e "fl" numa ligadura que parece um "A" ("Semifinal" virava "SemiAnal").
+ * Em todo elemento e com !important, porque o atalho `font:` volta a ligar a ligadura. */
+*,
+*::before,
+*::after {
+  font-variant-ligatures: none !important;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
-  /* A Pixelify junta "fi" e "fl" numa ligadura que parece um "A" ("Semifinal" virava "SemiAnal"). */
-  font-variant-ligatures: none;
   display: flex;
   flex-direction: column;
   background-color: var(--mata);
