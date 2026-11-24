@@ -190,7 +190,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
     visitante: elenco.visitante.map(zeradas),
   };
   const conta = (s: SlotRef): Contadores => contadores[s.lado][quem(s)]!;
-  /** Ações principais protegem (ADR-0104, da T2 em diante): proteção juntada pela Posição da vaga. */
+  /** Ações principais protegem (ADR-0105, da T2 em diante): proteção juntada pela Posição da vaga. */
   const protecao: Record<Lado, number[]> = {
     mandante: elenco.mandante.map(() => 0),
     visitante: elenco.visitante.map(() => 0),

@@ -39,7 +39,7 @@ Cada uma das cinco notas de 1 a 99 que descrevem o Jogador: Finalização, Passe
 _Avoid_: atributo, status, stat
 
 **Proteção**:
-A partir da T2, as ações principais da Posição em que o Jogador jogou cancelam perdas de Habilidade da mesma Partida: gol e assistência (atacante, meia e zagueiro), desarme e bloqueio (zagueiro), defesa, pênalti pego e jogo sem sofrer gol (goleiro). A Proteção só apaga perdas, nunca vira ganho, e gasta primeiro na Habilidade que mais pesa no OVR da Posição (ADR-0104).
+A partir da T2, as ações principais da Posição em que o Jogador jogou cancelam perdas de Habilidade da mesma Partida: gol e assistência (atacante, meia e zagueiro), desarme e bloqueio (zagueiro), defesa, pênalti pego e jogo sem sofrer gol (goleiro). A Proteção só apaga perdas, nunca vira ganho, e gasta primeiro na Habilidade que mais pesa no OVR da Posição (ADR-0105).
 _Avoid_: escudo, seguro
 
 **Drible**:

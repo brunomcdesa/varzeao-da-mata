@@ -73,7 +73,7 @@ export function valorDaAcao(a: Acao, t2: boolean): number {
 }
 
 /**
- * Ações principais protegem (ADR-0104, VERSAO_SIM 20 na T2 e 21 na T3): cada ação principal da Posição
+ * Ações principais protegem (ADR-0105, VERSAO_SIM 20 na T2 e 21 na T3): cada ação principal da Posição
  * em que o Jogador jogou vale pontos de proteção, que cancelam perdas da mesma Partida. Não
  * somam ganho: quem jogou bem não cai por causa do resto do jogo, sem inflar o OVR.
  */

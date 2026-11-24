@@ -1,4 +1,4 @@
-# 0104 — Ações principais protegem o OVR
+# 0105 — Ações principais protegem o OVR
 
 - Status: proposto (aguarda aprovação do dono)
 - Data: 2026-11-23

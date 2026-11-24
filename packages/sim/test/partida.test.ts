@@ -820,7 +820,7 @@ describe('pontos por ação da T2 (ADR-0055)', () => {
   });
 });
 
-describe('ações principais protegem (ADR-0104)', () => {
+describe('ações principais protegem (ADR-0105)', () => {
   it('a proteção cancela perdas, primeiro na Habilidade que mais pesa no OVR da Posição', () => {
     const pontos = { ...zeradas(), FIN: 1.5, PAS: -0.6, DEF: -1.2 };
     expect(protegerPerdas(pontos, 1, 'ZAG')).toEqual({ ...pontos, DEF: expect.closeTo(-0.2) });
