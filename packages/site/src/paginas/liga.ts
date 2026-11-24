@@ -1,5 +1,5 @@
 /** Jogos (calendário), Tabela, Times e a página de cada Time. */
-import { FALA_DO_TIME, GRUPOS, IDENTIDADE, NOME_DO_GRUPO, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, foraDoMataMata, forcaProvavel, inscritosAteNoProximoJogo, nomeDaRodada, type Formacao, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, GRUPOS, IDENTIDADE, NOME_DO_GRUPO, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, foraDoMataMata, forcaProvavel, inscritosAteNoProximoJogo, nomeDaRodada, temRegrasT3, type Formacao, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
 import { avisoDaPreTemporada, diaLongo, jogadores, liga, preTemporada, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos, gruposAtivos, formaDosTimes } from '../dados.js';
 import { bonecoImg, campinho, curto, escudoImg, forcaHtml, formaHtml, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa } from '../ui.js';
 import { capitaniaDoVinculo, capitaniaGuardada, enviarEscolhaDoVinculo, jogadorVinculado } from '../meuPersonagem.js';
@@ -9,6 +9,8 @@ import { abaDosJogos } from '../abaDosJogos.js';
 import { linhaDePartida, tabelaDeClassificacao } from './comum.js';
 import type { Pagina } from './tipos.js';
 import { abas } from '../abas.js';
+import { ligarPainelDoTime } from '../ligarPainel.js';
+import { temporadaDoApp } from '../instalacao.js';
 
 /** Temporadas que o Time ganhou (o título da Liga, que com Séries é o da A). */
 function titulosDo(l: LigaPublica, t: TimeId): number[] {
@@ -193,6 +195,8 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
   const id = IDENTIDADE[t];
   // Perfil do Time (ADR-0100): o Instagram que os Jogadores criaram e a Liga reconheceu.
   const perfil = l.times.find((x) => x.id === t)?.instagram ?? null;
+  // Técnico do Time (ADR-0106).
+  const tecnicoDoTime = l.times.find((x) => x.id === t)?.tecnico ?? null;
   const elenco = js.filter((j) => j.time === t).sort((a, b) => b.ovr - a.ovr || a.username.localeCompare(b.username));
   const serie = serieDoTime(l, t);
   const tabela = tabelaDaSerie(l, serie);
@@ -222,6 +226,7 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
       <div>
         <h1>${id.nome}</h1>
         <p class="bordao">“${FALA_DO_TIME[t].bordao}”</p>
+        ${tecnicoDoTime ? html`<p class="tecnico-do-time"><span class="cargo">Técnico</span> ${tecnicoDoTime.apelido ?? `@${tecnicoDoTime.username}`}</p>` : ''}
         ${perfil ? html`<p class="perfil-do-time"><a href="https://www.instagram.com/${perfil}/" target="_blank" rel="noopener">${iconeInstagram()}<span>@${perfil.split(/(?<=[._])/).map((parte, i) => (i ? html`<wbr>${parte}` : parte))}</span></a><small>Perfil oficial do Time</small></p>` : ''}
         ${titulosDo(l, t).length
           ? html`<p class="titulos-time">${titulosDo(l, t).map(() => taca(20, 'trofeu'))}<span>${titulosDo(l, t).length === 1 ? 'Campeão' : `${titulosDo(l, t).length} vezes campeão`}: ${titulosDo(l, t).map((n) => `Temporada ${n}`).join(', ')}</span></p>`
@@ -274,8 +279,22 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
     )}</div>
   </article>`.s;
 
-  // Plano do Capitão (ADR-0086): só para quem tem Vínculo com um Jogador deste Time.
+  // T3 (ADR-0106): Plano do Time, Contratações e o "Jogar no Time" de quem é de outro Time.
   const vinculado = jogadorVinculado();
+  if (!estreante && vinculado && temRegrasT3(temporadaDoApp(l) ?? 0)) {
+    ligarPainelDoTime(main, {
+      time: t,
+      l,
+      elenco,
+      todos: js,
+      aoMudarFormacao: (f) => {
+        const prov = main.querySelector<HTMLElement>('[data-provavel]');
+        if (prov && f) prov.innerHTML = provavel(f as Formacao).s;
+      },
+    });
+    return;
+  }
+  // Plano do Capitão (ADR-0086): só para quem tem Vínculo com um Jogador deste Time.
   if (estreante || !vinculado || !elenco.some((j) => j.id === vinculado)) return;
   const pagina = main.querySelector('.pagina-time');
   // O último plano visto aparece na hora; a resposta da borda confere e só redesenha se mudou (ADR-0094).

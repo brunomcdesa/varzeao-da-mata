@@ -1,10 +1,11 @@
 /** Jogadores: busca e ranking, o Card de cada um e a comparação lado a lado. */
-import { temMoedas, DESTAQUE_DA_POSICAO, IDENTIDADE, ORDEM_DOS_TROFEUS, nomeVisivel, temporadaDoApp, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId, temRegrasT2 } from '@liga/shared';
+import { temMoedas, DESTAQUE_DA_POSICAO, IDENTIDADE, ORDEM_DOS_TROFEUS, nomeVisivel, temporadaDoApp, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId, temRegrasT2, temRegrasT3, doTime } from '@liga/shared';
 import { jogadores, liga, timesAtivos } from '../dados.js';
 import { bonecoImg, comCamisa, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html, faixaC } from '../ui.js';
 import type { Pagina } from './tipos.js';
 import { abas } from '../abas.js';
-import { blocoDoDono, ligarMeuPersonagem } from '../meuPersonagem.js';
+import { blocoDoDono, enviarEscolhaDoVinculo, jogadorVinculado, ligarMeuPersonagem } from '../meuPersonagem.js';
+import { ligarMercado } from '../ligarPainel.js';
 import { pontosDoOvr, variacaoDoOvr, type PontoDoOvr } from '../pontosDoOvr.js';
 
 type Criterio = 'ovr' | 'gols' | 'assistencias' | 'notaMedia' | 'jogos' | 'desarmes' | 'defesas' | 'dribles' | 'bloqueios' | 'titulos' | 'craqueDaRodada' | 'craqueDaTemporada';
@@ -238,6 +239,29 @@ export const paginaJogador: Pagina = async (main, [id]) => {
   const [todos, l] = await Promise.all([jogadores(), liga()]);
   const j = todos.find((x) => x.id === id);
   if (!j) {
+    // Técnico (ADR-0106): fora do Elenco, a página dele leva ao Time que ele cuida.
+    const cuida = l.times.find((x) => x.tecnico?.id === id);
+    if (cuida?.tecnico) {
+      const nome = cuida.tecnico.apelido ?? `@${cuida.tecnico.username}`;
+      main.innerHTML = html`<article class="pagina-jogador"><section class="placa">
+        <h1 class="secao">${nome} <small>Técnico ${doTime(cuida.id)}</small></h1>
+        <p>O Técnico cuida do Time: Formação, Postura, titulares fixados, Pedidos e Convites.</p>
+        <p><a class="botao" href="#/time/${cuida.id}">Abrir o Time</a></p>
+        ${jogadorVinculado() === id
+          ? html`<details class="dobra"><summary>Deixar o cargo</summary><p>O Time volta a ser decidido pelo Capitão. Você pode voltar a jogar na Janela da próxima temporada.</p>
+              <p><button type="button" class="botao secundario" data-acao="SAIR_DO_CARGO">Deixar o cargo de Técnico</button></p><p class="estado-escolha" role="status" aria-live="polite"></p></details>`
+          : ''}
+      </section></article>`.s;
+      const b = main.querySelector<HTMLButtonElement>('[data-acao="SAIR_DO_CARGO"]');
+      b?.addEventListener('click', () => {
+        b.disabled = true;
+        void enviarEscolhaDoVinculo('SAIR_DO_CARGO', null).then((r) => {
+          const e = main.querySelector<HTMLElement>('.estado-escolha');
+          if (e) e.textContent = r.mensagem;
+        });
+      });
+      return;
+    }
     main.innerHTML = html`<p class="placa vazio">Jogador não encontrado. <a href="#/jogadores">Buscar Jogadores</a>.</p>`.s;
     return;
   }
@@ -252,6 +276,7 @@ export const paginaJogador: Pagina = async (main, [id]) => {
       <p class="ranking-frase">${rankOvr}º maior OVR da Liga · ${rankPos}º entre ${daPosicao.length} ${NOME_DA_POSICAO[j.posicao].toLowerCase()}s</p>
       ${temRegrasT2(temporadaDoApp(l) ?? 0) ? html`<p><a class="botao secundario" href="#/carreira/${j.id}">Ver a Carreira, temporada por temporada</a></p>` : ''}
       ${salaDeTrofeus(j)}
+      <div class="mercado-do-jogador" data-mercado></div>
       ${blocoDoDono()}
       ${abas('jogador', [
         { id: 'numeros', rotulo: 'Números', conteudo: html`      <section aria-labelledby="titulo-numeros">
@@ -307,6 +332,9 @@ export const paginaJogador: Pagina = async (main, [id]) => {
     if (v) location.hash = `#/comparar/${j.id}/${v}`;
   });
   // Transferência só para os Times que jogam a Temporada (com a Série B, os 16).
+  // T3 (ADR-0106): os Convites e Trocas casadas que chegaram, só para o dono.
+  const lugarDoMercado = main.querySelector<HTMLElement>('[data-mercado]');
+  if (lugarDoMercado && jogadorVinculado() === j.id && temRegrasT3(temporadaDoApp(l) ?? 0)) ligarMercado(lugarDoMercado, j.id);
   return ligarMeuPersonagem(main, j, todos, timesAtivos(l), temRegrasT2(temporadaDoApp(l) ?? 0), temMoedas(temporadaDoApp(l) ?? 0));
 };
 

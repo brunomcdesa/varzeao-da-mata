@@ -15,6 +15,7 @@ import { APELIDO_MAX, apelidoLiberaEm, podeTrocarApelido, CABELOS, NOME_DO_PENTE
 import { ALTURA_SPRITE, LARGURA_SPRITE, aparencia, sprite, visualDoJogador, type Pose } from '@liga/renderer';
 import { BASE_API, INSTAGRAM, ajustarLocalmente } from './dados.js';
 import { curto, html, NOME_DA_POSICAO, POSICOES_EM_ORDEM } from './ui.js';
+import type { MercadoDoJogador, PainelDoTime } from './painelDoTime.js';
 import type { Pagina } from './paginas/tipos.js';
 
 const CHAVE = 'varzeao:vinculo';
@@ -70,7 +71,8 @@ async function api<T>(caminho: string, corpo: unknown): Promise<{ status: number
 
 /** O último estado das escolhas visto neste navegador (ADR-0094): a página mostra na hora e confere depois. */
 const CHAVE_ESTADO = 'varzeao:escolhas';
-type EstadoDasEscolhas = Record<string, { escolha?: { valor?: string | null }; resultado?: string } | null> & { capitania?: Capitania | null };
+type EscolhaGuardada = { escolha?: { valor?: string | null }; resultado?: string } | null;
+type EstadoDasEscolhas = Record<string, EscolhaGuardada | Capitania | PainelDoTime | MercadoDoJogador | null | undefined> & { capitania?: Capitania | null; painel?: PainelDoTime | null; mercado?: MercadoDoJogador | null };
 interface EstadoGuardado {
   jogadorId: string;
   estado: EstadoDasEscolhas;
@@ -117,6 +119,11 @@ export function adiantarEstadoDasEscolhas() {
 }
 
 /** Capitania guardada neste navegador, para mostrar na hora (null sem Vínculo ou se o jogo já mudou). */
+/** Tudo o que se escolhe pela borda (`/escolha`). */
+export type TipoDeEscolha =
+  | 'POSTURA' | 'FORMACAO' | 'BATEDORES' | 'PALPITE' | 'COMPRA' | 'EQUIPAR' | 'TIRAR'
+  | 'FIXADOS' | 'ESCANTEIO' | 'PEDIDO' | 'CONVIDAR' | 'CONVITE' | 'TROCA_PROPOR' | 'TROCA' | 'SER_TECNICO' | 'MARCACAO' | 'GRITO' | 'SAIR_DO_CARGO' | 'CHAMADA';
+
 export function capitaniaGuardada(): { jogadorId: string; capitania: Capitania } | null {
   const g = ler<Guardado>(CHAVE);
   const c = g ? estadoGuardado(g.jogadorId)?.capitania : null;
@@ -138,7 +145,7 @@ export async function capitaniaDoVinculo(): Promise<{ jogadorId: string; capitan
  * Escolha do Capitão feita fora do painel (página do Time, ADR-0091): manda pela borda e, se a
  * Liga aplicou na hora, guarda no estado deste navegador para a página já mostrar o plano novo.
  */
-export async function enviarEscolhaDoVinculo(tipo: 'POSTURA' | 'FORMACAO' | 'BATEDORES' | 'PALPITE' | 'COMPRA' | 'EQUIPAR' | 'TIRAR', valor: string | string[] | null): Promise<{ ok: boolean; aplicada: boolean; mensagem: string }> {
+export async function enviarEscolhaDoVinculo(tipo: TipoDeEscolha, valor: string | string[] | null): Promise<{ ok: boolean; aplicada: boolean; mensagem: string }> {
   const g = ler<Guardado>(CHAVE);
   if (!g || !BASE_API) return { ok: false, aplicada: false, mensagem: 'Vincule o seu personagem para escolher.' };
   const r = await api<{ ok?: boolean; erro?: string; pedido?: { resultado?: string; mensagem?: string; processadoEm?: string } }>('escolha', { sessao: g.sessao, tipo, valor }).catch(() => null);
@@ -156,6 +163,33 @@ export async function enviarEscolhaDoVinculo(tipo: 'POSTURA' | 'FORMACAO' | 'BAT
     });
   }
   return { ok, aplicada: ok, mensagem: p.mensagem ?? (ok ? 'Pronto!' : 'Não deu.') };
+}
+
+/**
+ * Painel do Time e Mercado (ADR-0106) de quem tem Vínculo neste navegador: o guardado na hora
+ * (`guardado`) e a resposta da borda depois. `novo`: pede de novo, sem a resposta recente.
+ */
+export function painelGuardado(): { jogadorId: string; painel: PainelDoTime | null; mercado: MercadoDoJogador | null } | null {
+  const g = ler<Guardado>(CHAVE);
+  const e = g ? estadoGuardado(g.jogadorId) : null;
+  return g && e ? { jogadorId: g.jogadorId, painel: e.painel ?? null, mercado: e.mercado ?? null } : null;
+}
+export async function painelDoVinculo(novo = false): Promise<{ jogadorId: string; painel: PainelDoTime | null; mercado: MercadoDoJogador | null } | null> {
+  const g = ler<Guardado>(CHAVE);
+  if (!g || !BASE_API) return null;
+  const r = await pedirEstado(g, novo);
+  return r?.status === 200 ? { jogadorId: g.jogadorId, painel: r.dados.painel ?? null, mercado: r.dados.mercado ?? null } : null;
+}
+
+/** Pedido de Transferência pelo site (o botão "Quero jogar aqui"); a regra é a do TRANSFERIR. */
+export async function pedirTransferenciaDoVinculo(time: TimeId, posicao: string): Promise<{ ok: boolean; mensagem: string }> {
+  const g = ler<Guardado>(CHAVE);
+  if (!g || !BASE_API) return { ok: false, mensagem: 'Vincule o seu personagem para pedir.' };
+  const r = await api<{ ok?: boolean; erro?: string; pedido?: { mensagem?: string; processadoEm?: string } }>('transferencia', { sessao: g.sessao, time, posicao }).catch(() => null);
+  if (r?.status === 401) return { ok: false, mensagem: 'O vínculo deste navegador expirou. Vincule de novo no seu painel.' };
+  if (!r?.dados.ok) return { ok: false, mensagem: r?.dados.erro ?? 'Não deu para enviar agora. Tente de novo.' };
+  pedidoDoEstado = null;
+  return { ok: true, mensagem: r.dados.pedido?.processadoEm ? (r.dados.pedido.mensagem ?? 'Pronto!') : 'Enviado. A Liga responde em 1 ou 2 minutos.' };
 }
 
 /** A Carteira (e a Loja) do Jogador vinculado neste navegador; null sem Vínculo ou sem resposta. */
