@@ -16,12 +16,13 @@ import { comSeloT1, subiramPeloPiso } from './recompensaT1.js';
 import { ajustesDeOvr } from './aMao.js';
 import { TEMPORADA_DOS_DESTAQUES, desempenhosDasPartidas } from './destaques.js';
 import type { ResultadoPartida } from '@liga/sim';
+import { tecnicosAtivos } from './tecnico.js';
 import type { Banco } from './banco.js';
 import { gruposDaTemporada, seriesAtivas, seriesDaTemporada, type GruposDaTemporada, type SeriesDaTemporada } from './series.js';
 import { classificar } from './tabela.js';
 import { horaDeBrasilia } from './briga.js';
 import { habilidadesDe } from './regras.js';
-import { ovrDasHabilidades } from '@liga/shared';
+import { gritoDoTime, ovrDasHabilidades } from '@liga/shared';
 import { capitaoDaPartida, proximaPartidaDoTime, tamanhoDosElencos } from './temporada2.js';
 
 /** Duração do Ao Vivo de uma Partida (5 min; 7 no Mata-mata, por causa dos pênaltis). */
@@ -142,7 +143,22 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       };
   const numeroDa = new Map(temporadas.map((t) => [t.id, t.numero]));
   const perfis = await perfisDosTimes(banco);
-  const times = TIMES.map((id) => ({ id, nome: IDENTIDADE[id].nome, sigla: IDENTIDADE[id].sigla, primaria: IDENTIDADE[id].primaria, secundaria: IDENTIDADE[id].secundaria, ...(perfis.has(id) ? { instagram: perfis.get(id)! } : {}) }));
+  // Técnico e Fila de espera (ADR-0110).
+  const tecnicos = new Map((await tecnicosAtivos(banco)).map((t) => [t.time, t]));
+  const filas = new Map<string, Partial<Record<Posicao, number>>>();
+  for (const f of (await banco.query<{ time_id: TimeId; posicao: Posicao; n: string }>(`SELECT time_id, posicao, count(*) AS n FROM fila_espera WHERE status = 'ESPERANDO' GROUP BY time_id, posicao`)).rows) {
+    filas.set(f.time_id, { ...(filas.get(f.time_id) ?? {}), [f.posicao]: Number(f.n) });
+  }
+  const times = TIMES.map((id) => ({
+    id,
+    nome: IDENTIDADE[id].nome,
+    sigla: IDENTIDADE[id].sigla,
+    primaria: IDENTIDADE[id].primaria,
+    secundaria: IDENTIDADE[id].secundaria,
+    ...(perfis.has(id) ? { instagram: perfis.get(id)! } : {}),
+    ...(tecnicos.has(id) ? { tecnico: { id: tecnicos.get(id)!.jogadorId, username: tecnicos.get(id)!.username, apelido: tecnicos.get(id)!.apelido } } : {}),
+    ...(filas.has(id) ? { fila: filas.get(id)! } : {}),
+  }));
 
   // Todas as Partidas de todas as Temporadas: a carreira dos Jogadores atravessa Temporadas.
   const todas = (
@@ -163,7 +179,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   const escalacoes = (
     await banco.query<LinhaEscalacao>(
       `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.numero, e.itens, e.capitao, e.reserva, e.posicao_de_origem
-       FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id ORDER BY e.partida_id, e.lugar`,
+       FROM escalacao e LEFT JOIN jogador_todos j ON j.id = e.jogador_id ORDER BY e.partida_id, e.lugar`,
     )
   ).rows;
   const escalacoesDe = new Map<number, LinhaEscalacao[]>();
@@ -234,7 +250,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       ? (
           await banco.query<{ jogador_id: string; username: string; apelido: string | null; time_id: TimeId; posicao: Posicao; nota: string; numero: number | null; votos: string; serie: Serie }>(
             `SELECT c.jogador_id::text AS jogador_id, j.username, j.apelido, j.time_id, j.posicao, c.nota, c.numero, c.serie, count(v.eleitor) AS votos
-             FROM candidato c JOIN jogador j ON j.id = c.jogador_id
+             FROM candidato c JOIN jogador_todos j ON j.id = c.jogador_id
              LEFT JOIN voto_total v ON v.rodada_id = c.rodada_id AND v.jogador_id = c.jogador_id
              WHERE c.rodada_id = $1 GROUP BY c.jogador_id, j.username, j.apelido, j.time_id, j.posicao, c.nota, c.numero, c.serie, j.id
              ORDER BY c.numero NULLS LAST, c.nota DESC, j.id`,
@@ -634,6 +650,18 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   arquivos.set('jogadores.json', [...porJogador.values()]);
 
   const elencos = await tamanhoDosElencos(banco);
+  // Grito da Temporada (ADR-0111): opção de cada Time em cada Temporada.
+  const gritosEscolhidos = new Map(
+    (await banco.query<{ temporada_id: number; time_id: TimeId; opcao: number }>(`SELECT temporada_id, time_id, opcao FROM grito_da_temporada`)).rows.map((g) => [`${g.temporada_id}:${g.time_id}`, g.opcao]),
+  );
+  const gritosDe = (temporadaId: number, mandante: TimeId, visitante: TimeId) => {
+    const r: Partial<Record<'mandante' | 'visitante', string>> = {};
+    for (const [lado, t] of [['mandante', mandante], ['visitante', visitante]] as const) {
+      const o = gritosEscolhidos.get(`${temporadaId}:${t}`);
+      if (o !== undefined) r[lado] = gritoDoTime(t, o);
+    }
+    return Object.keys(r).length ? { gritos: r } : {};
+  };
   // ---- uma página por Partida escalada (de todas as Temporadas: o histórico aponta para elas)
   for (const p of todas) {
     const linhas = escalacoesDe.get(p.id);
@@ -685,7 +713,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       ...(linhas && temRegrasT3(temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0) ? { juiz: perfilDoJuiz(p.id) } : {}),
       // Arquibancada (T2): só nas Partidas simuladas com as regras da Temporada 2.
       ...(revelada(p) && (p.resultado as { postura?: unknown } | null)?.postura != null
-        ? { torcida: { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 } }
+        ? { torcida: { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 }, ...gritosDe(p.temporada_id, p.mandante_id, p.visitante_id) }
         : {}),
     };
     arquivos.set(`partidas/${p.id}.json`, publica);
@@ -712,7 +740,7 @@ async function rankingDePalpites(banco: Banco, temporadaId: number, agora: Date)
   const linhas = (
     await banco.query<{ jogador_id: string; username: string; apelido: string | null; pontos: string; acertos: string; apito: Date | string; fase: 'LIGA' | 'MATA_MATA' }>(
       `SELECT x.jogador_id::text AS jogador_id, j.username, j.apelido, x.pontos::text AS pontos, (x.pontos > 0)::int::text AS acertos, p.apito_inicial AS apito, r.fase
-       FROM palpite x JOIN partida p ON p.id = x.partida_id JOIN rodada r ON r.id = p.rodada_id JOIN jogador j ON j.id = x.jogador_id
+       FROM palpite x JOIN partida p ON p.id = x.partida_id JOIN rodada r ON r.id = p.rodada_id JOIN jogador_todos j ON j.id = x.jogador_id
        WHERE r.temporada_id = $1 AND x.pontos IS NOT NULL AND NOT j.banido`,
       [temporadaId],
     )

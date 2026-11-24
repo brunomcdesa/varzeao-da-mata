@@ -15,6 +15,7 @@ import { FUSO_BRASILIA } from './calendario.js';
 import { gruposDaTemporada, seriesDaTemporada } from './series.js';
 import { escalarPartida, type PartidaEscalada } from './escalacao.js';
 import { pagarPartida } from './moedas.js';
+import { capitaoEmCampo, gritosDaPartida } from './planoDoTime.js';
 import { batedoresDaPartida, formacoesDaPartida, partidaTemRegrasT2, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
 
 /** O que o renderer precisa para gravar o Reels (mesmo formato de PartidaParaVideo). */
@@ -35,6 +36,7 @@ export interface DadosDoVideo {
   estrelas?: Partial<Record<TimeId, Estrelas>>;
   /** Temporada 2: tamanho de cada Elenco, para a Arquibancada (ADR-0019). Nunca na T1. */
   torcida?: Record<Lado, number>;
+  gritos?: Partial<Record<Lado, string>>;
   /** Mata-mata (ADR-0048): o Narrador e o fim do Reels falam da Semifinal ou da Final. */
   mataMata?: MataMataDaPartida | null;
   /** Última Rodada da Fase de Liga (ADR-0053): quem já está Garantido e o que vale a Partida. */
@@ -125,7 +127,10 @@ export async function simular(banco: Banco, partidaId: number, escalada: Partida
       ...(p.vantagem_do_empate ? { vantagemDoEmpate: p.vantagem_do_empate } : {}),
       ...(t2 ? { t2 } : {}),
       // Regras da Temporada 3 (ADRs 0091 e 0094): Juiz sorteado pelo id da Partida e Batedores.
-      ...(t2 && temRegrasT3(p.temporada) ? { t3: { juiz: perfilDoJuiz(partidaId), batedores: await batedoresDaPartida(b, partidaId, p.mandante_id, p.visitante_id) } } : {}),
+      // Capitão em campo (ADR-0111): cobradores de escanteio e Marcação individual.
+      ...(t2 && temRegrasT3(p.temporada)
+        ? { t3: { juiz: perfilDoJuiz(partidaId), batedores: await batedoresDaPartida(b, partidaId, p.mandante_id, p.visitante_id), ...(await capitaoEmCampo(b, partidaId, p.mandante_id, p.visitante_id)) } }
+        : {}),
     });
 
     for (const d of resultado.desempenhos) {
@@ -232,6 +237,9 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
     const elencos = await tamanhoDosElencos(banco);
     dados.torcida = { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 };
   }
+  // Grito da Temporada (ADR-0111) na faixa da Arquibancada.
+  const gritos = await gritosDaPartida(banco, p.id);
+  if (Object.keys(gritos).length) dados.gritos = gritos;
 
   let video = p.video_url;
   let status = p.status;

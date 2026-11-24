@@ -18,7 +18,9 @@ import { marcarPendencia } from './pendencias.js';
 import { transferirJogador } from '../../worker/src/coletar.js';
 import { aplicarPerfil } from '../../worker/src/perfil.js';
 import { aplicarEscolha, capitaniaDoJogador, type Escolha } from '../../worker/src/temporada2.js';
+import { mercadoDoJogador, painelDoTime } from '../../worker/src/painel.js';
 import { carteiraDoJogador } from '../../worker/src/carteira.js';
+import { CHAVE_AVISO_PESSOAL, houveAvisoPessoal } from '../../worker/src/avisosPessoais.js';
 import { bancoDeLeitura, comBanco } from './banco.js';
 import { completarMetadadosDasSessoes, jogadoresVinculados, rotasDoVinculo, sessaoDe } from './vinculo.js';
 import { rotaDoWebhook, type EnvWebhook } from './webhook.js';
@@ -164,7 +166,7 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
   if (webhook) return webhook;
   const { pathname } = new URL(req.url);
   if (pathname === '/votos' && req.method === 'POST') return votar(req, env, agora, f);
-  const avisos = await rotaDosAvisos(req, env, (fn) => comBanco(env.DATABASE_URL!, fn), CORS).catch((e: Error) => json({ erro: `Não deu agora: ${e.message.slice(0, 200)}` }, 502));
+  const avisos = await rotaDosAvisos(req, env, (fn) => comBanco(env.DATABASE_URL!, fn), CORS, async (s) => (await sessaoDe(env, s))?.jogadorId ?? null).catch((e: Error) => json({ erro: `Não deu agora: ${e.message.slice(0, 200)}` }, 502));
   if (avisos) return avisos;
   const vinculo = await rotasDoVinculo(
     req,
@@ -178,7 +180,7 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
     (job) => dispararUm(env, job, f),
     async (p) => {
       if (!env.DATABASE_URL) return null;
-      return comBanco(env.DATABASE_URL, (b) =>
+      const r = await comBanco(env.DATABASE_URL, (b) =>
         b.transacao(async (t) => {
           if (p.tipo === 'ESCOLHA') {
             // Postura: o Capitão é o primeiro da ordem com Vínculo; as sessões ficam no KV.
@@ -189,13 +191,27 @@ export async function responder(req: Request, env: Env, agora = new Date(), f: F
             const r = await aplicarPerfil(t, p.jogadorId, { ...(p.visual !== undefined ? { visual: p.visual } : {}), ...(p.numero !== undefined ? { numero: p.numero } : {}), ...(p.apelido !== undefined ? { apelido: p.apelido } : {}) }, agora);
             return { resultado: r.ok ? 'SALVO' : 'RECUSADO', mensagem: r.mensagem };
           }
-          const r = await transferirJogador(t, p.jogadorId, { times: p.time ? [p.time as TimeId] : [], ...(p.posicao ? { posicao: p.posicao as Posicao } : {}) }, { quando: agora, ref: `site:${p.jogadorId}:${agora.toISOString()}` });
+          const r = await transferirJogador(t, p.jogadorId, { times: p.time ? [p.time as TimeId] : [], ...(p.posicao ? { posicao: p.posicao as Posicao } : {}) }, { quando: agora, ref: `site:${p.jogadorId}:${agora.toISOString()}`, comVinculo: await comVinculo(env) });
           const m = r.mensagem ?? 'Pedido não entendido.';
           return { resultado: r.resultado, mensagem: m.charAt(0).toUpperCase() + m.slice(1) };
         }),
       );
+      // Avisos pessoais na fila (ADR-0110): o cron manda no minuto seguinte.
+      if (houveAvisoPessoal()) await env.AGENDA.put(CHAVE_AVISO_PESSOAL, '1', { expirationTtl: 86400 });
+      return r;
     },
-    async (jogadorId) => (env.DATABASE_URL ? capitaniaDoJogador(bancoDeLeitura(env.DATABASE_URL), jogadorId, agora, () => comVinculo(env)) : null),
+    async (jogadorId) => {
+      if (!env.DATABASE_URL) return null;
+      const b = bancoDeLeitura(env.DATABASE_URL);
+      const vinculos = comVinculo(env);
+      // Capitania, Painel do Time e Mercado (ADR-0110) ao mesmo tempo.
+      const [capitania, painel, mercado] = await Promise.all([
+        capitaniaDoJogador(b, jogadorId, agora, () => vinculos),
+        vinculos.then((v) => painelDoTime(b, jogadorId, agora, v)).catch(() => null),
+        mercadoDoJogador(b, jogadorId, agora).catch(() => null),
+      ]);
+      return { capitania, painel, mercado };
+    },
     async (jogadorId) => (env.DATABASE_URL ? carteiraDoJogador(bancoDeLeitura(env.DATABASE_URL), jogadorId, agora) : null),
   ).catch((e: Error) => json({ erro: `Não deu agora: ${e.message.slice(0, 200)}` }, 502));
   if (vinculo) return vinculo;

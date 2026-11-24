@@ -29,6 +29,8 @@ import type { Banco } from './banco.js';
 import { registrarPalpite } from './carteira.js';
 import { comprarItem, equiparItem, tirarItem } from './loja.js';
 import { CORTE_MINUTOS } from './escalacao.js';
+import { chamarPresenca, decidirEscanteio, decidirMarcacao, decidirPlano, escolherGrito, planosDaPartida } from './planoDoTime.js';
+import { cargoDe, convidar, decidirPedido, deixarCargo, pedirParaSerTecnico, proporTroca, responderConvite, responderTroca, tecnicoDoTime } from './tecnico.js';
 import type { Agenda } from './nuvem.js';
 
 /** A Partida segue as regras da T2? (pela Temporada dela) */
@@ -96,7 +98,7 @@ export async function ordemDoCapitao(b: Banco, time: TimeId): Promise<string[]> 
        LEFT JOIN escalacao e ON e.jogador_id = j.id AND e.time_id = j.time_id AND (NOT e.reserva OR e.entrou)
        LEFT JOIN capitao_a_mao m ON m.time_id = j.time_id AND m.jogador_id = j.id
        WHERE j.time_id = $1 AND NOT j.banido
-       GROUP BY j.id, m.jogador_id ORDER BY (m.jogador_id IS NOT NULL) DESC, count(e.partida_id) DESC, j.inscrito_em, j.id`,
+       GROUP BY j.id, j.inscrito_em, m.jogador_id ORDER BY (m.jogador_id IS NOT NULL) DESC, count(e.partida_id) DESC, j.inscrito_em, j.id`,
       [time],
     )
   ).rows.map((r) => r.id);
@@ -131,15 +133,16 @@ export async function capitaoEmCampo(b: Banco, partidaId: number, time: TimeId, 
 
 /** Postura de cada Time na Partida (sem escolha, Equilibrada). */
 export async function posturasDaPartida(b: Banco, partidaId: number, mandante: TimeId, visitante: TimeId): Promise<{ mandante: Postura; visitante: Postura }> {
-  const linhas = (await b.query<{ time_id: TimeId; postura: Postura }>(`SELECT time_id, postura FROM postura WHERE partida_id = $1`, [partidaId])).rows;
-  const de = (t: TimeId) => linhas.find((l) => l.time_id === t)?.postura ?? 'EQUILIBRADA';
+  // O Plano que vale (ADR-0110): o Técnico decide; o que ele não decidiu, a Sugestão do Capitão.
+  const planos = await planosDaPartida(b, partidaId);
+  const de = (t: TimeId) => planos.get(t)?.postura ?? 'EQUILIBRADA';
   return { mandante: de(mandante), visitante: de(visitante) };
 }
 
 /** Formação de cada Time na Partida (ADR-0044; sem escolha, 2-2-2). */
 export async function formacoesDaPartida(b: Banco, partidaId: number, mandante: TimeId, visitante: TimeId): Promise<{ mandante: Formacao; visitante: Formacao }> {
-  const linhas = (await b.query<{ time_id: TimeId; formacao: Formacao }>(`SELECT time_id, formacao FROM postura WHERE partida_id = $1`, [partidaId])).rows;
-  const de = (t: TimeId) => linhas.find((l) => l.time_id === t)?.formacao ?? FORMACAO_PADRAO;
+  const planos = await planosDaPartida(b, partidaId);
+  const de = (t: TimeId) => planos.get(t)?.formacao ?? FORMACAO_PADRAO;
   return { mandante: de(mandante), visitante: de(visitante) };
 }
 
@@ -261,7 +264,23 @@ export type Escolha =
   /** Loja (ADR-0101): comprar (e equipar) ou equipar pelo código do Item; tirar pelo Encaixe. */
   | { tipo: 'COMPRA'; valor: string }
   | { tipo: 'EQUIPAR'; valor: string }
-  | { tipo: 'TIRAR'; valor: string };
+  | { tipo: 'TIRAR'; valor: string }
+  /** Técnico e Interesse (ADR-0110). Decisões: "ACEITAR:<id>" ou "RECUSAR:<id>". */
+  | { tipo: 'FIXADOS'; valor: string[] }
+  | { tipo: 'PEDIDO'; valor: string }
+  | { tipo: 'CONVIDAR'; valor: string }
+  | { tipo: 'CONVITE'; valor: string }
+  /** "<jogador A>:<jogador B>". */
+  | { tipo: 'TROCA_PROPOR'; valor: string }
+  | { tipo: 'TROCA'; valor: string }
+  /** Pedir para pendurar as chuteiras e treinar este Time. */
+  | { tipo: 'SER_TECNICO'; valor: string }
+  | { tipo: 'SAIR_DO_CARGO' }
+  /** Capitão em campo (ADR-0111). Marcação: "<marcador>:<alvo>" ou vazio. */
+  | { tipo: 'ESCANTEIO'; valor: string[] }
+  | { tipo: 'MARCACAO'; valor: string }
+  | { tipo: 'GRITO'; valor: string }
+  | { tipo: 'CHAMADA' };
 
 export interface ResultadoDaEscolha {
   ok: boolean;
@@ -278,6 +297,9 @@ const diaDaLiga = (d: Date) => new Date(d.getTime() - 3 * 3600_000).toISOString(
 export async function aplicarEscolha(b: Banco, jogadorId: string, e: Escolha, agora: Date, comVinculo: () => Promise<ReadonlySet<string>>): Promise<ResultadoDaEscolha> {
   const t = await temporadaAtual(b);
   if (!t || !temRegrasT2(t.numero)) return { ok: false, mensagem: 'Isso chega na Temporada 2.' };
+  // Técnico e Interesse (ADR-0110) e Capitão em campo (ADR-0111).
+  const doTecnico = await escolhaDoTecnico(b, jogadorId, e, agora, comVinculo, t.numero);
+  if (doTecnico) return doTecnico;
   const j = (
     await b.query<{ posicao: Posicao; time_id: TimeId; especializacao_em: Date | string | null; banido: boolean }>(
       `SELECT posicao, time_id, especializacao_em, banido FROM jogador WHERE id = $1`,
@@ -315,6 +337,8 @@ export async function aplicarEscolha(b: Banco, jogadorId: string, e: Escolha, ag
     }
     case 'POSTURA': {
       if (!(POSTURAS as readonly string[]).includes(e.valor)) return { ok: false, mensagem: 'Postura desconhecida.' };
+      // Com Técnico (ADR-0110), o Capitão sugere; o Técnico decide.
+      if (await tecnicoDoTime(b, j.time_id)) return decidirPlano(b, jogadorId, 'postura', e.valor, agora, await comVinculo());
       const p = await proximaPartidaDoTime(b, j.time_id, agora);
       if (!p) return { ok: false, mensagem: 'Não há jogo do seu Time aberto para escolher a Postura agora.' };
       const capitao = await capitaoDaPartida(b, p.id, j.time_id, await comVinculo());
@@ -329,6 +353,8 @@ export async function aplicarEscolha(b: Banco, jogadorId: string, e: Escolha, ag
     case 'FORMACAO': {
       // ADR-0044: mesma regra da Postura (só o Capitão, até o Corte); a linha guarda as duas.
       if (!ehFormacao(e.valor)) return { ok: false, mensagem: 'Formação desconhecida.' };
+      // Com Técnico (ADR-0110), o Capitão sugere; o Técnico decide.
+      if (await tecnicoDoTime(b, j.time_id)) return decidirPlano(b, jogadorId, 'formacao', e.valor, agora, await comVinculo());
       const p = await proximaPartidaDoTime(b, j.time_id, agora);
       if (!p) return { ok: false, mensagem: 'Não há jogo do seu Time aberto para escolher a Formação agora.' };
       const capitao = await capitaoDaPartida(b, p.id, j.time_id, await comVinculo());
@@ -371,7 +397,96 @@ export async function aplicarEscolha(b: Banco, jogadorId: string, e: Escolha, ag
       );
       return { ok: true, mensagem: ids.length ? `${ids.length === 1 ? 'Batedor salvo' : `${ids.length} Batedores salvos`} para o próximo jogo.` : 'Ordem automática dos pênaltis no próximo jogo.' };
     }
+    default:
+      return { ok: false, mensagem: 'Escolha desconhecida.' };
   }
+}
+
+/**
+ * As escolhas novas da T3 (ADRs 0110 e 0111) e tudo o que o Técnico faz; null quando a escolha
+ * segue as regras de antes.
+ */
+async function escolhaDoTecnico(
+  b: Banco,
+  pessoaId: string,
+  e: Escolha,
+  agora: Date,
+  comVinculo: () => Promise<ReadonlySet<string>>,
+  numero: number,
+): Promise<ResultadoDaEscolha | null> {
+  const novas = ['FIXADOS', 'PEDIDO', 'CONVIDAR', 'CONVITE', 'TROCA_PROPOR', 'TROCA', 'SER_TECNICO', 'SAIR_DO_CARGO', 'ESCANTEIO', 'MARCACAO', 'GRITO', 'CHAMADA'];
+  const cargo = await cargoDe(b, pessoaId);
+  if (!cargo && !novas.includes(e.tipo)) return null;
+  if (!temRegrasT3(numero)) return { ok: false, mensagem: 'Isso chega na Temporada 3.' };
+  const v = 'valor' in e ? e.valor : undefined;
+  const decisao = (x: unknown): { aceitar: boolean; id: number } | null => {
+    const m = /^(ACEITAR|RECUSAR):(\d+)$/.exec(String(x ?? ''));
+    return m ? { aceitar: m[1] === 'ACEITAR', id: Number(m[2]) } : null;
+  };
+  switch (e.tipo) {
+    case 'POSTURA':
+    case 'FORMACAO':
+      return decidirPlano(b, pessoaId, e.tipo === 'POSTURA' ? 'postura' : 'formacao', v, agora, await comVinculo());
+    case 'FIXADOS':
+      return decidirPlano(b, pessoaId, 'fixados', v, agora, await comVinculo());
+    case 'PEDIDO': {
+      const d = decisao(v);
+      if (!d) return { ok: false, mensagem: 'Pedido não entendido.' };
+      const r = await decidirPedido(b, pessoaId, d.id, d.aceitar, agora, await comVinculo());
+      return { ok: r.ok, mensagem: r.mensagem };
+    }
+    case 'CONVIDAR':
+      return convidar(b, { autorId: pessoaId, jogadorId: String(v ?? ''), agora, comVinculo: await comVinculo() });
+    case 'CONVITE': {
+      const d = decisao(v);
+      return d ? responderConvite(b, pessoaId, d.id, d.aceitar, agora) : { ok: false, mensagem: 'Convite não entendido.' };
+    }
+    case 'TROCA_PROPOR': {
+      const [a, bb] = String(v ?? '').split(':');
+      const usada = async (id: string) =>
+        (await b.query(`SELECT 1 FROM transferencia x JOIN temporada t ON t.id = x.temporada_id WHERE x.jogador_id::text = $1 AND t.status IN ('PRE_TEMPORADA', 'EM_ANDAMENTO') AND NOT x.gratis AND x.janela = $2`, [
+          id,
+          await naJanela(b, agora),
+        ])).rows.length > 0;
+      return proporTroca(b, { autorId: pessoaId, jogadorA: a ?? '', jogadorB: bb ?? '', agora, comVinculo: await comVinculo(), trocaUsada: usada });
+    }
+    case 'TROCA': {
+      const d = decisao(v);
+      if (!d) return { ok: false, mensagem: 'Troca não entendida.' };
+      const r = await responderTroca(b, { pessoaId, trocaId: d.id, aceitar: d.aceitar, agora, comVinculo: await comVinculo() });
+      return { ok: r.ok, mensagem: r.mensagem };
+    }
+    case 'SER_TECNICO':
+      return pedirParaSerTecnico(b, pessoaId, String(v ?? '') as TimeId, agora);
+    case 'SAIR_DO_CARGO': {
+      if (!cargo) return { ok: false, mensagem: 'Você não é Técnico.' };
+      await deixarCargo(b, cargo.id, 'PEDIU', agora);
+      return { ok: true, mensagem: 'Você deixou o cargo de Técnico.' };
+    }
+    case 'ESCANTEIO':
+      return decidirEscanteio(b, pessoaId, Array.isArray(v) ? v.map(String) : [], agora, await comVinculo());
+    case 'MARCACAO':
+      return decidirMarcacao(b, pessoaId, String(v ?? ''), agora, await comVinculo());
+    case 'GRITO':
+      return escolherGrito(b, pessoaId, Number(v), agora, await comVinculo());
+    case 'CHAMADA':
+      return chamarPresenca(b, pessoaId, agora, await comVinculo());
+    default:
+      // O Técnico não joga: Presença, Treino, Palpite e o resto são do Jogador.
+      return { ok: false, mensagem: 'Isso é do Jogador; o Técnico cuida do Time.' };
+  }
+}
+
+/** A Janela de Transferências está aberta agora (Pré-temporada até o Corte do primeiro jogo)? */
+async function naJanela(b: Banco, agora: Date): Promise<boolean> {
+  const t = (
+    await b.query<{ status: string; primeiro: Date | string | null }>(
+      `SELECT t.status, (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id) AS primeiro
+         FROM temporada t WHERE t.status IN ('PRE_TEMPORADA', 'EM_ANDAMENTO') ORDER BY t.status = 'EM_ANDAMENTO' DESC, t.numero LIMIT 1`,
+    )
+  ).rows[0];
+  if (!t) return false;
+  return t.primeiro ? agora.getTime() < new Date(t.primeiro).getTime() - CORTE_MINUTOS * 60_000 : t.status === 'PRE_TEMPORADA';
 }
 
 /** Batedores de cada Time na Partida (ADR-0091; sem escolha, lista vazia e vale a ordem automática). */

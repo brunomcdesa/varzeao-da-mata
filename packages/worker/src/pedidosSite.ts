@@ -78,8 +78,9 @@ export async function processarPedidosDoSite(banco: Banco, agenda: Agenda, agora
   const pedidos = (await Promise.all((await listar('pedidos', PREFIXO_PEDIDO_SITE)).map(async (chave) => ({ chave, p: await agenda.ler<PedidoDoSite>(chave) })))).filter((x) => x.p && !x.p.processadoEm && x.p.tipo === 'TRANSFERENCIA').sort((a, b) => a.p!.pedidoEm.localeCompare(b.p!.pedidoEm));
   for (const { chave, p: lido } of pedidos) {
     const p = lido!;
+    const v = await (vinculos ??= jogadoresComVinculo(agenda));
     const r = await banco.transacao((b) =>
-      transferirJogador(b, p.jogadorId, { times: p.time ? [p.time] : [], ...(p.posicao ? { posicao: p.posicao } : {}) }, { quando: agora, ref: `site:${p.jogadorId}:${p.pedidoEm}` }),
+      transferirJogador(b, p.jogadorId, { times: p.time ? [p.time] : [], ...(p.posicao ? { posicao: p.posicao } : {}) }, { quando: agora, ref: `site:${p.jogadorId}:${p.pedidoEm}`, comVinculo: v }),
     );
     const msg = r.mensagem ? r.mensagem.charAt(0).toUpperCase() + r.mensagem.slice(1) : 'Pedido não entendido.';
     await agenda.gravar(chave, { ...p, resultado: r.resultado, mensagem: msg, processadoEm: agora.toISOString() });

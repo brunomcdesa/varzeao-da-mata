@@ -37,6 +37,9 @@ export const REELS_PROGRAMADOS: readonly ReelsProgramado[] = [
   // Abertura da Temporada 3, com a Copa (ADRs 0088 e 0092): sábado 28/11, 21h de Brasília, depois
   // do Resumo da Temporada 2 (19h). A T3 nasce na sexta à noite, quando sai o Craque da Temporada.
   { id: 'abertura-t3', ref: 2009, publicarEm: '2026-11-29T00:00:00Z' },
+  // Técnico e Interesse (ADR-0110): domingo 29/11, 10h de Brasília, antes das Novidades da T3,
+  // com a Janela da T3 ainda aberta (fecha no Corte do primeiro jogo da Copa, segunda 30/11).
+  { id: 'novidades-t3-tecnico', ref: 2016, publicarEm: '2026-11-29T13:00:00Z' },
   // Novidades da T3 (ADR-0092): domingo 29/11, véspera da Copa, às 12h, 14h, 16h e 18h.
   { id: 'novidades-t3-campo', ref: 2010, publicarEm: '2026-11-29T15:00:00Z' },
   { id: 'novidades-t3-loja', ref: 2011, publicarEm: '2026-11-29T17:00:00Z' },

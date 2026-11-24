@@ -28,10 +28,11 @@ import type { Banco } from './banco.js';
 import { FORMACAO, OVR_BASE, habilidadesDe } from './regras.js';
 import { comSeloT1 } from './recompensaT1.js';
 import { capitaoEmCampo, confirmados, formacoesDaPartida, suspensos } from './temporada2.js';
+import { planosDaPartida } from './planoDoTime.js';
 
 /** O Corte mora no shared: o site usa o mesmo número na escalação provável. */
 export { CORTE_MINUTOS } from '@liga/shared';
-import { CORTE_MINUTOS, ehRodadaDaCopa, itensValidos, type ItensEquipados } from '@liga/shared';
+import { CORTE_MINUTOS, ehRodadaDaCopa, itensValidos, temRegrasT3, type ItensEquipados } from '@liga/shared';
 
 /**
  * Limite de Partidas Fora (ADR-0043): quem ficou esse número de Partidas seguidas do próprio
@@ -90,6 +91,8 @@ export interface RegrasDaEscalacao {
   formacao?: Formacao;
   /** Quem a Formação cortou no jogo anterior do Time: prioridade no rodízio (ADR-0044). */
   cortados?: ReadonlySet<string>;
+  /** Titulares fixados pelo Técnico ou pelo Capitão (ADR-0110): na frente de todos na Posição. */
+  fixados?: ReadonlySet<string>;
 }
 
 /** Formação (ADR-0044): quem cobre a vaga sem inscrito (mora no shared, junto da escalação provável). */
@@ -146,7 +149,7 @@ export async function montarEscalacao(
          LEFT JOIN partida p ON p.id = e.partida_id
            AND p.rodada_id IN (SELECT id FROM rodada WHERE temporada_id = $2)
          WHERE j.time_id = $1 AND NOT j.banido AND j.inscrito_em <= $4
-         GROUP BY j.id)
+         GROUP BY j.id, j.username, j.apelido, j.numero, j.itens, j.posicao, j.ovr, j.habilidades, j.inscrito_em, j.especializacao, j.treino, j.canto)
        SELECT b.id::text AS id, b.username, b.apelido, b.numero, b.itens, b.posicao, b.ovr, b.habilidades, b.inscrito_em, b.especializacao, b.treino, b.canto,
               b.jogos, b.ultimo,
               (SELECT count(*) FROM partida q JOIN rodada r ON r.id = q.rodada_id
@@ -184,7 +187,10 @@ export async function montarEscalacao(
   ]);
   const porPosicao = new Map<Posicao, Disponivel[]>();
   for (const d of disponiveis) porPosicao.set(d.posicao, [...(porPosicao.get(d.posicao) ?? []), d]);
-  for (const lista of porPosicao.values()) lista.sort((a, b) => ordemDoRodizio(a, b, o.craque ?? null, prioridade));
+  // Fixados (ADR-0110) primeiro, mesmo sem Presença; o resto segue o rodízio.
+  const fixados = o.t2?.fixados ?? new Set<string>();
+  const comFixados = (a: Disponivel, b: Disponivel) => Number(fixados.has(b.id)) - Number(fixados.has(a.id)) || ordemDoRodizio(a, b, o.craque ?? null, prioridade);
+  for (const lista of porPosicao.values()) lista.sort(comFixados);
   const resenha = o.resenha ?? new Set<string>();
   const bonusT1 = o.bonusT1 ?? new Set<string>();
 
@@ -372,6 +378,8 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
     // T2: Suspensão e Presença entram na Escalação (ADRs 0021 e 0023).
     // Formação (ADR-0044): escolhida até o Corte; quem ela cortou no jogo anterior tem prioridade.
     const formacoes = temRegrasT2(p.numero) ? await formacoesDaPartida(b, partidaId, p.mandante_id, p.visitante_id) : null;
+    // T3 (ADR-0110): titulares fixados pelo Técnico (ou pelo Capitão).
+    const planos = temRegrasT3(p.numero) ? await planosDaPartida(b, partidaId) : null;
     const regras = async (time: TimeId, formacao: Formacao | undefined): Promise<RegrasDaEscalacao | undefined> =>
       temRegrasT2(p.numero)
         ? {
@@ -379,6 +387,7 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
             confirmados: await confirmados(b, partidaId),
             ...(formacao ? { formacao } : {}),
             cortados: await cortadosNoJogoAnterior(b, time, partidaId, new Date(p.apito_inicial)),
+            ...(planos?.get(time)?.fixados.length ? { fixados: new Set(planos.get(time)!.fixados) } : {}),
           }
         : undefined;
     const regrasM = await regras(p.mandante_id, formacoes?.mandante);
@@ -412,6 +421,9 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
           [partidaId, m.escalacao.time, lugar, j.jogadorId, j.posicao, j.ovr, JSON.stringify(j.habilidades), m.apelidosDoBanco?.[k] ?? null, j.especializacao ?? null, j.treino ?? null, j.canto ?? null, j.resenha ?? false, j.bonusT1 ?? false, m.numerosDoBanco?.[k] ?? null, jsonDosItens(m.itensDoBanco?.[k])],
         );
       }
+      // Marca na Escalação quem entrou por ter sido fixado (a cartela mostra).
+      const fixadosDoTime = planos?.get(m.escalacao.time)?.fixados ?? [];
+      if (fixadosDoTime.length) await b.query(`UPDATE escalacao SET fixado = true WHERE partida_id = $1 AND time_id = $2 AND NOT reserva AND jogador_id::text = ANY($3)`, [partidaId, m.escalacao.time, fixadosDoTime]);
       for (const id of m.cortados ?? []) {
         await b.query(`INSERT INTO corte_da_formacao (partida_id, jogador_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [partidaId, id]);
       }
@@ -443,7 +455,7 @@ async function lerEscalacao(b: Banco, partidaId: number, mandante: TimeId, visit
   const linhas = (
     await b.query<{ time_id: TimeId; jogador_id: string | null; posicao: Posicao; ovr_antes: number; habilidades_antes: Habilidades | string | null; username: string | null; apelido: string | null; numero: number | null; itens: ItensEquipados | string | null; especializacao: Especializacao | null; treino: HabilidadeId | null; canto: Canto | null; resenha: boolean; posicao_de_origem: Posicao | null; bonus_t1: boolean; reserva: boolean }>(
       `SELECT e.time_id, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.numero, e.itens, e.especializacao, e.treino, e.canto, e.resenha, e.posicao_de_origem, e.bonus_t1, e.reserva
-       FROM escalacao e LEFT JOIN jogador j ON j.id = e.jogador_id
+       FROM escalacao e LEFT JOIN jogador_todos j ON j.id = e.jogador_id
        WHERE e.partida_id = $1 ORDER BY e.lugar`,
       [partidaId],
     )

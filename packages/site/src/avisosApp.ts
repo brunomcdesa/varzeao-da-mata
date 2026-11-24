@@ -38,9 +38,27 @@ export function timesComAviso(): TimeId[] | null {
   }
 }
 
-function guardar(times: TimeId[] | null): void {
+/** O Vínculo deste navegador (meuPersonagem.ts), para os Avisos pessoais (ADR-0110). */
+function vinculo(): { sessao: string; jogadorId: string } | null {
   try {
-    if (times) localStorage.setItem(CHAVE, JSON.stringify({ times }));
+    const v = JSON.parse(localStorage.getItem('varzeao:vinculo') ?? 'null') as { sessao?: string; jogadorId?: string } | null;
+    return v?.sessao && v.jogadorId ? { sessao: v.sessao, jogadorId: v.jogadorId } : null;
+  } catch {
+    return null;
+  }
+}
+
+function pessoaLigada(): string | null {
+  try {
+    return (JSON.parse(localStorage.getItem(CHAVE) ?? 'null') as { pessoa?: string } | null)?.pessoa ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function guardar(times: TimeId[] | null, pessoa: string | null = null): void {
+  try {
+    if (times) localStorage.setItem(CHAVE, JSON.stringify({ times, ...(pessoa ? { pessoa } : {}) }));
     else localStorage.removeItem(CHAVE);
   } catch {
     /* sem armazenamento: a borda continua mandando; só a tela não lembra */
@@ -66,8 +84,23 @@ export async function ativarAvisos(times: TimeId[]): Promise<void> {
   if (permissao !== 'granted') throw new Error('Sem permissão, o celular não mostra os Avisos.');
   const reg = await navigator.serviceWorker.ready;
   const assinatura = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: chave(VAPID_PUBLICA) }));
-  await postar('avisos', { assinatura: assinatura.toJSON(), times });
-  guardar(times);
+  const v = vinculo();
+  await postar('avisos', { assinatura: assinatura.toJSON(), times, ...(v ? { sessao: v.sessao } : {}) });
+  guardar(times, v?.jogadorId ?? null);
+}
+
+/**
+ * Avisos pessoais (ADR-0110): quem já tinha os Avisos ligados e fez o Vínculo depois passa a
+ * receber os dela (Pedido, Convite, Troca casada, Chamada). Sem toque e sem tela: só liga.
+ */
+export async function ligarAvisosPessoais(): Promise<void> {
+  const v = vinculo();
+  const times = timesComAviso();
+  if (!v || !times || pessoaLigada() === v.jogadorId || suporteAosAvisos() !== 'ok' || Notification.permission !== 'granted') return;
+  const assinatura = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+  if (!assinatura) return;
+  await postar('avisos/pessoa', { endpoint: assinatura.endpoint, sessao: v.sessao });
+  guardar(times, v.jogadorId);
 }
 
 export async function desativarAvisos(): Promise<void> {

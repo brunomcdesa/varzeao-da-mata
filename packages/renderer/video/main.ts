@@ -146,6 +146,7 @@ async function preparar(dados: PartidaParaVideo, quadrosPorSegundo = 30): Promis
     ...(dados.apelidos ? { apelidos: dados.apelidos } : {}),
     ...(dados.numeros ? { numeros: dados.numeros } : {}),
     ...(dados.itens ? { itens: dados.itens } : {}),
+    ...(dados.gritos ? { gritos: dados.gritos } : {}),
     escudo,
     ...(dados.subtitulo ? { subtitulo: dados.subtitulo } : {}),
     ...(dados.mataMata ? { mataMata: dados.mataMata } : {}),

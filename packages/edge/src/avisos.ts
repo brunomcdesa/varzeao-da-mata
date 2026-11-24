@@ -25,6 +25,7 @@ import {
   type TimeId,
 } from '@liga/shared';
 import type { Banco } from '../../worker/src/banco.js';
+import { CHAVE_AVISO_PESSOAL, ligarAparelhoAPessoa, tomarAvisosPessoais } from '../../worker/src/avisosPessoais.js';
 
 /** Minutos antes do Apito em que a Escalação pode sair (o Corte é 30 min antes). */
 const ESCALACAO_DESDE_MIN = 30;
@@ -38,6 +39,7 @@ export const CHAVE_FILA = 'aviso/fila';
 const chaveEscalacaoAvisada = (id: number) => `aviso/escalacao/${id}`;
 
 export interface AvisoParaTimes extends AvisoNoCelular {
+  partidaId: number;
   times: TimeId[];
 }
 
@@ -174,7 +176,8 @@ export async function enviar(f: typeof fetch, vapid: ChavesVapid, e: EnvioPenden
         // Aviso de jogo vale por pouco tempo: depois de 10 min já não ajuda.
         TTL: 600,
         urgency: 'high',
-        topic: `partida-${e.aviso.partidaId}`,
+        // O topic substitui o pendente com o mesmo nome: só nos de jogo.
+        ...(e.aviso.partidaId ? { topic: `partida-${e.aviso.partidaId}` } : {}),
       },
     );
     const r = await f(pedido.endpoint, { method: pedido.method, headers: pedido.headers, body: pedido.body });
@@ -247,6 +250,12 @@ export async function rodarAvisos(env: AmbienteDosAvisos, agora: Date, comBanco:
   const antes = (await env.AGENDA.get<EnvioPendente[]>(CHAVE_FILA, 'json')) ?? [];
   const novos = await avisosNovos(env, agora);
   let fila = antes;
+  // Avisos pessoais (ADR-0110): só olha o banco quando a coleta ou a borda marcou o KV.
+  if ((await env.AGENDA.get(CHAVE_AVISO_PESSOAL)) !== null) {
+    await env.AGENDA.delete(CHAVE_AVISO_PESSOAL);
+    const pessoais = await comBanco((b) => tomarAvisosPessoais(b));
+    fila = [...fila, ...pessoais];
+  }
   if (novos.length) {
     const envios = await comBanco(async (b) => {
       const lista: EnvioPendente[] = [];
@@ -278,10 +287,20 @@ export async function rodarAvisos(env: AmbienteDosAvisos, agora: Date, comBanco:
 const resposta = (dados: unknown, status: number, cors: Record<string, string>) =>
   new Response(JSON.stringify(dados), { status, headers: { 'content-type': 'application/json; charset=utf-8', ...cors } });
 
-/** POST /avisos (ativar ou trocar os Times) e POST /avisos/desativar. */
-export async function rotaDosAvisos(req: Request, env: AmbienteDosAvisos, comBanco: ComBanco, cors: Record<string, string>): Promise<Response | null> {
+/**
+ * POST /avisos (ativar ou trocar os Times) e POST /avisos/desativar. Com `sessao` do Vínculo, o
+ * aparelho também recebe os Avisos pessoais da pessoa (ADR-0110); POST /avisos/pessoa liga um
+ * aparelho que já tinha os Avisos dos Times.
+ */
+export async function rotaDosAvisos(
+  req: Request,
+  env: AmbienteDosAvisos,
+  comBanco: ComBanco,
+  cors: Record<string, string>,
+  pessoaDaSessao: (sessao: string) => Promise<string | null> = async () => null,
+): Promise<Response | null> {
   const { pathname } = new URL(req.url);
-  if (req.method !== 'POST' || (pathname !== '/avisos' && pathname !== '/avisos/desativar')) return null;
+  if (req.method !== 'POST' || (pathname !== '/avisos' && pathname !== '/avisos/desativar' && pathname !== '/avisos/pessoa')) return null;
   if (!env.DATABASE_URL || !env.VAPID_PRIVADA || !env.VAPID_PUBLICA) return resposta({ erro: 'Os Avisos ainda não estão ligados.' }, 503, cors);
   if (pathname === '/avisos') {
     const obj = await env.PUBLICO.get('dados/liga.json');
@@ -295,6 +314,14 @@ export async function rotaDosAvisos(req: Request, env: AmbienteDosAvisos, comBan
   } catch {
     return resposta({ erro: 'Corpo inválido' }, 400, cors);
   }
+  const sessao = (corpo as { sessao?: unknown } | null)?.sessao;
+  const pessoa = typeof sessao === 'string' && sessao.length <= 100 ? await pessoaDaSessao(sessao) : null;
+  if (pathname === '/avisos/pessoa') {
+    const endpoint = (corpo as { endpoint?: unknown } | null)?.endpoint;
+    if (!endpointValido(endpoint) || !pessoa) return resposta({ erro: 'Vínculo ou aparelho inválido' }, 400, cors);
+    await comBanco((b) => ligarAparelhoAPessoa(b, endpoint, pessoa));
+    return resposta({ ok: true }, 200, cors);
+  }
   if (pathname === '/avisos/desativar') {
     const endpoint = (corpo as { endpoint?: unknown } | null)?.endpoint;
     if (!endpointValido(endpoint)) return resposta({ erro: 'Aparelho inválido' }, 400, cors);
@@ -303,6 +330,9 @@ export async function rotaDosAvisos(req: Request, env: AmbienteDosAvisos, comBan
   }
   const ativacao = lerAtivacao(corpo);
   if (!ativacao) return resposta({ erro: 'Escolha pelo menos um Time.' }, 400, cors);
-  await comBanco((b) => guardarAparelho(b, ativacao.aparelho, ativacao.times));
+  await comBanco(async (b) => {
+    await guardarAparelho(b, ativacao.aparelho, ativacao.times);
+    if (pessoa) await ligarAparelhoAPessoa(b, ativacao.aparelho.endpoint, pessoa);
+  });
   return resposta({ ok: true, times: ativacao.times }, 200, cors);
 }
