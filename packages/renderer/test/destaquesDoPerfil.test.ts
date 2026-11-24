@@ -34,3 +34,10 @@ describe('Destaques do perfil (ADR-0108)', () => {
     expect(pastaDoDestaque('Campeões')).toBe('campeoes');
   });
 });
+
+describe('Campeões no destaque', () => {
+  it('a Onça é a campeã da Temporada 1', async () => {
+    const { CAMPEOES } = await import('../src/destaquesDoPerfil.js');
+    expect(CAMPEOES[0]).toEqual({ temporada: 1, time: 'ONC' });
+  });
+});

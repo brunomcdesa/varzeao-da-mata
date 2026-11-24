@@ -13,7 +13,7 @@ O perfil tinha um único destaque, "Novidades", com capa ilegível (um pedaço d
 2. Cada destaque tem uma capa própria (PNG 1080 × 1080, ícone em pixel art num anel dourado, legível no círculo) e Stories estáticos (JPEG 1080 × 1920) no estilo dos Reels: Como entrar (4), Como funciona (4), Site e App (3), Times (4: os dois Grupos e os Clássicos de cada um), Perfis dos Times (3) e Campeões (1 por Temporada).
 3. O conteúdo fica entre a barra do Story e a caixa de resposta (linhas 70 a 405 da tela de 270 × 480). Sem rodapé com o @: o Story já mostra o perfil.
 4. Os textos vêm das regras do código e dos Reels já aprovados. Um teste no worker confere que o exemplo de Inscrição, cada jeito de escrever a Posição e o nome de cada Time no Story são entendidos pelo leitor de comentários.
-5. `pnpm --filter @liga/renderer destaques-do-perfil <pasta> [--campeao TIME --temporada N --craque nome]` gera tudo. Sem `--campeao`, o destaque Campeões sai só com a capa.
+5. `pnpm --filter @liga/renderer destaques-do-perfil <pasta> [--campeao TIME --temporada N --craque nome]` gera tudo. Os campeões ficam na lista `CAMPEOES` (T1: Onça). A capa de Campeões é a taça; dentro do destaque, o Story do campeão de cada Temporada.
 6. A API do Instagram não cria destaques nem troca capas: o dono posta os Stories, põe cada um no seu destaque e troca a capa pelo app.
 
 ## Consequências

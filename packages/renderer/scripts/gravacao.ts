@@ -943,7 +943,6 @@ export async function exportarDestaques(dir: string, campeao?: CampeaoNoDestaque
       await writeFile(join(pasta, 'capa.png'), Buffer.from(capa, 'base64'));
       feitos.push(join(pasta, 'capa.png'));
       for (const [k, s] of d.stories.entries()) {
-        if (s === 'CAMPEOES_T1' && !campeao) continue;
         const jpg = await pagina.evaluate(([story, c]) => window.varzea.storyDoDestaque(story, c ?? undefined), [s, campeao ?? null] as const);
         await writeFile(join(pasta, `${k + 1}.jpg`), Buffer.from(jpg, 'base64'));
         feitos.push(join(pasta, `${k + 1}.jpg`));

@@ -3,7 +3,7 @@
  *
  *   pnpm destaques-do-perfil <pasta> [--campeao CAP] [--temporada 1] [--craque apelido]
  *
- * Sem --campeao, o destaque Campeões sai só com a capa.
+ * Sem --campeao, vale a lista CAMPEOES de src/destaquesDoPerfil.ts (T1: Onça).
  */
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';

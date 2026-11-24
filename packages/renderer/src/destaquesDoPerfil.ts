@@ -63,6 +63,9 @@ export interface CampeaoNoDestaque {
   craque?: string;
 }
 
+/** Campeões de cada Temporada, do mais antigo ao mais recente: um Story por Temporada. */
+export const CAMPEOES: readonly CampeaoNoDestaque[] = [{ temporada: 1, time: 'ONC' }];
+
 export interface OpcoesDestaque {
   escudo?: CanvasImageSource;
   campeao?: CampeaoNoDestaque;
@@ -483,7 +486,7 @@ export function desenharStory(ctx: CanvasRenderingContext2D, story: Story, o: Op
       break;
     }
     case 'CAMPEOES_T1': {
-      const c = o.campeao;
+      const c = o.campeao ?? CAMPEOES.find((x) => x.temporada === 1);
       let y = topo(pin, 'Campeões', pagina, o) + 6;
       if (!c) break;
       tabuaComTexto(pin, `Temporada ${c.temporada}`, cx, y, 170, 30, 20);
