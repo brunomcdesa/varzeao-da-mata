@@ -5161,3 +5161,63 @@ body.com-folha .abas-app {
 .jogar-aqui .legenda {
   color: var(--tinta-fraca);
 }
+/* Escudo nos cartões: altura fixa e largura proporcional (o escudo não é quadrado). */
+.cartao-mercado .quem img {
+  width: auto;
+  height: 30px;
+}
+.convite-recebido .titulo-convite img {
+  width: auto;
+  height: 56px;
+}
+/* Fila: número e nome alinhados com o título da Posição. */
+.fila-posicao ol {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.fila-posicao li {
+  display: grid;
+  grid-template-columns: 1.5rem 1fr;
+  align-items: baseline;
+}
+.fila-posicao li > b {
+  font: 400 1.25rem/1 var(--display);
+}
+/* Plano do Time mais enxuto: o essencial na placa; o que é do Capitão fica na dobra. */
+.quem-decide.enxuto {
+  flex-wrap: nowrap !important;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 6px 10px;
+}
+.quem-decide.enxuto p {
+  font-size: 0.875rem;
+}
+.fixados-do-plano {
+  margin: 12px 0 0;
+}
+.fixados-do-plano > span:first-child {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.875rem;
+  color: var(--tinta-fraca);
+}
+.sugestao-do-capitao.enxuta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sugestao-do-capitao.enxuta p {
+  margin: 0;
+}
+.sugestao-do-capitao .botao {
+  flex: none;
+  padding: 8px 10px 6px;
+  font-size: 0.875rem;
+}
+.do-capitao .linhas-do-plano li:first-child {
+  border-top: 0;
+}
