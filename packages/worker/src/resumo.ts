@@ -296,7 +296,7 @@ export async function craqueDaRodada(b: Banco, rodadaId: number, serie: Serie = 
     await b.query<{ id: string; username: string }>(
       `SELECT j.id::text AS id, j.username FROM candidato c JOIN jogador j ON j.id = c.jogador_id
        LEFT JOIN voto_total v ON v.rodada_id = c.rodada_id AND v.jogador_id = c.jogador_id
-       WHERE c.rodada_id = $1 AND c.serie = $2 GROUP BY j.id, c.nota ORDER BY count(v.eleitor) DESC, c.nota DESC, j.id LIMIT 1`,
+       WHERE c.rodada_id = $1 AND c.serie = $2 GROUP BY j.id, j.username, c.nota ORDER BY count(v.eleitor) DESC, c.nota DESC, j.id LIMIT 1`,
       [rodadaId, serie],
     )
   ).rows[0];

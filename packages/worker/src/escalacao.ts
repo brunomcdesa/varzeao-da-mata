@@ -146,7 +146,7 @@ export async function montarEscalacao(
          LEFT JOIN partida p ON p.id = e.partida_id
            AND p.rodada_id IN (SELECT id FROM rodada WHERE temporada_id = $2)
          WHERE j.time_id = $1 AND NOT j.banido AND j.inscrito_em <= $4
-         GROUP BY j.id)
+         GROUP BY j.id, j.username, j.apelido, j.numero, j.itens, j.posicao, j.ovr, j.habilidades, j.inscrito_em, j.especializacao, j.treino, j.canto)
        SELECT b.id::text AS id, b.username, b.apelido, b.numero, b.itens, b.posicao, b.ovr, b.habilidades, b.inscrito_em, b.especializacao, b.treino, b.canto,
               b.jogos, b.ultimo,
               (SELECT count(*) FROM partida q JOIN rodada r ON r.id = q.rodada_id

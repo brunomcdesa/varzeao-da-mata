@@ -96,7 +96,7 @@ export async function ordemDoCapitao(b: Banco, time: TimeId): Promise<string[]> 
        LEFT JOIN escalacao e ON e.jogador_id = j.id AND e.time_id = j.time_id AND (NOT e.reserva OR e.entrou)
        LEFT JOIN capitao_a_mao m ON m.time_id = j.time_id AND m.jogador_id = j.id
        WHERE j.time_id = $1 AND NOT j.banido
-       GROUP BY j.id, m.jogador_id ORDER BY (m.jogador_id IS NOT NULL) DESC, count(e.partida_id) DESC, j.inscrito_em, j.id`,
+       GROUP BY j.id, j.inscrito_em, m.jogador_id ORDER BY (m.jogador_id IS NOT NULL) DESC, count(e.partida_id) DESC, j.inscrito_em, j.id`,
       [time],
     )
   ).rows.map((r) => r.id);

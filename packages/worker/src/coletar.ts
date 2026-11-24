@@ -4,7 +4,7 @@
  * não muda nada (idempotência pelo ig_comment_id).
  */
 import type { Habilidades, Posicao, TimeId } from '@liga/shared';
-import { CANDIDATOS_POR_SERIE, TIMES_DA_EXPANSAO, TIMES_POR_SERIE, doTime, numeroDoCandidato, ovrDasHabilidades, temRegrasT2, type Serie } from '@liga/shared';
+import { CANDIDATOS_POR_SERIE, TIMES_DA_EXPANSAO, TIMES_POR_SERIE, temRegrasT3, doTime, numeroDoCandidato, ovrDasHabilidades, temRegrasT2, type Serie } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { soltarFaixa } from './aMao.js';
 import { CONTA_DA_LIGA, citacoes, interpretar, type Comando } from './comandos.js';
@@ -15,6 +15,7 @@ import { FOLGA_DE_ELENCO, FORMACAO, OVR_INICIAL, OVR_INICIAL_DEPOIS_DA_T1, REALO
 import { normalizar } from './vocabulario.js';
 import { CORTE_MINUTOS } from './escalacao.js';
 import { marcarFundador, temporadaDeFundacao } from './expansao.js';
+import { abrirPedido, aceiteNecessario, aoChamarNovato, entrarNaFila, tecnicoQuerJogar, voltarAJogar, type AvisoDoPedido } from './tecnico.js';
 
 const CORTE_MS = CORTE_MINUTOS * 60_000;
 
@@ -56,6 +57,11 @@ export type Resultado =
   | 'TRANSFERENCIA_FECHADA'
   | 'DESTINO_CHEIO'
   | 'MESMO_LUGAR'
+  /** Técnico e Interesse (T3, ADR-0106): o pedido espera o Técnico, ou a pessoa entrou na Fila. */
+  | 'PEDIDO_ENVIADO'
+  | 'NA_FILA'
+  /** Técnico que pendurou as chuteiras e ainda não pode voltar. */
+  | 'TECNICO_FORA'
   /** Presença (T2, ADR-0023). */
   | 'PRESENCA_CONFIRMADA'
   | 'PRESENCA_RECUSADA'
@@ -72,6 +78,8 @@ export interface Contexto {
   realocar?: boolean;
   /** Inscrição manual do dono (workflow inscrever-jogador): ignora o equilíbrio de Elencos (ADR-0029). */
   forcar?: boolean;
+  /** Quem tem Vínculo (ADR-0106): o Capitão só decide Pedido se tiver. Sem isso, só o Técnico decide. */
+  comVinculo?: ReadonlySet<string>;
 }
 
 export async function processarComentario(banco: Banco, c: Comentario, ctx: Contexto): Promise<Resultado> {
@@ -111,7 +119,7 @@ async function lerComando(b: Banco, c: Comentario, ctx: Contexto, primeira: bool
   // do mesmo @ assume o Jogador.
   const semId = c.igUserId.startsWith(PREFIXO_SEM_ID);
   if (!c.igUserId.startsWith('dm-') && !semId) {
-    await b.query(`UPDATE jogador SET ig_user_id = $1 WHERE ig_user_id = 'dm-' || lower($2) AND NOT EXISTS (SELECT 1 FROM jogador WHERE ig_user_id = $1)`, [c.igUserId, c.username]);
+    await b.query(`UPDATE jogador_todos SET ig_user_id = $1 WHERE ig_user_id = 'dm-' || lower($2) AND NOT EXISTS (SELECT 1 FROM jogador_todos WHERE ig_user_id = $1)`, [c.igUserId, c.username]);
   }
   // O @ pode mudar; o Jogador é da conta (ig_user_id), então o username só é atualizado.
   const jogador = (
@@ -317,6 +325,12 @@ async function naPosicaoPorTime(b: Banco, times: readonly TimeId[], posicao: Pos
 
 async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posicao | undefined, ctx: Contexto): Promise<Resultado> {
   if (await usernameBloqueado(b, c.username)) return 'NOME_BLOQUEADO';
+  // Técnico (ADR-0106): quem nunca jogou entra e perde o cargo; quem pendurou volta numa Janela seguinte.
+  const tecnico = await tecnicoQuerJogar(b, c.igUserId, c.comentadoEm);
+  if (tecnico && !tecnico.podeVoltar) {
+    if (tecnico.mensagem) await ctx.responder?.(c.igCommentId, `@${c.username} ${tecnico.mensagem}`);
+    return 'TECNICO_FORA';
+  }
 
   // Só os Times que jogam a Temporada (com a Série B, os 24; antes dela, os fundadores).
   const { series } = await seriesAtivas(b);
@@ -342,13 +356,40 @@ async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posica
   // equilíbrio, a pedida ou a mais vazia do Time novo.
   const posicao = motivo === 'SERIE_B' || motivo === 'OUTRO_DA_A' || motivo === 'OUTRO_TIME' ? noPedido : (pedida ?? (time === pedido ? noPedido : await posicaoMaisVazia(b, time)));
 
-  const { ovr, habilidades } = sortearHabilidadesIniciais(c.igCommentId, posicao as Posicao, await faixaDoOvrInicial(b));
-  const novo = (
-    await b.query<{ id: string }>(
-      `INSERT INTO jogador (ig_user_id, username, time_id, posicao, ovr, habilidades, inscrito_em) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id::text AS id`,
-      [c.igUserId, c.username, time, posicao, ovr, JSON.stringify(habilidades), c.comentadoEm.toISOString()],
-    )
-  ).rows[0]!.id;
+  // T3 (ADR-0106): sem vaga na Posição em nenhum Time, o novato entra na Fila do Time pedido.
+  if (!ctx.forcar && series.B.length && (await temporadaAtualComT3(b))) {
+    const na = await naPosicaoPorTime(b, [time], posicao as Posicao);
+    if ((na.get(time) ?? 0) >= LIMITE_POR_POSICAO[posicao as Posicao]) {
+      const t = (await b.query<{ id: number }>(`SELECT id FROM temporada WHERE status IN ('PRE_TEMPORADA', 'EM_ANDAMENTO') ORDER BY status = 'EM_ANDAMENTO' DESC, numero LIMIT 1`)).rows[0]!;
+      const vez = await entrarNaFila(b, { time: pedido, posicao: posicao as Posicao, jogadorId: null, igUserId: c.igUserId, username: c.username, ref: c.igCommentId, agora: c.comentadoEm, temporadaId: t.id });
+      await ctx.responder?.(
+        c.igCommentId,
+        `@${c.username} as vagas de ${NOME_DA_POSICAO_FALADO[posicao as Posicao]} estão completas em todos os times. Você entrou na Fila de espera ${doTime(pedido)} e é o ${vez}º: quando abrir vaga, você entra sozinho. ⚽`,
+      );
+      return 'NA_FILA';
+    }
+  }
+  const pendurado = tecnico && !tecnico.nuncaJogou ? (await b.query<{ posicao: Posicao; ovr: number; habilidades: Habilidades | string | null }>(`SELECT posicao, ovr, habilidades FROM jogador_todos WHERE id = $1`, [tecnico.jogadorId])).rows[0] : null;
+  const { ovr, habilidades } = pendurado
+    ? naPosicao(tecnico!.jogadorId, pendurado.posicao, posicao as Posicao, pendurado.ovr, pendurado.habilidades)
+    : sortearHabilidadesIniciais(c.igCommentId, posicao as Posicao, await faixaDoOvrInicial(b));
+  let novo: string;
+  if (tecnico) {
+    // Quem era Técnico volta para o Elenco na mesma linha (Carreira, Moedas e Itens seguem).
+    await voltarAJogar(b, tecnico.jogadorId, c.comentadoEm);
+    await b.query(
+      `UPDATE jogador_todos SET username = $2, time_id = $3, posicao = $4, ovr = $5, habilidades = $6${tecnico.nuncaJogou ? ', inscrito_em = $7' : ''} WHERE id = $1`,
+      [tecnico.jogadorId, c.username, time, posicao, ovr, JSON.stringify(habilidades), ...(tecnico.nuncaJogou ? [c.comentadoEm.toISOString()] : [])],
+    );
+    novo = tecnico.jogadorId;
+  } else {
+    novo = (
+      await b.query<{ id: string }>(
+        `INSERT INTO jogador (ig_user_id, username, time_id, posicao, ovr, habilidades, inscrito_em) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id::text AS id`,
+        [c.igUserId, c.username, time, posicao, ovr, JSON.stringify(habilidades), c.comentadoEm.toISOString()],
+      )
+    ).rows[0]!.id;
+  }
   // Entrou num Time da Expansão antes do primeiro jogo dele: Fundador (ADR-0093).
   const fundacao = await temporadaDeFundacao(b, time, c.comentadoEm, CORTE_MS);
   if (fundacao) await marcarFundador(b, novo, time, fundacao);
@@ -402,7 +443,7 @@ async function jaInscrito(b: Banco, c: Comentario, pedido: { time: TimeId; posic
  * delas na posição nova.
  */
 async function transferir(b: Banco, c: Comentario, jogadorId: string, pedido: { times: TimeId[]; posicao?: Posicao }, ctx: Contexto): Promise<Resultado> {
-  const r = await transferirJogador(b, jogadorId, pedido, { quando: c.comentadoEm, ref: c.igCommentId });
+  const r = await transferirJogador(b, jogadorId, pedido, { quando: c.comentadoEm, ref: c.igCommentId, ...(ctx.comVinculo ? { comVinculo: ctx.comVinculo } : {}) });
   if (r.mensagem) await ctx.responder?.(c.igCommentId, `@${c.username} ${r.mensagem}`);
   return r.resultado;
 }
@@ -416,9 +457,20 @@ export async function transferirJogador(
   b: Banco,
   jogadorId: string,
   pedido: { times: TimeId[]; posicao?: Posicao },
-  o: { quando: Date; ref: string },
+  o: {
+    quando: Date;
+    ref: string;
+    /** Quem tem Vínculo (ADR-0106): o Capitão só decide Pedido se tiver. */
+    comVinculo?: ReadonlySet<string>;
+    /** Pedido já aceito, Convite aceito ou Troca casada: aplica sem pedir aceite de novo. */
+    semAceite?: boolean;
+    /** Troca casada: os Times trocam um por um, então o Limite e o equilíbrio não mudam. */
+    ignorarLimite?: boolean;
+    /** Chamado pela Fila: Posição cheia de novo não volta para a Fila. */
+    origemFila?: boolean;
+  },
 ): Promise<{ resultado: Resultado; mensagem?: string }> {
-  const j = (await b.query<{ time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null }>(`SELECT time_id, posicao, ovr, habilidades FROM jogador WHERE id = $1`, [jogadorId])).rows[0];
+  const j = (await b.query<{ time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; ig_user_id: string; username: string }>(`SELECT time_id, posicao, ovr, habilidades, ig_user_id, username FROM jogador WHERE id = $1`, [jogadorId])).rows[0];
   if (!j) return { resultado: 'IGNORADO' };
   // Citou dois Times ("sair da Onça e ir pra Preguiça"): um tem que ser o dele, e o destino
   // é o outro. Se nenhum é o dele, o pedido não é claro: não mexe nem responde.
@@ -456,7 +508,7 @@ export async function transferirJogador(
     const ativos = series.B.includes(destino) ? series.B : series.B.length ? series.A : todos;
     const contagem = await elencos(b, ativos, jogadorId);
     const menor = Math.min(...contagem.values());
-    if (contagem.get(destino)! >= menor + FOLGA_DE_ELENCO) {
+    if (!o.ignorarLimite && contagem.get(destino)! >= menor + FOLGA_DE_ELENCO) {
       const vazios = ativos.filter((t) => contagem.get(t) === menor && t !== j.time_id).map((t) => doTime(t).replace(/^d[oa] /, ''));
       return { resultado: 'DESTINO_CHEIO', mensagem: `o time ${doTime(destino)} está cheio agora, então a transferência não deu. Times com vaga: ${vazios.join(', ')}. ⚽` };
     }
@@ -464,7 +516,8 @@ export async function transferirJogador(
 
   // Limite por Posição (ADR-0080): a Transferência (e a troca de Posição no mesmo Time) segue a
   // mesma regra da Inscrição. Conta o destino sem ele; cheia, a troca não acontece.
-  if (destino !== j.time_id || posicao !== j.posicao) {
+  const t3 = await temporadaComRegrasT3(b, temporada);
+  if (!o.ignorarLimite && (destino !== j.time_id || posicao !== j.posicao)) {
     const { series } = await seriesAtivas(b);
     const todos = [...series.A, ...series.B];
     const mesmaSerie = series.B.includes(destino) ? series.B : series.A.includes(destino) ? series.A : todos;
@@ -476,9 +529,31 @@ export async function transferirJogador(
         .sort((x, y) => (na.get(x) ?? 0) - (na.get(y) ?? 0) || x.localeCompare(y))
         .slice(0, 4)
         .map((t) => doTime(t).replace(/^d[oa] /, ''));
+      // T3 (ADR-0106): a troca de Time para uma Posição cheia entra na Fila de espera do Time.
+      if (t3 && destino !== j.time_id && !o.origemFila) {
+        const vez = await entrarNaFila(b, { time: destino, posicao, jogadorId, igUserId: j.ig_user_id, username: j.username, ref: o.ref, agora: o.quando, temporadaId: temporada });
+        return {
+          resultado: 'NA_FILA',
+          mensagem: `as vagas de ${NOME_DA_POSICAO_FALADO[posicao]} ${doTime(destino)} já estão completas. Você entrou na Fila de espera e é o ${vez}º: quando abrir vaga, o pedido vai para o time. Não gastou a sua troca.${comVaga.length ? ` Times com vaga nessa posição agora: ${comVaga.join(', ')}.` : ''} ⚽`,
+        };
+      }
       return {
         resultado: 'DESTINO_CHEIO',
         mensagem: `as vagas de ${NOME_DA_POSICAO_FALADO[posicao]} ${doTime(destino)} já estão completas, então a ${destino === j.time_id ? 'mudança de posição' : 'transferência'} não deu.${comVaga.length ? ` Times com vaga nessa posição: ${comVaga.join(', ')}.` : ''} ⚽`,
+      };
+    }
+  }
+
+  // Pedido de Transferência (T3, ADR-0106): com Técnico (ou Capitão com Vínculo) no destino, a
+  // troca espera o aceite, até o prazo. Recusado ou caído, não gasta a troca.
+  if (t3 && destino !== j.time_id && !o.semAceite) {
+    const aceite = await aceiteNecessario(b, { de: j.time_id, para: destino, posicao, temporadaId: temporada, janela, gratis, quando: o.quando, comVinculo: o.comVinculo ?? new Set() });
+    if (aceite) {
+      await abrirPedido(b, { jogadorId, temporadaId: temporada, de: j.time_id, para: destino, posicao, ref: o.ref, quando: o.quando, prazo: aceite.prazo, decisorId: aceite.decisorId, ...(o.origemFila ? { origem: 'FILA' as const } : {}) });
+      const horas = Math.max(1, Math.round((aceite.prazo.getTime() - o.quando.getTime()) / 3600_000));
+      return {
+        resultado: 'PEDIDO_ENVIADO',
+        mensagem: `o pedido para ser ${NOME_DA_POSICAO_FALADO[posicao]} ${doTime(destino)} foi para ${aceite.decisorId ? 'o time decidir' : 'o time'}. Se ninguém responder em ${horas === 1 ? '1 hora' : `${horas} horas`}, você entra. Recusado, não gasta a sua troca. ⚽`,
       };
     }
   }
@@ -625,6 +700,34 @@ async function emJanela(b: Banco, temporadaId: number, quando: Date): Promise<bo
   if (!t || !temRegrasT2(t.numero)) return false;
   if (!t.primeiro) return t.status === 'PRE_TEMPORADA';
   return quando.getTime() < new Date(t.primeiro).getTime() - CORTE_MS;
+}
+
+async function temporadaAtualComT3(b: Banco): Promise<boolean> {
+  const t = (await b.query<{ numero: number }>(`SELECT numero FROM temporada WHERE status IN ('PRE_TEMPORADA', 'EM_ANDAMENTO') ORDER BY status = 'EM_ANDAMENTO' DESC, numero LIMIT 1`)).rows[0];
+  return !!t && temRegrasT3(t.numero);
+}
+
+/**
+ * A Fila chamou um novato (ADR-0106): entra no Time e na Posição da Fila, como uma Inscrição
+ * do dono (a vaga já foi conferida).
+ */
+aoChamarNovato(async (b, n, agora): Promise<AvisoDoPedido | null> => {
+  let resposta = '';
+  const r = await inscrever(
+    b,
+    { igCommentId: n.ref, igMediaId: 'fila', igUserId: n.igUserId, username: n.username, texto: '', comentadoEm: agora },
+    n.time,
+    n.posicao,
+    { rodadaEmVotacao: null, forcar: true, responder: async (_id, texto) => void (resposta = texto) },
+  );
+  if (r !== 'INSCRITO' && r !== 'REALOCADO') return null;
+  const id = (await b.query<{ id: string }>(`SELECT id::text AS id FROM jogador WHERE ig_user_id = $1`, [n.igUserId])).rows[0]?.id;
+  return id ? { jogadorId: id, ref: n.ref, mensagem: resposta.replace(/^@\S+ /, '') } : null;
+});
+
+async function temporadaComRegrasT3(b: Banco, temporadaId: number): Promise<boolean> {
+  const t = (await b.query<{ numero: number }>(`SELECT numero FROM temporada WHERE id = $1`, [temporadaId])).rows[0];
+  return !!t && temRegrasT3(t.numero);
 }
 
 async function temporadaDaTransferencia(b: Banco, agora: Date): Promise<number | null> {
