@@ -286,21 +286,19 @@ function agendarEntrosDoDia(d: number): void {
 
 // ------------------------------------------------------------------ o relógio
 
-const ULTIMO_DIA = estreiaDa(nTemporadas - 1) + 9; // a última Temporada até o anúncio do Craque
+// A T1 é criada aqui; as seguintes nascem sozinhas no job do Resumo, como em produção.
+const LIMITE_DE_DIAS = 30 * nTemporadas;
 const inicioDoRelogio = Date.now();
-for (let d = 0; d < ULTIMO_DIA + 1; d++) {
+const temporadasCriadas = async () => Number((await banco.query<{ n: string }>(`SELECT count(*) AS n FROM temporada`)).rows[0]!.n);
+const encerradas = async () => Number((await banco.query<{ n: string }>(`SELECT count(*) AS n FROM temporada WHERE craque_jogador_id IS NOT NULL`)).rows[0]!.n);
+for (let d = 0; d < LIMITE_DE_DIAS; d++) {
   const dia = somarDias(inicio, d - 2);
-  // Cada Temporada é criada dois dias antes da estreia (o calendário já aparece no site).
-  for (let k = 0; k < nTemporadas; k++) {
-    if (d === estreiaDa(k) - 2) {
-      await criarTemporada(banco, { numero: k + 1, primeiraRodada: somarDias(inicio, estreiaDa(k) - 2), seed: Number(args.seed ?? 7) + k });
-      if (k > 0) posts.push({ id: `post-temporada-${k + 1}`, publicadoEm: em(dia, 8), comentarios: [] });
-    }
-  }
+  if (d === 0) await criarTemporada(banco, { numero: 1, primeiraRodada: somarDias(inicio, estreiaDa(0) - 2), seed: Number(args.seed ?? 7) });
+  const antes = await temporadasCriadas();
   agendarEntrosDoDia(d);
   const eventos: [number, () => Promise<unknown>][] = [];
   for (let h = 8; h <= 23; h++) eventos.push([h + 17 / 60, () => jobColetar(ctx)]);
-  for (const h of [11, 13, 15, 17]) eventos.push([h + 25 / 60, () => jobPartida(ctx)]);
+  for (let h = 8; h <= 18; h++) eventos.push([h + 25 / 60, () => jobPartida(ctx)]);
   eventos.push([18 + 10 / 60, () => jobResumo(ctx)]);
   for (let m = 6; m < 24 * 60; m += 60) eventos.push([m / 60, borda]); // :06 de cada hora (Reels)
   eventos.push([19, borda]);
@@ -311,8 +309,11 @@ for (let d = 0; d < ULTIMO_DIA + 1; d++) {
     if (t > agora) agora = t;
     await fazer();
   }
+  const depois = await temporadasCriadas();
+  if (depois > antes) posts.push({ id: `post-temporada-${depois}`, publicadoEm: em(dia, 20), comentarios: [] });
   if (ate && em(dia, 24) > ate) break;
   process.stdout.write(`\r${dia} ok (${Math.round((Date.now() - inicioDoRelogio) / 1000)} s)   `);
+  if ((await encerradas()) >= nTemporadas) break;
 }
 process.stdout.write('\n');
 
