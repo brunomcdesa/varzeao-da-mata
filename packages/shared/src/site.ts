@@ -18,9 +18,9 @@ export interface TimePublico {
   secundaria: string;
   /** Perfil do Time no Instagram, sem o @ (ADR-0100). Só os reconhecidos como oficiais. */
   instagram?: string;
-  /** Técnico do Time (ADR-0106): o @ e o Apelido, quando tem. */
+  /** Técnico do Time (ADR-0110): o @ e o Apelido, quando tem. */
   tecnico?: { id: string; username: string; apelido: string | null };
-  /** Fila de espera por Posição (ADR-0106): quantos esperam vaga. */
+  /** Fila de espera por Posição (ADR-0110): quantos esperam vaga. */
   fila?: Partial<Record<'GOL' | 'ZAG' | 'MEI' | 'ATA', number>>;
 }
 
@@ -294,7 +294,7 @@ export interface PartidaPublica {
   narracao: string | null;
   /** Temporada 2: tamanho de cada Elenco, para a Arquibancada. Ausente nas Partidas da T1. */
   torcida?: Record<'mandante' | 'visitante', number>;
-  /** Grito da Temporada (ADR-0107): o texto da faixa de cada lado, quando o Capitão escolheu. */
+  /** Grito da Temporada (ADR-0111): o texto da faixa de cada lado, quando o Capitão escolheu. */
   gritos?: Partial<Record<'mandante' | 'visitante', string>>;
   /** Mata-mata (ADR-0048): Semifinal ou Final, Temporada e Série. No fim mostra quem foi pra Final ou o campeão. */
   mataMata?: import('./rodada.js').MataMataDaPartida;

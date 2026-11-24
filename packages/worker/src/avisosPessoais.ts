@@ -1,5 +1,5 @@
 /**
- * Avisos pessoais (ADR-0106): notificação no celular de quem tem Vínculo e ligou os Avisos do
+ * Avisos pessoais (ADR-0110): notificação no celular de quem tem Vínculo e ligou os Avisos do
  * App. O worker (na borda ou na coleta) grava em aviso_pessoal e marca que há o que mandar; o
  * cron da borda lê a fila só quando há marca, para não acordar o banco a cada minuto.
  */

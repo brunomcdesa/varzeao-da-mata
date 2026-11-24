@@ -96,7 +96,7 @@ prepararNavegacaoApp({ meuJogador: jogadorVinculado });
 adiantarEstadoDasEscolhas();
 void navegar();
 void prepararApp();
-// Avisos pessoais (ADR-0106): liga o aparelho ao Vínculo, se os dois existirem.
+// Avisos pessoais (ADR-0110): liga o aparelho ao Vínculo, se os dois existirem.
 void ligarAvisosPessoais().catch(() => undefined);
 
 // Loja (ADR-0101): a sacola no canto do topo, a partir da T3; com Vínculo, o saldo junto.

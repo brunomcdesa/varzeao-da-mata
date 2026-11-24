@@ -1,5 +1,5 @@
 /**
- * Plano do Time (ADRs 0106 e 0107): o que o Técnico decide (Postura, Formação e titulares
+ * Plano do Time (ADRs 0110 e 0111): o que o Técnico decide (Postura, Formação e titulares
  * fixados), a Sugestão do Capitão (vale nos campos que o Técnico não decidiu até o Corte) e o
  * que fica sempre com o Capitão (Batedores, cobradores de escanteio, Marcação individual,
  * Grito da Temporada e Chamada da Presença).
@@ -139,7 +139,7 @@ export async function decidirPlano(
   return { ok: true, mensagem: `${nome} salvo para o próximo jogo.` };
 }
 
-/** Cobradores de escanteio (ADR-0107): 1 e 1 reserva, só o Capitão. */
+/** Cobradores de escanteio (ADR-0111): 1 e 1 reserva, só o Capitão. */
 export async function decidirEscanteio(b: Banco, pessoaId: string, ids: string[], agora: Date, comVinculo: ReadonlySet<string>): Promise<ResultadoDoPlano> {
   const papel = await papelNoTime(b, pessoaId, agora, comVinculo);
   if (!papel?.capitao) return { ok: false, mensagem: 'Só o Capitão escolhe os cobradores.' };
@@ -152,7 +152,7 @@ export async function decidirEscanteio(b: Banco, pessoaId: string, ids: string[]
   return { ok: true, mensagem: lista.length ? 'Cobradores de escanteio salvos.' : 'Escanteio volta ao sorteio.' };
 }
 
-/** Marcação individual (ADR-0107): um zagueiro ou meia do Time num rival de linha, em segredo. */
+/** Marcação individual (ADR-0111): um zagueiro ou meia do Time num rival de linha, em segredo. */
 export async function decidirMarcacao(b: Banco, pessoaId: string, valor: string, agora: Date, comVinculo: ReadonlySet<string>): Promise<ResultadoDoPlano> {
   const papel = await papelNoTime(b, pessoaId, agora, comVinculo);
   if (!papel?.capitao) return { ok: false, mensagem: 'Só o Capitão escolhe a Marcação.' };
@@ -171,7 +171,7 @@ export async function decidirMarcacao(b: Banco, pessoaId: string, valor: string,
   return { ok: true, mensagem: 'Marcação individual salva. Fica em segredo até o jogo.' };
 }
 
-/** Grito da Temporada (ADR-0107): o Capitão escolhe 1 das 3 opções, na Janela. */
+/** Grito da Temporada (ADR-0111): o Capitão escolhe 1 das 3 opções, na Janela. */
 export async function escolherGrito(b: Banco, pessoaId: string, opcao: number, agora: Date, comVinculo: ReadonlySet<string>): Promise<ResultadoDoPlano> {
   if (![0, 1, 2].includes(opcao)) return { ok: false, mensagem: 'Opção de Grito desconhecida.' };
   const papel = await papelNoTime(b, pessoaId, agora, comVinculo);
@@ -191,7 +191,7 @@ export async function escolherGrito(b: Banco, pessoaId: string, opcao: number, a
   return { ok: true, mensagem: 'Grito da Temporada escolhido.' };
 }
 
-/** Chamada da Presença (ADR-0107): uma por jogo; quem manda os Avisos é o job (`chamadasPendentes`). */
+/** Chamada da Presença (ADR-0111): uma por jogo; quem manda os Avisos é o job (`chamadasPendentes`). */
 export async function chamarPresenca(b: Banco, pessoaId: string, agora: Date, comVinculo: ReadonlySet<string>): Promise<ResultadoDoPlano> {
   const papel = await papelNoTime(b, pessoaId, agora, comVinculo);
   if (!papel?.capitao) return { ok: false, mensagem: 'Só o Capitão faz a Chamada da Presença.' };
@@ -219,7 +219,7 @@ export async function chamarPresenca(b: Banco, pessoaId: string, agora: Date, co
 export { quemDecide };
 
 /**
- * Capitão em campo na Partida (ADR-0107): cobradores de escanteio e Marcação individual de cada
+ * Capitão em campo na Partida (ADR-0111): cobradores de escanteio e Marcação individual de cada
  * lado, para a simulação (VERSAO_SIM_T3 22). Sem escolha, o lado fica de fora e vale o sorteio.
  */
 export async function capitaoEmCampo(
@@ -239,7 +239,7 @@ export async function capitaoEmCampo(
   return { escanteio, marcacao };
 }
 
-/** Grito da Temporada de cada lado da Partida (ADR-0107), já em texto; lado sem escolha fica de fora. */
+/** Grito da Temporada de cada lado da Partida (ADR-0111), já em texto; lado sem escolha fica de fora. */
 export async function gritosDaPartida(b: Banco, partidaId: number): Promise<Partial<Record<'mandante' | 'visitante', string>>> {
   const linhas = (
     await b.query<{ mandante_id: TimeId; visitante_id: TimeId; time_id: TimeId; opcao: number }>(

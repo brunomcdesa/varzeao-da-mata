@@ -91,7 +91,7 @@ export interface RegrasDaEscalacao {
   formacao?: Formacao;
   /** Quem a Formação cortou no jogo anterior do Time: prioridade no rodízio (ADR-0044). */
   cortados?: ReadonlySet<string>;
-  /** Titulares fixados pelo Técnico ou pelo Capitão (ADR-0106): na frente de todos na Posição. */
+  /** Titulares fixados pelo Técnico ou pelo Capitão (ADR-0110): na frente de todos na Posição. */
   fixados?: ReadonlySet<string>;
 }
 
@@ -187,7 +187,7 @@ export async function montarEscalacao(
   ]);
   const porPosicao = new Map<Posicao, Disponivel[]>();
   for (const d of disponiveis) porPosicao.set(d.posicao, [...(porPosicao.get(d.posicao) ?? []), d]);
-  // Fixados (ADR-0106) primeiro, mesmo sem Presença; o resto segue o rodízio.
+  // Fixados (ADR-0110) primeiro, mesmo sem Presença; o resto segue o rodízio.
   const fixados = o.t2?.fixados ?? new Set<string>();
   const comFixados = (a: Disponivel, b: Disponivel) => Number(fixados.has(b.id)) - Number(fixados.has(a.id)) || ordemDoRodizio(a, b, o.craque ?? null, prioridade);
   for (const lista of porPosicao.values()) lista.sort(comFixados);
@@ -378,7 +378,7 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
     // T2: Suspensão e Presença entram na Escalação (ADRs 0021 e 0023).
     // Formação (ADR-0044): escolhida até o Corte; quem ela cortou no jogo anterior tem prioridade.
     const formacoes = temRegrasT2(p.numero) ? await formacoesDaPartida(b, partidaId, p.mandante_id, p.visitante_id) : null;
-    // T3 (ADR-0106): titulares fixados pelo Técnico (ou pelo Capitão).
+    // T3 (ADR-0110): titulares fixados pelo Técnico (ou pelo Capitão).
     const planos = temRegrasT3(p.numero) ? await planosDaPartida(b, partidaId) : null;
     const regras = async (time: TimeId, formacao: Formacao | undefined): Promise<RegrasDaEscalacao | undefined> =>
       temRegrasT2(p.numero)

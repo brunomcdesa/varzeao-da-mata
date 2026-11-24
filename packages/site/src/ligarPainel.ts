@@ -1,5 +1,5 @@
 /**
- * Liga o Técnico e o Interesse nas páginas (ADR-0106): na página do Time, o Plano do Time e a
+ * Liga o Técnico e o Interesse nas páginas (ADR-0110): na página do Time, o Plano do Time e a
  * aba Contratações para quem é do Time, ou "Jogar no Time" e "Trazer do Time" para quem é de
  * outro; no painel do Jogador, os Convites e as Trocas casadas que chegaram.
  */

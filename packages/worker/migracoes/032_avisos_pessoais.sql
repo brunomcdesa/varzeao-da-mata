@@ -1,4 +1,4 @@
--- Avisos pessoais (ADR-0106): a fila do que avisar a cada pessoa com Vínculo e Avisos ligados
+-- Avisos pessoais (ADR-0110): a fila do que avisar a cada pessoa com Vínculo e Avisos ligados
 -- (Pedido para o Técnico, Convite, Troca casada, resposta do Pedido, Chamada da Presença).
 -- Só entra quem tem aparelho ligado; a borda manda e marca enviado_em.
 CREATE TABLE IF NOT EXISTS aviso_pessoal (

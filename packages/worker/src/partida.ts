@@ -125,7 +125,7 @@ export async function simular(banco: Banco, partidaId: number, escalada: Partida
       ...(p.vantagem_do_empate ? { vantagemDoEmpate: p.vantagem_do_empate } : {}),
       ...(t2 ? { t2 } : {}),
       // Regras da Temporada 3 (ADRs 0091 e 0094): Juiz sorteado pelo id da Partida e Batedores.
-      // Capitão em campo (ADR-0107): cobradores de escanteio e Marcação individual.
+      // Capitão em campo (ADR-0111): cobradores de escanteio e Marcação individual.
       ...(t2 && temRegrasT3(p.temporada)
         ? { t3: { juiz: perfilDoJuiz(partidaId), batedores: await batedoresDaPartida(b, partidaId, p.mandante_id, p.visitante_id), ...(await capitaoEmCampo(b, partidaId, p.mandante_id, p.visitante_id)) } }
         : {}),
@@ -230,7 +230,7 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
     const elencos = await tamanhoDosElencos(banco);
     dados.torcida = { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 };
   }
-  // Grito da Temporada (ADR-0107) na faixa da Arquibancada.
+  // Grito da Temporada (ADR-0111) na faixa da Arquibancada.
   const gritos = await gritosDaPartida(banco, p.id);
   if (Object.keys(gritos).length) dados.gritos = gritos;
 

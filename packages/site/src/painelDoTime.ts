@@ -1,5 +1,5 @@
 /**
- * Técnico e Interesse no site (ADRs 0106 e 0107), como nas prévias aprovadas: o Plano do Time
+ * Técnico e Interesse no site (ADRs 0110 e 0111), como nas prévias aprovadas: o Plano do Time
  * (quem decide, Formação, Postura, titulares fixados, a Sugestão do Capitão e a dobra "Do
  * Capitão"), a aba Contratações (vagas, Pedidos, Convites, Trocas casadas e Fila), "Jogar no
  * Time" para quem é de outro Time e o Convite recebido no painel do Jogador.
@@ -136,7 +136,7 @@ function formulariosDoPlano(p: PainelDoTime, sugere: boolean): Html {
   </details>`;
 }
 
-/** O que fica sempre com o Capitão (ADR-0107). Quem não é Capitão só vê. */
+/** O que fica sempre com o Capitão (ADR-0111). Quem não é Capitão só vê. */
 function blocoDoCapitao(p: PainelDoTime): Html {
   const pl = p.plano!;
   const capitao = p.papel === 'CAPITAO';

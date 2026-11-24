@@ -38,7 +38,7 @@ export interface OpcoesDesenho {
   rastro?: { pos: Ponto; altura: number }[];
   /** Reels (ADR-0074): sem o letreiro do lance (o cartão gigante já está na tela). */
   semLetreiro?: boolean;
-  /** Grito da Temporada de cada lado (ADR-0107). Sem ele, o Grito de guerra de sempre. */
+  /** Grito da Temporada de cada lado (ADR-0111). Sem ele, o Grito de guerra de sempre. */
   gritos?: Partial<Record<Lado, string>>;
 }
 

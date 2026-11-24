@@ -195,7 +195,7 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
   const id = IDENTIDADE[t];
   // Perfil do Time (ADR-0100): o Instagram que os Jogadores criaram e a Liga reconheceu.
   const perfil = l.times.find((x) => x.id === t)?.instagram ?? null;
-  // Técnico do Time (ADR-0106).
+  // Técnico do Time (ADR-0110).
   const tecnicoDoTime = l.times.find((x) => x.id === t)?.tecnico ?? null;
   const elenco = js.filter((j) => j.time === t).sort((a, b) => b.ovr - a.ovr || a.username.localeCompare(b.username));
   const serie = serieDoTime(l, t);
@@ -279,7 +279,7 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
     )}</div>
   </article>`.s;
 
-  // T3 (ADR-0106): Plano do Time, Contratações e o "Jogar no Time" de quem é de outro Time.
+  // T3 (ADR-0110): Plano do Time, Contratações e o "Jogar no Time" de quem é de outro Time.
   const vinculado = jogadorVinculado();
   if (!estreante && vinculado && temRegrasT3(temporadaDoApp(l) ?? 0)) {
     ligarPainelDoTime(main, {

@@ -1,5 +1,5 @@
 /**
- * Painel do Time e Mercado do Jogador para o site (ADR-0106), pedidos pela borda com o Vínculo.
+ * Painel do Time e Mercado do Jogador para o site (ADR-0110), pedidos pela borda com o Vínculo.
  * O painel é de quem decide (Técnico ou Capitão): Plano do Time, Pedidos, Convites, Trocas
  * casadas e Fila. O Mercado é de cada Jogador: os Convites e Trocas casadas que recebeu, o seu
  * Pedido e a sua vez na Fila. O Plano é segredo do Time: só vai para quem é dele.

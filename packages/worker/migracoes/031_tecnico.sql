@@ -1,4 +1,4 @@
--- Técnico e Interesse (ADR-0106) e Capitão em campo (ADR-0107).
+-- Técnico e Interesse (ADR-0110) e Capitão em campo (ADR-0111).
 --
 -- O Técnico é uma pessoa da tabela de Jogadores fora do Elenco (papel TECNICO): quem pendurou
 -- as chuteiras guarda ali o boneco, a Carreira, as Moedas e os Itens, e quem nunca jogou ganha
@@ -109,10 +109,10 @@ CREATE TABLE IF NOT EXISTS fila_espera (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS fila_uma_por_pessoa ON fila_espera (ig_user_id) WHERE status = 'ESPERANDO';
 
--- Avisos pessoais (ADR-0106): o aparelho com Vínculo e Avisos ligados guarda de quem é.
+-- Avisos pessoais (ADR-0110): o aparelho com Vínculo e Avisos ligados guarda de quem é.
 ALTER TABLE aviso_aparelho ADD COLUMN IF NOT EXISTS jogador_id bigint;
 
--- Grito da Temporada (ADR-0107): o que o Capitão escolheu entre as 3 opções do Time.
+-- Grito da Temporada (ADR-0111): o que o Capitão escolheu entre as 3 opções do Time.
 CREATE TABLE IF NOT EXISTS grito_da_temporada (
   temporada_id  integer NOT NULL REFERENCES temporada (id),
   time_id       text NOT NULL REFERENCES time (id),
@@ -122,7 +122,7 @@ CREATE TABLE IF NOT EXISTS grito_da_temporada (
   PRIMARY KEY (temporada_id, time_id)
 );
 
--- Chamada da Presença (ADR-0107): uma por jogo do Time.
+-- Chamada da Presença (ADR-0111): uma por jogo do Time.
 CREATE TABLE IF NOT EXISTS chamada_da_presenca (
   partida_id  integer NOT NULL REFERENCES partida (id),
   time_id     text NOT NULL REFERENCES time (id),
@@ -131,7 +131,7 @@ CREATE TABLE IF NOT EXISTS chamada_da_presenca (
   PRIMARY KEY (partida_id, time_id)
 );
 
--- Moedas do Técnico (ADR-0106): vitória do Time.
+-- Moedas do Técnico (ADR-0110): vitória do Time.
 ALTER TABLE lancamento_moedas DROP CONSTRAINT IF EXISTS lancamento_moedas_tipo_check;
 ALTER TABLE lancamento_moedas ADD CONSTRAINT lancamento_moedas_tipo_check
   CHECK (tipo IN ('SALARIO', 'GOL', 'ASSISTENCIA', 'SELECAO_RODADA', 'CRAQUE_RODADA', 'TITULO', 'TITULO_COPA', 'BONUS_LARGADA', 'PALPITE', 'CONQUISTA', 'COMPRA', 'VITORIA'));

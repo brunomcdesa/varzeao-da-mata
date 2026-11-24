@@ -24,7 +24,7 @@ export const SERIE_DE_NOVIDADES: Record<2 | 3, readonly ReelsDeNovidades[]> = {
   2: ['CAMPO', 'CAPITAO', 'JOGADOR', 'SITE'],
   3: ['T3_CAMPO', 'T3_LOJA', 'T3_PALPITE', 'T3_CAPITAO'],
 };
-/** Fora das séries: Técnico e Interesse (ADR-0106) e a segunda fase da Loja, no meio da T3 (ADR-0101). */
+/** Fora das séries: Técnico e Interesse (ADR-0110) e a segunda fase da Loja, no meio da T3 (ADR-0101). */
 export const REELS_DE_NOVIDADES: readonly ReelsDeNovidades[] = [...SERIE_DE_NOVIDADES[2], ...SERIE_DE_NOVIDADES[3], 'T3_LOJA2', 'T3_TECNICO'];
 export const temporadaDasNovidades = (r: ReelsDeNovidades): 2 | 3 => (r.startsWith('T3_') ? 3 : 2);
 const serieDe = (r: ReelsDeNovidades) => SERIE_DE_NOVIDADES[temporadaDasNovidades(r)];

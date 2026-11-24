@@ -1,5 +1,5 @@
 /**
- * Técnico e Interesse (ADR-0106).
+ * Técnico e Interesse (ADR-0110).
  *
  * O Técnico é uma pessoa fora do Elenco (`jogador_todos.papel = 'TECNICO'`) que cuida de um
  * Time: decide o Plano do Time e os Pedidos, Convites e Trocas casadas. Sem Técnico, quem decide
@@ -118,7 +118,7 @@ export interface Aprovacao {
 }
 
 /**
- * Aprova um Técnico (ADR-0106): um seguidor que pediu na DM ou um Jogador que pediu pelo site
+ * Aprova um Técnico (ADR-0110): um seguidor que pediu na DM ou um Jogador que pediu pelo site
  * para pendurar as chuteiras. O Time não pode ter Técnico ativo. Quem já é Técnico de outro
  * Time muda de Time só na Janela (`naJanela`).
  */
@@ -233,7 +233,7 @@ export async function conferirInatividade(b: Banco, agora: Date): Promise<TimeId
 }
 
 /**
- * Inscrição (ENTRO) de quem está fora do Elenco como Técnico (ADR-0106). Quem nunca jogou entra
+ * Inscrição (ENTRO) de quem está fora do Elenco como Técnico (ADR-0110). Quem nunca jogou entra
  * como novato e perde o cargo; quem pendurou as chuteiras volta só numa Janela de Temporada
  * seguinte, com o OVR de quando parou. Devolve null quando a pessoa não é Técnico.
  */
@@ -316,7 +316,7 @@ export async function abrirPedido(
       )
     ).rows[0]!.id,
   );
-  // Aviso pessoal para quem decide (ADR-0106).
+  // Aviso pessoal para quem decide (ADR-0110).
   if (o.decisorId) {
     const quem = (await b.query<{ nome: string }>(`SELECT coalesce(apelido, '@' || username) AS nome FROM jogador_todos WHERE id = $1`, [o.jogadorId])).rows[0]?.nome ?? 'Um Jogador';
     await avisarPessoas(b, [o.decisorId], {

@@ -133,7 +133,7 @@ export async function capitaoEmCampo(b: Banco, partidaId: number, time: TimeId, 
 
 /** Postura de cada Time na Partida (sem escolha, Equilibrada). */
 export async function posturasDaPartida(b: Banco, partidaId: number, mandante: TimeId, visitante: TimeId): Promise<{ mandante: Postura; visitante: Postura }> {
-  // O Plano que vale (ADR-0106): o Técnico decide; o que ele não decidiu, a Sugestão do Capitão.
+  // O Plano que vale (ADR-0110): o Técnico decide; o que ele não decidiu, a Sugestão do Capitão.
   const planos = await planosDaPartida(b, partidaId);
   const de = (t: TimeId) => planos.get(t)?.postura ?? 'EQUILIBRADA';
   return { mandante: de(mandante), visitante: de(visitante) };
@@ -265,7 +265,7 @@ export type Escolha =
   | { tipo: 'COMPRA'; valor: string }
   | { tipo: 'EQUIPAR'; valor: string }
   | { tipo: 'TIRAR'; valor: string }
-  /** Técnico e Interesse (ADR-0106). Decisões: "ACEITAR:<id>" ou "RECUSAR:<id>". */
+  /** Técnico e Interesse (ADR-0110). Decisões: "ACEITAR:<id>" ou "RECUSAR:<id>". */
   | { tipo: 'FIXADOS'; valor: string[] }
   | { tipo: 'PEDIDO'; valor: string }
   | { tipo: 'CONVIDAR'; valor: string }
@@ -276,7 +276,7 @@ export type Escolha =
   /** Pedir para pendurar as chuteiras e treinar este Time. */
   | { tipo: 'SER_TECNICO'; valor: string }
   | { tipo: 'SAIR_DO_CARGO' }
-  /** Capitão em campo (ADR-0107). Marcação: "<marcador>:<alvo>" ou vazio. */
+  /** Capitão em campo (ADR-0111). Marcação: "<marcador>:<alvo>" ou vazio. */
   | { tipo: 'ESCANTEIO'; valor: string[] }
   | { tipo: 'MARCACAO'; valor: string }
   | { tipo: 'GRITO'; valor: string }
@@ -297,7 +297,7 @@ const diaDaLiga = (d: Date) => new Date(d.getTime() - 3 * 3600_000).toISOString(
 export async function aplicarEscolha(b: Banco, jogadorId: string, e: Escolha, agora: Date, comVinculo: () => Promise<ReadonlySet<string>>): Promise<ResultadoDaEscolha> {
   const t = await temporadaAtual(b);
   if (!t || !temRegrasT2(t.numero)) return { ok: false, mensagem: 'Isso chega na Temporada 2.' };
-  // Técnico e Interesse (ADR-0106) e Capitão em campo (ADR-0107).
+  // Técnico e Interesse (ADR-0110) e Capitão em campo (ADR-0111).
   const doTecnico = await escolhaDoTecnico(b, jogadorId, e, agora, comVinculo, t.numero);
   if (doTecnico) return doTecnico;
   const j = (
@@ -337,7 +337,7 @@ export async function aplicarEscolha(b: Banco, jogadorId: string, e: Escolha, ag
     }
     case 'POSTURA': {
       if (!(POSTURAS as readonly string[]).includes(e.valor)) return { ok: false, mensagem: 'Postura desconhecida.' };
-      // Com Técnico (ADR-0106), o Capitão sugere; o Técnico decide.
+      // Com Técnico (ADR-0110), o Capitão sugere; o Técnico decide.
       if (await tecnicoDoTime(b, j.time_id)) return decidirPlano(b, jogadorId, 'postura', e.valor, agora, await comVinculo());
       const p = await proximaPartidaDoTime(b, j.time_id, agora);
       if (!p) return { ok: false, mensagem: 'Não há jogo do seu Time aberto para escolher a Postura agora.' };
@@ -353,7 +353,7 @@ export async function aplicarEscolha(b: Banco, jogadorId: string, e: Escolha, ag
     case 'FORMACAO': {
       // ADR-0044: mesma regra da Postura (só o Capitão, até o Corte); a linha guarda as duas.
       if (!ehFormacao(e.valor)) return { ok: false, mensagem: 'Formação desconhecida.' };
-      // Com Técnico (ADR-0106), o Capitão sugere; o Técnico decide.
+      // Com Técnico (ADR-0110), o Capitão sugere; o Técnico decide.
       if (await tecnicoDoTime(b, j.time_id)) return decidirPlano(b, jogadorId, 'formacao', e.valor, agora, await comVinculo());
       const p = await proximaPartidaDoTime(b, j.time_id, agora);
       if (!p) return { ok: false, mensagem: 'Não há jogo do seu Time aberto para escolher a Formação agora.' };
@@ -403,7 +403,7 @@ export async function aplicarEscolha(b: Banco, jogadorId: string, e: Escolha, ag
 }
 
 /**
- * As escolhas novas da T3 (ADRs 0106 e 0107) e tudo o que o Técnico faz; null quando a escolha
+ * As escolhas novas da T3 (ADRs 0110 e 0111) e tudo o que o Técnico faz; null quando a escolha
  * segue as regras de antes.
  */
 async function escolhaDoTecnico(

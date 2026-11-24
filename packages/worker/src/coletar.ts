@@ -57,7 +57,7 @@ export type Resultado =
   | 'TRANSFERENCIA_FECHADA'
   | 'DESTINO_CHEIO'
   | 'MESMO_LUGAR'
-  /** Técnico e Interesse (T3, ADR-0106): o pedido espera o Técnico, ou a pessoa entrou na Fila. */
+  /** Técnico e Interesse (T3, ADR-0110): o pedido espera o Técnico, ou a pessoa entrou na Fila. */
   | 'PEDIDO_ENVIADO'
   | 'NA_FILA'
   /** Técnico que pendurou as chuteiras e ainda não pode voltar. */
@@ -78,7 +78,7 @@ export interface Contexto {
   realocar?: boolean;
   /** Inscrição manual do dono (workflow inscrever-jogador): ignora o equilíbrio de Elencos (ADR-0029). */
   forcar?: boolean;
-  /** Quem tem Vínculo (ADR-0106): o Capitão só decide Pedido se tiver. Sem isso, só o Técnico decide. */
+  /** Quem tem Vínculo (ADR-0110): o Capitão só decide Pedido se tiver. Sem isso, só o Técnico decide. */
   comVinculo?: ReadonlySet<string>;
 }
 
@@ -325,7 +325,7 @@ async function naPosicaoPorTime(b: Banco, times: readonly TimeId[], posicao: Pos
 
 async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posicao | undefined, ctx: Contexto): Promise<Resultado> {
   if (await usernameBloqueado(b, c.username)) return 'NOME_BLOQUEADO';
-  // Técnico (ADR-0106): quem nunca jogou entra e perde o cargo; quem pendurou volta numa Janela seguinte.
+  // Técnico (ADR-0110): quem nunca jogou entra e perde o cargo; quem pendurou volta numa Janela seguinte.
   const tecnico = await tecnicoQuerJogar(b, c.igUserId, c.comentadoEm);
   if (tecnico && !tecnico.podeVoltar) {
     if (tecnico.mensagem) await ctx.responder?.(c.igCommentId, `@${c.username} ${tecnico.mensagem}`);
@@ -356,7 +356,7 @@ async function inscrever(b: Banco, c: Comentario, pedido: TimeId, pedida: Posica
   // equilíbrio, a pedida ou a mais vazia do Time novo.
   const posicao = motivo === 'SERIE_B' || motivo === 'OUTRO_DA_A' || motivo === 'OUTRO_TIME' ? noPedido : (pedida ?? (time === pedido ? noPedido : await posicaoMaisVazia(b, time)));
 
-  // T3 (ADR-0106): sem vaga na Posição em nenhum Time, o novato entra na Fila do Time pedido.
+  // T3 (ADR-0110): sem vaga na Posição em nenhum Time, o novato entra na Fila do Time pedido.
   if (!ctx.forcar && series.B.length && (await temporadaAtualComT3(b))) {
     const na = await naPosicaoPorTime(b, [time], posicao as Posicao);
     if ((na.get(time) ?? 0) >= LIMITE_POR_POSICAO[posicao as Posicao]) {
@@ -460,7 +460,7 @@ export async function transferirJogador(
   o: {
     quando: Date;
     ref: string;
-    /** Quem tem Vínculo (ADR-0106): o Capitão só decide Pedido se tiver. */
+    /** Quem tem Vínculo (ADR-0110): o Capitão só decide Pedido se tiver. */
     comVinculo?: ReadonlySet<string>;
     /** Pedido já aceito, Convite aceito ou Troca casada: aplica sem pedir aceite de novo. */
     semAceite?: boolean;
@@ -529,7 +529,7 @@ export async function transferirJogador(
         .sort((x, y) => (na.get(x) ?? 0) - (na.get(y) ?? 0) || x.localeCompare(y))
         .slice(0, 4)
         .map((t) => doTime(t).replace(/^d[oa] /, ''));
-      // T3 (ADR-0106): a troca de Time para uma Posição cheia entra na Fila de espera do Time.
+      // T3 (ADR-0110): a troca de Time para uma Posição cheia entra na Fila de espera do Time.
       if (t3 && destino !== j.time_id && !o.origemFila) {
         const vez = await entrarNaFila(b, { time: destino, posicao, jogadorId, igUserId: j.ig_user_id, username: j.username, ref: o.ref, agora: o.quando, temporadaId: temporada });
         return {
@@ -544,7 +544,7 @@ export async function transferirJogador(
     }
   }
 
-  // Pedido de Transferência (T3, ADR-0106): com Técnico (ou Capitão com Vínculo) no destino, a
+  // Pedido de Transferência (T3, ADR-0110): com Técnico (ou Capitão com Vínculo) no destino, a
   // troca espera o aceite, até o prazo. Recusado ou caído, não gasta a troca.
   if (t3 && destino !== j.time_id && !o.semAceite) {
     const aceite = await aceiteNecessario(b, { de: j.time_id, para: destino, posicao, temporadaId: temporada, janela, gratis, quando: o.quando, comVinculo: o.comVinculo ?? new Set() });
@@ -708,7 +708,7 @@ async function temporadaAtualComT3(b: Banco): Promise<boolean> {
 }
 
 /**
- * A Fila chamou um novato (ADR-0106): entra no Time e na Posição da Fila, como uma Inscrição
+ * A Fila chamou um novato (ADR-0110): entra no Time e na Posição da Fila, como uma Inscrição
  * do dono (a vaga já foi conferida).
  */
 export async function inscreverDaFila(b: Banco, n: { igUserId: string; username: string; ref: string; time: TimeId; posicao: Posicao }, agora: Date): Promise<AvisoDoPedido | null> {

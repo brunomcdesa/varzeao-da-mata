@@ -49,7 +49,7 @@ export async function pagarPartida(b: Banco, partidaId: number): Promise<void> {
   if (!p?.resultado || !temMoedas(p.temporada)) return;
   const visivelEm = new Date(new Date(p.apito).getTime() + duracaoAoVivoMs(p.fase));
   const ref = `p${p.id}`;
-  // Técnico (ADR-0106): 3 por vitória do Time dele (na Copa também).
+  // Técnico (ADR-0110): 3 por vitória do Time dele (na Copa também).
   if (p.resultado.vencedor) {
     const venceu = p.resultado.times[p.resultado.vencedor];
     const tec = (await b.query<{ id: string }>(`SELECT jogador_id::text AS id FROM tecnico WHERE time_id = $1 AND status = 'ATIVO'`, [venceu])).rows[0];
@@ -103,7 +103,7 @@ export async function pagarRodada(b: Banco, rodadaId: number): Promise<void> {
     )
   ).rows;
   for (const j of elenco) await lancar(b, { jogadorId: j.id, tipo: 'SALARIO', referencia: ref, valor: MOEDAS.SALARIO, descricao: 'Salário do dia', visivelEm });
-  // Técnico (ADR-0106): o mesmo Salário, pelos Times da Temporada.
+  // Técnico (ADR-0110): o mesmo Salário, pelos Times da Temporada.
   const tecnicos = (
     await b.query<{ id: string }>(`SELECT t.jogador_id::text AS id FROM tecnico t JOIN serie_do_time s ON s.time_id = t.time_id AND s.temporada_id = $1 WHERE t.status = 'ATIVO'`, [r.temporada_id])
   ).rows;
@@ -140,7 +140,7 @@ export async function pagarTitulos(b: Banco, temporadaId: number): Promise<void>
   await atualizarConquistas(b);
 }
 
-/** O Técnico ativo do Time campeão também ganha o Título (ADR-0106). */
+/** O Técnico ativo do Time campeão também ganha o Título (ADR-0110). */
 async function tecnicoDoTitulo(b: Banco, time: TimeId): Promise<string[]> {
   return (await b.query<{ id: string }>(`SELECT jogador_id::text AS id FROM tecnico WHERE time_id = $1 AND status = 'ATIVO'`, [time])).rows.map((r) => r.id);
 }

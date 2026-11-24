@@ -43,7 +43,7 @@ export interface PartidaParaVideo {
   aparencias?: Record<string, Aparencia>;
   /** Temporada 2: tamanho de cada Elenco, para a Arquibancada (ADR-0019). */
   torcida?: Record<Lado, number>;
-  /** Grito da Temporada de cada lado (ADR-0107). */
+  /** Grito da Temporada de cada lado (ADR-0111). */
   gritos?: Partial<Record<Lado, string>>;
   /** Estrelas de Título nos escudos (ADR-0060). */
   estrelas?: Partial<Record<TimeId, Estrelas>>;

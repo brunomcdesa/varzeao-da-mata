@@ -170,7 +170,7 @@ describe('Reels Programados (ADR-0051)', () => {
     expect(ab).toContain('40 Moedas');
   });
 
-  it('Técnico e Interesse (ADR-0106) sai domingo 29/11 às 10h, com a Janela aberta e a chamada da Copa', () => {
+  it('Técnico e Interesse (ADR-0110) sai domingo 29/11 às 10h, com a Janela aberta e a chamada da Copa', () => {
     const p = REELS_PROGRAMADOS.find((x) => x.id === 'novidades-t3-tecnico')!;
     expect(p.publicarEm).toBe('2026-11-29T13:00:00Z');
     const l = legendaDasNovidadesT3(p.id, '2026-11-30', p.publicarEm);

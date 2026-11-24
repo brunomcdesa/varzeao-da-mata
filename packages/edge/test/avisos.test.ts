@@ -239,7 +239,7 @@ describe('só a partir da Temporada 2', () => {
   });
 });
 
-describe('Avisos pessoais (ADR-0106)', () => {
+describe('Avisos pessoais (ADR-0110)', () => {
   const base = async () => {
     const c = await chaves();
     const AGENDA = kv();
