@@ -1,6 +1,6 @@
 # 0106 — Capa do Reels de Partida com escudos frente a frente
 
-- Status: proposto (prévia aprovada pelo dono em 23/11/2026 antes de ir para o master)
+- Status: aceito (prévia aprovada pelo dono em 24/11/2026)
 - Data: 2026-11-23
 
 ## Contexto
