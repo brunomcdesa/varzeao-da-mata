@@ -50,8 +50,28 @@ export type EscolhaDaT2 =
   /** T3 (ADR-0089): Palpite, "partida:mandante-visitante". */
   | { tipo: 'PALPITE'; valor: string }
   /** Loja (ADR-0101): código do Item (comprar ou equipar) ou o Encaixe (tirar). */
-  | { tipo: 'COMPRA' | 'EQUIPAR' | 'TIRAR'; valor: string };
-const TIPOS_DE_ESCOLHA = ['ESPECIALIZACAO', 'TREINO', 'CANTO', 'PRESENCA', 'POSTURA', 'FORMACAO', 'BATEDORES', 'PALPITE', 'COMPRA', 'EQUIPAR', 'TIRAR'] as const;
+  | { tipo: 'COMPRA' | 'EQUIPAR' | 'TIRAR'; valor: string }
+  /** Técnico e Interesse (ADR-0106) e Capitão em campo (ADR-0107). */
+  | { tipo: 'FIXADOS' | 'ESCANTEIO'; valor: string[] }
+  | { tipo: 'PEDIDO' | 'CONVIDAR' | 'CONVITE' | 'TROCA_PROPOR' | 'TROCA' | 'SER_TECNICO' | 'MARCACAO' | 'GRITO'; valor: string }
+  | { tipo: 'SAIR_DO_CARGO' | 'CHAMADA' };
+const TIPOS_DE_ESCOLHA = [
+  'ESPECIALIZACAO', 'TREINO', 'CANTO', 'PRESENCA', 'POSTURA', 'FORMACAO', 'BATEDORES', 'PALPITE', 'COMPRA', 'EQUIPAR', 'TIRAR',
+  'FIXADOS', 'ESCANTEIO', 'PEDIDO', 'CONVIDAR', 'CONVITE', 'TROCA_PROPOR', 'TROCA', 'SER_TECNICO', 'MARCACAO', 'GRITO', 'SAIR_DO_CARGO', 'CHAMADA',
+] as const;
+/** Escolhas que são listas de ids (até quantos) e escolhas sem valor. */
+const LISTAS: Partial<Record<(typeof TIPOS_DE_ESCOLHA)[number], number>> = { BATEDORES: 5, FIXADOS: 3, ESCANTEIO: 2 };
+const SEM_VALOR = new Set(['PRESENCA', 'SAIR_DO_CARGO', 'CHAMADA']);
+/** O formato de cada escolha nova (a regra de verdade fica no worker). */
+const FORMATO: Partial<Record<(typeof TIPOS_DE_ESCOLHA)[number], RegExp>> = {
+  PEDIDO: /^(ACEITAR|RECUSAR):\d{1,12}$/,
+  CONVITE: /^(ACEITAR|RECUSAR):\d{1,12}$/,
+  TROCA: /^(ACEITAR|RECUSAR):\d{1,12}$/,
+  CONVIDAR: /^\d{1,12}$/,
+  TROCA_PROPOR: /^\d{1,12}:\d{1,12}$/,
+  MARCACAO: /^(\d{1,12}:\d{1,12})?$/,
+  GRITO: /^[0-2]$/,
+};
 /** A Carteira de Moedas (ADR-0087): saldo e extrato só para o dono, pelo Vínculo. */
 export type ConsultarCarteira = (jogadorId: string) => Promise<unknown | null>;
 
@@ -203,7 +223,7 @@ export async function sessaoDe(env: EnvVinculo, sessao: string): Promise<SessaoV
 }
 
 /** Capitão do próximo jogo do Time do Jogador (T2); null fora da T2, sem jogo ou sem banco. */
-export type ConsultarCapitania = (jogadorId: string) => Promise<{
+export interface CapitaniaPublica {
   eu: boolean;
   capitao: string | null;
   postura: string;
@@ -212,7 +232,9 @@ export type ConsultarCapitania = (jogadorId: string) => Promise<{
   jogo?: { apito: string; adversario: string };
   batedores?: string[];
   elenco?: { id: string; nome: string; posicao: string }[];
-} | null>;
+}
+/** A capitania sozinha, ou (T3, ADR-0106) junto do Painel do Time e do Mercado do Jogador. */
+export type ConsultarCapitania = (jogadorId: string) => Promise<CapitaniaPublica | { capitania: CapitaniaPublica | null; painel: unknown; mercado: unknown } | null>;
 
 export async function rotasDoVinculo(
   req: Request,
@@ -371,20 +393,29 @@ export async function rotasDoVinculo(
       ]);
       const estado: Record<string, unknown> = {};
       TIPOS_DE_ESCOLHA.forEach((t, i) => (estado[t] = escolhas[i] ?? null));
-      estado.capitania = cap;
+      // T3 (ADR-0106): a consulta traz também o Painel do Time e o Mercado do Jogador.
+      const junto = cap as { capitania?: unknown; painel?: unknown; mercado?: unknown } | null;
+      if (junto && typeof junto === 'object' && 'painel' in junto) {
+        estado.capitania = junto.capitania ?? null;
+        estado.painel = junto.painel ?? null;
+        estado.mercado = junto.mercado ?? null;
+      } else estado.capitania = cap;
       return json(estado);
     }
     const tipo = String(c.tipo ?? '') as (typeof TIPOS_DE_ESCOLHA)[number];
     if (!TIPOS_DE_ESCOLHA.includes(tipo)) return json({ erro: 'Escolha desconhecida' }, 400);
-    // Batedores (ADR-0091): uma lista de ids (só dígitos), até 5; o resto é um texto curto.
-    const batedores = tipo === 'BATEDORES' ? (Array.isArray(c.valor) ? c.valor : []).map(String).filter((x) => /^\d{1,12}$/.test(x)) : null;
-    if (batedores && (batedores.length > 5 || (Array.isArray(c.valor) && batedores.length !== c.valor.length))) return json({ erro: 'Batedores inválidos' }, 400);
+    // Listas de ids (Batedores, titulares fixados, cobradores de escanteio): só dígitos e até o máximo.
+    const maximo = LISTAS[tipo];
+    const batedores = maximo ? (Array.isArray(c.valor) ? c.valor : []).map(String).filter((x) => /^\d{1,12}$/.test(x)) : null;
+    if (batedores && (batedores.length > maximo! || (Array.isArray(c.valor) && batedores.length !== c.valor.length))) return json({ erro: 'Lista inválida' }, 400);
     const valor = c.valor === null || c.valor === undefined || c.valor === '' || Array.isArray(c.valor) ? null : String(c.valor).slice(0, 30);
     if (tipo === 'POSTURA' && !valor) return json({ erro: 'Escolha a Postura' }, 400);
     if (tipo === 'FORMACAO' && !valor) return json({ erro: 'Escolha a Formação' }, 400);
     if (tipo === 'PALPITE' && !/^\d{1,9}:\d{1,2}-\d{1,2}$/.test(valor ?? '')) return json({ erro: 'Palpite inválido' }, 400);
     if ((tipo === 'COMPRA' || tipo === 'EQUIPAR' || tipo === 'TIRAR') && !/^[A-Z_]{3,30}$/.test(valor ?? '')) return json({ erro: 'Item inválido' }, 400);
-    const escolha = (tipo === 'PRESENCA' ? { tipo } : batedores ? { tipo, valor: batedores } : { tipo, valor }) as EscolhaDaT2;
+    if (FORMATO[tipo] && !FORMATO[tipo]!.test(valor ?? '')) return json({ erro: 'Escolha inválida' }, 400);
+    if (tipo === 'SER_TECNICO' && !(TIMES as readonly string[]).includes(valor ?? '')) return json({ erro: 'Time inválido' }, 400);
+    const escolha = (SEM_VALOR.has(tipo) ? { tipo } : batedores ? { tipo, valor: batedores } : { tipo, valor: tipo === 'MARCACAO' ? (valor ?? '') : valor }) as EscolhaDaT2;
     const base = { jogadorId: s.jogadorId, escolha, pedidoEm: agora.toISOString() };
     const feito = await aplicar({ tipo: 'ESCOLHA', jogadorId: s.jogadorId, escolha }).catch(() => null);
     const registro = feito ? { ...base, resultado: feito.resultado, mensagem: feito.mensagem, processadoEm: agora.toISOString() } : base;

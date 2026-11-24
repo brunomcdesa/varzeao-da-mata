@@ -18,6 +18,10 @@ export interface TimePublico {
   secundaria: string;
   /** Perfil do Time no Instagram, sem o @ (ADR-0100). Só os reconhecidos como oficiais. */
   instagram?: string;
+  /** Técnico do Time (ADR-0106): o @ e o Apelido, quando tem. */
+  tecnico?: { id: string; username: string; apelido: string | null };
+  /** Fila de espera por Posição (ADR-0106): quantos esperam vaga. */
+  fila?: Partial<Record<'GOL' | 'ZAG' | 'MEI' | 'ATA', number>>;
 }
 
 export interface LinhaTabelaPublica {

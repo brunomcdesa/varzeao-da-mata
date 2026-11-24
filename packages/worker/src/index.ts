@@ -23,3 +23,4 @@ export * from './linkDeVinculo.js';
 export * from './perfilDoTime.js';
 export * from './tecnico.js';
 export * from './planoDoTime.js';
+export * from './painel.js';

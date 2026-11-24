@@ -15,6 +15,7 @@ import { comSeloT1, subiramPeloPiso } from './recompensaT1.js';
 import { ajustesDeOvr } from './aMao.js';
 import { TEMPORADA_DOS_DESTAQUES, desempenhosDasPartidas } from './destaques.js';
 import type { ResultadoPartida } from '@liga/sim';
+import { tecnicosAtivos } from './tecnico.js';
 import type { Banco } from './banco.js';
 import { gruposDaTemporada, seriesAtivas, seriesDaTemporada, type GruposDaTemporada, type SeriesDaTemporada } from './series.js';
 import { classificar } from './tabela.js';
@@ -141,7 +142,22 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       };
   const numeroDa = new Map(temporadas.map((t) => [t.id, t.numero]));
   const perfis = await perfisDosTimes(banco);
-  const times = TIMES.map((id) => ({ id, nome: IDENTIDADE[id].nome, sigla: IDENTIDADE[id].sigla, primaria: IDENTIDADE[id].primaria, secundaria: IDENTIDADE[id].secundaria, ...(perfis.has(id) ? { instagram: perfis.get(id)! } : {}) }));
+  // Técnico e Fila de espera (ADR-0106).
+  const tecnicos = new Map((await tecnicosAtivos(banco)).map((t) => [t.time, t]));
+  const filas = new Map<string, Partial<Record<Posicao, number>>>();
+  for (const f of (await banco.query<{ time_id: TimeId; posicao: Posicao; n: string }>(`SELECT time_id, posicao, count(*) AS n FROM fila_espera WHERE status = 'ESPERANDO' GROUP BY time_id, posicao`)).rows) {
+    filas.set(f.time_id, { ...(filas.get(f.time_id) ?? {}), [f.posicao]: Number(f.n) });
+  }
+  const times = TIMES.map((id) => ({
+    id,
+    nome: IDENTIDADE[id].nome,
+    sigla: IDENTIDADE[id].sigla,
+    primaria: IDENTIDADE[id].primaria,
+    secundaria: IDENTIDADE[id].secundaria,
+    ...(perfis.has(id) ? { instagram: perfis.get(id)! } : {}),
+    ...(tecnicos.has(id) ? { tecnico: { id: tecnicos.get(id)!.jogadorId, username: tecnicos.get(id)!.username, apelido: tecnicos.get(id)!.apelido } } : {}),
+    ...(filas.has(id) ? { fila: filas.get(id)! } : {}),
+  }));
 
   // Todas as Partidas de todas as Temporadas: a carreira dos Jogadores atravessa Temporadas.
   const todas = (
