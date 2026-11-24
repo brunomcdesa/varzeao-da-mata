@@ -1,6 +1,6 @@
 # 0107 — Abertura do Reels de Partida igual à capa, com movimento
 
-- Status: proposto (aguardando aprovação da prévia)
+- Status: aceito (prévia aprovada pelo dono em 24/11/2026)
 - Data: 2026-11-24
 
 ## Contexto
