@@ -10,6 +10,7 @@ import { spawn } from 'node:child_process';
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
@@ -21,7 +22,7 @@ import { tetoDoReels } from '../src/tetoDoReels.js';
 
 import { Timeline } from '../src/timeline.js';
 import { exigenciasDaNarracao, montarEventos, montarNarracao } from '../src/narracao.js';
-import { TAXA, agendarFalas, codificarWav, lerWavMono, mixar, mixarAoVivo, type VozNaMixagem } from '../src/audio.js';
+import { DURACAO_DO_STORY, TAXA, agendarFalas, codificarWav, lerWavMono, mixar, mixarAoVivo, trilhaDoStory, type VozNaMixagem } from '../src/audio.js';
 import { NARRADORES, narradorDa } from '../src/narradores.js';
 import { agendarAoVivo, ancorasAoVivo, duracaoAoVivo, eventosAoVivo, roteiroAoVivo, type FalaAoVivo } from '../src/aoVivo.js';
 import { criarLocutor } from './locutor.js';
@@ -173,6 +174,28 @@ async function montarAudio(partida: PartidaParaVideo, dir: string): Promise<{ ar
   const arquivo = join(dir, 'audio.wav');
   await writeFile(arquivo, codificarWav(esq, direita));
   return { arquivo, roteiro: opcoes };
+}
+
+/** Imagem parada + trilha, em MP4 de Story (1080 × 1920, H.264 + AAC). */
+function storyEmVideo(imagem: string, audio: string, saida: string): Promise<void> {
+  const ff = spawn(
+    'ffmpeg',
+    [
+      '-y', '-hide_banner', '-loglevel', 'error',
+      '-loop', '1', '-framerate', '30', '-i', imagem,
+      '-i', audio,
+      '-t', String(DURACAO_DO_STORY), '-shortest',
+      '-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'stillimage', '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
+      '-movflags', '+faststart',
+      saida,
+    ],
+    { stdio: ['ignore', 'inherit', 'inherit'] },
+  );
+  return new Promise<void>((ok, erro) => {
+    ff.on('error', (e) => erro(new Error(`não consegui rodar o ffmpeg (${e.message}). Instale com: sudo apt install ffmpeg`)));
+    ff.on('close', (codigo) => (codigo === 0 ? ok() : erro(new Error(`ffmpeg saiu com código ${codigo}`))));
+  });
 }
 
 function abrirFfmpeg(audio: string, saida: string, fps: number, crf: number): { stdin: NodeJS.WritableStream; fim: Promise<void> } {
@@ -927,7 +950,7 @@ export async function exportarEscudos(dir: string): Promise<void> {
  * Destaques do perfil (ADR-0109): uma capa PNG por destaque e os Stories em JPEG, com nomes
  * na ordem de postagem (ex.: 1-como-entrar/1.jpg).
  */
-export async function exportarDestaques(dir: string, campeao?: CampeaoNoDestaque): Promise<string[]> {
+export async function exportarDestaques(dir: string, campeao?: CampeaoNoDestaque, comVideo = false): Promise<string[]> {
   await mkdir(dir, { recursive: true });
   const tmp = await mkdtemp(join(tmpdir(), 'varzea-destaques-'));
   const navegador = await chromium.launch();
@@ -944,11 +967,21 @@ export async function exportarDestaques(dir: string, campeao?: CampeaoNoDestaque
       feitos.push(join(pasta, 'capa.png'));
       for (const [k, s] of d.stories.entries()) {
         const jpg = await pagina.evaluate(([story, c]) => window.varzea.storyDoDestaque(story, c ?? undefined), [s, campeao ?? null] as const);
-        await writeFile(join(pasta, `${k + 1}.jpg`), Buffer.from(jpg, 'base64'));
-        feitos.push(join(pasta, `${k + 1}.jpg`));
+        const imagem = join(comVideo ? tmp : pasta, comVideo ? `${d.id}-${k + 1}.jpg` : `${k + 1}.jpg`);
+        await writeFile(imagem, Buffer.from(jpg, 'base64'));
+        if (comVideo) {
+          // Story em vídeo (ADR-0110): a imagem parada com a trilha dos Reels.
+          const trilha = join(tmp, 'trilha.wav');
+          if (!existsSync(trilha)) {
+            const { esq, dir: direita } = trilhaDoStory();
+            await writeFile(trilha, codificarWav(esq, direita));
+          }
+          await storyEmVideo(imagem, trilha, join(pasta, `${k + 1}.mp4`));
+          feitos.push(join(pasta, `${k + 1}.mp4`));
+        } else feitos.push(imagem);
       }
     }
-    console.log(`Destaques: ${feitos.length} imagens em ${dir}`);
+    console.log(`Destaques: ${feitos.length} arquivos em ${dir}`);
     return feitos;
   } finally {
     await navegador.close();
