@@ -282,7 +282,7 @@ A descida de um Time da Série A para a Série B no fim da Temporada. Os Jogador
 _Avoid_: descenso, queda, degola
 
 **Capitão**:
-O Jogador com mais Partidas por um Time, que escolhe a Postura e a Formação antes de cada Partida. Se não tiver Vínculo ou estiver suspenso, a faixa passa para o próximo com Vínculo. O dono pode pôr a faixa à mão num Jogador, que fica na frente da ordem até o dono tirar ou ele mudar de Time (ADR-0079). A partir da T3, com Técnico ativo, fica com os Batedores, os cobradores, a Chamada da Presença, a Marcação individual, o Grito da Temporada, a Braçadeira e as Sugestões; sem Técnico, decide também tudo o que seria do Técnico (ADR-0111, ADR-0112).
+O Jogador com mais Partidas por um Time, que escolhe a Postura e a Formação antes de cada Partida. Se não tiver Vínculo ou estiver suspenso, a faixa passa para o próximo com Vínculo. O dono pode pôr a faixa à mão num Jogador, que fica na frente da ordem até o dono tirar ou ele mudar de Time (ADR-0079). A partir da T3, com Técnico ativo, fica com os Batedores, os cobradores, a Chamada da Presença, a Marcação individual, o Grito da Temporada, a Braçadeira e as Sugestões; sem Técnico, decide também tudo o que seria do Técnico (ADR-0111, ADR-0112). Quem fica 3 jogos do Time sem nenhuma escolha de Capitão perde a faixa até a Temporada seguinte, e ela vai para o próximo ativo da ordem (ADR-0114).
 _Avoid_: líder, dono do time
 
 **Técnico**:

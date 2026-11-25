@@ -25,6 +25,7 @@ import {
   type Postura,
   type TimeId,
 } from '@liga/shared';
+import { ESCOLHAS_DE_CAPITAO, marcarEscolhaDoCapitao } from './capitaoAtivo.js';
 import type { Banco } from './banco.js';
 import { registrarPalpite } from './carteira.js';
 import { comprarItem, equiparItem, tirarItem } from './loja.js';
@@ -98,6 +99,9 @@ export async function ordemDoCapitao(b: Banco, time: TimeId): Promise<string[]> 
        LEFT JOIN escalacao e ON e.jogador_id = j.id AND e.time_id = j.time_id AND (NOT e.reserva OR e.entrou)
        LEFT JOIN capitao_a_mao m ON m.time_id = j.time_id AND m.jogador_id = j.id
        WHERE j.time_id = $1 AND NOT j.banido
+         -- Capitão ativo (ADR-0114): quem perdeu a faixa por ficar parado sai da ordem até a Temporada seguinte.
+         AND NOT EXISTS (SELECT 1 FROM capitao_inativo ci WHERE ci.time_id = j.time_id AND ci.jogador_id = j.id
+                          AND ci.temporada_id = (SELECT id FROM temporada ORDER BY (status = 'EM_ANDAMENTO') DESC, numero DESC LIMIT 1))
        GROUP BY j.id, j.inscrito_em, m.jogador_id ORDER BY (m.jogador_id IS NOT NULL) DESC, count(e.partida_id) DESC, j.inscrito_em, j.id`,
       [time],
     )
@@ -295,6 +299,13 @@ const diaDaLiga = (d: Date) => new Date(d.getTime() - 3 * 3600_000).toISOString(
  * `comVinculo` só é usado na Postura e na Formação (para saber quem é o Capitão).
  */
 export async function aplicarEscolha(b: Banco, jogadorId: string, e: Escolha, agora: Date, comVinculo: () => Promise<ReadonlySet<string>>): Promise<ResultadoDaEscolha> {
+  const r = await aplicarEscolhaSemRegistro(b, jogadorId, e, agora, comVinculo);
+  // Capitão ativo (ADR-0114): toda escolha de Capitão que valeu segura a faixa.
+  if (r.ok && ESCOLHAS_DE_CAPITAO.has(e.tipo)) await marcarEscolhaDoCapitao(b, jogadorId, agora);
+  return r;
+}
+
+async function aplicarEscolhaSemRegistro(b: Banco, jogadorId: string, e: Escolha, agora: Date, comVinculo: () => Promise<ReadonlySet<string>>): Promise<ResultadoDaEscolha> {
   const t = await temporadaAtual(b);
   if (!t || !temRegrasT2(t.numero)) return { ok: false, mensagem: 'Isso chega na Temporada 2.' };
   // Técnico e Interesse (ADR-0111) e Capitão em campo (ADR-0112).
