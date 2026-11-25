@@ -7,6 +7,7 @@
  */
 import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, NOME_DO_PERFIL_DO_JUIZ, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type ItensEquipados, type Posicao, type SituacaoNaBriga, type TimeId } from '@liga/shared';
 import type { Lado } from '@liga/sim';
+import { desenharTecnicos, type TecnicoNoJogo } from './tecnico.js';
 import { CAMPO, cenario } from './cenario.js';
 import { COLUNAS, COR, LINHAS, Pincel, contraste, ruido } from './pixel.js';
 import { ALTURA_DAS_ESTRELAS, ALTURA_ESCUDO, LARGURA_ESCUDO, escudo, estrelasDoEscudo } from './escudos.js';
@@ -40,6 +41,13 @@ export interface OpcoesDesenho {
   semLetreiro?: boolean;
   /** Grito da Temporada de cada lado (ADR-0112). Sem ele, o Grito de guerra de sempre. */
   gritos?: Partial<Record<Lado, string>>;
+  /**
+   * Técnico de cada lado (ADR-0111), como a Escalação guardou. Presente (mesmo vazio) a partir da
+   * T3: desenha a área técnica; o lado sem Técnico fica com a beira vazia.
+   */
+  tecnicos?: Partial<Record<Lado, TecnicoNoJogo>>;
+  /** Capitão de cada lado (ADR-0112): o lugar dele na Escalação, para a Braçadeira. */
+  capitaes?: Partial<Record<Lado, number>>;
 }
 
 /**
@@ -85,6 +93,7 @@ export function desenharQuadro(ctx: CanvasRenderingContext2D, estado: EstadoQuad
   // Temporada 2 (ADR-0019): Arquibancada nas laterais e lama ou poças no gramado.
   if (estado.t2) {
     desenharArquibancada(pin, estado, o.times);
+    desenharTecnicos(pin, estado, o.times, o.tecnicos, ESCALA_BONECO);
     desenharClimaNoChao(pin, estado);
   }
 
@@ -139,6 +148,8 @@ function visualDe(j: JogadorNoQuadro, o: OpcoesDesenho, e?: EstadoQuadro): Visua
     ...visualDoJogador(o.times[j.slot.lado], j.posicao, nome),
     numero: o.numeros?.[j.slot.lado][quem] ?? null,
     ...(o.itens ? vestir(o.itens[j.slot.lado][quem], j.posicao === 'GOL') : {}),
+    // Braçadeira (ADR-0112): o Capitão da Escalação (reserva que entra não herda).
+    ...(o.capitaes?.[j.slot.lado] === quem ? { bracadeira: true } : {}),
   };
   // T2: o visitante usa o segundo uniforme quando as camisas se confundem (o goleiro não muda).
   if (e?.t2?.segundoUniforme === j.slot.lado && j.posicao !== 'GOL') {

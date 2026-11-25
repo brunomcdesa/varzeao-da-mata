@@ -36,9 +36,13 @@ const lerEquipados = (v: unknown): ItensEquipados => {
   return itensValidos(x) ? x : {};
 };
 
+/** Jogador ou Técnico (ADR-0111): os dois têm Loja; cada um vê só os Itens do seu boneco. */
 async function jogadorDaLoja(b: Banco, jogadorId: string, travar = false) {
   return (
-    await b.query<{ posicao: Posicao; itens: unknown; banido: boolean }>(`SELECT posicao, itens, banido FROM jogador WHERE id = $1${travar ? ' FOR UPDATE' : ''}`, [jogadorId])
+    await b.query<{ posicao: Posicao; itens: unknown; banido: boolean; papel: 'JOGADOR' | 'TECNICO' }>(
+      `SELECT posicao, itens, banido, papel FROM jogador_todos WHERE id = $1${travar ? ' FOR UPDATE' : ''}`,
+      [jogadorId],
+    )
   ).rows[0];
 }
 
@@ -54,7 +58,7 @@ async function donos(b: Banco, jogadorId: string, agora: Date): Promise<string[]
 }
 
 async function salvarEquipados(b: Banco, jogadorId: string, itens: ItensEquipados): Promise<void> {
-  await b.query(`UPDATE jogador SET itens = $2 WHERE id = $1`, [jogadorId, Object.keys(itens).length ? JSON.stringify(itens) : null]);
+  await b.query(`UPDATE jogador_todos SET itens = $2 WHERE id = $1`, [jogadorId, Object.keys(itens).length ? JSON.stringify(itens) : null]);
 }
 
 /** Compra o Item e já equipa. Recusa sem Moedas, Item repetido, fora da fase e Luva de quem não é goleiro. */
@@ -65,6 +69,7 @@ export async function comprarItem(b: Banco, jogadorId: string, codigo: string, a
     // Trava o Jogador: duas compras ao mesmo tempo não passam do saldo.
     const j = await jogadorDaLoja(t, jogadorId, true);
     if (!j || j.banido) return { ok: false, mensagem: 'Jogador não encontrado.' };
+    if (!!item.tecnico !== (j.papel === 'TECNICO')) return { ok: false, mensagem: item.tecnico ? 'Esse Item é do boneco do Técnico.' : 'Esse Item é do boneco do Jogador.' };
     if (item.encaixe === ENCAIXE_SO_DO_GOLEIRO && j.posicao !== 'GOL') return { ok: false, mensagem: 'A Luva é só para goleiro.' };
     if ((await donos(t, jogadorId, agora)).includes(codigo)) return { ok: false, mensagem: 'Esse Item já é seu. Dá para equipar sem pagar de novo.' };
     const preco = PRECO_DO_ITEM[item.raridade];
@@ -84,6 +89,7 @@ export async function equiparItem(b: Banco, jogadorId: string, codigo: string, a
   const j = await jogadorDaLoja(b, jogadorId);
   if (!j || j.banido) return { ok: false, mensagem: 'Jogador não encontrado.' };
   if (!(await donos(b, jogadorId, agora)).includes(codigo)) return { ok: false, mensagem: 'Esse Item ainda não é seu.' };
+  if (!!item.tecnico !== (j.papel === 'TECNICO')) return { ok: false, mensagem: item.tecnico ? 'Esse Item é do boneco do Técnico.' : 'Esse Item é do boneco do Jogador.' };
   await salvarEquipados(b, jogadorId, { ...lerEquipados(j.itens), [item.encaixe]: codigo });
   return { ok: true, mensagem: `Equipado: ${item.nome}. Vale a partir do próximo jogo.` };
 }
@@ -103,7 +109,13 @@ export async function tirarItem(b: Banco, jogadorId: string, encaixe: string): P
 export async function lojaDoJogador(b: Banco, jogadorId: string, agora: Date): Promise<LojaDoJogador | null> {
   const j = await jogadorDaLoja(b, jogadorId);
   if (!j) return null;
-  return { donos: await donos(b, jogadorId, agora), equipados: lerEquipados(j.itens), goleiro: j.posicao === 'GOL', fase: await faseDaLoja(b, agora) };
+  return {
+    donos: await donos(b, jogadorId, agora),
+    equipados: lerEquipados(j.itens),
+    goleiro: j.papel === 'JOGADOR' && j.posicao === 'GOL',
+    fase: await faseDaLoja(b, agora),
+    ...(j.papel === 'TECNICO' ? { tecnico: true as const } : {}),
+  };
 }
 
 /** Itens equipados agora por @ (sem @, minúsculo), para os cards e o Resumo. */

@@ -48,3 +48,13 @@ describe('Item de Apoiador na prateleira (ADR-0108)', () => {
     expect(itensDaPrateleira(2, [ITEM_DE_APOIADOR.codigo]).map((i) => i.codigo)).toContain(ITEM_DE_APOIADOR.codigo);
   });
 });
+
+describe('Loja do Técnico (ADR-0111)', () => {
+  it('o Técnico vê só os Encaixes do boneco dele, na fase 2; o Jogador nunca vê esses', async () => {
+    const { encaixesDaLoja, itensDaPrateleira } = await import('../src/loja.js');
+    expect(encaixesDaLoja(false, 2, [], true)).toEqual(['BONE', 'OCULOS', 'PRANCHETA', 'APITO', 'ROUPA']);
+    expect(encaixesDaLoja(false, 1, [], true)).toEqual([]);
+    expect(encaixesDaLoja(true, 2, [], false)).not.toContain('BONE');
+    expect(itensDaPrateleira(2, [], false).some((i) => i.tecnico)).toBe(false);
+  });
+});

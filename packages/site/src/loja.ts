@@ -2,7 +2,7 @@
  * Loja no painel do dono (ADR-0087 e ADR-0101): os Itens por Encaixe, com o boneco de prévia.
  * Tocar num Item mostra no boneco; o botão compra (se ainda não é do Jogador), equipa ou tira.
  */
-import { ENCAIXES, ENCAIXE_SO_DO_GOLEIRO, ITENS, ITEM_POR_CODIGO, NOME_DO_ENCAIXE, PRECO_DO_ITEM, type Encaixe, type Item, type ItensEquipados } from '@liga/shared';
+import { ENCAIXES_DO_JOGADOR, ENCAIXES_DO_TECNICO, ENCAIXE_SO_DO_GOLEIRO, ITENS, ITEM_POR_CODIGO, NOME_DO_ENCAIXE, PRECO_DO_ITEM, type Encaixe, type Item, type ItensEquipados } from '@liga/shared';
 import { html } from './ui.js';
 
 export interface EstadoDaLoja {
@@ -14,18 +14,20 @@ export interface EstadoDaLoja {
   goleiro: boolean;
   /** Fase da Loja aberta agora (1 na abertura da T3, 2 no meio). */
   fase: 1 | 2;
+  /** Técnico (ADR-0111): só os Itens do boneco do Técnico. */
+  tecnico?: boolean;
 }
 
 /**
  * Itens que aparecem na prateleira: os à venda na fase aberta e, dos exclusivos (Item de
  * Apoiador, ADR-0108), só os que já são do Jogador.
  */
-export const itensDaPrateleira = (fase: 1 | 2, donos: readonly string[] = []): Item[] =>
-  ITENS.filter((i) => i.fase <= fase && (!i.exclusivo || donos.includes(i.codigo)));
+export const itensDaPrateleira = (fase: 1 | 2, donos: readonly string[] = [], tecnico = false): Item[] =>
+  ITENS.filter((i) => i.fase <= fase && !!i.tecnico === tecnico && (!i.exclusivo || donos.includes(i.codigo)));
 
 /** Encaixes que aparecem: a Luva só para o goleiro, e só os que já têm Item na fase aberta. */
-export const encaixesDaLoja = (goleiro: boolean, fase: 1 | 2 = 1, donos: readonly string[] = []): Encaixe[] =>
-  ENCAIXES.filter((e) => (goleiro || e !== ENCAIXE_SO_DO_GOLEIRO) && itensDaPrateleira(fase, donos).some((i) => i.encaixe === e));
+export const encaixesDaLoja = (goleiro: boolean, fase: 1 | 2 = 1, donos: readonly string[] = [], tecnico = false): Encaixe[] =>
+  (tecnico ? ENCAIXES_DO_TECNICO : ENCAIXES_DO_JOGADOR).filter((e) => (goleiro || e !== ENCAIXE_SO_DO_GOLEIRO) && itensDaPrateleira(fase, donos, tecnico).some((i) => i.encaixe === e));
 
 /** O que o botão faz com o Item selecionado. */
 export type AcaoDaLoja = { tipo: 'COMPRAR'; preco: number; podePagar: boolean } | { tipo: 'EQUIPAR' } | { tipo: 'TIRAR' };
@@ -76,11 +78,11 @@ export function corpoDaLoja(e: EstadoDaLoja, selecionado: string | null) {
       </div>
     </div>
     <div class="prateleiras">
-      ${encaixesDaLoja(e.goleiro, e.fase, e.donos).map(
+      ${encaixesDaLoja(e.goleiro, e.fase, e.donos, !!e.tecnico).map(
         (encaixe) => html`<section class="prateleira" aria-label="${NOME_DO_ENCAIXE[encaixe]}">
           <h2>${NOME_DO_ENCAIXE[encaixe]}</h2>
           <div class="estante">
-            ${itensDaPrateleira(e.fase, e.donos).filter((i) => i.encaixe === encaixe).map((i) => {
+            ${itensDaPrateleira(e.fase, e.donos, !!e.tecnico).filter((i) => i.encaixe === encaixe).map((i) => {
               const etiqueta = etiquetaDoItem(i, e);
               const rotulo = `${i.nome}${etiqueta === 'Usando' ? ', no seu boneco' : etiqueta === 'Seu' ? ', já é sua' : `, ${etiqueta} Moedas`}`;
               return html`<button type="button" class="peca ${i.raridade === 'RARO' ? 'rara' : ''} ${etiqueta === 'Usando' ? 'usando' : etiqueta === 'Seu' ? 'sua' : ''}" data-item="${i.codigo}" aria-pressed="${String(i.codigo === selecionado)}" aria-label="${rotulo}" title="${i.nome}">

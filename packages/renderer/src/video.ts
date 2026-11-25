@@ -47,6 +47,11 @@ export interface PartidaParaVideo {
   torcida?: Record<Lado, number>;
   /** Grito da Temporada de cada lado (ADR-0112). */
   gritos?: Partial<Record<Lado, string>>;
+  /** Técnico de cada lado (ADR-0111) e o lugar do Capitão (ADR-0112), a partir da T3. */
+  tecnicos?: Partial<Record<Lado, { nome: string; apelido?: string | null; itens?: ItensEquipados | null }>>;
+  capitaes?: Partial<Record<Lado, number>>;
+  /** Marcação individual (ADR-0112), pelos lugares: só para a fala do Narrador. */
+  marcacoes?: Partial<Record<Lado, { marcador: number; alvo: number }>>;
   /** Estrelas de Título nos escudos (ADR-0060). */
   estrelas?: Partial<Record<TimeId, Estrelas>>;
   /** Partida do Mata-mata (ADR-0048): Semifinal ou Final, Temporada e Série. */

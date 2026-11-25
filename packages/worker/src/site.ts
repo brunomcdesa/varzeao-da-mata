@@ -22,6 +22,7 @@ import { gruposDaTemporada, seriesAtivas, seriesDaTemporada, type GruposDaTempor
 import { classificar } from './tabela.js';
 import { horaDeBrasilia } from './briga.js';
 import { habilidadesDe } from './regras.js';
+import { beirasDasPartidas } from './beiraDoCampo.js';
 import { gritoDoTime, ovrDasHabilidades } from '@liga/shared';
 import { capitaoDaPartida, proximaPartidaDoTime, tamanhoDosElencos } from './temporada2.js';
 
@@ -69,6 +70,7 @@ interface LinhaEscalacao {
   itens: ItensEquipados | string | null;
   /** Capitão em campo (T2, ADR-0020). */
   capitao: boolean;
+  fixado?: boolean;
   /** Banco (ADR-0061). */
   reserva: boolean;
   /** Fora de posição (ADR-0044): a Posição de inscrição de quem ocupou a vaga. */
@@ -178,7 +180,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
 
   const escalacoes = (
     await banco.query<LinhaEscalacao>(
-      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.numero, e.itens, e.capitao, e.reserva, e.posicao_de_origem
+      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.numero, e.itens, e.capitao, e.reserva, e.posicao_de_origem, e.fixado
        FROM escalacao e LEFT JOIN jogador_todos j ON j.id = e.jogador_id ORDER BY e.partida_id, e.lugar`,
     )
   ).rows;
@@ -681,6 +683,22 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     }
     return Object.keys(r).length ? { gritos: r } : {};
   };
+  // Marcação individual (ADR-0112): sai depois do Apito, só com marcador e alvo em campo.
+  const marcacoesDe = new Map<string, { marcador: string; alvo: string }>();
+  for (const m of (await banco.query<{ partida_id: number; time_id: TimeId; marcacao: { marcador?: unknown; alvo?: unknown } | null }>(`SELECT partida_id, time_id, marcacao FROM postura WHERE marcacao IS NOT NULL`)).rows) {
+    if (m.marcacao?.marcador && m.marcacao.alvo) marcacoesDe.set(`${m.partida_id}:${m.time_id}`, { marcador: String(m.marcacao.marcador), alvo: String(m.marcacao.alvo) });
+  }
+  const marcacoesDaPartida = (p: { id: number; mandante_id: TimeId; visitante_id: TimeId }, linhas: LinhaEscalacao[] | undefined) => {
+    const r: Partial<Record<'mandante' | 'visitante', { marcador: string; alvo: string }>> = {};
+    for (const [lado, time, rival] of [['mandante', p.mandante_id, p.visitante_id], ['visitante', p.visitante_id, p.mandante_id]] as const) {
+      const m = marcacoesDe.get(`${p.id}:${time}`);
+      const emCampo = (t: TimeId, id: string) => (linhas ?? []).some((e) => e.time_id === t && !e.reserva && e.jogador_id === id);
+      if (m && emCampo(time, m.marcador) && emCampo(rival, m.alvo)) r[lado] = m;
+    }
+    return Object.keys(r).length ? { marcacoes: r } : {};
+  };
+  // Beira do campo (ADR-0111): o Técnico congelado em cada Partida escalada da T3.
+  const beiras = await beirasDasPartidas(banco, todas.filter((p) => escalacoesDe.has(p.id)).map((p) => p.id));
   // ---- uma página por Partida escalada (de todas as Temporadas: o histórico aponta para elas)
   for (const p of todas) {
     const linhas = escalacoesDe.get(p.id);
@@ -691,7 +709,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
         time,
         jogadores: doTime
           .filter((e) => !e.reserva)
-          .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ...itensDaLinha(e), ovr: ovrPelasHabilidades(e.posicao, e.ovr_antes, e.habilidades_antes), habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes), ...(e.capitao ? { capitao: true as const } : {}) })),
+          .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ...itensDaLinha(e), ovr: ovrPelasHabilidades(e.posicao, e.ovr_antes, e.habilidades_antes), habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes), ...(e.capitao ? { capitao: true as const } : {}), ...(e.fixado ? { fixado: true as const } : {}) })),
         ...(banco.length ? { banco } : {}),
       };
     };
@@ -730,6 +748,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       ...(temMoedas(temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0) ? { palpite: true as const } : {}),
       // Perfil do Juiz (T3, ADR-0094): aparece com a Escalação; sai do id da Partida, igual na simulação.
       ...(linhas && temRegrasT3(temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0) ? { juiz: perfilDoJuiz(p.id) } : {}),
+      ...(beiras.get(p.id) ? { tecnicos: beiras.get(p.id)!.tecnicos } : {}),
+      ...(revelada(p) ? marcacoesDaPartida(p, linhas) : {}),
       // Arquibancada (T2): só nas Partidas simuladas com as regras da Temporada 2.
       ...(revelada(p) && (p.resultado as { postura?: unknown } | null)?.postura != null
         ? { torcida: { mandante: elencos.get(p.mandante_id) ?? 0, visitante: elencos.get(p.visitante_id) ?? 0 }, ...gritosDe(p.temporada_id, p.mandante_id, p.visitante_id) }

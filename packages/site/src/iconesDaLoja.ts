@@ -47,6 +47,55 @@ const DESENHOS: Record<string, string[]> = {
     '..KWWWWWK...',
     '..KKKKKKK...',
   ],
+  // Loja do Técnico (ADR-0111).
+  BONE: [
+    '....KKKK....',
+    '..KKPPPPKK..',
+    '.KPPPLLPPPK.',
+    '.KPPPPPPPPK.',
+    'KKKKKKKKKKK.',
+    'KPPPPPPPPPPK',
+    'KKKKKKKKKKKK',
+  ],
+  OCULOS: [
+    'KKKKKKKKKKKK',
+    'KLLPPKKLLPPK',
+    'KPPPPKKPPPPK',
+    '.KPPK..KPPK.',
+    '..KK....KK..',
+  ],
+  PRANCHETA: [
+    '...KKKKKK...',
+    '.KKKLLLLKKK.',
+    '.KPKKKKKKPK.',
+    '.KPKWWWWKPK.',
+    '.KPKWKKWKPK.',
+    '.KPKWWWWKPK.',
+    '.KPKWKWWKPK.',
+    '.KPKKKKKKPK.',
+    '.KPPPPPPPPK.',
+    '.KKKKKKKKKK.',
+  ],
+  APITO: [
+    '..K.........',
+    '.KWK........',
+    'K..WK.......',
+    'K...WKKKKK..',
+    '.K..KPPPPPKK',
+    '..KKPLPPPPPK',
+    '....KPPPPPKK',
+    '.....KKKKK..',
+  ],
+  ROUPA: [
+    '..KKKKKKKK..',
+    '.KPPKWWKPPK.',
+    'KPPPPWDPPPPK',
+    'KPPPPWDPPPPK',
+    'KPPPPPDPPPPK',
+    'KPKPPPPPPKPK',
+    'KPKPPPPPPKPK',
+    'KKKKKKKKKKKK',
+  ],
 };
 
 /** A faixa com a folha: os dois pixels do centro da frente (linha 1) na segunda cor. */
@@ -85,7 +134,9 @@ export function desenharIcone(canvas: HTMLCanvasElement, item: Item, base: Visua
   const { width: w, height: h } = canvas;
   const grade = DESENHOS[item.encaixe];
   // Com segunda cor (Faixa da Mata, ADR-0108): a frente da faixa ganha a folha no centro.
-  if (grade) return desenharGrade(ctx, item.detalhe && item.encaixe === 'FAIXA' ? comFolha(grade) : grade, item.cor, w, h, item.detalhe);
+  // O Terno tem a gravata vermelha.
+  // O Boné do Técnico sai na cor do Time (a camisa do boneco de base).
+  if (grade) return desenharGrade(ctx, item.detalhe && item.encaixe === 'FAIXA' ? comFolha(grade) : grade, item.encaixe === 'BONE' ? base.camisa : item.cor, w, h, item.encaixe === 'ROUPA' ? '#D8322A' : item.detalhe);
   if (item.encaixe === 'COMEMORACAO') {
     const q = quadroDaComemoracao(item.estilo as never, PARADA[item.estilo!] ?? 0.5);
     const img = sprite(q.pose, base) as CanvasImageSource;

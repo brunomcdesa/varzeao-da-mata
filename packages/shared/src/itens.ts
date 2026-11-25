@@ -4,8 +4,13 @@
  * trocado sem pagar de novo. A primeira fase da T3 traz a Chuteira colorida e os Acessórios.
  */
 
-export type Encaixe = 'CHUTEIRA' | 'MUNHEQUEIRA' | 'FAIXA' | 'LUVA' | 'CORTE' | 'BARBA' | 'COMEMORACAO';
-export const ENCAIXES: readonly Encaixe[] = ['CHUTEIRA', 'MUNHEQUEIRA', 'FAIXA', 'LUVA', 'CORTE', 'BARBA', 'COMEMORACAO'];
+export type EncaixeDoJogador = 'CHUTEIRA' | 'MUNHEQUEIRA' | 'FAIXA' | 'LUVA' | 'CORTE' | 'BARBA' | 'COMEMORACAO';
+/** Loja do Técnico (ADR-0111): o boneco à beira do campo tem os seus próprios Encaixes. */
+export type EncaixeDoTecnico = 'BONE' | 'OCULOS' | 'PRANCHETA' | 'APITO' | 'ROUPA';
+export type Encaixe = EncaixeDoJogador | EncaixeDoTecnico;
+export const ENCAIXES_DO_JOGADOR: readonly EncaixeDoJogador[] = ['CHUTEIRA', 'MUNHEQUEIRA', 'FAIXA', 'LUVA', 'CORTE', 'BARBA', 'COMEMORACAO'];
+export const ENCAIXES_DO_TECNICO: readonly EncaixeDoTecnico[] = ['BONE', 'OCULOS', 'PRANCHETA', 'APITO', 'ROUPA'];
+export const ENCAIXES: readonly Encaixe[] = [...ENCAIXES_DO_JOGADOR, ...ENCAIXES_DO_TECNICO];
 /** Encaixes de cor (o Item pinta uma parte do boneco); os outros mudam o desenho. */
 export const ENCAIXES_DE_COR: readonly Encaixe[] = ['CHUTEIRA', 'MUNHEQUEIRA', 'FAIXA', 'LUVA'];
 export const NOME_DO_ENCAIXE: Record<Encaixe, string> = {
@@ -16,6 +21,11 @@ export const NOME_DO_ENCAIXE: Record<Encaixe, string> = {
   CORTE: 'Penteado',
   BARBA: 'Barba',
   COMEMORACAO: 'Comemoração de gol',
+  BONE: 'Boné',
+  OCULOS: 'Óculos',
+  PRANCHETA: 'Prancheta',
+  APITO: 'Apito',
+  ROUPA: 'Roupa',
 };
 
 export type Raridade = 'BASICO' | 'RARO';
@@ -35,6 +45,8 @@ export interface Item {
   detalhe?: string;
   /** Item exclusivo (ADR-0108): não está à venda; só aparece na Loja para quem já é dono. */
   exclusivo?: 'APOIADOR';
+  /** Item do boneco do Técnico (ADR-0111): só o Técnico compra e usa. */
+  tecnico?: true;
 }
 
 const CORES_BASICAS: readonly [string, string][] = [
@@ -98,8 +110,29 @@ export const ITEM_DE_APOIADOR: Item = {
   fase: 2,
   exclusivo: 'APOIADOR',
 };
-export const ITENS: readonly Item[] = [...ITENS_DE_COR, ...ITENS_DE_DESENHO, ITEM_DE_APOIADOR];
-/** Os Itens que a Loja vende (sem os exclusivos). */
+/**
+ * Loja do Técnico (ADR-0111), junto da segunda fase: o boné sai na cor do Time; os outros têm a
+ * cor da própria peça. O Terno troca o agasalho do Time.
+ */
+const doTecnico = (encaixe: EncaixeDoTecnico, estilo: string, nome: string, cor: string, raridade: Raridade = 'BASICO'): Item => ({
+  codigo: `${encaixe}_${estilo}`,
+  encaixe,
+  nome,
+  cor,
+  raridade,
+  fase: 2,
+  estilo,
+  tecnico: true,
+});
+export const ITENS_DO_TECNICO: readonly Item[] = [
+  doTecnico('BONE', 'DO_TIME', 'Boné do Time', '#2F6FE0'),
+  doTecnico('OCULOS', 'ESCUROS', 'Óculos escuros', '#1E1E1E'),
+  doTecnico('PRANCHETA', 'TATICA', 'Prancheta', '#A0703C'),
+  doTecnico('APITO', 'NO_PESCOCO', 'Apito no pescoço', '#C8CCD2'),
+  doTecnico('ROUPA', 'TERNO', 'Terno', '#2B2F3A', 'RARO'),
+];
+export const ITENS: readonly Item[] = [...ITENS_DE_COR, ...ITENS_DE_DESENHO, ITEM_DE_APOIADOR, ...ITENS_DO_TECNICO];
+/** Os Itens que a Loja vende (sem os exclusivos). Os do Técnico só aparecem para o Técnico. */
 export const ITENS_A_VENDA: readonly Item[] = ITENS.filter((i) => !i.exclusivo);
 export const ITEM_POR_CODIGO: ReadonlyMap<string, Item> = new Map(ITENS.map((i) => [i.codigo, i]));
 
