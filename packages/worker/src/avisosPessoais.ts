@@ -5,7 +5,7 @@
  */
 import type { Banco } from './banco.js';
 
-export type TipoDeAvisoPessoal = 'PEDIDO' | 'CONVITE' | 'TROCA' | 'TRANSFERENCIA' | 'CHAMADA';
+export type TipoDeAvisoPessoal = 'PEDIDO' | 'CONVITE' | 'TROCA' | 'TRANSFERENCIA' | 'CHAMADA' | 'CAPITAO';
 
 export interface AvisoPessoal {
   tipo: TipoDeAvisoPessoal;

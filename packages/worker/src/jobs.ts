@@ -21,6 +21,7 @@ import { momentosDoAoVivo } from '@liga/renderer';
 import { creditosDaTemporada } from './apoiador.js';
 import { recompensarT1 } from './recompensaT1.js';
 import { CHAVE_AVISO_PESSOAL, houveAvisoPessoal } from './avisosPessoais.js';
+import { conferirCapitaes } from './capitaoAtivo.js';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA, criarTemporada, somarDias } from './calendario.js';
 import { processarComentario, type Comentario, type Resultado } from './coletar.js';
@@ -234,6 +235,10 @@ async function prazosDoTecnico(c: ContextoDoJob): Promise<void> {
   const agora = agoraDe(c);
   const avisos = await c.banco.transacao((b) => resolverPrazos(b, agora));
   const sairam = await c.banco.transacao((b) => conferirInatividade(b, agora));
+  // Capitão ativo (ADR-0114): a faixa sai de quem ficou 3 jogos sem escolher nada.
+  const comVinculo = await jogadoresComVinculo(c.agenda, { recarregar: false });
+  const trocas = await c.banco.transacao((b) => conferirCapitaes(b, agora, comVinculo));
+  if (trocas.length) logDe(c)(`Capitão: faixa trocada por inatividade em ${trocas.map((t) => t.time).join(', ')}.`);
   const responder = responderComentario(c);
   for (const a of avisos) {
     if (!/^\d+$/.test(a.ref)) continue; // só comentários do Instagram têm id numérico
