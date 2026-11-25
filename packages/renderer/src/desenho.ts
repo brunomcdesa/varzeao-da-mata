@@ -5,7 +5,7 @@
  * Linguagem visual: várzea em pixel art. Placar de tábua com plaquinhas penduradas,
  * campo com terrão e cal, mata em volta e faixa de torcida no gol.
  */
-import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, NOME_DO_PERFIL_DO_JUIZ, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type ItensEquipados, type Posicao, type SituacaoNaBriga, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, NOME_DO_PERFIL_DO_JUIZ, POR_EXTENSO, brigaDoTime, necessidadeNaBriga, necessidadeNoRebaixamento, valeAPermanencia, situacoesNaBriga, situacoesNoRebaixamento, textoDaNecessidade, textoDaNecessidadeNoRebaixamento, type BrigaPeloMataMata, type ItensEquipados, type Posicao, type SituacaoNaBriga, type TimeId } from '@liga/shared';
 import type { Lado } from '@liga/sim';
 import { desenharTecnicos, type TecnicoNoJogo } from './tecnico.js';
 import { CAMPO, cenario } from './cenario.js';
@@ -520,6 +520,10 @@ export type TipoDaPlaquinhaDaBriga = 'GARANTIDO' | 'ELIMINADO' | 'DEPENDE';
  * O que a plaquinha de cada Time diz na última Rodada (ADR-0053). Quem já estava decidido antes
  * do Apito Inicial fica "Já garantido" ou "Já eliminado"; os outros seguem o placar: "Assim:
  * classifica / fora / depende" durante o jogo e "Classificado / Eliminado / Depende…" no fim.
+ *
+ * Rebaixamento (ADR-0115): quando alguém cai desta tabela e o Time está fora do Mata-mata (antes
+ * do jogo ou com o placar de agora) sem estar Salvo, a plaquinha passa a falar da queda: "Já
+ * rebaixado", "Empate salva", "Assim: salvo / cai / ameaçado" e, no fim, "Salvo / Rebaixado".
  */
 export function plaquinhasDaBriga(
   b: BrigaPeloMataMata,
@@ -531,17 +535,34 @@ export function plaquinhasDaBriga(
 ): Record<Lado, { texto: string; tipo: TipoDaPlaquinhaDaBriga }> {
   const antes = situacoesNaBriga(b, times, null);
   const agora = situacoesNaBriga(b, times, placar);
-  const depende = b.depois.length === 1 ? `Depende das ${b.depois[0]!.hora}h` : 'Depende dos outros';
+  const quedaAntes = situacoesNoRebaixamento(b, times, null);
+  const quedaAgora = situacoesNoRebaixamento(b, times, placar);
+  const hora = b.depois.length === 1 ? `das ${b.depois[0]!.hora}h` : null;
+  const depende = hora ? `Depende ${hora}` : 'Depende dos outros';
+  const queda = (lado: Lado) => {
+    const t = times[lado];
+    const qa = quedaAntes!.get(t)!;
+    if (qa === 'ELIMINADO') return { texto: 'Já rebaixado', tipo: qa };
+    if (comeco) return { texto: textoDaNecessidadeNoRebaixamento(necessidadeNoRebaixamento(b, times, lado)!), tipo: 'DEPENDE' as const };
+    const s: SituacaoNaBriga = quedaAgora!.get(t)!;
+    const txt = encerrada
+      ? { GARANTIDO: 'Salvo', ELIMINADO: 'Rebaixado', DEPENDE: hora ? `Ameaçado até ${hora.slice(4)}` : 'Ameaçado' }[s]
+      : { GARANTIDO: 'Assim: salvo', ELIMINADO: 'Assim: cai', DEPENDE: 'Assim: ameaçado' }[s];
+    return { texto: txt, tipo: s };
+  };
   const uma = (lado: Lado) => {
-    const a = antes.get(times[lado])!;
+    const t = times[lado];
+    const a = antes.get(t)!;
     if (a === 'GARANTIDO') return { texto: 'Já garantido', tipo: a };
+    // Fora do Mata-mata (antes, ou assim que o placar tira) e ainda com risco de cair: fala da queda.
+    if (brigaDoTime(b, times, lado, comeco ? null : placar) === 'REBAIXAMENTO') return queda(lado);
     if (a === 'ELIMINADO') return { texto: 'Já eliminado', tipo: a };
     if (comeco) return { texto: textoDaNecessidade(necessidadeNaBriga(b, times, lado)), tipo: 'DEPENDE' as const };
-    const s: SituacaoNaBriga = agora.get(times[lado])!;
-    const t = encerrada
+    const s: SituacaoNaBriga = agora.get(t)!;
+    const txt = encerrada
       ? { GARANTIDO: 'Classificado', ELIMINADO: 'Eliminado', DEPENDE: depende }[s]
       : { GARANTIDO: 'Assim: classifica', ELIMINADO: 'Assim: fora', DEPENDE: 'Assim: depende' }[s];
-    return { texto: t, tipo: s };
+    return { texto: txt, tipo: s };
   };
   return { mandante: uma('mandante'), visitante: uma('visitante') };
 }
@@ -551,6 +572,8 @@ export function faixaDaBriga(b: BrigaPeloMataMata, times: Record<Lado, TimeId>):
   const antes = situacoesNaBriga(b, times, null);
   const garantidos = [...antes].filter(([, s]) => s === 'GARANTIDO').map(([t]) => FALA_DO_TIME[t].curto);
   const serie = b.grupo ? ` · ${NOME_DO_GRUPO[b.grupo]}` : b.serie ? ` da Série ${b.serie}` : '';
+  // Jogo que só vale a permanência (ADR-0115): a viga lembra quantos caem.
+  if (valeAPermanencia(b, times)) return `Última Rodada${serie} · Caem os ${POR_EXTENSO[b.caem!] ?? b.caem} últimos`;
   return garantidos.length ? `Última Rodada${serie} · Garantidos: ${garantidos.join(', ')}` : `Última Rodada${serie} · ${b.vagas ?? 4} primeiros vão pro Mata-mata`;
 }
 

@@ -740,8 +740,11 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
         const grupo = grupoDoTime(grupos, p.mandante_id);
         const b =
           grupos && grupo
-            ? brigaDaPartida(linhaParaBriga(p), daSerie.filter((x) => grupos[grupo].includes(x.mandante) && grupos[grupo].includes(x.visitante)), grupos[grupo], null, { grupo, vagas: CLASSIFICAM_POR_GRUPO })
-            : brigaDaPartida(linhaParaBriga(p), daSerie, timesDaSerie(p.temporada_id, p.serie), comSeries(p.temporada_id) ? p.serie : null);
+            ? brigaDaPartida(linhaParaBriga(p), daSerie.filter((x) => grupos[grupo].includes(x.mandante) && grupos[grupo].includes(x.visitante)), grupos[grupo], null, { grupo, vagas: CLASSIFICAM_POR_GRUPO, caem: timesQueCaem({ temSerieB: false, porGrupo: true }) })
+            : brigaDaPartida(linhaParaBriga(p), daSerie, timesDaSerie(p.temporada_id, p.serie), comSeries(p.temporada_id) ? p.serie : null, {
+                // Rebaixamento (ADR-0115): só a Série A tem quem cai.
+                caem: p.serie === 'A' ? timesQueCaem({ temSerieB: comSeries(p.temporada_id), porGrupo: false }) : 0,
+              });
         return b ? { briga: b } : {};
       })(),
       ...(p.copa_etapa ? { copa: p.copa_etapa } : {}),

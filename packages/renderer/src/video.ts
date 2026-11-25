@@ -3,10 +3,10 @@
  * mais as cartelas de abertura e de fim e o escurecimento dos cortes.
  */
 import { ocupanteDoDesempenho } from './substituicao.js';
-import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, NOME_DO_PERFIL_DO_JUIZ, TAMANHO_ESCALACAO, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type Grupo, type ItensEquipados, type MataMataDaPartida, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, NOME_DO_PERFIL_DO_JUIZ, TAMANHO_ESCALACAO, brigaDoTime, concordar, situacoesNaBriga, situacoesNoRebaixamento, valeAPermanencia, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type Grupo, type ItensEquipados, type MataMataDaPartida, type TimeId } from '@liga/shared';
 import type { Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { cenario } from './cenario.js';
-import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, noCampo, plaquinha, rotulo, type Camera, type OpcoesDesenho } from './desenho.js';
+import { FONTE_DISPLAY, FONTE_TEXTO, desenharEscudo, desenharQuadro, desenharTabuaDoPlacar, noCampo, plaquinha, plaquinhasDaBriga, rotulo, type Camera, type OpcoesDesenho } from './desenho.js';
 import type { EstadoQuadro, Timeline } from './timeline.js';
 import { COLUNAS, COR, LINHAS, Pincel } from './pixel.js';
 import { ALTURA_ESCUDO, LARGURA_ESCUDO } from './escudos.js';
@@ -368,8 +368,8 @@ function desenharConfronto(pin: Pincel, r: ResultadoPartida, o: OpcoesVideo, e: 
   const comBriga = !!b && e.briga > 0;
   if (b && comBriga) {
     lados.forEach((lado, i) => {
-      const antes = situacoesNaBriga(b, r.times, null).get(r.times[lado])!;
-      const txt = antes === 'GARANTIDO' ? 'Já garantido' : antes === 'ELIMINADO' ? 'Já eliminado' : textoDaNecessidade(necessidadeNaBriga(b, r.times, lado));
+      // A mesma plaquinha do começo do jogo (Mata-mata ou, para quem já está fora, o Rebaixamento).
+      const { texto: txt, tipo: antes } = plaquinhasDaBriga(b, r.times, { mandante: 0, visitante: 0 }, false, true)[lado];
       const fundo = antes === 'GARANTIDO' ? '#3E9B3A' : antes === 'ELIMINADO' ? '#B8442F' : COR.amarelo;
       const sombra = antes === 'GARANTIDO' ? '#2A6E27' : antes === 'ELIMINADO' ? '#82301F' : '#C99500';
       const tinta = antes === 'DEPENDE' ? COR.tinta : '#FFFFFF';
@@ -396,12 +396,16 @@ function desenharConfronto(pin: Pincel, r: ResultadoPartida, o: OpcoesVideo, e: 
     });
   }
   if (b && comBriga) {
-    // Garantidos que não jogam esta Partida (os daqui aparecem na plaquinha de cada Time).
-    const fora = [...situacoesNaBriga(b, r.times, null)].filter(([t, s]) => s === 'GARANTIDO' && t !== r.times.mandante && t !== r.times.visitante).map(([t]) => FALA_DO_TIME[t].curto);
+    // Garantidos que não jogam esta Partida (os daqui aparecem na plaquinha de cada Time). No jogo
+    // que só vale a permanência (ADR-0115), os já rebaixados.
+    const queda = valeAPermanencia(b, r.times);
+    const quem = queda ? situacoesNoRebaixamento(b, r.times, null)! : situacoesNaBriga(b, r.times, null);
+    const alvo = queda ? 'ELIMINADO' : 'GARANTIDO';
+    const fora = [...quem].filter(([t, s]) => s === alvo && t !== r.times.mandante && t !== r.times.visitante).map(([t]) => FALA_DO_TIME[t].curto);
     if (fora.length) {
-      const l = `Já garantid${fora.length > 1 ? 'os' : 'o'}: ${fora.join(', ')}`;
+      const l = `Já ${queda ? 'rebaixad' : 'garantid'}${fora.length > 1 ? 'os' : 'o'}: ${fora.join(', ')}`;
       ctx.globalAlpha = base * e.briga;
-      pin.texto(l, cx, ySelos + 34, pin.caber(l, 240, 9, texto, 700), texto, '#9FE08A', { peso: 700 });
+      pin.texto(l, cx, ySelos + 34, pin.caber(l, 240, 9, texto, 700), texto, queda ? '#FF8A75' : '#9FE08A', { peso: 700 });
     }
   }
   ctx.restore();
@@ -425,7 +429,7 @@ export function selosDaCapa(r: ResultadoPartida, o: Pick<OpcoesVideo, 'mataMata'
   if (r.classico) selos.push('Clássico');
   const mm = o.mataMata;
   if (mm) selos.push(mm.etapa === 'FINAL' ? 'Vale o título' : mm.copa ? 'Mata-mata' : 'Vale a Final');
-  else if (o.briga) selos.push('Vale a Semifinal');
+  else if (o.briga) selos.push(valeAPermanencia(o.briga, r.times) ? 'Vale a permanência' : 'Vale a Semifinal');
   return selos;
 }
 
@@ -437,18 +441,28 @@ function desenharAbertura(pin: Pincel, r: ResultadoPartida, p: number, tVideo: n
   pin.ctx.restore();
 }
 
-/** Fim do Reels na última Rodada (ADR-0053): "Onça no Mata-mata", "Tatu fora", "Tatu depende das 18h". */
+/**
+ * Fim do Reels na última Rodada (ADR-0053): "Onça no Mata-mata", "Tatu fora", "Tatu depende das 18h".
+ * Quem passou a brigar contra o Rebaixamento (ADR-0115): "Tatu salvo!", "Tatu rebaixado", "Tatu ameaçado".
+ */
 function desfechoDaBrigaNaTela(b: BrigaPeloMataMata, r: ResultadoPartida): string[] {
   const antes = situacoesNaBriga(b, r.times, null);
   const fim = situacoesNaBriga(b, r.times, r.gols);
+  const quedaAntes = situacoesNoRebaixamento(b, r.times, null);
+  const quedaFim = situacoesNoRebaixamento(b, r.times, r.gols);
   const dep = b.depois.length === 1 ? `depende das ${b.depois[0]!.hora}h` : 'depende dos outros jogos';
-  return (['mandante', 'visitante'] as const)
-    .filter((l) => antes.get(r.times[l]) === 'DEPENDE')
-    .map((l) => {
-      const t = FALA_DO_TIME[r.times[l]].curto;
-      const s = fim.get(r.times[l]);
-      return s === 'GARANTIDO' ? `${t} no Mata-mata!` : s === 'ELIMINADO' ? `${t} fora` : `${t} ${dep}`;
-    });
+  return (['mandante', 'visitante'] as const).flatMap((l) => {
+    const id = r.times[l];
+    const t = FALA_DO_TIME[id].curto;
+    if (brigaDoTime(b, r.times, l, r.gols) === 'REBAIXAMENTO') {
+      if (quedaAntes!.get(id) !== 'DEPENDE') return [];
+      const s = quedaFim!.get(id);
+      return [s === 'GARANTIDO' ? `${t} ${concordar([id], 'salv')}!` : s === 'ELIMINADO' ? `${t} ${concordar([id], 'rebaixad')}` : `${t} ${concordar([id], 'ameaçad')}`];
+    }
+    if (antes.get(id) !== 'DEPENDE') return [];
+    const s = fim.get(id);
+    return [s === 'GARANTIDO' ? `${t} no Mata-mata!` : s === 'ELIMINADO' ? `${t} fora` : `${t} ${dep}`];
+  });
 }
 
 function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number, o: OpcoesVideo, roteiroT2 = false): void {

@@ -2,7 +2,7 @@
  * Briga pelo Mata-mata (ADR-0053): monta, a partir do banco, o que o Narrador e as placas sabem
  * numa Partida da última Rodada da Fase de Liga.
  */
-import { CLASSIFICAM_POR_GRUPO, brigaDaPartida, grupoDoTime, type BrigaPeloMataMata, type PartidaParaBriga, type Serie, type TimeId } from '@liga/shared';
+import { CAEM_POR_GRUPO, CLASSIFICAM_POR_GRUPO, brigaDaPartida, timesQueCaem, grupoDoTime, type BrigaPeloMataMata, type PartidaParaBriga, type Serie, type TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { FUSO_BRASILIA } from './calendario.js';
 import { gruposDaTemporada, seriesDaTemporada } from './series.js';
@@ -60,7 +60,10 @@ export async function brigaDe(banco: Banco, partidaId: number): Promise<BrigaPel
   if (grupos && grupo) {
     const times = grupos[grupo];
     const doGrupo = partidas.filter((p) => times.includes(p.mandante) && times.includes(p.visitante));
-    return brigaDaPartida(doAlvo, doGrupo, times, null, { grupo, vagas: CLASSIFICAM_POR_GRUPO });
+    return brigaDaPartida(doAlvo, doGrupo, times, null, { grupo, vagas: CLASSIFICAM_POR_GRUPO, caem: CAEM_POR_GRUPO });
   }
-  return brigaDaPartida(doAlvo, partidas, series[alvo.serie], series.B.length > 0 ? alvo.serie : null);
+  // Rebaixamento (ADR-0115): só a Série A tem quem cai, com as mesmas contas do Resumo.
+  const comSerieB = series.B.length > 0;
+  const caem = alvo.serie === 'A' ? timesQueCaem({ temSerieB: comSerieB, porGrupo: false }) : 0;
+  return brigaDaPartida(doAlvo, partidas, series[alvo.serie], comSerieB ? alvo.serie : null, { caem });
 }

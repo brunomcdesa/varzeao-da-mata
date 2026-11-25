@@ -228,6 +228,10 @@ _Avoid_: superfinal, desafio dos campeões
 Na última Rodada da Fase de Liga, a situação de cada Time em relação às 4 vagas do Mata-mata: **Garantido** (nenhum resultado que falta o tira dos 4 primeiros, contando os desempates), **Eliminado** (nenhum resultado o coloca entre os 4) ou "depende" (ainda depende de outros resultados). O Narrador e as plaquinhas embaixo do placar mostram também do que o Time precisa e o que acontece "se terminar assim". ADR-0053.
 _Avoid_: classificado matematicamente, G4
 
+**Briga contra o Rebaixamento**:
+Na última Rodada, a situação de quem pode cair, com a mesma conta da Briga pelo Mata-mata: **Salvo**, **Rebaixado** ou ameaçado. A plaquinha do Time fala dela quando ele já está fora do Mata-mata e ainda não está Salvo; o jogo em que só ela está em jogo "vale a permanência". ADR-0115.
+_Avoid_: briga contra a degola, Z4
+
 **Chances**:
 Cartela do Resumo da Rodada, da metade da Fase de Liga (a Rodada 4 de 7) até a penúltima Rodada: a chance de cada Time ir às Semifinais e de cair, por Grupo (ou por Série). Os jogos que faltam são simulados 20 mil vezes, todos com chances iguais, com os desempates da tabela. Quando é certo de verdade, aparece o selo **Na semi**, **Fora**, **Caiu** ou **Salvo**; sem certeza, nunca 0% nem 100% ("<1%", ">99%"). No Resumo da última Rodada, vira a cartela **Fim da Fase de Liga**, só com os selos. ADR-0099.
 _Avoid_: probabilidade, previsão, palpite (o Palpite é outra coisa)

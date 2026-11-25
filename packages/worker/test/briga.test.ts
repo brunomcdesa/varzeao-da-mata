@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { brigaDaPartida, etapaDa, necessidadeNaBriga, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type PartidaParaBriga, type TimeId } from '@liga/shared';
-import { desfechoDaBriga, falaDosGarantidos, falasDaNecessidade, seAcabarAssim } from '../../renderer/src/narracao.js';
-import { plaquinhasDaBriga } from '../../renderer/src/desenho.js';
+import { brigaDaPartida, brigaDoTime, etapaDa, necessidadeNaBriga, necessidadeNoRebaixamento, situacoesNaBriga, situacoesNoRebaixamento, textoDaNecessidade, textoDaNecessidadeNoRebaixamento, valeAPermanencia, type BrigaPeloMataMata, type PartidaParaBriga, type TimeId } from '@liga/shared';
+import { aberturaDaBriga, desfechoDaBriga, falaDosGarantidos, falasDaNecessidade, seAcabarAssim } from '../../renderer/src/narracao.js';
+import { faixaDaBriga, plaquinhasDaBriga } from '../../renderer/src/desenho.js';
 
 const linha = (time: TimeId, pontos: number, vitorias: number, saldo = 0) => ({ time, pontos, vitorias, saldo, golsPro: 10 + saldo });
 /** Antes do jogo das 14h da última Rodada: Arara e Capivara já garantidas, Sagui e Tucano fora. */
@@ -112,5 +112,73 @@ describe('Briga pelo Mata-mata (ADR-0053)', () => {
     expect(plaquinhasDaBriga(briga, times, { mandante: 0, visitante: 0 }, false, true).mandante.texto).toBe('Empate basta');
     expect(plaquinhasDaBriga(briga, times, { mandante: 0, visitante: 1 }, false).visitante.texto).toBe('Assim: classifica');
     expect(plaquinhasDaBriga(briga, times, { mandante: 0, visitante: 1 }, true).mandante.texto).toBe('Depende dos outros');
+  });
+});
+
+/**
+ * Grupo do Barro antes do jogo das 14h da última Rodada (ADR-0115): Lobo-guará e Capivara garantidos,
+ * 4 caem. Tamanduá × Sucuri já estão fora do Mata-mata e brigam para não cair.
+ */
+const doBarro: BrigaPeloMataMata = {
+  serie: null,
+  grupo: 'CHAO',
+  vagas: 2,
+  caem: 4,
+  tabela: [linha('LOB', 15, 5, 8), linha('CAP', 14, 4, 5), linha('ONC', 10, 3, 2), linha('JAC', 9, 3, 1), linha('TAM', 7, 2, 0), linha('SUC', 6, 2, -2), linha('LEA', 6, 1, -6), linha('TAT', 1, 0, -8)],
+  depois: [
+    { mandante: 'JAC', visitante: 'LEA', hora: 16 },
+    { mandante: 'ONC', visitante: 'TAT', hora: 18 },
+  ],
+};
+const contraAQueda = { mandante: 'TAM', visitante: 'SUC' } as const;
+
+describe('Briga contra o Rebaixamento (ADR-0115)', () => {
+  it('Salvo, Rebaixado e ameaçado com a mesma conta de certo de verdade', () => {
+    const s = situacoesNoRebaixamento(doBarro, contraAQueda, null)!;
+    expect(s.get('LOB')).toBe('GARANTIDO');
+    expect(s.get('TAM')).toBe('DEPENDE');
+    expect(s.get('LEA')).toBe('ELIMINADO');
+    expect(s.get('TAT')).toBe('ELIMINADO');
+    // Sem ninguém caindo (Série B, T1): não há briga contra a queda.
+    expect(situacoesNoRebaixamento(briga, times, null)).toBeNull();
+    expect(textoDaNecessidadeNoRebaixamento(necessidadeNoRebaixamento(doBarro, contraAQueda, 'mandante')!)).toBe('Vence e torce');
+  });
+
+  it('a plaquinha de quem está fora do Mata-mata fala da queda', () => {
+    expect(plaquinhasDaBriga(doBarro, contraAQueda, { mandante: 0, visitante: 0 }, false, true).mandante.texto).toBe('Vence e torce');
+    const vencendo = plaquinhasDaBriga(doBarro, contraAQueda, { mandante: 1, visitante: 0 }, false);
+    expect(vencendo.mandante).toEqual({ texto: 'Assim: ameaçado', tipo: 'DEPENDE' });
+    expect(vencendo.visitante).toEqual({ texto: 'Assim: cai', tipo: 'ELIMINADO' });
+    expect(plaquinhasDaBriga(doBarro, contraAQueda, { mandante: 1, visitante: 1 }, true).mandante).toEqual({ texto: 'Rebaixado', tipo: 'ELIMINADO' });
+    // Quem já caiu antes do Apito Inicial.
+    expect(plaquinhasDaBriga(doBarro, { mandante: 'LEA', visitante: 'TAT' }, { mandante: 0, visitante: 0 }, false).visitante.texto).toBe('Já rebaixado');
+  });
+
+  it('quem ainda briga pelo Mata-mata segue nele, e passa para a queda quando o placar o tira', () => {
+    // Sem ninguém caindo, nada muda (ADR-0053).
+    expect(plaquinhasDaBriga(briga, times, { mandante: 0, visitante: 1 }, false).visitante.texto).toBe('Assim: classifica');
+    const comQueda: BrigaPeloMataMata = { ...briga, caem: 2 };
+    expect(plaquinhasDaBriga(comQueda, times, { mandante: 0, visitante: 0 }, false, true).mandante.texto).toBe('Empate basta');
+    // Salvo de qualquer jeito: o "fora" continua sendo do Mata-mata.
+    expect(situacoesNoRebaixamento(comQueda, times, null)!.get('TAT')).toBe('GARANTIDO');
+    expect(brigaDoTime(comQueda, times, 'visitante', { mandante: 3, visitante: 0 })).toBe('MATA_MATA');
+  });
+
+  it('abertura, viga e Narrador do jogo que só vale a permanência', () => {
+    expect(valeAPermanencia(doBarro, contraAQueda)).toBe(true);
+    expect(valeAPermanencia(briga, times)).toBe(false);
+    expect(aberturaDaBriga(doBarro, contraAQueda)).toBe('Última Rodada da Fase de Liga, valendo a permanência na Série A!');
+    expect(faixaDaBriga(doBarro, contraAQueda)).toBe('Última Rodada · Grupo do Barro · Caem os quatro últimos');
+    expect(falaDosGarantidos(doBarro, contraAQueda)).toBe(
+      'O Lobo-guará e a Capivara já estão garantidos no Mata-mata! O Tamanduá está fora do Mata-mata e agora briga pra não cair! A Sucuri está fora do Mata-mata e agora briga pra não cair!',
+    );
+    expect(falasDaNecessidade(doBarro, contraAQueda)).toEqual([
+      'O Tamanduá precisa vencer e ainda torcer pelos outros resultados pra não cair!',
+      'A Sucuri precisa vencer e ainda torcer pelos outros resultados pra não cair!',
+    ]);
+    expect(seAcabarAssim(doBarro, contraAQueda, { mandante: 1, visitante: 0 })).toBe('Se terminar assim, o Tamanduá ainda corre risco de cair, e a Sucuri cai pra Série B!');
+    // Com o 0 × 0 os dois já caíam: depois do gol, só o Tamanduá mudou.
+    expect(seAcabarAssim(doBarro, contraAQueda, { mandante: 1, visitante: 0 }, { mandante: 0, visitante: 0 })).toBe('Se terminar assim, o Tamanduá ainda corre risco de cair!');
+    expect(desfechoDaBriga(doBarro, contraAQueda, { mandante: 1, visitante: 1 })).toEqual(['O Tamanduá está rebaixado pra Série B.', 'A Sucuri está rebaixada pra Série B.']);
   });
 });

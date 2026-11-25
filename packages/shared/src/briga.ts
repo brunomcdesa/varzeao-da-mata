@@ -42,6 +42,8 @@ export interface BrigaPeloMataMata {
   grupo?: Grupo | null;
   /** Vagas no Mata-mata: 4 na Série, 2 por Grupo (ADR-0064). */
   vagas?: number;
+  /** Quantos da tabela caem no fim da Temporada (ADR-0115): 4 por Grupo na T2, 2 na A, 0 na B. */
+  caem?: number;
 }
 
 export interface PartidaParaBriga {
@@ -70,7 +72,7 @@ export function brigaDaPartida(
   times: readonly TimeId[],
   serie: 'A' | 'B' | null,
   /** Com Grupos (ADR-0064): `partidas` e `times` já só do Grupo, e as vagas dele. */
-  o: { grupo?: Grupo | null; vagas?: number } = {},
+  o: { grupo?: Grupo | null; vagas?: number; caem?: number } = {},
 ): BrigaPeloMataMata | null {
   if (alvo.fase !== 'LIGA') return null;
   const ultima = Math.max(alvo.rodada, ...partidas.filter((p) => p.fase === 'LIGA').map((p) => p.rodada));
@@ -82,7 +84,13 @@ export function brigaDaPartida(
     if (p.gols && p.apito < alvo.apito) somar(linhas, p.mandante, p.visitante, p.gols.mandante, p.gols.visitante);
     else depois.push({ mandante: p.mandante, visitante: p.visitante, hora: p.hora });
   }
-  return { serie, tabela: [...linhas.values()], depois, ...(o.grupo ? { grupo: o.grupo, vagas: o.vagas ?? VAGAS_NO_MATA_MATA } : {}) };
+  return {
+    serie,
+    tabela: [...linhas.values()],
+    depois,
+    ...(o.grupo ? { grupo: o.grupo, vagas: o.vagas ?? VAGAS_NO_MATA_MATA } : {}),
+    ...(o.caem ? { caem: o.caem } : {}),
+  };
 }
 
 function somar(linhas: Map<TimeId, LinhaDaBriga>, mandante: TimeId, visitante: TimeId, gm: number, gv: number): void {
@@ -111,8 +119,9 @@ export function situacoesNaBriga(
   placar: Record<LadoDaBriga, number> | null,
   /** Sem placar: fixa só quem vence esta Partida (o placar exato segue em aberto). */
   resultado?: ResultadoDaPartida,
+  /** Quantas primeiras posições contam como "dentro" (padrão: as vagas no Mata-mata). */
+  vagas = b.vagas ?? VAGAS_NO_MATA_MATA,
 ): Map<TimeId, SituacaoNaBriga> {
-  const vagas = b.vagas ?? VAGAS_NO_MATA_MATA;
   const base = new Map(b.tabela.map((l) => [l.time, { ...l }]));
   if (placar) somar(base, times.mandante, times.visitante, placar.mandante, placar.visitante);
   const abertos: JogoEmAberto[] = [
@@ -214,6 +223,73 @@ export function textoDaNecessidade(n: Necessidade): string {
   if (n.empate === 'ELIMINADO') return 'Vence e torce';
   return 'Depende dos outros';
 }
+
+/**
+ * Briga contra o Rebaixamento (ADR-0115), com a mesma conta de "certo de verdade": GARANTIDO é
+ * Salvo (fica fora dos que caem em qualquer resultado), ELIMINADO é Rebaixado e DEPENDE é ameaçado.
+ * null quando ninguém cai desta tabela.
+ */
+export function situacoesNoRebaixamento(
+  b: BrigaPeloMataMata,
+  times: Record<LadoDaBriga, TimeId>,
+  placar: Record<LadoDaBriga, number> | null,
+  resultado?: ResultadoDaPartida,
+): Map<TimeId, SituacaoNaBriga> | null {
+  if (!b.caem) return null;
+  return situacoesNaBriga(b, times, placar, resultado, b.tabela.length - b.caem);
+}
+
+export function necessidadeNoRebaixamento(b: BrigaPeloMataMata, times: Record<LadoDaBriga, TimeId>, lado: LadoDaBriga): Necessidade | null {
+  if (!b.caem) return null;
+  const rival: ResultadoDaPartida = lado === 'mandante' ? 'visitante' : 'mandante';
+  const t = times[lado];
+  const s = (r: ResultadoDaPartida) => situacoesNoRebaixamento(b, times, null, r)!.get(t)!;
+  return { vitoria: s(lado), empate: s('empate'), derrota: s(rival) };
+}
+
+/** Do que o Time precisa para não cair: "Empate salva", "Vencendo, se salva", "Vence e torce". */
+export function textoDaNecessidadeNoRebaixamento(n: Necessidade): string {
+  if (n.derrota === 'GARANTIDO') return 'Já salvo';
+  if (n.vitoria === 'ELIMINADO') return 'Já rebaixado';
+  if (n.empate === 'GARANTIDO') return 'Empate salva';
+  if (n.vitoria === 'GARANTIDO') return 'Vencendo, se salva';
+  if (n.empate === 'ELIMINADO') return 'Vence e torce';
+  return 'Risco de cair';
+}
+
+/**
+ * De qual briga o Time está falando (ADR-0115): do Rebaixamento quando está fora do Mata-mata
+ * (antes do jogo ou, com `placar`, se acabar assim) e ainda não está Salvo; senão, do Mata-mata.
+ */
+export function brigaDoTime(
+  b: BrigaPeloMataMata,
+  times: Record<LadoDaBriga, TimeId>,
+  lado: LadoDaBriga,
+  placar: Record<LadoDaBriga, number> | null,
+): 'MATA_MATA' | 'REBAIXAMENTO' {
+  const t = times[lado];
+  const queda = situacoesNoRebaixamento(b, times, null)?.get(t);
+  if (!queda || queda === 'GARANTIDO') return 'MATA_MATA';
+  const antes = situacoesNaBriga(b, times, null).get(t);
+  if (antes === 'GARANTIDO') return 'MATA_MATA';
+  if (antes === 'ELIMINADO') return 'REBAIXAMENTO';
+  return placar && situacoesNaBriga(b, times, placar).get(t) === 'ELIMINADO' ? 'REBAIXAMENTO' : 'MATA_MATA';
+}
+
+/**
+ * A Partida só vale a permanência (ADR-0115): nenhum dos dois briga pelo Mata-mata e pelo menos
+ * um ainda pode cair. A abertura troca "Vale a Semifinal" por "Vale a permanência".
+ */
+export function valeAPermanencia(b: BrigaPeloMataMata, times: Record<LadoDaBriga, TimeId>): boolean {
+  const queda = situacoesNoRebaixamento(b, times, null);
+  if (!queda) return false;
+  const mm = situacoesNaBriga(b, times, null);
+  const lados = ['mandante', 'visitante'] as const;
+  return lados.every((l) => mm.get(times[l]) !== 'DEPENDE') && lados.some((l) => mm.get(times[l]) === 'ELIMINADO' && queda.get(times[l]) === 'DEPENDE');
+}
+
+/** "quatro" e "dois", para "os quatro últimos caem". */
+export const POR_EXTENSO: Readonly<Record<number, string>> = { 1: 'um', 2: 'dois', 3: 'três', 4: 'quatro' };
 
 /** "do jogo das 18h" ou "dos outros jogos": de quem ainda depende. */
 export function deQuemDepende(b: BrigaPeloMataMata): string {

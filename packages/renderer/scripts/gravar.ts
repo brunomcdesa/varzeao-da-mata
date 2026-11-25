@@ -58,6 +58,8 @@ const { values: args } = parseArgs({
     serie: { type: 'string' },
     /** Última Rodada (ADR-0053): usa a Briga de exemplo (Arara e Capivara garantidas, 16h e 18h depois). */
     briga: { type: 'boolean' },
+    /** Última Rodada com Rebaixamento (ADR-0115): Grupo do Barro, Tamanduá × Sucuri brigando para não cair. */
+    queda: { type: 'boolean' },
     /** Grupo da Partida (CHAO = Barro, COPA = Galho), mostrado na capa (ADR-0106). */
     grupo: { type: 'string' },
   },
@@ -125,6 +127,22 @@ async function main(): Promise<void> {
         { mandante: 'TAM', visitante: 'PRE', hora: 18 },
       ],
     };
+    partida.subtitulo ??= 'Última Rodada, jogo das 14h';
+  }
+  if (args.queda) {
+    const l = (time: TimeId, pontos: number, vitorias: number, saldo: number) => ({ time, pontos, vitorias, saldo, golsPro: 10 + saldo });
+    partida.briga = {
+      serie: null,
+      grupo: 'CHAO',
+      vagas: 2,
+      caem: 4,
+      tabela: [l('LOB', 15, 5, 8), l('CAP', 14, 4, 5), l('ONC', 10, 3, 2), l('JAC', 9, 3, 1), l('TAM', 7, 2, 0), l('SUC', 6, 2, -2), l('LEA', 6, 1, -6), l('TAT', 1, 0, -8)],
+      depois: [
+        { mandante: 'JAC', visitante: 'LEA', hora: 16 },
+        { mandante: 'ONC', visitante: 'TAT', hora: 18 },
+      ],
+    };
+    partida.grupo ??= 'CHAO';
     partida.subtitulo ??= 'Última Rodada, jogo das 14h';
   }
   if (args.loja) {

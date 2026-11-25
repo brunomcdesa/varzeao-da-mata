@@ -4,7 +4,7 @@
  *
  * Regra do glossário: o Locutor fala dos Jogadores pela Posição e pelo Time, nunca pelo @.
  */
-import { FALA_DO_TIME, NOME_DA_ETAPA_DA_COPA, type PerfilDoJuiz, concordar, deQuemDepende, doTime, ehGoleada, listaDeTimes, necessidadeNaBriga, nomeDoClassico, situacoesNaBriga, textoDaNecessidade, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, NOME_DA_ETAPA_DA_COPA, type PerfilDoJuiz, concordar, deQuemDepende, doTime, ehGoleada, listaDeTimes, brigaDoTime, necessidadeNaBriga, necessidadeNoRebaixamento, nomeDoClassico, situacoesNaBriga, situacoesNoRebaixamento, textoDaNecessidade, textoDaNecessidadeNoRebaixamento, valeAPermanencia, type BrigaPeloMataMata, type Escalacao, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, type Lado, type Lance, type SlotRef } from '@liga/sim';
 import { narradorDa } from './narradores.js';
 import { F_CHUTE_PENALTI, instanteDaCobranca, resultadoDaCobranca } from './penaltis.js';
@@ -173,7 +173,7 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
         : classico
           ? `${o.aoVivo ? 'É o' : 'Melhores momentos do'} ${classico}! ${curto('mandante')} contra ${curto('visitante')}!`
           : `${o.aoVivo ? 'Bola rolando no' : 'Melhores momentos do'} Varzeão da Mata! ${curto('mandante')} contra ${curto('visitante')}!`
-    }${o.briga ? ` ${aberturaDaBriga(o.briga)}` : ''}${tl.t2 ? ` ${FALA_DO_CLIMA[tl.t2.clima]}` : ''}${r.juiz ? ` ${FALA_DO_JUIZ[r.juiz]}` : ''}`,
+    }${o.briga ? ` ${aberturaDaBriga(o.briga, r.times)}` : ''}${tl.t2 ? ` ${FALA_DO_CLIMA[tl.t2.clima]}` : ''}${r.juiz ? ` ${FALA_DO_JUIZ[r.juiz]}` : ''}`,
     inicio: 0.25,
     limite: segs[0]!.fim,
     tom: 'animado',
@@ -651,9 +651,19 @@ const LADOS = ['mandante', 'visitante'] as const;
 const oTime = (t: TimeId) => `${cap(artigoDe(t))} ${FALA_DO_TIME[t].curto}`;
 const serieDa = (b: BrigaPeloMataMata) => (b.serie ? ` da Série ${b.serie}` : '');
 
-/** Abertura: a tela mostra "Última Rodada" e "Vale vaga no Mata-mata". */
-export function aberturaDaBriga(b: BrigaPeloMataMata): string {
+/**
+ * Abertura: a tela mostra "Última Rodada" e "Vale a Semifinal", ou "Vale a permanência" quando
+ * nenhum dos dois briga pelo Mata-mata e alguém ainda pode cair (ADR-0115).
+ */
+export function aberturaDaBriga(b: BrigaPeloMataMata, times?: Times): string {
+  if (times && valeAPermanencia(b, times)) return 'Última Rodada da Fase de Liga, valendo a permanência na Série A!';
   return `Última Rodada da Fase de Liga, valendo vaga no Mata-mata${serieDa(b)}!`;
+}
+
+/** Quem está fora do Mata-mata e ainda briga para não cair, antes do Apito Inicial (ADR-0115). */
+function contraAQueda(b: BrigaPeloMataMata, times: Times): ('mandante' | 'visitante')[] {
+  const queda = situacoesNoRebaixamento(b, times, null);
+  return queda ? LADOS.filter((l) => brigaDoTime(b, times, l, null) === 'REBAIXAMENTO' && queda.get(times[l]) === 'DEPENDE') : [];
 }
 
 /** Quem ainda briga nesta Partida (nem garantido nem eliminado antes do Apito Inicial). */
@@ -674,7 +684,15 @@ export function falaDosGarantidos(b: BrigaPeloMataMata, times: Times): string {
     if (abertos.length === 1) partes.push(`Será que ${listaDeTimes(abertos)} também garante?`);
     if (abertos.length === 2) partes.push(`Será que ${abertos.map((t) => FALA_DO_TIME[t].curto).join(' e ')} também garantem?`);
   }
-  for (const l of LADOS) if (antes.get(times[l]) === 'ELIMINADO') partes.push(`${oTime(times[l])} já está fora, joga pela honra.`);
+  const queda = situacoesNoRebaixamento(b, times, null);
+  for (const l of LADOS) {
+    const t = times[l];
+    if (antes.get(t) !== 'ELIMINADO') continue;
+    // Rebaixamento (ADR-0115): fora do Mata-mata não é jogar pela honra se ainda pode cair.
+    if (queda?.get(t) === 'DEPENDE') partes.push(`${oTime(t)} está fora do Mata-mata e agora briga pra não cair!`);
+    else if (queda?.get(t) === 'ELIMINADO') partes.push(`${oTime(t)} já está ${concordar([t], 'rebaixad')}, joga pela honra.`);
+    else partes.push(`${oTime(t)} já está fora, joga pela honra.`);
+  }
   return partes.join(' ');
 }
 
@@ -687,7 +705,17 @@ export function falasDaNecessidade(b: BrigaPeloMataMata, times: Times): string[]
     if (n === 'Vencendo, classifica') return `${oTime(t)} depende só de si: vencendo, está no Mata-mata!`;
     if (n === 'Vence e torce') return `${oTime(t)} precisa vencer e ainda torcer pelos outros resultados!`;
     return `${oTime(t)} ainda sonha com a vaga, mas depende dos outros resultados.`;
-  });
+  }).concat(
+    // Rebaixamento (ADR-0115): a plaquinha de quem já está fora do Mata-mata fala da queda.
+    contraAQueda(b, times).map((l) => {
+      const t = times[l];
+      const n = textoDaNecessidadeNoRebaixamento(necessidadeNoRebaixamento(b, times, l)!);
+      if (n === 'Empate salva') return `Um empate já salva ${artigoDe(t)} ${FALA_DO_TIME[t].curto}!`;
+      if (n === 'Vencendo, se salva') return `${oTime(t)} depende só de si: vencendo, fica na Série A!`;
+      if (n === 'Vence e torce') return `${oTime(t)} precisa vencer e ainda torcer pelos outros resultados pra não cair!`;
+      return `${oTime(t)} corre risco de cair e depende dos outros resultados.`;
+    }),
+  );
 }
 
 /**
@@ -695,29 +723,50 @@ export function falasDaNecessidade(b: BrigaPeloMataMata, times: Times): string[]
  * quem teve a situação mudada.
  */
 export function seAcabarAssim(b: BrigaPeloMataMata, times: Times, placar: Placar, antes?: Placar): string {
-  const agora = situacoesNaBriga(b, times, placar);
-  const eraAssim = antes ? situacoesNaBriga(b, times, antes) : null;
-  const partes = porOrdem(emAberto(b, times).filter((l) => !eraAssim || eraAssim.get(times[l]) !== agora.get(times[l])), times, agora).map((l) => {
+  const agora = situacoes(b, times, placar);
+  const eraAssim = antes ? situacoes(b, times, antes) : null;
+  const lados = [...new Set([...emAberto(b, times), ...contraAQueda(b, times)])];
+  const partes = porOrdem(lados.filter((l) => !eraAssim || eraAssim.get(times[l]) !== agora.get(times[l])), times, agora).map((l) => {
     const t = times[l];
     const s = agora.get(t);
     const quem = `${artigoDe(t)} ${FALA_DO_TIME[t].curto}`;
+    if (s === 'Q:GARANTIDO') return `${quem} se salva`;
+    if (s === 'Q:ELIMINADO') return `${quem} cai pra Série B`;
+    if (s === 'Q:DEPENDE') return `${quem} ainda corre risco de cair`;
     return s === 'GARANTIDO' ? `${quem} está no Mata-mata` : s === 'ELIMINADO' ? `${quem} está fora` : `${quem} ainda depende ${deQuemDepende(b)}`;
   });
   return partes.length ? `Se terminar assim, ${partes.join(', e ')}!` : '';
 }
 
+/**
+ * A situação de cada Time na briga dele com este placar: a do Mata-mata ("GARANTIDO"…) ou, para
+ * quem briga contra o Rebaixamento (ADR-0115), a da queda com "Q:" na frente.
+ */
+function situacoes(b: BrigaPeloMataMata, times: Times, placar: Placar): Map<TimeId, string> {
+  const mm = situacoesNaBriga(b, times, placar);
+  const queda = situacoesNoRebaixamento(b, times, placar);
+  const s = new Map<TimeId, string>(mm);
+  for (const l of LADOS) if (queda && brigaDoTime(b, times, l, placar) === 'REBAIXAMENTO') s.set(times[l], `Q:${queda.get(times[l])}`);
+  return s;
+}
+
 /** Quem garantiu vem primeiro, depois quem depende, depois quem caiu. */
 function porOrdem(lados: ('mandante' | 'visitante')[], times: Times, s: Map<TimeId, string>): ('mandante' | 'visitante')[] {
-  const peso = { GARANTIDO: 0, DEPENDE: 1, ELIMINADO: 2 } as Record<string, number>;
+  const peso = { GARANTIDO: 0, DEPENDE: 1, ELIMINADO: 2, 'Q:GARANTIDO': 3, 'Q:DEPENDE': 4, 'Q:ELIMINADO': 5 } as Record<string, number>;
   return [...lados].sort((a, c) => peso[s.get(times[a])!]! - peso[s.get(times[c])!]!);
 }
 
 /** Fim: quem garantiu, quem caiu e quem vai ter que esperar. */
 export function desfechoDaBriga(b: BrigaPeloMataMata, times: Times, placar: Placar): string[] {
-  const fim = situacoesNaBriga(b, times, placar);
-  return porOrdem(emAberto(b, times), times, fim).map((l) => {
+  const fim = situacoes(b, times, placar);
+  const lados = [...new Set([...emAberto(b, times), ...contraAQueda(b, times)])];
+  return porOrdem(lados, times, fim).map((l) => {
     const t = times[l];
     const s = fim.get(t);
+    // Rebaixamento (ADR-0115).
+    if (s === 'Q:GARANTIDO') return `${oTime(t)} se salvou e fica na Série A!`;
+    if (s === 'Q:ELIMINADO') return `${oTime(t)} está ${concordar([t], 'rebaixad')} pra Série B.`;
+    if (s === 'Q:DEPENDE') return `${oTime(t)} ainda corre risco de cair, depende ${deQuemDepende(b)}.`;
     return s === 'GARANTIDO'
       ? `${oTime(t)} está no Mata-mata e vai brigar pelo título${serieDa(b)}!`
       : s === 'ELIMINADO'

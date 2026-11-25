@@ -15,7 +15,7 @@
  *      a hora em que ele vai ser dito;
  *   3. agendarAoVivo: com as durações reais de tudo, encaixa sem sobreposição.
  */
-import { FALA_DO_TIME, NOME_DO_GRUPO, doTime, type BrigaPeloMataMata, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, NOME_DO_GRUPO, POR_EXTENSO, doTime, valeAPermanencia, type BrigaPeloMataMata, type MataMataDaPartida, type Posicao, type TimeId } from '@liga/shared';
 import { criarRng, type Lado } from '@liga/sim';
 import { falaDosGarantidos, falasDaNecessidade, montarNarracao, seAcabarAssim, type EventoSonoro, type OpcoesNarracao, type Tom } from './narracao.js';
 import { instanteDaCobranca } from './penaltis.js';
@@ -405,7 +405,15 @@ function momento(
       const g = falaDosGarantidos(b, ts);
       if (g) contexto.push(g);
     }
-    contexto.push(`É a última Rodada, cada gol mexe na tabela!`, b.grupo ? `Olho na tabela: os dois primeiros ${NOME_DO_GRUPO[b.grupo].replace(/^Grupo d/, 'do Grupo d')} vão pro Mata-mata!` : `Olho na tabela: os quatro primeiros vão pro Mata-mata!`);
+    contexto.push(
+      `É a última Rodada, cada gol mexe na tabela!`,
+      // Jogo que só vale a permanência (ADR-0115): a viga mostra quantos caem.
+      valeAPermanencia(b, ts)
+        ? `Olho na tabela: os ${POR_EXTENSO[b.caem!] ?? b.caem} últimos caem pra Série B!`
+        : b.grupo
+          ? `Olho na tabela: os dois primeiros ${NOME_DO_GRUPO[b.grupo].replace(/^Grupo d/, 'do Grupo d')} vão pro Mata-mata!`
+          : `Olho na tabela: os quatro primeiros vão pro Mata-mata!`,
+    );
   }
   return { primeiro, doMomento, contexto };
 }
