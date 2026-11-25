@@ -184,7 +184,7 @@ export function legendaDasNovidadesT3(id: string, estreia: string, publicarEm: s
   const fim = ['', `🏁 A Copa começa ${copa.amanha ? 'amanhã, ' : ''}${copa.texto}. A Fase de Liga, ${liga.texto}.`, 'Tabela, jogadores e o seu painel no link da bio.', '', '#futebol #varzea #jogo #liga'];
   const corpo: Record<string, string[]> = {
     'novidades-t3-campo': [
-      '⚽ Novidades da Temporada 3 (1/4): dentro de campo!',
+      '⚽ Novidades da Temporada 3 (2/5): dentro de campo!',
       '',
       '🥅 Bola na trave',
       '🔁 Rebote: o goleiro defende e começa a briga do atacante com o zagueiro',
@@ -197,7 +197,7 @@ export function legendaDasNovidadesT3(id: string, estreia: string, publicarEm: s
       'Às 14h: Salário e Loja.',
     ],
     'novidades-t3-loja': [
-      '💰 Novidades da Temporada 3 (2/4): Salário e Loja!',
+      '💰 Novidades da Temporada 3 (3/5): Salário e Loja!',
       '',
       `Todo jogador do elenco recebe ${MOEDAS.SALARIO} Moedas por rodada, jogando ou não (sem Vínculo também acumula).`,
       `Prêmios: gol ${MOEDAS.GOL}, assistência ${MOEDAS.ASSISTENCIA}, Seleção da Rodada ${MOEDAS.SELECAO_RODADA}, Craque da Rodada ${MOEDAS.CRAQUE_RODADA}, título ${MOEDAS.TITULO_A} (A), ${MOEDAS.TITULO_B} (B) e ${MOEDAS.TITULO_COPA} (Copa).`,
@@ -210,7 +210,7 @@ export function legendaDasNovidadesT3(id: string, estreia: string, publicarEm: s
       'Às 16h: Palpite e Conquistas.',
     ],
     'novidades-t3-palpite': [
-      '🎯 Novidades da Temporada 3 (3/4): Palpite e Conquistas!',
+      '🎯 Novidades da Temporada 3 (4/5): Palpite e Conquistas!',
       '',
       `Palpite no placar, na página de cada partida, até o Corte: resultado certo ${MOEDAS.PALPITE_RESULTADO} Moedas, placar exato ${MOEDAS.PALPITE_EXATO} (até ${MOEDAS.TETO_DO_PALPITE_POR_DIA} por dia). Ranking dos Palpiteiros no site.`,
       '',
@@ -228,10 +228,10 @@ export function legendaDasNovidadesT3(id: string, estreia: string, publicarEm: s
       'Tá tudo na sacola no topo do site e do App, com Vínculo. Vale a partir do próximo jogo.',
     ],
     'novidades-t3-tecnico': [
-      '📋 Chegou o Técnico ao Varzeão da Mata!',
+      '📋 Novidades da Temporada 3 (1/5): chegou o Técnico!',
       '',
       'Cada Time pode ter um Técnico: um seguidor que não joga e cuida do Time de fora do campo. Para virar Técnico, peça na DM (vale o primeiro pedido de cada Time). Quem já joga pode pendurar as chuteiras pelo site.',
-      'O Técnico decide a Postura, a Formação e até 3 titulares fixados.',
+      'O Técnico decide a Postura, a Formação e até 3 titulares fixados, que entram mesmo sem Presença. Cada Jogador só pode ser fixado uma vez a cada 2 jogos do Time: no jogo seguinte, ele joga pela Presença, como todo mundo.',
       '',
       '🔁 Quero jogar aqui: peça a transferência com TRANSFERIR no comentário ou no botão da página do Time. O Técnico tem 24 horas (ou até o Corte) para responder; sem resposta, vale como aceito. Recusou? Não gasta a sua troca.',
       '✉️ Convite: o Técnico chama quem tem Vínculo. Aceitou, troca na hora.',
@@ -240,9 +240,11 @@ export function legendaDasNovidadesT3(id: string, estreia: string, publicarEm: s
       '©️ Sem Técnico, o Capitão assume tudo. Com Técnico, o Capitão fica com a Braçadeira, os Batedores, o cobrador de escanteio, a Marcação individual e o Grito da Temporada.',
       '',
       '⏳ A Janela de transferências vai até o Corte do primeiro jogo da Copa.',
+      '',
+      'Ao meio-dia: Dentro de campo.',
     ],
     'novidades-t3-capitao': [
-      '©️ Novidades da Temporada 3 (4/4): Capitão e Batedores!',
+      '©️ Novidades da Temporada 3 (5/5): Capitão e Batedores!',
       '',
       'O Capitão escolhe a ordem dos 5 primeiros batedores da disputa de pênaltis, junto com a Formação e a Postura, até o Corte.',
       'Quem não está em campo é pulado; depois dos 5, segue a ordem automática.',

@@ -133,6 +133,7 @@ describe('Loja do Técnico e beira do campo (ADR-0111)', () => {
     await aprovarTecnico(banco, { username: 'seu.tonho', time: 'CAP', agora: new Date('2026-11-28T12:00:00Z'), naJanela: true });
     const partidaDa = async (numero: number) =>
       (await banco.query<{ id: number; mandante_id: TimeId }>(`SELECT p.id, p.mandante_id FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND r.fase = 'LIGA' AND r.numero = $2 AND 'CAP' IN (p.mandante_id, p.visitante_id) LIMIT 1`, [t, numero])).rows[0]!;
+    await inscrever('CAP', 'ATA', 'capx');
     const cedo = await partidaDa(1);
     await escalarPartida(banco, cedo.id);
     expect(await beiraDaPartida(banco, cedo.id)).toBeNull();
@@ -142,5 +143,14 @@ describe('Loja do Técnico e beira do campo (ADR-0111)', () => {
     const lado = r4.mandante_id === 'CAP' ? 'mandante' : 'visitante';
     expect(beira.tecnicos[lado]).toMatchObject({ nome: 'seu.tonho' });
     expect(beira.tecnicos[lado === 'mandante' ? 'visitante' : 'mandante']).toBeUndefined();
+    // Selo da Braçadeira (ADR-0112): conta o Capitão em campo só nas Partidas publicadas com a beira.
+    const { bracadeiraDosJogadores } = await import('../src/beiraDoCampo.js');
+    expect(await bracadeiraDosJogadores(banco)).toEqual(new Map());
+    for (const p of [cedo, r4]) await banco.query(`UPDATE partida SET status = 'PUBLICADA', resultado = '{}'::jsonb WHERE id = $1`, [p.id]);
+    const capitaes = (await banco.query<{ id: string }>(`SELECT jogador_id::text AS id FROM escalacao WHERE partida_id = $1 AND capitao AND NOT reserva`, [r4.id])).rows;
+    expect(capitaes.length).toBeGreaterThan(0);
+    const selos = await bracadeiraDosJogadores(banco);
+    expect([...selos.keys()].sort()).toEqual(capitaes.map((c) => c.id).sort());
+    for (const c of capitaes) expect(selos.get(c.id)).toEqual([{ temporada: 3, jogos: 1 }]);
   });
 });

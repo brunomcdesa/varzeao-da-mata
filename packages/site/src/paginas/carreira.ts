@@ -42,7 +42,12 @@ function seloApoiador(a: NonNullable<JogadorPublico['apoiador']>): Html {
   return html`<span class="selo-fundador selo-apoiador${a.ativo ? ' ativo' : ''}"><span class="coracao-apoiador" aria-hidden="true">♥</span><span>${textoDoSeloDeApoiador(a)}</span></span>`;
 }
 
-function cartaoDaTemporada(t: TemporadaDaCarreira, atual: boolean, fundador?: JogadorPublico['fundador'], comSeloT1 = false): Html {
+/** Braçadeira (ADR-0112): a faixa de Capitão, com os jogos em que entrou com ela. */
+function seloBracadeira(jogos: number): Html {
+  return html`<span class="selo-fundador selo-bracadeira"><span class="faixa-bracadeira" aria-hidden="true">C</span><span>Braçadeira · ${jogos} ${jogos === 1 ? 'jogo' : 'jogos'} como Capitão</span></span>`;
+}
+
+function cartaoDaTemporada(t: TemporadaDaCarreira, atual: boolean, fundador?: JogadorPublico['fundador'], comSeloT1 = false, bracadeira = 0): Html {
   const delta = t.ovrInicio !== null && t.ovrFim !== null ? t.ovrFim - t.ovrInicio : 0;
   return html`<li class="temporada-carreira placa">
     <header>
@@ -65,6 +70,7 @@ function cartaoDaTemporada(t: TemporadaDaCarreira, atual: boolean, fundador?: Jo
     ${fundador?.temporada === t.numero || (comSeloT1 && t.numero === 1)
       ? html`<p class="trofeus-carreira">${comSeloT1 && t.numero === 1 ? seloT1() : ''}${fundador?.temporada === t.numero ? seloFundador(fundador, true) : ''}</p>`
       : ''}
+    ${bracadeira ? html`<p class="trofeus-carreira">${seloBracadeira(bracadeira)}</p>` : ''}
     ${t.trofeus.length ? html`<p class="trofeus-carreira">${t.trofeus.map(([tipo, n]) => html`<span class="selo">${n > 1 ? `${n} ` : ''}${NOME_DO_TROFEU[tipo][n > 1 ? 1 : 0]}</span>`)}</p>` : ''}
   </li>`;
 }
@@ -88,6 +94,7 @@ export const paginaCarreira: Pagina = async (main, [id]) => {
         ${j.seloT1 ? html`<p class="linha-fundador">${seloT1()} <small>na Liga desde o começo</small></p>` : ''}
         ${j.apoiador ? html`<p class="linha-fundador">${seloApoiador(j.apoiador)} <small>${j.apoiador.ativo ? 'ajuda a bancar a Liga' : 'ajudou a bancar a Liga'}</small></p>` : ''}
         ${j.fundador ? html`<p class="linha-fundador">${seloFundador(j.fundador, true)} <small>desde a Temporada ${j.fundador.temporada}</small></p>` : ''}
+        ${j.bracadeira?.length ? html`<p class="linha-fundador">${seloBracadeira(j.bracadeira.reduce((s, x) => s + x.jogos, 0))} <small>na carreira</small></p>` : ''}
         ${j.conquistas?.length ? html`<p class="selos-conquista" aria-label="Conquistas">${j.conquistas.map((x) => seloConquista(x.codigo))}</p>` : ''}
         <p>${NOME_DA_POSICAO[j.posicao]} do ${curto(j.time)} · OVR ${j.ovr} · ${j.temporadas} ${j.temporadas === 1 ? 'Temporada' : 'Temporadas'} · ${j.jogos} jogos, ${j.gols} gols</p>
         ${j.especializacao || j.treino
@@ -95,6 +102,6 @@ export const paginaCarreira: Pagina = async (main, [id]) => {
           : ''}
       </div>
     </header>
-    <ol class="lista-carreira">${temporadas.map((t) => cartaoDaTemporada(t, t.numero === atual, j.fundador, j.seloT1 === true))}</ol>
+    <ol class="lista-carreira">${temporadas.map((t) => cartaoDaTemporada(t, t.numero === atual, j.fundador, j.seloT1 === true, j.bracadeira?.find((x) => x.temporada === t.numero)?.jogos ?? 0))}</ol>
   </article>`.s;
 };

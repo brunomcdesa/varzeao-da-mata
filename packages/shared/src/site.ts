@@ -237,6 +237,11 @@ export interface JogadorPublico {
    * Só aparece no site a partir da T3. O valor do apoio nunca vem aqui.
    */
   apoiador?: { ativo: boolean; temporadas: number[] };
+  /**
+   * Braçadeira (ADR-0112): jogos com a faixa de Capitão em campo, por Temporada, a partir da
+   * Rodada 4 da T3 (quando a Braçadeira passou a aparecer no boneco).
+   */
+  bracadeira?: { temporada: number; jogos: number }[];
   /** Conquistas (ADR-0090): selos da Carreira, a partir da T3 (código e Temporada em que saiu). */
   conquistas?: { codigo: string; temporada: number }[];
   /** Piso da Temporada 1 (ADR-0047): o OVR antes e depois, só para quem subiu. Marca o degrau no gráfico do OVR (ADR-0078). */

@@ -6,7 +6,7 @@ A partir da T3, o Capitão ganha influências que ficam com ele mesmo quando o T
 - **Chamada da Presença:** um botão por jogo, até o Corte, manda Aviso no App para os Jogadores do Elenco que têm o App com Vínculo e Avisos ligados. O site mostra quantos já confirmaram.
 - **Marcação individual:** até o Corte, em segredo como a Postura, o Capitão escolhe um rival de linha (nunca o goleiro) e um zagueiro ou meia do próprio Time. O marcador leva vantagem nos duelos contra o alvo, mas faz mais faltas e leva mais cartão; o tamanho do efeito é calibrado na simulação. Se o alvo ou o marcador não entrar em campo, não há marcação. Aparece na cartela da Escalação e na fala do Narrador da Escalação.
 - **Grito da Temporada:** 3 Gritos de guerra por Time, aprovados pelo dono. O Capitão escolhe um na Janela, e ele vale a Temporada toda. Sem escolha, fica o Grito atual. O coro continua sintetizado, sem voz, então não gasta a cota do Gemini.
-- **Braçadeira:** faixa de Capitão no braço do boneco em campo e selo na Carreira, a partir da Rodada 4 da T3, congelada na Escalação.
+- **Braçadeira:** faixa de Capitão no braço do boneco em campo e selo na Carreira, a partir da Rodada 4 da T3, congelada na Escalação. O selo mostra quantos jogos o Jogador entrou em campo com a faixa: o total no topo da Carreira e o de cada Temporada no cartão dela.
 
 ## Considered Options
 
