@@ -5271,3 +5271,21 @@ body.com-folha .abas-app {
 /* Fixado no jogo anterior (ADR-0111): não dá para fixar de novo neste jogo. */
 .opcao-t2.descansa { opacity: 0.55; cursor: not-allowed; }
 .opcao-t2.descansa small { font-style: italic; }
+
+/* Ao Vivo no celular: o campo (com o placar e o minuto desenhados no alto) cabe inteiro na tela
+ * e as Reações ficam presas logo acima das abas de baixo. Assim dá para ver o lance, o placar e
+ * o tempo e reagir sem rolar a página. */
+@media (max-width: 719px) {
+  .transmissao .campo-ao-vivo {
+    width: min(100%, calc((100dvh - var(--altura-topo, 60px) - 60px - var(--altura-abas) - env(safe-area-inset-bottom) - 84px) * 9 / 16));
+  }
+  .transmissao .reacoes {
+    position: sticky;
+    bottom: calc(var(--altura-abas) + env(safe-area-inset-bottom) + 8px);
+    z-index: 3;
+    margin: 0;
+    padding: 6px 10px;
+    background: rgb(20 40 24 / 0.82);
+    clip-path: var(--canto);
+  }
+}
