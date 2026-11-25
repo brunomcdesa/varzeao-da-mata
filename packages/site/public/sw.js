@@ -1,17 +1,18 @@
 /*
  * Service worker do App (ADR-0040). Só cuida dos arquivos do próprio site:
  * sempre tenta a rede primeiro (o App nunca fica com versão velha) e, sem conexão,
- * abre o que foi guardado da última visita. Os dados da Liga (R2) e a API da borda
- * vêm de outra origem e passam direto, sem cache aqui.
+ * abre o que foi guardado da última visita. A rede é pedida sem a cópia do navegador
+ * (`cache: 'no-cache'`), e o nome do cache leva a versão do deploy (scripts/versionar.mjs).
+ * Os dados da Liga (R2) e a API da borda vêm de outra origem e passam direto, sem cache aqui.
  */
-const CACHE = 'varzeao-app-v2';
+const CACHE = 'varzeao-app-__VERSAO__';
 const ESSENCIAIS = ['./', './index.html', './app.js', './estilo.css', './escudo.png', './manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches
       .open(CACHE)
-      .then((c) => c.addAll(ESSENCIAIS))
+      .then((c) => c.addAll(ESSENCIAIS.map((u) => new Request(u, { cache: 'reload' }))))
       .then(() => self.skipWaiting()),
   );
 });
@@ -31,7 +32,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(pedido.url);
   if (url.origin !== self.location.origin || url.pathname.endsWith('.map')) return;
   e.respondWith(
-    fetch(pedido)
+    fetch(pedido, { cache: 'no-cache' })
       .then((resposta) => {
         if (resposta.ok) {
           const copia = resposta.clone();
@@ -39,7 +40,7 @@ self.addEventListener('fetch', (e) => {
         }
         return resposta;
       })
-      .catch(async () => (await caches.match(pedido)) ?? (pedido.mode === 'navigate' ? caches.match('./index.html') : Response.error())),
+      .catch(async () => (await caches.match(pedido, { ignoreSearch: true })) ?? (pedido.mode === 'navigate' ? caches.match('./index.html') : Response.error())),
   );
 });
 

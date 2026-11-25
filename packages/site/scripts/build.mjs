@@ -11,6 +11,7 @@ import { context, build } from 'esbuild';
 import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { versaoDoDeploy, versionarIndex, versionarServiceWorker } from './versionar.mjs';
 
 const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const saida = resolve(raiz, 'dist');
@@ -27,7 +28,10 @@ const html = (await readFile(resolve(raiz, 'public/index.html'), 'utf8'))
   .replace('name="liga-turnstile" content=""', `name="liga-turnstile" content="${process.env.LIGA_TURNSTILE_SITEKEY ?? ''}"`)
   // Avisos do App (ADR-0041): chave pública VAPID; não é segredo.
   .replace('name="liga-vapid" content=""', `name="liga-vapid" content="${process.env.LIGA_VAPID_PUBLICA ?? ''}"`);
-await writeFile(resolve(saida, 'index.html'), html);
+// Cada deploy pede endereços novos para o estilo e o app (o celular não fica com a versão velha).
+const versao = versaoDoDeploy();
+await writeFile(resolve(saida, 'index.html'), versionarIndex(html, versao));
+await writeFile(resolve(saida, 'sw.js'), versionarServiceWorker(await readFile(resolve(raiz, 'public/sw.js'), 'utf8'), versao));
 
 const opcoes = {
   entryPoints: { app: resolve(raiz, 'src/main.ts'), estilo: resolve(raiz, 'src/estilo.css') },
