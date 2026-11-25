@@ -29,24 +29,25 @@ export function forcaDaEscalacao(lugares: { posicao: Posicao; ovr: number | null
  * Escalação provável do próximo jogo, pela regra do rodízio: em cada posição entra quem jogou
  * menos na Temporada (empate: quem se inscreveu antes); vaga sem inscrito é da Base.
  */
-export function forcaProvavel(elenco: { posicao: Posicao; ovr: number; jogos: number; inscritoEm: string }[], inscritosAte: string | null = null): ForcaDoTime {
+export function forcaProvavel(elenco: { posicao: Posicao; ovr: number; jogos: number; inscritoEm: string; cartoes?: { suspenso?: unknown } }[], inscritosAte: string | null = null): ForcaDoTime {
   return forcaDaEscalacao(escalacaoProvavel(elenco, inscritosAte).map((l) => ({ posicao: l.posicao, ovr: l.ovr })));
 }
 
 /**
  * Os 7 lugares da escalação provável (GOL, ZAG, ZAG, MEI, MEI, ATA, ATA); null = Base.
  * `inscritosAte` (Mata-mata, ADR-0057): quem se inscreveu depois disso não entra.
+ * Suspenso (ADR-0116) também não entra, como na Escalação.
  * `formacao` (ADR-0044): as vagas vêm dela e a vaga sem inscrito da Posição vai para quem
  * sobrou de outra (fora de posição, com o OVR pelos pesos da vaga), como na Escalação.
  */
-export function escalacaoProvavel<J extends { posicao: Posicao; ovr: number; jogos: number; inscritoEm: string; habilidades?: Habilidades }>(
+export function escalacaoProvavel<J extends { posicao: Posicao; ovr: number; jogos: number; inscritoEm: string; habilidades?: Habilidades; cartoes?: { suspenso?: unknown } }>(
   elenco: J[],
   inscritosAte: string | null = null,
   formacao: Formacao | null = null,
 ): { posicao: Posicao; jogador: J | null; ovr: number | null; posicaoDeOrigem?: Posicao }[] {
   const filas = new Map<Posicao, J[]>();
   for (const posicao of Object.keys(VAGAS) as Posicao[]) {
-    filas.set(posicao, elenco.filter((j) => j.posicao === posicao && !foraDoMataMata(j, inscritosAte)).sort((a, b) => a.jogos - b.jogos || a.inscritoEm.localeCompare(b.inscritoEm)));
+    filas.set(posicao, elenco.filter((j) => j.posicao === posicao && !foraDoMataMata(j, inscritosAte) && !j.cartoes?.suspenso).sort((a, b) => a.jogos - b.jogos || a.inscritoEm.localeCompare(b.inscritoEm)));
   }
   // Sem Formação: o 2-2-2 da T1, e vaga sem inscrito é da Base.
   const vagas: Posicao[] = formacao ? posicoesDaFormacao(formacao) : (Object.keys(VAGAS) as Posicao[]).flatMap((p) => Array<Posicao>(VAGAS[p]).fill(p));

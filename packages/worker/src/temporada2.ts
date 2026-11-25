@@ -7,6 +7,8 @@
  */
 import {
   CANTOS,
+  estaPendurado,
+  suspensaoPeloJogo,
   ESPECIALIZACOES,
   HABILIDADES,
   NOME_DA_ESPECIALIZACAO,
@@ -76,16 +78,32 @@ export async function suspensos(b: Banco, time: TimeId, partidaId: number): Prom
     )
   ).rows;
   const fora = new Set<string>();
+  // A regra mora no shared (ADR-0116): o site e a transmissão usam a mesma conta.
   for (const l of linhas) {
-    if (l.expulso) {
-      fora.add(l.jogador_id);
-      continue;
-    }
-    const antes = Number(l.antes);
-    const depois = antes + (l.amarelos ?? 0);
-    if (Math.floor(depois / 2) > Math.floor(antes / 2)) fora.add(l.jogador_id);
+    if (suspensaoPeloJogo([{ amarelos: Number(l.antes), expulso: false }], { amarelos: l.amarelos ?? 0, expulso: l.expulso })) fora.add(l.jogador_id);
   }
   return fora;
+}
+
+/**
+ * Pendurados antes desta Partida (ADR-0116): dos `ids`, quem chega com amarelos ímpares na
+ * Temporada. Um amarelo a mais e ele está fora do próximo jogo; o Narrador avisa no cartão.
+ */
+export async function penduradosAntesDa(b: Banco, partidaId: number, ids: readonly string[]): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const linhas = (
+    await b.query<{ jogador_id: string; amarelos: string }>(
+      `WITH atual AS (
+         SELECT r.temporada_id, p.apito_inicial FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE p.id = $1
+       )
+       SELECT x.jogador_id::text AS jogador_id, coalesce(sum(x.amarelos), 0) AS amarelos
+       FROM escalacao x JOIN partida q ON q.id = x.partida_id JOIN rodada s ON s.id = q.rodada_id JOIN atual a ON s.temporada_id = a.temporada_id
+       WHERE x.jogador_id::text = ANY($2) AND NOT x.expulso AND q.apito_inicial < a.apito_inicial
+       GROUP BY x.jogador_id`,
+      [partidaId, ids],
+    )
+  ).rows;
+  return new Set(linhas.filter((l) => estaPendurado([{ amarelos: Number(l.amarelos), expulso: false }])).map((l) => l.jogador_id));
 }
 
 /**

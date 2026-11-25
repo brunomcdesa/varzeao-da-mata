@@ -1,6 +1,6 @@
 /** Peças pequenas de interface: HTML seguro, escudos e bonecos em pixel art, rótulos. */
 import { ALTURA_DAS_ESTRELAS, ALTURA_ESCUDO, ALTURA_SPRITE, LARGURA_ESCUDO, LARGURA_SPRITE, escudo, estrelasDoEscudo, filaDeEstrelas, sprite, visualDoJogador, type Pose } from '@liga/renderer';
-import { FALA_DO_TIME, IDENTIDADE, nomeDoClassico, type ForcaDoTime, type Posicao, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, nomeDoClassico, type ForcaDoTime, type Posicao, type TimeId, type SituacaoDosCartoes } from '@liga/shared';
 
 /** Trecho de HTML já escapado. */
 export class Html {
@@ -216,4 +216,22 @@ export function campinho(baixo: NoCampinho[], cima?: NoCampinho[]): Html {
     return js.map((j) => lugar(j, (vistos[j.posicao] = (vistos[j.posicao] ?? -1) + 1), total(j.posicao), topo));
   };
   return html`<div class="campinho ${meia ? 'meio-campo' : ''}"><ul aria-label="Escalação no campo">${time(baixo, false)}${cima ? time(cima, true) : ''}</ul></div>`;
+}
+
+/** Cartãozinho em pixel (ADR-0116), ao lado dos selos de Suspensão e Pendurado. */
+export function cartaozinho(cor: 'amarelo' | 'vermelho'): Html {
+  return html`<span class="cartaozinho ${cor}" aria-hidden="true"></span>`;
+}
+
+/**
+ * Selo de Cartões no Elenco (ADR-0116): "Suspenso" (fora do próximo jogo do Time) ou
+ * "Pendurado" (com um amarelo na série: mais um e fica fora do jogo seguinte).
+ */
+export function seloDosCartoes(c: SituacaoDosCartoes | undefined): Html | '' {
+  if (c?.suspenso) {
+    const porque = c.suspenso === 'EXPULSAO' ? 'expulso no último jogo' : `${c.amarelos}º amarelo no último jogo`;
+    return html` <span class="selo-cartao suspenso" title="Fora do próximo jogo: ${porque}">${cartaozinho(c.suspenso === 'EXPULSAO' ? 'vermelho' : 'amarelo')}Suspenso</span>`;
+  }
+  if (c?.pendurado) return html` <span class="selo-cartao pendurado" title="${c.amarelos} amarelo${c.amarelos === 1 ? '' : 's'} na Temporada: mais um e fica fora do jogo seguinte">${cartaozinho('amarelo')}Pendurado</span>`;
+  return '';
 }

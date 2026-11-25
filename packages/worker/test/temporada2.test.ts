@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { TIMES_FUNDADORES, TIMES_NOVOS, type TimeId } from '@liga/shared';
+import { TIMES_FUNDADORES, TIMES_NOVOS, type JogadorPublico, type PartidaPublica, type TimeId } from '@liga/shared';
 import type { ResultadoPartida } from '@liga/sim';
 import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
@@ -10,7 +10,7 @@ import { interpretar } from '../src/comandos.js';
 import { escalarPartida, montarEscalacao, ordemDoRodizio } from '../src/escalacao.js';
 import { rodarPartida } from '../src/partida.js';
 import { exportarSite } from '../src/site.js';
-import { aplicarEscolha, capitaniaDoJogador, capitaoDaPartida, formacoesDaPartida, ordemDoCapitao, suspensos } from '../src/temporada2.js';
+import { aplicarEscolha, capitaniaDoJogador, capitaoDaPartida, formacoesDaPartida, ordemDoCapitao, penduradosAntesDa, suspensos } from '../src/temporada2.js';
 import { bancoDeTeste } from './banco-de-teste.js';
 
 let banco: Banco;
@@ -293,6 +293,40 @@ describe('Temporada 2 no worker', () => {
     expect([...(await suspensos(banco, 'SAG', jogos[2]!.id))]).toEqual([]);
     await banco.query(`UPDATE escalacao SET amarelos = 1 WHERE partida_id = $1 AND jogador_id = $2`, [jogos[1]!.id, z1]);
     expect([...(await suspensos(banco, 'SAG', jogos[2]!.id))]).toEqual([z1]);
+  });
+
+  it('Cartões no site (ADR-0116): Pendurado, Suspenso no Elenco, "Suspensos" na Partida e a escalação sem ele', async () => {
+    const t2 = await novaT2();
+    const z1 = await inscrever('SAG', 'ZAG');
+    await inscrever('SAG', 'ZAG');
+    await inscrever('SAG', 'ZAG');
+    const jogos = (
+      await banco.query<{ id: number; apito_inicial: Date }>(`SELECT p.id, p.apito_inicial FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND (p.mandante_id = 'SAG' OR p.visitante_id = 'SAG') ORDER BY p.apito_inicial LIMIT 3`, [t2])
+    ).rows;
+    await rodarPartida(banco, jogos[0]!.id, { seed: 2 });
+    await banco.query(`UPDATE escalacao SET amarelos = 1, expulso = false WHERE partida_id = $1 AND jogador_id = $2`, [jogos[0]!.id, z1]);
+    // Pendurado antes do 2º jogo: a transmissão avisa se ele levar outro.
+    expect([...(await penduradosAntesDa(banco, jogos[1]!.id, [z1]))]).toEqual([z1]);
+    const depoisDoPrimeiro = new Date(new Date(jogos[0]!.apito_inicial).getTime() + 3 * 3600_000);
+    const site1 = await exportarSite(banco, depoisDoPrimeiro);
+    const jogador1 = (site1.arquivos.get('jogadores.json') as JogadorPublico[]).find((j) => j.id === z1)!;
+    expect(jogador1.cartoes).toEqual({ amarelos: 1, pendurado: true });
+    await rodarPartida(banco, jogos[1]!.id, { seed: 3 });
+    await banco.query(`UPDATE escalacao SET amarelos = 1, expulso = false WHERE partida_id = $1 AND jogador_id = $2`, [jogos[1]!.id, z1]);
+    // O 2º jogo encerrado: Suspenso para o 3º, e a escalação provável não conta com ele.
+    const depoisDoSegundo = new Date(new Date(jogos[1]!.apito_inicial).getTime() + 3 * 3600_000);
+    const site2 = await exportarSite(banco, depoisDoSegundo);
+    const jogador2 = (site2.arquivos.get('jogadores.json') as JogadorPublico[]).find((j) => j.id === z1)!;
+    expect(jogador2.cartoes).toEqual({ amarelos: 2, suspenso: 'AMARELOS' });
+    const partida2 = site2.arquivos.get(`partidas/${jogos[1]!.id}.json`) as PartidaPublica;
+    const lado2 = partida2.mandante === 'SAG' ? 'mandante' : 'visitante';
+    expect([...partida2.escalacoes![lado2].jogadores, ...(partida2.escalacoes![lado2].banco ?? [])].find((j) => j.jogadorId === z1)?.pendurado).toBe(true);
+    // Escalado o 3º jogo, ele aparece em "Suspensos" com o motivo.
+    await escalarPartida(banco, jogos[2]!.id);
+    const site3 = await exportarSite(banco, depoisDoSegundo);
+    const partida3 = site3.arquivos.get(`partidas/${jogos[2]!.id}.json`) as PartidaPublica;
+    const lado3 = partida3.mandante === 'SAG' ? 'mandante' : 'visitante';
+    expect(partida3.escalacoes![lado3].fora).toEqual([expect.objectContaining({ jogadorId: z1, motivo: 'AMARELOS', amarelos: 2, posicao: 'ZAG' })]);
   });
 
   it('Janela de Transferências: na Pré-temporada da T2 a troca não gasta a da Temporada', async () => {

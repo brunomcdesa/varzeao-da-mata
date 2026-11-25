@@ -137,7 +137,7 @@ async function montarPagina(dir: string): Promise<string> {
  */
 async function montarAudio(partida: PartidaParaVideo, dir: string): Promise<{ arquivo: string; roteiro: OpcoesRoteiro }> {
   const timeline = new Timeline(partida.resultado, partida.escalacoes, partida.torcida ? { torcida: partida.torcida } : {});
-  const opcoesNarracao = { mataMata: partida.mataMata ?? null, briga: partida.briga ?? null, tecnicos: partida.tecnicos ?? null, marcacoes: partida.marcacoes ?? null };
+  const opcoesNarracao = { mataMata: partida.mataMata ?? null, briga: partida.briga ?? null, tecnicos: partida.tecnicos ?? null, marcacoes: partida.marcacoes ?? null, suspensao: partida.suspensao ?? null };
   const narrador = narradorDa(partida.resultado.seed);
   console.log(`  Narrador: ${narrador.nome}`);
   // Teto pelo vídeo final (ADR-0073): entram lances até o Reels, já com a narração, chegar a
@@ -892,7 +892,7 @@ export async function gravarReels(partidaOriginal: PartidaParaVideo, o: OpcoesGr
 export async function gravarNarracaoAoVivo(partida: PartidaParaVideo, saida: string): Promise<{ duracao: number; falas: number }> {
   const inicio = performance.now();
   const timeline = new Timeline(partida.resultado, partida.escalacoes, partida.torcida ? { torcida: partida.torcida } : {});
-  const opcoes = { mataMata: partida.mataMata ?? null, briga: partida.briga ?? null, tecnicos: partida.tecnicos ?? null, marcacoes: partida.marcacoes ?? null };
+  const opcoes = { mataMata: partida.mataMata ?? null, briga: partida.briga ?? null, tecnicos: partida.tecnicos ?? null, marcacoes: partida.marcacoes ?? null, suspensao: partida.suspensao ?? null };
   const narrador = narradorDa(partida.resultado.seed);
   // Pedidos de até 20 falas novas: um pedido só com o jogo inteiro ficaria longo demais para
   // recortar. Só as que não estão no cache vão (ADR-0059).

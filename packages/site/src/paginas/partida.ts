@@ -8,7 +8,7 @@ import { desfechoDoMataMata } from '../mataMata.js';
 import { REACOES, entrarNaSala } from '../reacoes.js';
 import { enviarEscolhaDoVinculo, jogadorVinculado } from '../meuPersonagem.js';
 import type { Timeline } from '@liga/renderer';
-import { bonecoImg, campinho, curto, duelaDeForcas, escudoImg, html, jogadorLink, nota, NOME_DA_POSICAO, rotuloClassico, type Html, comCamisa, comFaixa } from '../ui.js';
+import { bonecoImg, campinho, curto, duelaDeForcas, escudoImg, html, jogadorLink, nota, NOME_DA_POSICAO, rotuloClassico, type Html, comCamisa, comFaixa, cartaozinho } from '../ui.js';
 import type { Pagina } from './tipos.js';
 import { abas, mostrarAba } from '../abas.js';
 
@@ -64,7 +64,7 @@ function escalacao(e: EscalacaoPublica, lado: Lado, r: ResultadoPartida | null, 
     return html`<li class="${d ? 'entrou' : 'nao-entrou'}">
       ${bonecoImg(e.time, j.posicao, j.username, 2)}
       <span class="pos" title="${NOME_DA_POSICAO[j.posicao]}">${j.posicao}</span>
-      <span class="quem">${comCamisa(jogadorLink(j.jogadorId, j.username, j.apelido), j.jogadorId ? camisas.get(j.jogadorId) : null)}
+      <span class="quem">${comCamisa(jogadorLink(j.jogadorId, j.username, j.apelido), j.jogadorId ? camisas.get(j.jogadorId) : null)}${j.pendurado ? html`<small class="pendurado-tag" title="Se levar amarelo, fica fora do próximo jogo">${cartaozinho('amarelo')}pendurado</small>` : ''}
         <small class="troca">${d ? html`<span class="sobe">▲</span> entrou no intervalo${saiu ? `, no lugar de ${saiu.apelido || (saiu.username ? `@${saiu.username}` : 'Base')}` : ''}${d.posicaoDeOrigem ? ` (jogou de ${NOME_DA_POSICAO[d.posicao].toLowerCase()})` : ''}` : r ? 'não entrou' : 'no Banco'}</small></span>
       ${d && (d.gols || d.assistencias) ? html`<span class="feitos">${'●'.repeat(d.gols)}${d.assistencias ? html`<small>+${d.assistencias} assist.</small>` : ''}</span>` : html`<span class="feitos"></span>`}
       <span class="ovr" title="OVR antes do jogo">${j.ovr}${d && delta ? html`<small class="${delta > 0 ? 'sobe' : 'desce'}">${delta > 0 ? '▲' : '▼'}${Math.abs(delta)}</small>` : ''}</span>
@@ -83,13 +83,24 @@ function escalacao(e: EscalacaoPublica, lado: Lado, r: ResultadoPartida | null, 
         return html`<li>
           ${bonecoImg(e.time, j.posicao, j.username, 2)}
           <span class="pos" title="${NOME_DA_POSICAO[j.posicao]}">${j.posicao}</span>
-          <span class="quem">${comFaixa(comCamisa(jogadorLink(j.jogadorId, j.username, j.apelido), j.jogadorId ? camisas.get(j.jogadorId) : null), j.capitao)}${j.fixado ? html`<small class="fixado-tag" title="Titular fixado pelo Técnico">fixo</small>` : ''}${d?.substituicao === 'SAIU' ? html`<small class="troca"><span class="desce">▼</span> saiu no intervalo</small>` : ''}</span>
+          <span class="quem">${comFaixa(comCamisa(jogadorLink(j.jogadorId, j.username, j.apelido), j.jogadorId ? camisas.get(j.jogadorId) : null), j.capitao)}${j.fixado ? html`<small class="fixado-tag" title="Titular fixado pelo Técnico">fixo</small>` : ''}${j.pendurado ? html`<small class="pendurado-tag" title="Se levar amarelo, fica fora do próximo jogo">${cartaozinho('amarelo')}pendurado</small>` : ''}${d?.substituicao === 'SAIU' ? html`<small class="troca"><span class="desce">▼</span> saiu no intervalo</small>` : ''}</span>
           ${d && (d.gols || d.assistencias) ? html`<span class="feitos">${'●'.repeat(d.gols)}${d.assistencias ? html`<small>+${d.assistencias} assist.</small>` : ''}</span>` : html`<span class="feitos"></span>`}
           <span class="ovr" title="OVR antes do jogo">${j.ovr}${d && delta ? html`<small class="${delta > 0 ? 'sobe' : 'desce'}">${delta > 0 ? '▲' : '▼'}${Math.abs(delta)}</small>` : ''}</span>
           ${d ? html`<span class="nota-chip" title="Nota da Partida">${nota(d.nota)}</span>` : ''}
         </li>`;
       })}</ol>
     ${e.banco?.length ? html`<h4 class="banco-titulo">Banco</h4><ol class="banco">${[...e.banco].sort((a, b) => a.lugar - b.lugar).map(linhaDoBanco)}</ol>` : ''}
+    ${e.fora?.length
+      ? html`<h4 class="banco-titulo">Suspensos</h4><ul class="banco fora">${e.fora.map(
+          (f) => html`<li>
+            ${bonecoImg(e.time, f.posicao, f.username, 2)}
+            <span class="pos" title="${NOME_DA_POSICAO[f.posicao]}">${f.posicao}</span>
+            <span class="quem">${jogadorLink(f.jogadorId, f.username, f.apelido)}
+              <small class="troca">${cartaozinho(f.motivo === 'EXPULSAO' ? 'vermelho' : 'amarelo')} ${f.motivo === 'EXPULSAO' ? 'expulso no jogo anterior' : `${f.amarelos}º amarelo no jogo anterior`}</small></span>
+          </li>`,
+        )}</ul>`
+      : ''}
+    ${e.jogadores.some((j) => j.pendurado) || e.banco?.some((j) => j.pendurado) ? html`<p class="legenda-pendurado">Pendurado: se levar amarelo, fica fora do próximo jogo.</p>` : ''}
   </section>`;
 }
 

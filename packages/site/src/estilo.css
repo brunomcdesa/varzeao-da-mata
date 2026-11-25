@@ -5289,3 +5289,21 @@ body.com-folha .abas-app {
     clip-path: var(--canto);
   }
 }
+
+/* Cartões (ADR-0116): Suspenso e Pendurado no Elenco, na página do Jogador e na Partida. */
+.cartaozinho { display: inline-block; width: 8px; height: 11px; margin-right: 5px; vertical-align: -1px; border: 2px solid #20140b; box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.35); }
+.cartaozinho.amarelo { background: #f6d02f; }
+.cartaozinho.vermelho { background: #d7263d; }
+.selo-cartao { justify-self: start; width: max-content; display: inline-flex; align-items: center; margin-left: 6px; padding: 1px 6px; font-size: 0.8rem; font-weight: 700; vertical-align: 1px; border-radius: 3px; white-space: nowrap; }
+.selo-cartao.suspenso { color: #fff; background: #d7263d; border: 2px solid #20140b; }
+.selo-cartao.pendurado { color: var(--amarelo); border: 1px dashed currentColor; }
+.aviso-cartao { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; padding: 8px 10px; border: 2px solid #20140b; border-radius: 4px; font-size: 0.95rem; }
+.aviso-cartao .cartaozinho { flex: none; margin-top: 3px; }
+.aviso-cartao.suspenso { background: #d7263d; color: #fff; }
+.aviso-cartao.pendurado { background: var(--placa); color: var(--tinta); }
+.escalacao .fora { list-style: none; margin: 0; padding: 0; }
+.escalacao .fora li { grid-template-columns: 24px 2.5rem minmax(0, 1fr); }
+.escalacao .fora .quem a { opacity: 0.75; }
+.escalacao .fora .troca { color: #b01e31; }
+.escalacao .pendurado-tag { justify-self: start; width: max-content; font: 600 0.75rem var(--texto); color: var(--tinta-fraca); }
+.escalacao .legenda-pendurado { margin: 8px 0 0; font-size: 0.75rem; color: var(--tinta-fraca); }

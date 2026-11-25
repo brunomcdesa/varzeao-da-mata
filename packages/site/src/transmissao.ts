@@ -3,7 +3,7 @@
  * Ao Vivo segue o relógio (90 min de jogo em 4 min 30 s, ninguém adianta); o Replay deixa
  * pausar, pular e acelerar. Os dois têm os efeitos de momento do Reels (ADR-0095).
  */
-import { DURACAO_JOGO, Timeline, VELOCIDADE_AO_VIVO, desenharQuadroDoSite, timelineDaPartida } from '@liga/renderer';
+import { DURACAO_JOGO, Timeline, VELOCIDADE_AO_VIVO, desenharQuadroDoSite, penduradosDaEscalacao, timelineDaPartida, type SuspensaoNaPartida } from '@liga/renderer';
 import type { EscalacaoPublica, PartidaPublica } from '@liga/shared';
 import type { Lado, ResultadoPartida } from '@liga/sim';
 
@@ -41,6 +41,11 @@ export function transmitir(
   const numeros: Record<Lado, (number | null)[]> = { mandante: numerosDe(p.escalacoes!.mandante), visitante: numerosDe(p.escalacoes!.visitante) };
   // Os Itens da Loja da época do jogo (ADR-0101): a Escalação guardou os equipados no Corte.
   const itens = { mandante: itensDe(p.escalacoes!.mandante), visitante: itensDe(p.escalacoes!.visitante) };
+  // Cartões (ADR-0116): quem chegou pendurado, para o cartão gigante dizer "Fora do próximo jogo".
+  const suspensao: SuspensaoNaPartida = {
+    pendurados: { mandante: penduradosDaEscalacao(p.escalacoes!.mandante), visitante: penduradosDaEscalacao(p.escalacoes!.visitante) },
+    ...(p.mataMata?.etapa === 'FINAL' ? { semProximoJogo: true } : {}),
+  };
   // Braçadeira (ADR-0112): o lugar do Capitão em campo; só a partir da T3 (com Técnicos ou não).
   const capitaoDe = (e: EscalacaoPublica) => e.jogadores.findIndex((j) => j.capitao);
   const capitaes = p.tecnicos
@@ -71,7 +76,7 @@ export function transmitir(
       marcar();
     }
     // Efeitos de momento do Reels (ADR-0095); quem pediu menos movimento fica sem tremor e clarão.
-    desenharQuadroDoSite(ctx, timeline, t, { times: timeline.resultado.times, nomes, apelidos, numeros, itens, semMovimento: reduzido, ...(p.briga ? { briga: p.briga } : {}), ...(p.gritos ? { gritos: p.gritos } : {}), ...(p.tecnicos ? { tecnicos: p.tecnicos, capitaes } : {}) });
+    desenharQuadroDoSite(ctx, timeline, t, { times: timeline.resultado.times, nomes, apelidos, numeros, itens, semMovimento: reduzido, suspensao, ...(p.briga ? { briga: p.briga } : {}), ...(p.gritos ? { gritos: p.gritos } : {}), ...(p.tecnicos ? { tecnicos: p.tecnicos, capitaes } : {}) });
     if (barra) barra.value = String(Math.round(t));
     o.aoMudar?.(t);
     if (t >= FIM && !acabou) {

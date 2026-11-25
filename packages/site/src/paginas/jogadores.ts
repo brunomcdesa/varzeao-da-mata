@@ -1,7 +1,7 @@
 /** Jogadores: busca e ranking, o Card de cada um e a comparação lado a lado. */
 import { temMoedas, DESTAQUE_DA_POSICAO, IDENTIDADE, ORDEM_DOS_TROFEUS, nomeVisivel, temporadaDoApp, NOME_DA_HABILIDADE, PESOS_OVR, TIMES, nomeDaEtapa, type HabilidadeId, type Habilidades, type Estatisticas, type TipoTrofeu, type Trofeu, type JogadorPublico, type Posicao, type TimeId, temRegrasT2, temRegrasT3, doTime } from '@liga/shared';
 import { jogadores, liga, timesAtivos } from '../dados.js';
-import { bonecoImg, comCamisa, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html, faixaC } from '../ui.js';
+import { bonecoImg, comCamisa, curto, escudoImg, esc, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, type Html, faixaC, cartaozinho } from '../ui.js';
 import type { Pagina } from './tipos.js';
 import { abas } from '../abas.js';
 import { blocoDoDono, enviarEscolhaDoVinculo, jogadorVinculado, ligarMeuPersonagem } from '../meuPersonagem.js';
@@ -235,6 +235,17 @@ function graficoOvr(series: { j: JogadorPublico; cor: string; tracejado?: boolea
   </svg>`;
 }
 
+/** Cartões (ADR-0116): Suspensão para o próximo jogo do Time, ou Pendurado. */
+function avisoDosCartoes(j: JogadorPublico): ReturnType<typeof html> | '' {
+  const c = j.cartoes;
+  if (c?.suspenso) {
+    const porque = c.suspenso === 'EXPULSAO' ? 'foi expulso no último jogo' : `levou o ${c.amarelos}º amarelo da Temporada no último jogo`;
+    return html`<p class="aviso-cartao suspenso">${cartaozinho(c.suspenso === 'EXPULSAO' ? 'vermelho' : 'amarelo')}<span><strong>Suspenso:</strong> fora do próximo jogo ${doTime(j.time)}. Ele ${porque}.</span></p>`;
+  }
+  if (c?.pendurado) return html`<p class="aviso-cartao pendurado">${cartaozinho('amarelo')}<span><strong>Pendurado:</strong> ${c.amarelos} amarelo${c.amarelos === 1 ? '' : 's'} na Temporada. Mais um e fica fora do jogo seguinte.</span></p>`;
+  return '';
+}
+
 export const paginaJogador: Pagina = async (main, [id]) => {
   const [todos, l] = await Promise.all([jogadores(), liga()]);
   const j = todos.find((x) => x.id === id);
@@ -274,6 +285,7 @@ export const paginaJogador: Pagina = async (main, [id]) => {
     <div class="jogador-detalhes">
       <h1 class="sr">${j.apelido ? `${j.apelido} (@${j.username})` : `@${j.username}`}</h1>
       <p class="ranking-frase">${rankOvr}º maior OVR da Liga · ${rankPos}º entre ${daPosicao.length} ${NOME_DA_POSICAO[j.posicao].toLowerCase()}s</p>
+      ${avisoDosCartoes(j)}
       ${temRegrasT2(temporadaDoApp(l) ?? 0) ? html`<p><a class="botao secundario" href="#/carreira/${j.id}">Ver a Carreira, temporada por temporada</a></p>` : ''}
       ${salaDeTrofeus(j)}
       <div class="mercado-do-jogador" data-mercado></div>

@@ -10,6 +10,7 @@ import { narradorDa } from './narradores.js';
 import { F_CHUTE_PENALTI, instanteDaCobranca, resultadoDaCobranca } from './penaltis.js';
 import type { Roteiro, Segmento } from './roteiro.js';
 import { ocupanteNoLance, type Troca } from './substituicao.js';
+import { cartaoSuspende, type SuspensaoNaPartida } from './suspensao.js';
 
 export type Tom = 'normal' | 'animado' | 'grito';
 
@@ -79,6 +80,8 @@ export interface OpcoesNarracao {
   tecnicos?: Partial<Record<Lado, { apelido?: string | null }>> | null;
   /** Marcação individual (ADR-0112), pelos lugares na Escalação: dita na fala da Escalação. */
   marcacoes?: Partial<Record<Lado, { marcador: number; alvo: number }>> | null;
+  /** Cartões (ADR-0116): quem chegou pendurado. O Narrador avisa quando o cartão tira do próximo jogo. */
+  suspensao?: SuspensaoNaPartida | null;
 }
 
 /** "Seu Tonho, técnico da Onça" ou "o técnico da Onça" (ADR-0111). */
@@ -404,7 +407,11 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
     if (lance.jogadaDaFormacao === 'LIGACAO_DIRETA' && lance.tipo === 'DESARME' && !lance.finalizador) {
       resolucao.DESARME = [[`Cortou a ligação direta! ${cap(def)} sobe e tira.`, 'normal'], [`Interceptou! ${cap(def)} lê o lançamento.`, 'normal']];
     }
-    const [texto, tom] = escolher(rng, resolucao[lance.tipo]!);
+    const [escolhido, tom] = escolher(rng, resolucao[lance.tipo]!);
+    // Suspensão (ADR-0116): o cartão gigante mostra "Fora do próximo jogo", e o Narrador diz junto.
+    const falta = lance.falta;
+    const suspende = !!falta?.cartao && cartaoSuspende(o.suspensao, falta.autor.lado, ocupanteNo(falta.autor, s.lance!).indice, falta.cartao);
+    const texto = !suspende ? escolhido : falta!.cartao === 'VERMELHO' ? `${escolhido} E tá fora do próximo jogo!` : `${escolhido} Tava pendurado: tá fora do próximo jogo!`;
     falas.push({ id: `lance-${s.lance}-b`, texto, inicio: s.resolucao! - 0.1, limite: s.fim - 0.1, tom, segmento: indice, parte: 'depois' });
 
     if (lance.tipo === 'GOL') {

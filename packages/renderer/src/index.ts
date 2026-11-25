@@ -21,3 +21,4 @@ export { todosDaEscalacao } from './partidaPublica.js';
 export { desenharQuadroDoSite, efeitosDoSite, cartaoGiganteEm, TREMOR_DO_GOL, CLARAO_DO_GOL } from './efeitosDoSite.js';
 export { RoteiroMudancaDeEndereco, desenharQuadroMudancaDeEndereco, narracaoDaMudancaDeEndereco, NARRADOR_DA_MUDANCA_DE_ENDERECO } from './mudancaDeEndereco.js';
 export { RoteiroPerfilDoTime, desenharQuadroPerfilDoTime, narracaoDoPerfilDoTime, NARRADOR_DO_PERFIL_DO_TIME, type DadosDoPerfilDoTime } from './perfilDoTime.js';
+export { cartaoSuspende, penduradosDaEscalacao, type SuspensaoNaPartida } from './suspensao.js';
