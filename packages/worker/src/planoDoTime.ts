@@ -96,6 +96,23 @@ export interface ResultadoDoPlano {
 }
 
 /**
+ * Quem foi titular fixado no jogo anterior do Time (ADR-0111): fica um jogo sem poder ser fixado
+ * (uma vez a cada 2 jogos, Liga e Copa na mesma conta). Nesse jogo, joga pela Presença normal.
+ */
+export async function fixadosNoJogoAnterior(b: Banco, time: TimeId, partidaId: number): Promise<Set<string>> {
+  const r = await b.query<{ id: string }>(
+    `WITH esta AS (SELECT apito_inicial FROM partida WHERE id = $2),
+          anterior AS (
+            SELECT p.id FROM partida p, esta
+             WHERE (p.mandante_id = $1 OR p.visitante_id = $1) AND p.id <> $2 AND p.status <> 'PENDENTE' AND p.apito_inicial < esta.apito_inicial
+             ORDER BY p.apito_inicial DESC LIMIT 1)
+     SELECT e.jogador_id::text AS id FROM escalacao e JOIN anterior a ON a.id = e.partida_id WHERE e.time_id = $1 AND e.fixado`,
+    [time, partidaId],
+  );
+  return new Set(r.rows.map((l) => l.id));
+}
+
+/**
  * Postura, Formação ou titulares fixados: o Técnico decide; com Técnico, o Capitão sugere;
  * sem Técnico, o Capitão decide (nunca fixa a si mesmo).
  */
@@ -122,6 +139,9 @@ export async function decidirPlano(
       if (doTime.length !== ids.length) return { ok: false, mensagem: 'Só dá para fixar Jogadores do Time.' };
       const fora = await suspensos(b, papel.time, papel.partidaId);
       if (ids.some((id) => fora.has(id))) return { ok: false, mensagem: 'Jogador suspenso não pode ser fixado.' };
+      const descanso = await fixadosNoJogoAnterior(b, papel.time, papel.partidaId);
+      if (ids.some((id) => descanso.has(id)))
+        return { ok: false, mensagem: 'Quem foi fixado no jogo anterior só pode ser fixado de novo no próximo. Neste jogo, ele joga pela Presença.' };
     }
     v = ids;
   }

@@ -199,6 +199,28 @@ describe('Plano do Time com Técnico (ADRs 0111 e 0112)', () => {
     expect(r).toMatchObject({ fixado: true, reserva: false });
   });
 
+  it('fixado num jogo descansa no seguinte (só pela Presença) e pode ser fixado de novo depois', async () => {
+    const { aplicarEscolha } = await import('../src/temporada2.js');
+    const { escalarPartida } = await import('../src/escalacao.js');
+    for (let k = 0; k < 4; k++) await comentar(`a${k}`, 'ENTRO Onça atacante');
+    const tec = await aprovarTecnico(banco, { username: 'seu.tonho', time: 'ONC', agora: PRE, naJanela: true });
+    const ultimo = await idDe('a3');
+    const jogos = (await banco.query<{ id: number; apito: Date }>(`SELECT id, apito_inicial AS apito FROM partida WHERE mandante_id = 'ONC' OR visitante_id = 'ONC' ORDER BY apito_inicial LIMIT 3`)).rows;
+    const depois = (k: number) => new Date(new Date(jogos[k]!.apito).getTime() + 60_000);
+    const fixar = (agora: Date) => aplicarEscolha(banco, tec.jogadorId, { tipo: 'FIXADOS', valor: [ultimo] }, agora, async () => new Set());
+    expect((await fixar(PRE)).ok).toBe(true);
+    await escalarPartida(banco, jogos[0]!.id);
+    // Jogo 2: não dá para fixar de novo; mesmo um plano já gravado não vale na Escalação.
+    const r2 = await fixar(depois(0));
+    expect(r2.ok).toBe(false);
+    expect(r2.mensagem).toMatch(/fixado no jogo anterior/);
+    await banco.query(`INSERT INTO postura (partida_id, time_id, fixados, do_tecnico) VALUES ($1, 'ONC', $2, '["fixados"]') ON CONFLICT (partida_id, time_id) DO UPDATE SET fixados = EXCLUDED.fixados, do_tecnico = EXCLUDED.do_tecnico`, [jogos[1]!.id, [ultimo]]);
+    await escalarPartida(banco, jogos[1]!.id);
+    expect((await banco.query<{ fixado: boolean }>(`SELECT fixado FROM escalacao WHERE partida_id = $1 AND jogador_id = $2`, [jogos[1]!.id, ultimo])).rows[0]?.fixado ?? false).toBe(false);
+    // Jogo 3: pode de novo.
+    expect((await fixar(depois(1))).ok).toBe(true);
+  });
+
   it('escanteio e Marcação do Capitão chegam à simulação; Marcação só com marcador ZAG/MEI e alvo de linha rival', async () => {
     const { aplicarEscolha } = await import('../src/temporada2.js');
     const { capitaoEmCampo } = await import('../src/planoDoTime.js');
