@@ -16,6 +16,7 @@ import type { CartaoNoJogo, EstadoQuadro, JogadorNoQuadro, Ponto } from './timel
 import { visualDoJuiz, type JuizNoQuadro } from './juiz.js';
 import { desenharArquibancada, desenharCartao, desenharClimaNoAr, desenharClimaNoChao, desenharCloseDaTorcida } from './arquibancada.js';
 import { segundoUniforme } from './clima.js';
+import type { SuspensaoNaPartida } from './suspensao.js';
 
 export interface OpcoesDesenho {
   times: Record<Lado, TimeId>;
@@ -48,6 +49,8 @@ export interface OpcoesDesenho {
   tecnicos?: Partial<Record<Lado, TecnicoNoJogo>>;
   /** Capitão de cada lado (ADR-0112): o lugar dele na Escalação, para a Braçadeira. */
   capitaes?: Partial<Record<Lado, number>>;
+  /** Cartões (ADR-0116): quem chegou pendurado, para o cartão gigante dizer "Fora do próximo jogo". */
+  suspensao?: SuspensaoNaPartida | null;
 }
 
 /**

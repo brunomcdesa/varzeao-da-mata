@@ -1,7 +1,7 @@
 /** Jogos (calendário), Tabela, Times e a página de cada Time. */
-import { FALA_DO_TIME, GRUPOS, IDENTIDADE, NOME_DO_GRUPO, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, foraDoMataMata, forcaProvavel, inscritosAteNoProximoJogo, nomeDaRodada, temRegrasT3, type Formacao, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, GRUPOS, IDENTIDADE, NOME_DO_GRUPO, OVR_JOGADOR_DA_BASE, TIMES, escalacaoProvavel, foraDoMataMata, forcaProvavel, inscritosAteNoProximoJogo, nomeDaRodada, temRegrasT2, temRegrasT3, FORMACAO_PADRAO, type Formacao, type JogadorPublico, type LigaPublica, type PartidaNoCalendario, type Serie, type TimeId } from '@liga/shared';
 import { avisoDaPreTemporada, diaLongo, jogadores, liga, preTemporada, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries, timesAtivos, gruposAtivos, formaDosTimes } from '../dados.js';
-import { bonecoImg, campinho, curto, escudoImg, forcaHtml, formaHtml, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa } from '../ui.js';
+import { bonecoImg, campinho, curto, escudoImg, forcaHtml, formaHtml, html, nota, NOME_DA_POSICAO, POSICOES_EM_ORDEM, taca, tintaSobre, comCamisa, comFaixa, seloDosCartoes } from '../ui.js';
 import { capitaniaDoVinculo, capitaniaGuardada, enviarEscolhaDoVinculo, jogadorVinculado } from '../meuPersonagem.js';
 import { blocoDoPlano, planoDaCapitania, valorDoFormulario, type Capitania } from '../planoDoTime.js';
 import { chaveDaCopa, chaveamento } from './chave.js';
@@ -172,7 +172,7 @@ export const paginaTimes: Pagina = async (main) => {
 function linhaDoElenco(j: JogadorPublico, inscritosAte: string | null = null, proxima = 'próxima Temporada'): ReturnType<typeof html> {
   return html`<li><a href="#/jogador/${j.id}" class="elenco-linha">
     ${bonecoImg(j.time, j.posicao, j.username, 2)}
-    <span class="quem">${comFaixa(comCamisa(j.apelido || `@${j.username}`, j.numero), j.capitao)}${foraDoMataMata(j, inscritosAte) ? html` <span class="selo-estreia" title="Chegou depois da Fase de Liga: não joga o Mata-mata">estreia na ${proxima}</span>` : ''}</span>
+    <span class="quem">${comFaixa(comCamisa(j.apelido || `@${j.username}`, j.numero), j.capitao)}${foraDoMataMata(j, inscritosAte) ? html` <span class="selo-estreia" title="Chegou depois da Fase de Liga: não joga o Mata-mata">estreia na ${proxima}</span>` : ''}${seloDosCartoes(j.cartoes)}</span>
     <span class="dado" title="Jogos">${j.jogos} j</span>
     <span class="dado" title="Gols">${j.gols} g</span>
     <span class="dado" title="Nota média">${nota(j.notaMedia)}</span>
@@ -211,7 +211,8 @@ export const paginaTime: Pagina = async (main, [idTexto]) => {
   const provavel = (formacao: Formacao | null) =>
     html`<h2 class="secao">Escalação provável <small>${inscritosAte ? 'próximo jogo · Mata-mata' : 'próximo jogo'}${formacao ? ` · ${formacao}` : ''}</small></h2>
       ${campinho(
-        escalacaoProvavel(elenco, inscritosAte, formacao).map((x) => ({
+        // Sem Formação escolhida, a T2 em diante escala no 2-2-2 com fora de posição, como a Escalação (ADR-0044).
+        escalacaoProvavel(elenco, inscritosAte, formacao ?? (temRegrasT2(temporadaDoApp(l) ?? 0) ? FORMACAO_PADRAO : null)).map((x) => ({
           posicao: x.posicao,
           time: t,
           username: x.jogador?.username ?? null,

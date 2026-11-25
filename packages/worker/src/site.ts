@@ -7,7 +7,7 @@
  * aparecem depois do Apito (o lance a lance) ou do fim do Ao Vivo (placar, tabela, Card).
  * Escalações aparecem assim que existem (a partir do Corte).
  */
-import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Grupo, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, type EtapaDaCopa, temMoedas, temRegrasT2, temRegrasT3, perfilDoJuiz, timesQueCaem, GRUPOS, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque, type ItensEquipados } from '@liga/shared';
+import { IDENTIDADE, TIMES, brigaDaPartida, estrelasDosTimes, type PartidaParaBriga, duracaoAoVivoMs, mataMataDaPartida, rotuloDoCandidato, type Serie, ehClassico, etapaDa, type EscalacaoPublica, type Estatisticas, type JogadorPublico, type JogadorResumido, type TemporadaNaHistoria, type LigaPublica, type PartidaNoCalendario, type PartidaPublica, type Posicao, type RodadaPublica, type SituacaoPartida, type TimeId, type Grupo, type Habilidades, type Aparencia, type Especializacao, type HabilidadeId, type EtapaDaCopa, temMoedas, temRegrasT2, temRegrasT3, perfilDoJuiz, timesQueCaem, GRUPOS, GRUPOS_DA_A_DE_16, NOME_DO_GRUPO, CLASSIFICAM_POR_GRUPO, grupoDoTime, destaquesDaRodada, destaquesDaTemporada, type Destaque, type ItensEquipados, type CartoesNoJogo, amarelosQueContam, estaPendurado, situacaoDosCartoes, suspensaoPeloJogo } from '@liga/shared';
 import { lerItens } from './escalacao.js';
 import { perfisDosTimes } from './perfilDoTime.js';
 import { fundadorDe } from './rebalanceamento.js';
@@ -73,6 +73,9 @@ interface LinhaEscalacao {
   fixado?: boolean;
   /** Banco (ADR-0061). */
   reserva: boolean;
+  /** Cartões na Partida (T2, ADR-0021): só lidos depois que o Ao Vivo acabou. */
+  amarelos: number | null;
+  expulso: boolean | null;
   /** Fora de posição (ADR-0044): a Posição de inscrição de quem ocupou a vaga. */
   posicao_de_origem: Posicao | null;
 }
@@ -180,12 +183,27 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
 
   const escalacoes = (
     await banco.query<LinhaEscalacao>(
-      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.numero, e.itens, e.capitao, e.reserva, e.posicao_de_origem, e.fixado
+      `SELECT e.partida_id, e.time_id, e.lugar, e.jogador_id::text AS jogador_id, e.posicao, e.ovr_antes, e.habilidades_antes, j.username, e.apelido, e.numero, e.itens, e.capitao, e.reserva, e.posicao_de_origem, e.fixado, e.amarelos, e.expulso
        FROM escalacao e LEFT JOIN jogador_todos j ON j.id = e.jogador_id ORDER BY e.partida_id, e.lugar`,
     )
   ).rows;
   const escalacoesDe = new Map<number, LinhaEscalacao[]>();
   for (const e of escalacoes) escalacoesDe.set(e.partida_id, [...(escalacoesDe.get(e.partida_id) ?? []), e]);
+  // Cartões (ADR-0116): os jogos de cada Jogador, em ordem, só das Partidas já encerradas
+  // (não estraga o Ao Vivo). Servem para Suspensão e Pendurado no site.
+  const cartoesDe = new Map<string, (CartoesNoJogo & { partidaId: number; temporadaId: number; apito: number; time: TimeId })[]>();
+  const partidasEmOrdem = new Map(todas.map((p) => [p.id, p]));
+  for (const e of [...escalacoes].sort((x, y) => new Date(partidasEmOrdem.get(x.partida_id)?.apito_inicial ?? 0).getTime() - new Date(partidasEmOrdem.get(y.partida_id)?.apito_inicial ?? 0).getTime())) {
+    const p = partidasEmOrdem.get(e.partida_id);
+    if (!e.jogador_id || !p || !encerrada(p)) continue;
+    const l = cartoesDe.get(e.jogador_id) ?? [];
+    l.push({ partidaId: p.id, temporadaId: p.temporada_id, apito: apito(p).getTime(), time: e.time_id, amarelos: e.amarelos ?? 0, expulso: e.expulso ?? false });
+    cartoesDe.set(e.jogador_id, l);
+  }
+  const jogosNaTemporada = (jogadorId: string, temporadaId: number, antesDe = Infinity) => (cartoesDe.get(jogadorId) ?? []).filter((c) => c.temporadaId === temporadaId && c.apito < antesDe);
+  /** A última Partida encerrada do Time na Temporada antes de `antesDe`. */
+  const anteriorDoTime = (time: TimeId, temporadaId: number, antesDe: number) =>
+    [...todas].reverse().find((p) => p.temporada_id === temporadaId && (p.mandante_id === time || p.visitante_id === time) && apito(p).getTime() < antesDe && encerrada(p)) ?? null;
   // Time pelo qual cada Jogador jogou em cada Rodada e em cada Temporada (o último da Temporada).
   // A História e os troféus mostram esse Time, não o atual: quem foi remanejado no Rebalanceamento
   // ou trocou na Janela continua no Time em que jogou (ADR-0077).
@@ -428,6 +446,15 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       }
       const j = id ? porJogador.get(id) : undefined;
       if (j && j.time === time) j.capitao = true;
+    }
+  }
+  // Cartões (ADR-0116): Suspenso ou Pendurado para o próximo jogo do Time, no Elenco e na Carreira.
+  if (comRegrasT2 && temporada) {
+    for (const j of porJogador.values()) {
+      const ultimo = anteriorDoTime(j.time, temporada.id, Infinity);
+      const haProximo = partidas.some((p) => (p.mandante_id === j.time || p.visitante_id === j.time) && !encerrada(p));
+      const c = situacaoDosCartoes(jogosNaTemporada(j.id, temporada.id), ultimo?.id ?? null, haProximo);
+      if (c) j.cartoes = c;
     }
   }
   const media = (ns: number[]) => (ns.length ? Math.round((ns.reduce((s, n) => s + n, 0) / ns.length) * 100) / 100 : null);
@@ -702,15 +729,38 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   // ---- uma página por Partida escalada (de todas as Temporadas: o histórico aponta para elas)
   for (const p of todas) {
     const linhas = escalacoesDe.get(p.id);
+    // Cartões (ADR-0116): só nas Temporadas com Cartões (T2 em diante).
+    const comCartoes = temRegrasT2(numeroDa.get(p.temporada_id) ?? 0);
+    const apitoDaP = apito(p).getTime();
+    const pendurado = (e: LinhaEscalacao) => (comCartoes && e.jogador_id && estaPendurado(jogosNaTemporada(e.jogador_id, p.temporada_id, apitoDaP)) ? { pendurado: true as const } : {});
+    /** Quem cumpre Suspensão nesta Partida: saiu do jogo anterior do Time, já encerrado. */
+    const suspensosDe = (time: TimeId, doTime: LinhaEscalacao[]): NonNullable<EscalacaoPublica['fora']> => {
+      if (!comCartoes) return [];
+      const anterior = anteriorDoTime(time, p.temporada_id, apitoDaP);
+      if (!anterior) return [];
+      const escalados = new Set(doTime.map((e) => e.jogador_id));
+      return (escalacoesDe.get(anterior.id) ?? []).flatMap((e) => {
+        if (e.time_id !== time || !e.jogador_id || escalados.has(e.jogador_id)) return [];
+        const jogos = jogosNaTemporada(e.jogador_id, p.temporada_id, apito(anterior).getTime() + 1);
+        const ultimo = jogos.at(-1);
+        if (!ultimo || ultimo.partidaId !== anterior.id) return [];
+        const motivo = suspensaoPeloJogo(jogos.slice(0, -1), ultimo);
+        if (!motivo) return [];
+        const atual = porJogador.get(e.jogador_id);
+        return [{ jogadorId: e.jogador_id, username: atual?.username ?? e.username ?? '', apelido: atual?.apelido ?? e.apelido ?? null, posicao: atual?.posicao ?? e.posicao, motivo, amarelos: amarelosQueContam(jogos) }];
+      });
+    };
     const de = (time: TimeId): EscalacaoPublica => {
       const doTime = (linhas ?? []).filter((e) => e.time_id === time);
-      const banco = doTime.filter((e) => e.reserva).map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ...itensDaLinha(e), ovr: ovrPelasHabilidades(e.posicao, e.ovr_antes, e.habilidades_antes), habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes) }));
+      const banco = doTime.filter((e) => e.reserva).map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ...itensDaLinha(e), ovr: ovrPelasHabilidades(e.posicao, e.ovr_antes, e.habilidades_antes), habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes), ...pendurado(e) }));
+      const fora = suspensosDe(time, doTime);
       return {
         time,
         jogadores: doTime
           .filter((e) => !e.reserva)
-          .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ...itensDaLinha(e), ovr: ovrPelasHabilidades(e.posicao, e.ovr_antes, e.habilidades_antes), habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes), ...(e.capitao ? { capitao: true as const } : {}), ...(e.fixado ? { fixado: true as const } : {}) })),
+          .map((e) => ({ lugar: e.lugar, posicao: e.posicao, jogadorId: e.jogador_id, username: e.username, apelido: e.apelido ?? null, numero: e.numero ?? null, ...itensDaLinha(e), ovr: ovrPelasHabilidades(e.posicao, e.ovr_antes, e.habilidades_antes), habilidades: habilidadesDe(e.posicao, e.ovr_antes, e.habilidades_antes), ...(e.capitao ? { capitao: true as const } : {}), ...(e.fixado ? { fixado: true as const } : {}), ...pendurado(e) })),
         ...(banco.length ? { banco } : {}),
+        ...(fora.length ? { fora } : {}),
       };
     };
     if (!linhas && !revelada(p)) continue;

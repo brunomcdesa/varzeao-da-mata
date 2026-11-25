@@ -17,7 +17,7 @@ import { escalarPartida, type PartidaEscalada } from './escalacao.js';
 import { pagarPartida } from './moedas.js';
 import { capitaoEmCampo, gritosDaPartida } from './planoDoTime.js';
 import { beiraDaPartida, type BeiraDoCampo } from './beiraDoCampo.js';
-import { batedoresDaPartida, formacoesDaPartida, partidaTemRegrasT2, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
+import { batedoresDaPartida, formacoesDaPartida, partidaTemRegrasT2, penduradosAntesDa, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
 
 /** O que o renderer precisa para gravar o Reels (mesmo formato de PartidaParaVideo). */
 export interface DadosDoVideo {
@@ -41,6 +41,8 @@ export interface DadosDoVideo {
   tecnicos?: BeiraDoCampo['tecnicos'];
   /** Marcação individual (ADR-0112) pelos lugares na Escalação, para a fala do Narrador. */
   marcacoes?: Partial<Record<Lado, { marcador: number; alvo: number }>>;
+  /** Cartões (ADR-0116): quem chegou pendurado (titulares + Banco), para "fora do próximo jogo". */
+  suspensao?: { pendurados: Partial<Record<Lado, number[]>>; semProximoJogo?: boolean };
   capitaes?: BeiraDoCampo['capitaes'];
   /** Mata-mata (ADR-0048): o Narrador e o fim do Reels falam da Semifinal ou da Final. */
   mataMata?: MataMataDaPartida | null;
@@ -259,6 +261,18 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
       if (marcador >= 0 && alvo >= 0) marcacoes[lado] = { marcador, alvo };
     }
     if (Object.keys(marcacoes).length) dados.marcacoes = marcacoes;
+  }
+  // Cartões (ADR-0116): só nas Partidas com Cartões (T2 em diante, simuladas com Postura).
+  if (resultado.postura != null) {
+    const pendurados: Partial<Record<Lado, number[]>> = {};
+    for (const lado of ['mandante', 'visitante'] as const) {
+      const e = escalada.escalacoes[lado];
+      const ids = [...e.jogadores, ...(e.banco ?? [])].map((j) => j.jogadorId);
+      const naSerie = await penduradosAntesDa(banco, p.id, ids.filter((id): id is string => id !== null));
+      const lugares = ids.flatMap((id, i) => (id && naSerie.has(id) ? [i] : []));
+      if (lugares.length) pendurados[lado] = lugares;
+    }
+    dados.suspensao = { pendurados, ...(mataMata?.etapa === 'FINAL' ? { semProximoJogo: true } : {}) };
   }
   const beira = await beiraDaPartida(banco, p.id);
   if (beira) {

@@ -3,6 +3,7 @@
  * mais as cartelas de abertura e de fim e o escurecimento dos cortes.
  */
 import { ocupanteDoDesempenho } from './substituicao.js';
+import { cartaoSuspende, type SuspensaoNaPartida } from './suspensao.js';
 import { FALA_DO_TIME, IDENTIDADE, NOME_DO_GRUPO, NOME_DO_PERFIL_DO_JUIZ, TAMANHO_ESCALACAO, brigaDoTime, concordar, situacoesNaBriga, situacoesNoRebaixamento, valeAPermanencia, type Aparencia, type BrigaPeloMataMata, type Estrelas, type Escalacao, type Grupo, type ItensEquipados, type MataMataDaPartida, type TimeId } from '@liga/shared';
 import type { Lado, ResultadoPartida, SlotRef } from '@liga/sim';
 import { cenario } from './cenario.js';
@@ -52,6 +53,8 @@ export interface PartidaParaVideo {
   capitaes?: Partial<Record<Lado, number>>;
   /** Marcação individual (ADR-0112), pelos lugares: só para a fala do Narrador. */
   marcacoes?: Partial<Record<Lado, { marcador: number; alvo: number }>>;
+  /** Cartões (ADR-0116): pendurados, para o cartão gigante e a fala de "fora do próximo jogo". */
+  suspensao?: SuspensaoNaPartida | null;
   /** Estrelas de Título nos escudos (ADR-0060). */
   estrelas?: Partial<Record<TimeId, Estrelas>>;
   /** Partida do Mata-mata (ADR-0048): Semifinal ou Final, Temporada e Série. */
@@ -195,6 +198,15 @@ export function desenharCartaoGigante(pin: Pincel, m: MomentoDoCartao, f: number
   const largura = Math.min(200, pin.ctx.measureText(nome).width / pin.px + 24);
   pin.tabua(cx - largura / 2, cy + h / 2 + 32, largura, 20);
   pin.texto(nome, cx, cy + h / 2 + 42, pin.caber(nome, largura - 12, 11, FONTE_TEXTO, 700), FONTE_TEXTO, COR.placa, { peso: 700 });
+  // Suspensão (ADR-0116): o cartão que tira do próximo jogo diz isso na tela (e o Narrador fala).
+  if (cartaoSuspende(o.suspensao, m.lado, m.ocupante, m.cartao)) {
+    const aviso = 'Fora do próximo jogo';
+    pin.ctx.font = `700 ${10 * pin.px}px ${FONTE_TEXTO}`;
+    const la = pin.ctx.measureText(aviso).width / pin.px + 16;
+    pin.r(cx - la / 2 - 1, cy + h / 2 + 57, la + 2, 18, COR.contorno);
+    pin.r(cx - la / 2, cy + h / 2 + 58, la, 16, '#D7263D');
+    pin.texto(aviso, cx, cy + h / 2 + 66, 10, FONTE_TEXTO, '#FFFFFF', { peso: 700 });
+  }
   ctx.restore();
 }
 

@@ -381,8 +381,12 @@ Punição a um Jogador na Partida. O vermelho expulsa na hora, e o Time segue co
 _Avoid_: advertência, punição
 
 **Suspensão**:
-Uma Partida em que o Jogador fica fora da Escalação por causa de Cartões.
+Uma Partida em que o Jogador fica fora da Escalação por causa de Cartões. Aparece no Elenco (selo "Suspenso"), na página do Jogador e no bloco "Suspensos" da Partida; o cartão que dá Suspensão avisa "Fora do próximo jogo" na transmissão (ADR-0116).
 _Avoid_: gancho, punição
+
+**Pendurado**:
+Jogador com um amarelo na série (amarelos ímpares na Temporada): mais um e ele cumpre Suspensão no jogo seguinte do Time. ADR-0116.
+_Avoid_: ameaçado, na corda bamba
 
 **Presença**:
 A confirmação, feita pelo site ou comentando CONFIRMO até o Corte, de que o Jogador quer jogar o próximo jogo do Time. Quem confirmou passa na frente no rodízio da Escalação. ADR-0023.
