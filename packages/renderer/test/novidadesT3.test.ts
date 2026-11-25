@@ -4,11 +4,15 @@ import { SERIE_DE_NOVIDADES, cenasDasNovidades, type ReelsDeNovidades } from '..
 const dados = (reels: ReelsDeNovidades) => ({ reels, estreia: '2026-11-28', publicadoEm: '2026-11-27T15:00:00Z', partidas: [], clipes: {} });
 
 describe('Novidades da T3 (ADR-0092)', () => {
-  it('são quatro Reels, na ordem: campo, salário e loja, palpite e conquistas, capitão e batedores', () => {
-    expect(SERIE_DE_NOVIDADES[3]).toEqual(['T3_CAMPO', 'T3_LOJA', 'T3_PALPITE', 'T3_CAPITAO']);
+  it('são cinco Reels, na ordem: técnico, campo, salário e loja, palpite e conquistas, capitão e batedores', () => {
+    expect(SERIE_DE_NOVIDADES[3]).toEqual(['T3_TECNICO', 'T3_CAMPO', 'T3_LOJA', 'T3_PALPITE', 'T3_CAPITAO']);
+    const abre = (r: ReelsDeNovidades) => cenasDasNovidades(dados(r))[0]!.fala;
+    expect(abre('T3_TECNICO')).toContain('parte um');
+    expect(abre('T3_CAPITAO')).toContain('parte cinco');
   });
   it('cada um chama o seguinte e o último manda para o link na bio', () => {
     const fim = (r: ReelsDeNovidades) => cenasDasNovidades(dados(r)).at(-1)!.fala;
+    expect(fim('T3_TECNICO')).toContain('ao meio-dia, tem mais: as novidades dentro de campo!');
     expect(fim('T3_CAMPO')).toContain('às duas da tarde, tem mais: o salário e a loja!');
     expect(fim('T3_LOJA')).toContain('o palpite e as conquistas');
     expect(fim('T3_PALPITE')).toContain('o capitão e os batedores');

@@ -22,10 +22,11 @@ export type ReelsDeNovidades = 'CAMPO' | 'CAPITAO' | 'JOGADOR' | 'SITE' | 'T3_CA
 /** As séries de Reels de cada Temporada: a T2 (ADR-0063) e a T3 (ADR-0092). */
 export const SERIE_DE_NOVIDADES: Record<2 | 3, readonly ReelsDeNovidades[]> = {
   2: ['CAMPO', 'CAPITAO', 'JOGADOR', 'SITE'],
-  3: ['T3_CAMPO', 'T3_LOJA', 'T3_PALPITE', 'T3_CAPITAO'],
+  // Técnico e Interesse (ADR-0111) abre a série da T3, às 10h.
+  3: ['T3_TECNICO', 'T3_CAMPO', 'T3_LOJA', 'T3_PALPITE', 'T3_CAPITAO'],
 };
-/** Fora das séries: Técnico e Interesse (ADR-0111) e a segunda fase da Loja, no meio da T3 (ADR-0101). */
-export const REELS_DE_NOVIDADES: readonly ReelsDeNovidades[] = [...SERIE_DE_NOVIDADES[2], ...SERIE_DE_NOVIDADES[3], 'T3_LOJA2', 'T3_TECNICO'];
+/** Fora das séries: a segunda fase da Loja, no meio da T3 (ADR-0101). */
+export const REELS_DE_NOVIDADES: readonly ReelsDeNovidades[] = [...SERIE_DE_NOVIDADES[2], ...SERIE_DE_NOVIDADES[3], 'T3_LOJA2'];
 export const temporadaDasNovidades = (r: ReelsDeNovidades): 2 | 3 => (r.startsWith('T3_') ? 3 : 2);
 const serieDe = (r: ReelsDeNovidades) => SERIE_DE_NOVIDADES[temporadaDasNovidades(r)];
 /** O id do Reels Programado (e do vídeo) de cada um. */
@@ -104,7 +105,7 @@ const TITULO: Record<ReelsDeNovidades, string> = {
 /** Como o Reels anterior chama o seguinte ("às duas da tarde, tem mais: ..."). */
 const CHAMADA_DO_PROXIMO: Record<ReelsDeNovidades, string> = {
   CAMPO: '', CAPITAO: 'o capitão', JOGADOR: 'o seu jogador', SITE: 'o site e o app',
-  T3_CAMPO: '', T3_LOJA: 'o salário e a loja', T3_PALPITE: 'o palpite e as conquistas', T3_CAPITAO: 'o capitão e os batedores', T3_LOJA2: '', T3_TECNICO: '',
+  T3_CAMPO: 'as novidades dentro de campo', T3_LOJA: 'o salário e a loja', T3_PALPITE: 'o palpite e as conquistas', T3_CAPITAO: 'o capitão e os batedores', T3_LOJA2: '', T3_TECNICO: '',
 };
 const HORA_FALADA: Record<number, string> = { 10: 'às dez da manhã', 11: 'às onze', 12: 'ao meio-dia', 13: 'à uma da tarde', 14: 'às duas da tarde', 15: 'às três da tarde', 16: 'às quatro da tarde', 17: 'às cinco da tarde', 18: 'às seis da tarde', 19: 'às sete da noite', 20: 'às oito da noite', 21: 'às nove da noite' };
 const DIA_DA_SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
@@ -257,7 +258,7 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
     // ------------------------------------------------ T3 (ADR-0092)
     case 'T3_CAMPO':
       cenas = [
-        c('abertura', 4.5, 'Novidades da temporada três, parte um: dentro de campo! Tem lance novo no jogo.', { cartela: 'ABERTURA' }, 'animado'),
+        c('abertura', 4.5, 'Novidades da temporada três, parte dois: dentro de campo! Tem lance novo no jogo.', { cartela: 'ABERTURA' }, 'animado'),
         jogo('TRAVE', 'Na trave!', 'Agora a bola bate na trave! O chute que ia pra fora às vezes explode no poste, e o narrador grita junto.'),
         jogo('REBOTE', 'Rebote', 'E tem rebote: o goleiro defende, a bola sobra na área, e começa a briga do atacante com o zagueiro. Quem chega primeiro, chuta de novo ou afasta.', 7.5),
         jogo('CHUTE_DE_LONGE', 'Chute de longe', 'O meia e até o zagueiro agora arriscam de longe! O chute sai de fora da área e pode surpreender o goleiro.', 7),
@@ -270,7 +271,7 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
       break;
     case 'T3_LOJA':
       cenas = [
-        c('abertura', 4.5, 'Novidades da temporada três, parte dois: salário e loja! Agora o seu jogador ganha moedas.', { cartela: 'ABERTURA' }, 'animado'),
+        c('abertura', 4.5, 'Novidades da temporada três, parte três: salário e loja! Agora o seu jogador ganha moedas.', { cartela: 'ABERTURA' }, 'animado'),
         c('moedas', 8, 'Todo jogador do elenco recebe salário: dez moedas por rodada, jogando ou não, na Série A e na B. E é só ter o jogador: sem vínculo também acumula.', { cartela: 'MOEDAS' }),
         lista('premios', 'Prêmios', [
           ['Gol 3 · Assistência 2', 'Por lance, na Liga e na Copa.'],
@@ -297,7 +298,7 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
       break;
     case 'T3_PALPITE':
       cenas = [
-        c('abertura', 4.5, 'Novidades da temporada três, parte três: palpite e conquistas!', { cartela: 'ABERTURA' }, 'animado'),
+        c('abertura', 4.5, 'Novidades da temporada três, parte quatro: palpite e conquistas!', { cartela: 'ABERTURA' }, 'animado'),
         c('palpite', 9, 'Agora dá pra dar palpite no placar! Na página de cada partida, com o vínculo, até o corte. Acertou o resultado, ganha duas moedas. Acertou o placar exato, ganha cinco.', { cartela: 'PALPITE' }),
         lista('palpite-regras', 'Palpite', [
           ['Em todo jogo', 'Até no do seu Time e na Copa.'],
@@ -314,7 +315,7 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
       break;
     case 'T3_CAPITAO':
       cenas = [
-        c('abertura', 4.5, 'Novidades da temporada três, parte quatro: o capitão e os batedores!', { cartela: 'ABERTURA' }, 'animado'),
+        c('abertura', 4.5, 'Novidades da temporada três, parte cinco: o capitão e os batedores!', { cartela: 'ABERTURA' }, 'animado'),
         c('batedores', 9, 'Agora o capitão escolhe os batedores: a ordem dos cinco primeiros na disputa de pênaltis. Escolhe junto com a formação e a postura, até o corte.', { cartela: 'BATEDORES' }),
         lista('batedores-regras', 'Na hora da Disputa', [
           ['Não está em campo?', 'É pulado e entra o próximo\nda lista.'],
@@ -330,7 +331,7 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
       break;
     case 'T3_TECNICO':
       cenas = [
-        c('abertura', 4.5, 'Novidade da temporada três: chegou o técnico! E agora dá pra pedir pra jogar no time que você quiser.', { cartela: 'ABERTURA' }, 'animado'),
+        c('abertura', 4.5, 'Novidades da temporada três, parte um: chegou o técnico! E agora dá pra pedir pra jogar no time que você quiser.', { cartela: 'ABERTURA' }, 'animado'),
         lista('tecnico', 'O Técnico', [
           ['Um por Time', 'Um seguidor que não joga:\ncuida do Time de fora do campo.'],
           ['Como virar', 'Pede na DM, ou o Jogador\npendura as chuteiras no site.'],
@@ -353,7 +354,7 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
           ['Sem Técnico', 'Assume o que o Técnico faria.'],
           ['Com Técnico', 'Braçadeira, Batedores, escanteio,\nMarcação e o Grito do Time.'],
         ], 'E o capitão? Se o time não tem técnico, ele assume tudo. Se tem, o capitão usa a braçadeira, escolhe os batedores, quem cobra o escanteio, a marcação individual em um rival, e o grito da torcida na temporada.', 'Ele também sugere o plano ao Técnico', 10),
-        c('chamada', 5, `A janela vai até o corte do primeiro jogo da Copa, ${estreia}. Corre! Link na bio.`, { cartela: 'CHAMADA' }, 'animado'),
+        c('chamada', 5, `A janela vai até o corte do primeiro jogo da Copa, ${estreia}. Corre!${chamaProximo}`, { cartela: 'CHAMADA' }, 'animado'),
       ];
       break;
     case 'T3_LOJA2':
@@ -636,7 +637,8 @@ export function desenharQuadroNovidades(ctx: CanvasRenderingContext2D, roteiro: 
         const serie = serieDe(d.reels);
         const k = serie.indexOf(d.reels);
         if (k >= 0) serie.forEach((r, i) => {
-          const x = COLUNAS / 2 - 54 + i * 36;
+          // Centradas, de 4 ou 5 bolinhas.
+          const x = COLUNAS / 2 - (serie.length * 36 - 12) / 2 + i * 36;
           pin.r(x - 1, 335, 26, 14, COR.contorno);
           pin.r(x, 336, 24, 12, i === k ? COR.amarelo : i < k ? VERDE : '#55452F');
           pin.texto(String(i + 1), x + 12, 342, 10, display, COR.contorno);

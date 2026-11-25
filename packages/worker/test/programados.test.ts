@@ -188,3 +188,16 @@ describe('Reels Programados (ADR-0051)', () => {
     expect(l).not.toContain('Copa começa');
   });
 });
+
+describe('Reserva no cron do GitHub (ADR-0051)', () => {
+  it('todo Reels programado que ainda vai sair tem os disparos de 90 e 60 min antes no cron', async () => {
+    const { readFileSync } = await import('node:fs');
+    const yml = readFileSync(new URL('../../../.github/workflows/programados.yml', import.meta.url), 'utf8');
+    const crons = [...yml.matchAll(/cron: '([^']+)'/g)].map((m) => m[1]!.split(' '));
+    const bate = (campo: string, v: number) => campo === '*' || campo.split(',').map(Number).includes(v);
+    const coberto = (d: Date) => crons.some(([mi, h, dia, mes]) => bate(mi!, d.getUTCMinutes()) && bate(h!, d.getUTCHours()) && bate(dia!, d.getUTCDate()) && bate(mes!, d.getUTCMonth() + 1));
+    for (const p of REELS_PROGRAMADOS.filter((x) => Date.parse(x.publicarEm) > Date.parse('2026-11-25T00:00:00Z'))) {
+      for (const antes of [90, 60]) expect(coberto(new Date(Date.parse(p.publicarEm) - antes * 60_000)), `${p.id} - ${antes} min`).toBe(true);
+    }
+  });
+});

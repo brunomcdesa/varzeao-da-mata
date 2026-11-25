@@ -5307,3 +5307,20 @@ body.com-folha .abas-app {
 .escalacao .fora .troca { color: #b01e31; }
 .escalacao .pendurado-tag { justify-self: start; width: max-content; font: 600 0.75rem var(--texto); color: var(--tinta-fraca); }
 .escalacao .legenda-pendurado { margin: 8px 0 0; font-size: 0.75rem; color: var(--tinta-fraca); }
+
+/* Selo da Braçadeira (ADR-0112): a faixa amarela de Capitão com o "C". */
+.selo-bracadeira {
+  --fundador-cor: #3a2a1a;
+  --fundador-borda: #f6d02f;
+  padding-left: 6px;
+}
+.selo-fundador.selo-bracadeira .faixa-bracadeira {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 14px;
+  background: #f6d02f;
+  border: 2px solid #20140b;
+  color: #20140b;
+  font: 400 0.85rem/1 var(--display);
+}

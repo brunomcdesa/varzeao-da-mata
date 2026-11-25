@@ -22,7 +22,7 @@ import { gruposDaTemporada, seriesAtivas, seriesDaTemporada, type GruposDaTempor
 import { classificar } from './tabela.js';
 import { horaDeBrasilia } from './briga.js';
 import { habilidadesDe } from './regras.js';
-import { beirasDasPartidas } from './beiraDoCampo.js';
+import { beirasDasPartidas, bracadeiraDosJogadores } from './beiraDoCampo.js';
 import { gritoDoTime, ovrDasHabilidades } from '@liga/shared';
 import { capitaoDaPartida, proximaPartidaDoTime, tamanhoDosElencos } from './temporada2.js';
 
@@ -336,6 +336,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   }
   // Selo de Apoiador (ADR-0108): a partir da T3, pelo @.
   const apoioDe = temporada && temMoedas(temporada.numero) ? await apoiadores(banco) : new Map<string, { ativo: boolean; temporadas: number[] }>();
+  // Braçadeira (ADR-0112): jogos como Capitão em campo, a partir da Rodada 4 da T3.
+  const bracadeiraDe = await bracadeiraDosJogadores(banco);
   const ajustes = await ajustesDeOvr(banco, agora);
   const porJogador = new Map<string, JogadorPublico>();
   const resumido = (id: string): JogadorResumido | null => {
@@ -368,6 +370,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       ...(fundadores.has(j.id) ? { fundador: fundadores.get(j.id)! } : {}),
       ...(seloT1.has(j.id) ? { seloT1: true as const } : {}),
       ...(apoioDe.has(j.username.toLowerCase()) ? { apoiador: apoioDe.get(j.username.toLowerCase())! } : {}),
+      ...(bracadeiraDe.has(j.id) ? { bracadeira: bracadeiraDe.get(j.id)! } : {}),
       ...(conquistasDe.has(j.id) ? { conquistas: conquistasDe.get(j.id)! } : {}),
       ...(pisoT1.has(j.id) ? { pisoT1: pisoT1.get(j.id)! } : {}),
       ...estatisticasVazias(),

@@ -75,3 +75,23 @@ export async function beirasDasPartidas(b: Banco, ids: readonly number[]): Promi
 export async function beiraDaPartida(b: Banco, partidaId: number): Promise<BeiraDoCampo | null> {
   return (await beirasDasPartidas(b, [partidaId])).get(partidaId) ?? null;
 }
+
+/**
+ * Selo da Braçadeira na Carreira (ADR-0112): jogos com a faixa de Capitão em campo, por
+ * Temporada, nas Partidas já publicadas com a beira do campo (Rodada 4 da T3 em diante).
+ */
+export async function bracadeiraDosJogadores(b: Banco): Promise<Map<string, { temporada: number; jogos: number }[]>> {
+  const r = new Map<string, { temporada: number; jogos: number }[]>();
+  for (const x of (
+    await b.query<{ id: string; numero: number; jogos: string }>(
+      `SELECT e.jogador_id::text AS id, t.numero, count(*) AS jogos
+         FROM escalacao e JOIN partida p ON p.id = e.partida_id JOIN rodada r ON r.id = p.rodada_id JOIN temporada t ON t.id = r.temporada_id
+        WHERE e.capitao AND NOT e.reserva AND p.resultado IS NOT NULL AND p.status IN ('RENDERIZADA', 'AGENDADA', 'PUBLICADA')
+          AND EXISTS (SELECT 1 FROM tecnico_na_partida x WHERE x.partida_id = p.id)
+        GROUP BY e.jogador_id, t.numero ORDER BY t.numero`,
+    )
+  ).rows) {
+    r.set(x.id, [...(r.get(x.id) ?? []), { temporada: x.numero, jogos: Number(x.jogos) }]);
+  }
+  return r;
+}
