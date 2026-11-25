@@ -471,6 +471,13 @@ async function escolhaDoTecnico(
       return escolherGrito(b, pessoaId, Number(v), agora, await comVinculo());
     case 'CHAMADA':
       return chamarPresenca(b, pessoaId, agora, await comVinculo());
+    // Loja do Técnico (ADR-0111): os Itens do boneco à beira do campo.
+    case 'COMPRA':
+      return comprarItem(b, pessoaId, String(v ?? ''), agora);
+    case 'EQUIPAR':
+      return equiparItem(b, pessoaId, String(v ?? ''), agora);
+    case 'TIRAR':
+      return tirarItem(b, pessoaId, String(v ?? ''));
     default:
       // O Técnico não joga: Presença, Treino, Palpite e o resto são do Jogador.
       return { ok: false, mensagem: 'Isso é do Jogador; o Técnico cuida do Time.' };

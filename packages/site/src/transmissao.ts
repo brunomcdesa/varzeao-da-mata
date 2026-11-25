@@ -41,6 +41,11 @@ export function transmitir(
   const numeros: Record<Lado, (number | null)[]> = { mandante: numerosDe(p.escalacoes!.mandante), visitante: numerosDe(p.escalacoes!.visitante) };
   // Os Itens da Loja da época do jogo (ADR-0101): a Escalação guardou os equipados no Corte.
   const itens = { mandante: itensDe(p.escalacoes!.mandante), visitante: itensDe(p.escalacoes!.visitante) };
+  // Braçadeira (ADR-0112): o lugar do Capitão em campo; só a partir da T3 (com Técnicos ou não).
+  const capitaoDe = (e: EscalacaoPublica) => e.jogadores.findIndex((j) => j.capitao);
+  const capitaes = p.tecnicos
+    ? Object.fromEntries((['mandante', 'visitante'] as const).map((l) => [l, capitaoDe(p.escalacoes![l])]).filter(([, k]) => (k as number) >= 0))
+    : undefined;
   const reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const FIM = timeline.duracao;
@@ -66,7 +71,7 @@ export function transmitir(
       marcar();
     }
     // Efeitos de momento do Reels (ADR-0095); quem pediu menos movimento fica sem tremor e clarão.
-    desenharQuadroDoSite(ctx, timeline, t, { times: timeline.resultado.times, nomes, apelidos, numeros, itens, semMovimento: reduzido, ...(p.briga ? { briga: p.briga } : {}), ...(p.gritos ? { gritos: p.gritos } : {}) });
+    desenharQuadroDoSite(ctx, timeline, t, { times: timeline.resultado.times, nomes, apelidos, numeros, itens, semMovimento: reduzido, ...(p.briga ? { briga: p.briga } : {}), ...(p.gritos ? { gritos: p.gritos } : {}), ...(p.tecnicos ? { tecnicos: p.tecnicos, capitaes } : {}) });
     if (barra) barra.value = String(Math.round(t));
     o.aoMudar?.(t);
     if (t >= FIM && !acabou) {

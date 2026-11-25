@@ -16,6 +16,7 @@ import { gruposDaTemporada, seriesDaTemporada } from './series.js';
 import { escalarPartida, type PartidaEscalada } from './escalacao.js';
 import { pagarPartida } from './moedas.js';
 import { capitaoEmCampo, gritosDaPartida } from './planoDoTime.js';
+import { beiraDaPartida, type BeiraDoCampo } from './beiraDoCampo.js';
 import { batedoresDaPartida, formacoesDaPartida, partidaTemRegrasT2, posturasDaPartida, tamanhoDosElencos } from './temporada2.js';
 
 /** O que o renderer precisa para gravar o Reels (mesmo formato de PartidaParaVideo). */
@@ -37,6 +38,10 @@ export interface DadosDoVideo {
   /** Temporada 2: tamanho de cada Elenco, para a Arquibancada (ADR-0019). Nunca na T1. */
   torcida?: Record<Lado, number>;
   gritos?: Partial<Record<Lado, string>>;
+  tecnicos?: BeiraDoCampo['tecnicos'];
+  /** Marcação individual (ADR-0112) pelos lugares na Escalação, para a fala do Narrador. */
+  marcacoes?: Partial<Record<Lado, { marcador: number; alvo: number }>>;
+  capitaes?: BeiraDoCampo['capitaes'];
   /** Mata-mata (ADR-0048): o Narrador e o fim do Reels falam da Semifinal ou da Final. */
   mataMata?: MataMataDaPartida | null;
   /** Última Rodada da Fase de Liga (ADR-0053): quem já está Garantido e o que vale a Partida. */
@@ -240,6 +245,26 @@ export async function rodarPartida(banco: Banco, partidaId: number, o: OpcoesDoJ
   // Grito da Temporada (ADR-0112) na faixa da Arquibancada.
   const gritos = await gritosDaPartida(banco, p.id);
   if (Object.keys(gritos).length) dados.gritos = gritos;
+  // Beira do campo (ADRs 0111 e 0112): o Técnico e a Braçadeira do Capitão.
+  // Marcação individual (ADR-0112): só com marcador e alvo em campo, pelos lugares.
+  if (resultado.juiz !== undefined) {
+    const { marcacao } = await capitaoEmCampo(banco, p.id, p.mandante_id, p.visitante_id);
+    const marcacoes: Partial<Record<Lado, { marcador: number; alvo: number }>> = {};
+    for (const lado of ['mandante', 'visitante'] as const) {
+      const m = marcacao[lado];
+      if (!m) continue;
+      const rival = lado === 'mandante' ? 'visitante' : 'mandante';
+      const marcador = escalada.escalacoes[lado].jogadores.findIndex((j) => j.jogadorId === m.marcador);
+      const alvo = escalada.escalacoes[rival].jogadores.findIndex((j) => j.jogadorId === m.alvo);
+      if (marcador >= 0 && alvo >= 0) marcacoes[lado] = { marcador, alvo };
+    }
+    if (Object.keys(marcacoes).length) dados.marcacoes = marcacoes;
+  }
+  const beira = await beiraDaPartida(banco, p.id);
+  if (beira) {
+    dados.tecnicos = beira.tecnicos;
+    dados.capitaes = beira.capitaes;
+  }
 
   let video = p.video_url;
   let status = p.status;

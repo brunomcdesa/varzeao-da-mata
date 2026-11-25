@@ -209,6 +209,8 @@ export interface Visual {
   barba?: BarbaDaLoja;
   /** Comemoração de gol da Loja: só muda o desenho de quem marcou, na hora do gol. */
   comemoracao?: ComemoracaoDaLoja;
+  /** Braçadeira de Capitão (ADR-0112): na manga do braço da direita da tela. */
+  bracadeira?: boolean;
 }
 
 
@@ -311,8 +313,34 @@ export function comItens(grade: string[], itens: Visual['itens'], pose: Pose, de
   return g.map((l) => l.join(''));
 }
 
+/**
+ * Braçadeira (ADR-0112): o pixel da manga logo acima (braço para baixo) ou logo abaixo (braço
+ * levantado) do braço mais à direita da grade. Vale em todas as poses, sem desenho novo.
+ */
+export function comBracadeira(grade: readonly string[]): string[] {
+  const g = grade.map((l) => [...l]);
+  for (let x = LARGURA_SPRITE - 1; x >= 0; x--) {
+    for (let y = 0; y < grade.length - 1; y++) {
+      if (grade[y]![x] !== 'S' || grade[y + 1]![x] !== 'S' || noRosto(grade, x, y) || noRosto(grade, x, y + 1)) continue;
+      const alvo = y < 7 ? y + 2 : y - 1;
+      if (grade[alvo]?.[x] === 'C') {
+        g[alvo]![x] = 'Y';
+        return g.map((l) => l.join(''));
+      }
+    }
+  }
+  return [...grade];
+}
+
+/** Amarela, ou azul quando a camisa já é amarelada. */
+export function corDaBracadeira(camisa: string): string {
+  const v = parseInt(camisa.slice(1), 16);
+  const [r, g, b] = [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+  return r > 170 && g > 140 && b < 110 ? '#2F6FE0' : '#F6D02F';
+}
+
 /** Pele da cabeça (rosto e pescoço): nas 7 primeiras linhas, entre o primeiro e o último contorno. */
-function noRosto(grade: string[], x: number, y: number): boolean {
+function noRosto(grade: readonly string[], x: number, y: number): boolean {
   if (y >= 7) return false;
   const l = grade[y]!;
   return x > l.indexOf('K') && x < l.lastIndexOf('K');
@@ -485,13 +513,14 @@ export function pontosDoNumero(numero: number): { x: number; y: number }[] {
  */
 export function sprite(pose: Pose, v: Visual, espelhado = false): HTMLCanvasElement | OffscreenCanvas {
   const numero = numeroNasCostas(pose, v.numero);
-  const k = `${pose}|${v.camisa}|${v.detalhe}|${v.calcao}|${v.meiao}|${v.pele}|${v.cabelo}|${v.penteado ?? ''}|${numero ?? ''}|${espelhado ? 'E' : ''}|${v.itens ? Object.entries(v.itens).map((e) => e.join(':')).join(',') : ''}|${v.detalhesDosItens ? Object.entries(v.detalhesDosItens).map((e) => e.join(':')).join(',') : ''}|${v.corte ?? ''}|${v.barba ?? ''}`;
+  const k = `${pose}|${v.camisa}|${v.detalhe}|${v.calcao}|${v.meiao}|${v.pele}|${v.cabelo}|${v.penteado ?? ''}|${numero ?? ''}|${espelhado ? 'E' : ''}|${v.itens ? Object.entries(v.itens).map((e) => e.join(':')).join(',') : ''}|${v.detalhesDosItens ? Object.entries(v.detalhesDosItens).map((e) => e.join(':')).join(',') : ''}|${v.corte ?? ''}|${v.barba ?? ''}|${v.bracadeira ? 'Y' : ''}`;
   const pronto = cache.get(k);
   if (pronto) return pronto;
   // A joelhada é a comemoração de braços para cima, dois pixels mais baixa e de joelhos: veste
   // tudo como a comemoração e só depois desce e troca as pernas.
   const base = pose === 'JOELHADA' ? 'FRENTE_COMEMORA' : pose === 'AGACHADO' || pose === 'GRUPADO' ? 'FRENTE_PARADO' : pose;
   let grade = comItens(comBarba(comCorte(comPenteado(POSES[base], v.corte ? 'CURTO' : v.penteado, base), v.corte, base), v.barba, base), v.itens, base, v.detalhesDosItens);
+  if (v.bracadeira) grade = comBracadeira(grade);
   if (pose === 'JOELHADA') grade = ['............', '............', ...grade.slice(0, 12), '.KMMKBBKMMK.', '.KKKK..KKKK.'];
   // Agachado: a cabeça e o tronco descem dois pixels e as pernas dobram para os lados.
   if (pose === 'AGACHADO') grade = ['............', '............', ...grade.slice(0, 12), '..KMMKKMMK..', '..KKKKKKKK..'];
@@ -519,7 +548,7 @@ export function sprite(pose: Pose, v: Visual, espelhado = false): HTMLCanvasElem
   const g = c.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
   const cores: Record<string, string> = {
     K: CONTORNO, H: v.cabelo, S: v.pele, C: v.camisa, c: v.detalhe, B: v.calcao, M: v.meiao, L: v.detalhe,
-    P: v.itens?.CHUTEIRA ?? CONTORNO, W: v.itens?.MUNHEQUEIRA ?? v.pele, F: v.itens?.FAIXA ?? v.cabelo, f: v.detalhesDosItens?.FAIXA ?? v.itens?.FAIXA ?? v.cabelo, G: v.itens?.LUVA ?? v.pele,
+    P: v.itens?.CHUTEIRA ?? CONTORNO, W: v.itens?.MUNHEQUEIRA ?? v.pele, F: v.itens?.FAIXA ?? v.cabelo, f: v.detalhesDosItens?.FAIXA ?? v.itens?.FAIXA ?? v.cabelo, G: v.itens?.LUVA ?? v.pele, Y: corDaBracadeira(v.camisa),
   };
   grade.forEach((linha, y) => {
     for (let x = 0; x < linha.length; x++) {

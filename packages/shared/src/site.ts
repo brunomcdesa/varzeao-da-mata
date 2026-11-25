@@ -277,7 +277,7 @@ export interface EscalacaoPublica {
   time: TimeId;
   /** `capitao`: faixa de Capitão nesta Partida (só na T2, ADR-0020). */
   /** `numero`: número da camisa na hora da Escalação (ADR-0075); sem ele, camisa lisa. */
-  jogadores: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; numero?: number | null; itens?: ItensEquipados; ovr: number; habilidades: Habilidades; capitao?: true }[];
+  jogadores: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; numero?: number | null; itens?: ItensEquipados; ovr: number; habilidades: Habilidades; capitao?: true; fixado?: true }[];
   /** Banco (T2, ADR-0061): os reservas, nos lugares depois dos titulares (7 e 8). */
   banco?: { lugar: number; posicao: Posicao; jogadorId: string | null; username: string | null; apelido?: string | null; numero?: number | null; itens?: ItensEquipados; ovr: number; habilidades: Habilidades }[];
 }
@@ -301,6 +301,13 @@ export interface PartidaPublica {
   torcida?: Record<'mandante' | 'visitante', number>;
   /** Grito da Temporada (ADR-0112): o texto da faixa de cada lado, quando o Capitão escolheu. */
   gritos?: Partial<Record<'mandante' | 'visitante', string>>;
+  /**
+   * Técnico de cada lado na Escalação (ADR-0111), a partir da T3 (mesmo vazio): o boneco à beira
+   * do campo, o nome na cartela e as falas do Narrador.
+   */
+  tecnicos?: Partial<Record<'mandante' | 'visitante', { nome: string; apelido: string | null; itens?: ItensEquipados | null }>>;
+  /** Marcação individual de cada lado (ADR-0112): sai depois do Apito, como a Postura (ids dos Jogadores). */
+  marcacoes?: Partial<Record<'mandante' | 'visitante', { marcador: string; alvo: string }>>;
   /** Mata-mata (ADR-0048): Semifinal ou Final, Temporada e Série. No fim mostra quem foi pra Final ou o campeão. */
   mataMata?: import('./rodada.js').MataMataDaPartida;
   /** Última Rodada da Fase de Liga (ADR-0053): faixa e plaquinhas da Briga pelo Mata-mata no Ao Vivo e no Replay. */

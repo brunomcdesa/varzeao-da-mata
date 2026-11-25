@@ -75,6 +75,17 @@ export interface OpcoesNarracao {
   aoVivo?: boolean;
   /** Última Rodada da Fase de Liga (ADR-0053): quem já garantiu e o que a Partida vale. */
   briga?: BrigaPeloMataMata | null;
+  /** Técnico de cada lado (ADR-0111): o Narrador fala dele na Escalação e quando vibra no gol. */
+  tecnicos?: Partial<Record<Lado, { apelido?: string | null }>> | null;
+  /** Marcação individual (ADR-0112), pelos lugares na Escalação: dita na fala da Escalação. */
+  marcacoes?: Partial<Record<Lado, { marcador: number; alvo: number }>> | null;
+}
+
+/** "Seu Tonho, técnico da Onça" ou "o técnico da Onça" (ADR-0111). */
+export function referenciaDoTecnico(t: { apelido?: string | null }, time: TimeId, primeira: boolean): string {
+  const apelido = apelidoFalavel(t.apelido);
+  if (!apelido) return `o técnico ${doTime(time)}`;
+  return primeira ? `${apelido}, técnico ${doTime(time)}` : apelido;
 }
 
 /** Onde passa o jogo completo: o site e, a partir da Temporada 2, também o App (ADR-0052). */
@@ -169,6 +180,28 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
     segmento: 0,
     parte: 'antes',
   });
+  // Escalação (ADRs 0111 e 0112): quem está na beira do campo e a Marcação individual.
+  const tecnicoDito = new Set<Lado>();
+  const tecnicoDe = (lado: Lado) => {
+    const t = o.tecnicos?.[lado];
+    if (!t) return null;
+    const primeira = !tecnicoDito.has(lado);
+    tecnicoDito.add(lado);
+    return referenciaDoTecnico(t, time(lado), primeira);
+  };
+  {
+    const lados = (['mandante', 'visitante'] as const).filter((l) => o.tecnicos?.[l]);
+    const nomes = lados.map(tecnicoDe);
+    const beira = nomes.length === 2 ? `Na beira do campo, ${nomes[0]}, e ${nomes[1]}.` : nomes.length === 1 ? `Na beira do campo, ${nomes[0]}.` : '';
+    const marcacoes = (['mandante', 'visitante'] as const).flatMap((l) => {
+      const m = o.marcacoes?.[l];
+      if (!m) return [];
+      const rival: Lado = l === 'mandante' ? 'visitante' : 'mandante';
+      return [`${cap(referencia({ lado: l, indice: m.marcador }, true))} vai colado ${comPreposicao(referencia({ lado: rival, indice: m.alvo }, true), 'no')}.`];
+    });
+    const texto = [beira, marcacoes.length ? `Marcação individual! ${marcacoes.join(' ')}` : ''].filter(Boolean).join(' ');
+    if (texto) falas.push({ id: 'escalacao-beira', texto, inicio: 0.5, limite: segs[0]!.fim, tom: 'normal', segmento: 0, parte: 'antes', opcional: true });
+  }
   // Reels: a cartela de abertura mostra os garantidos e do que cada Time precisa (ADR-0053).
   const briga = o.briga ?? null;
   if (briga && !o.aoVivo) {
@@ -402,6 +435,11 @@ export function montarNarracao(roteiro: Roteiro, apelidos?: Record<Lado, (string
         `Que golaço no Varzeão!`,
       ]);
       falas.push({ id: `lance-${s.lance}-c`, texto: escolher(rng, extras), inicio: s.resolucao! + 1.3, limite: s.fim - 0.05, tom: 'animado', segmento: indice, parte: 'depois' });
+      // O Técnico vibra na beira do campo (ADR-0111): às vezes o Narrador mostra.
+      if (o.tecnicos?.[atq] && !(briga && !o.aoVivo) && rng.chance(0.5)) {
+        const t = tecnicoDe(atq)!;
+        falas.push({ id: `tecnico-gol-${s.lance}`, texto: escolher(rng, [`E na beira do campo, ${t} vibra!`, `Olha ${t} pulando na beira do campo!`, `${cap(t)} comemora na área técnica!`]), inicio: s.resolucao! + 2.6, limite: s.fim - 0.05, tom: 'animado', segmento: indice, parte: 'depois', opcional: true });
+      }
       // Reels, última Rodada: o gol mudou a situação de quem ainda briga (as plaquinhas mudam junto).
       if (briga && !o.aoVivo) {
         const antes = tl.placarEm(tl.janelas[s.lance!]!.resolucao - 1);

@@ -10,6 +10,7 @@ export { RoteiroRebalanceamentoT2, desenharQuadroRebalanceamentoT2, narracaoDoRe
 export { visualDoJogador, FONTE_DISPLAY, FONTE_TEXTO } from './desenho.js';
 export { escudo, estrelasDoEscudo, definirEstrelas, filaDeEstrelas, larguraDasEstrelas, LARGURA_ESCUDO, ALTURA_ESCUDO, ALTURA_DAS_ESTRELAS } from './escudos.js';
 export { sprite, definirAparencias, definirItens, itensDe, vestir, quadroDaComemoracao, aparencia, LARGURA_SPRITE, ALTURA_SPRITE, type Pose, type Visual } from './sprites.js';
+export { spriteDoTecnico, type GestoDoTecnico, type TecnicoNoJogo } from './tecnico.js';
 export { COR } from './pixel.js';
 export * from './penaltis.js';
 export { NARRADORES, narradorDa, type Narrador } from './narradores.js';

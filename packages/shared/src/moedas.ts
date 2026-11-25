@@ -130,6 +130,8 @@ export interface LojaDoJogador {
   equipados: ItensEquipados;
   goleiro: boolean;
   fase: 1 | 2;
+  /** Técnico (ADR-0111): a Loja mostra só os Itens do boneco do Técnico. */
+  tecnico?: true;
 }
 
 export interface Carteira {

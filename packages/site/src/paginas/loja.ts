@@ -4,7 +4,7 @@
  * Itens à mostra num boneco de exemplo e o convite para vincular.
  */
 import { ITEM_POR_CODIGO, temMoedas, type Carteira, type ItensEquipados, type JogadorPublico } from '@liga/shared';
-import { ALTURA_SPRITE, LARGURA_SPRITE, quadroDaComemoracao, sprite, vestir, visualDoJogador, type Pose } from '@liga/renderer';
+import { ALTURA_SPRITE, LARGURA_SPRITE, quadroDaComemoracao, sprite, spriteDoTecnico, vestir, visualDoJogador, type GestoDoTecnico, type Pose } from '@liga/renderer';
 import { atualizarCarteiraDoTopo } from '../carteiraDoTopo.js';
 import { jogadores, liga } from '../dados.js';
 import { temporadaDoApp } from '../instalacao.js';
@@ -15,6 +15,8 @@ import { html } from '../ui.js';
 import type { Pagina } from './tipos.js';
 
 const POSES: Pose[] = ['FRENTE_PARADO', 'LADO_CORRE_A', 'COSTAS_PARADO', 'FRENTE_COMEMORA'];
+/** O boneco do Técnico (ADR-0111) passa pelos gestos à beira do campo. */
+const GESTOS: GestoDoTecnico[] = ['PARADO', 'VIBRA', 'MAOS_NA_CABECA', 'RECLAMA'];
 
 /** Boneco de exemplo para quem abre sem Vínculo (uniforme de um Time, sem Itens). */
 const EXEMPLO = { time: 'CAP', posicao: 'ATA', username: 'varzeaodamata' } as const;
@@ -27,13 +29,17 @@ export const paginaLoja: Pagina = async (main) => {
   }
   const [carteira, lista] = await Promise.all([carteiraDoVinculo(), jogadores().catch(() => [] as JogadorPublico[])]);
   const eu = carteira ? lista.find((j) => j.id === carteira.jogadorId) ?? null : null;
+  // Técnico (ADR-0111): o Time dele vem dos dados da Liga.
+  const timeDoTecnico = carteira?.loja?.tecnico ? l.times?.find((t) => t.tecnico?.id === carteira.jogadorId) ?? null : null;
+  const tecnico = timeDoTecnico ? { time: timeDoTecnico.id, nome: `@${timeDoTecnico.tecnico!.username}`, apelido: timeDoTecnico.tecnico!.apelido ?? null } : null;
   let estado: EstadoDaLoja = estadoDe(carteira, eu);
   let selecionado: string | null = null;
   let quadro = 0;
   let timer = 0;
 
   // O boneco do dono (ou o de exemplo), sem Itens: a base da prévia e dos ícones.
-  const baseDoBoneco = () => (eu ? visualDoJogador(eu.time, eu.posicao, `@${eu.username}`) : visualDoJogador(EXEMPLO.time, EXEMPLO.posicao, EXEMPLO.username));
+  const baseDoBoneco = () =>
+    eu ? visualDoJogador(eu.time, eu.posicao, `@${eu.username}`) : tecnico ? visualDoJogador(tecnico.time, 'ATA', tecnico.nome) : visualDoJogador(EXEMPLO.time, EXEMPLO.posicao, EXEMPLO.username);
   const desenhar = () => {
     const canvas = main.querySelector<HTMLCanvasElement>('.previa-boneco');
     if (!canvas) return;
@@ -42,6 +48,11 @@ export const paginaLoja: Pagina = async (main) => {
     c.clearRect(0, 0, canvas.width, canvas.height);
     const item = selecionado ? ITEM_POR_CODIGO.get(selecionado) : null;
     const equipados: ItensEquipados = item ? { ...estado.equipados, [item.encaixe]: item.codigo } : estado.equipados;
+    if (tecnico) {
+      const gesto = GESTOS[Math.floor(quadro / 10) % GESTOS.length]!;
+      c.drawImage(spriteDoTecnico(gesto, tecnico.time, tecnico.nome, equipados) as CanvasImageSource, 0, 0, canvas.width, canvas.height);
+      return;
+    }
     const base = baseDoBoneco();
     const v = { ...base, ...(eu?.numero ? { numero: eu.numero } : {}), ...vestir(equipados, estado.goleiro) };
     // Com uma comemoração selecionada, o boneco faz ela em loop (1 s, e uma pausa).
@@ -65,7 +76,7 @@ export const paginaLoja: Pagina = async (main) => {
 
   const render = (aviso?: { texto: string; ok: boolean }) => {
     main.innerHTML = html`<section class="loja-pagina">
-      <header class="loja-letreiro"><h1>Loja</h1>${eu ? html`<p>Vestiário de ${eu.apelido ?? `@${eu.username}`}</p>` : ''}</header>
+      <header class="loja-letreiro"><h1>Loja</h1>${eu ? html`<p>Vestiário de ${eu.apelido ?? `@${eu.username}`}</p>` : tecnico ? html`<p>Vestiário do Técnico ${tecnico.apelido ?? tecnico.nome}</p>` : ''}</header>
       ${carteira ? '' : html`<p class="loja-aviso">${vinculoDisponivel() ? html`Para comprar, vincule o seu personagem na página do seu Jogador (em <a href="#/jogadores">Jogadores</a>). As Moedas vêm do Salário e dos prêmios.` : 'A compra abre aqui em breve.'}</p>`}
       ${corpoDaLoja(estado, selecionado)}
     </section>`.s;
@@ -131,5 +142,6 @@ function estadoDe(c: Carteira | null, eu: JogadorPublico | null): EstadoDaLoja {
     equipados: c?.loja?.equipados ?? {},
     goleiro: c?.loja?.goleiro ?? eu?.posicao === 'GOL',
     fase: c?.loja?.fase ?? 1,
+    ...(c?.loja?.tecnico ? { tecnico: true } : {}),
   };
 }

@@ -42,7 +42,17 @@ function linhaDoTempo(r: ResultadoPartida, timeline: Timeline): Html {
   </section>`;
 }
 
-function escalacao(e: EscalacaoPublica, lado: Lado, r: ResultadoPartida | null, camisas: Map<string, number>): Html {
+/** Técnico e Marcação individual da cartela (ADRs 0111 e 0112). */
+interface ExtrasDaCartela {
+  tecnico?: { nome: string; apelido: string | null } | undefined;
+  marcacao?: { marcador: string; alvo: string } | undefined;
+  rival?: EscalacaoPublica;
+}
+
+function escalacao(e: EscalacaoPublica, lado: Lado, r: ResultadoPartida | null, camisas: Map<string, number>, x: ExtrasDaCartela = {}): Html {
+  const nomeDe = (j: { username: string | null; apelido?: string | null } | undefined) => (j ? j.apelido || (j.username ? `@${j.username}` : 'Base') : '?');
+  const marcador = x.marcacao ? e.jogadores.find((j) => j.jogadorId === x.marcacao!.marcador) : undefined;
+  const alvo = x.marcacao && x.rival ? x.rival.jogadores.find((j) => j.jogadorId === x.marcacao!.alvo) : undefined;
   // Substituição (ADR-0061): no lugar de quem saiu há dois desempenhos; o do titular não é o ENTROU.
   const desempenho = (lugar: number): Desempenho | undefined => r?.desempenhos.find((d) => d.slot.lado === lado && d.slot.indice === lugar && d.substituicao !== 'ENTROU');
   const doReserva = (jogadorId: string | null): Desempenho | undefined => (jogadorId ? r?.desempenhos.find((d) => d.slot.lado === lado && d.jogadorId === jogadorId && d.substituicao === 'ENTROU') : undefined);
@@ -63,6 +73,8 @@ function escalacao(e: EscalacaoPublica, lado: Lado, r: ResultadoPartida | null, 
   };
   return html`<section class="escalacao placa" aria-labelledby="esc-${lado}">
     <h3 id="esc-${lado}">${escudoImg(e.time, 1.5)} ${curto(e.time)}</h3>
+    ${x.tecnico ? html`<p class="tecnico-da-escalacao"><span>Técnico</span> <strong>${x.tecnico.apelido ?? `@${x.tecnico.nome}`}</strong></p>` : ''}
+    ${marcador && alvo ? html`<p class="marcacao-da-escalacao"><span>Marcação</span> ${NOME_DA_POSICAO[marcador.posicao].toLowerCase()} ${nomeDe(marcador)} em cima do ${NOME_DA_POSICAO[alvo.posicao].toLowerCase()} ${nomeDe(alvo)}</p>` : ''}
     <ol>${[...e.jogadores]
       .sort((a, b) => a.lugar - b.lugar)
       .map((j) => {
@@ -71,7 +83,7 @@ function escalacao(e: EscalacaoPublica, lado: Lado, r: ResultadoPartida | null, 
         return html`<li>
           ${bonecoImg(e.time, j.posicao, j.username, 2)}
           <span class="pos" title="${NOME_DA_POSICAO[j.posicao]}">${j.posicao}</span>
-          <span class="quem">${comFaixa(comCamisa(jogadorLink(j.jogadorId, j.username, j.apelido), j.jogadorId ? camisas.get(j.jogadorId) : null), j.capitao)}${d?.substituicao === 'SAIU' ? html`<small class="troca"><span class="desce">▼</span> saiu no intervalo</small>` : ''}</span>
+          <span class="quem">${comFaixa(comCamisa(jogadorLink(j.jogadorId, j.username, j.apelido), j.jogadorId ? camisas.get(j.jogadorId) : null), j.capitao)}${j.fixado ? html`<small class="fixado-tag" title="Titular fixado pelo Técnico">fixo</small>` : ''}${d?.substituicao === 'SAIU' ? html`<small class="troca"><span class="desce">▼</span> saiu no intervalo</small>` : ''}</span>
           ${d && (d.gols || d.assistencias) ? html`<span class="feitos">${'●'.repeat(d.gols)}${d.assistencias ? html`<small>+${d.assistencias} assist.</small>` : ''}</span>` : html`<span class="feitos"></span>`}
           <span class="ovr" title="OVR antes do jogo">${j.ovr}${d && delta ? html`<small class="${delta > 0 ? 'sobe' : 'desce'}">${delta > 0 ? '▲' : '▼'}${Math.abs(delta)}</small>` : ''}</span>
           ${d ? html`<span class="nota-chip" title="Nota da Partida">${nota(d.nota)}</span>` : ''}
@@ -247,7 +259,7 @@ export const paginaPartida: Pagina = async (main, [idTexto]) => {
               p.escalacoes.mandante.jogadores.map((j) => ({ posicao: j.posicao, time: p.mandante, username: j.username, apelido: j.apelido ?? null, ovr: j.ovr, ...(j.jogadorId ? { href: `#/jogador/${j.jogadorId}` } : {}) })),
               p.escalacoes.visitante.jogadores.map((j) => ({ posicao: j.posicao, time: p.visitante, username: j.username, apelido: j.apelido ?? null, ovr: j.ovr, ...(j.jogadorId ? { href: `#/jogador/${j.jogadorId}` } : {}) })),
             )}
-            <div class="escalacoes">${escalacao(p.escalacoes.mandante, 'mandante', mostrarFinal ? r : null, camisas)}${escalacao(p.escalacoes.visitante, 'visitante', mostrarFinal ? r : null, camisas)}</div>
+            <div class="escalacoes">${escalacao(p.escalacoes.mandante, 'mandante', mostrarFinal ? r : null, camisas, { tecnico: p.tecnicos?.mandante, marcacao: p.marcacoes?.mandante, rival: p.escalacoes.visitante })}${escalacao(p.escalacoes.visitante, 'visitante', mostrarFinal ? r : null, camisas, { tecnico: p.tecnicos?.visitante, marcacao: p.marcacoes?.visitante, rival: p.escalacoes.mandante })}</div>
             ${p.juiz ? html`<p class="juiz-da-partida juiz-${p.juiz.toLowerCase()}">Juiz: <strong>${NOME_DO_PERFIL_DO_JUIZ[p.juiz]}</strong> <small>${p.juiz === 'RIGOROSO' ? 'marca mais faltas e dá mais cartões' : p.juiz === 'DEIXA_JOGAR' ? 'deixa o jogo correr: menos faltas e cartões' : 'arbitragem normal'}</small></p>` : ''}
             ${mostrarFinal ? html`<p class="legenda">● gol · ▲▼ OVR depois do jogo · Nota de 0 a 10, comparada ao que se espera do OVR.</p>` : html`<p class="legenda">OVR antes do jogo. Vaga sem inscrito é completada pela Base (OVR 55).</p>`}`
         : html`<section class="placa vazio"><p>A escalação sai no Corte, ${CORTE_MIN} minutos antes do apito: quem tem menos jogos entra primeiro.</p></section>`}` },

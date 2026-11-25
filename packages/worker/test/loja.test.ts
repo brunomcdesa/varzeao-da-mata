@@ -104,3 +104,43 @@ describe('Limite por Posição com A e B de 8 (T3, ADR-0080)', () => {
     expect(Number(naCap)).toBe(4);
   });
 });
+
+describe('Loja do Técnico e beira do campo (ADR-0111)', () => {
+  it('só o Técnico compra os Itens do boneco dele; o Técnico não compra Item de Jogador', async () => {
+    const { aprovarTecnico } = await import('../src/tecnico.js');
+    const t = await criarTemporada(banco, { numero: 3, primeiraRodada: '2026-11-30', seed: 4, series });
+    const dia = (await banco.query<{ d: string }>(`SELECT to_char(data, 'YYYY-MM-DD') AS d FROM rodada WHERE temporada_id = $1 AND fase = 'LIGA' AND numero = 4`, [t])).rows[0]!.d;
+    const quando = new Date(`${dia}T15:00:00Z`);
+    const tec = await aprovarTecnico(banco, { username: 'seu.tonho', time: 'CAP', agora: new Date('2026-11-28T12:00:00Z'), naJanela: true });
+    const jog = await inscrever('CAP', 'ATA', 'jogadorx');
+    await dar(tec.jogadorId, 200);
+    await dar(jog, 200);
+    const comprar = (id: string, codigo: string, q = quando) => aplicarEscolha(banco, id, { tipo: 'COMPRA', valor: codigo }, q, async () => new Set());
+    expect((await comprar(tec.jogadorId, 'BONE_DO_TIME', agora)).mensagem).toBe('Esse Item não está na Loja.');
+    expect((await comprar(tec.jogadorId, 'BONE_DO_TIME')).ok).toBe(true);
+    expect((await comprar(tec.jogadorId, 'ROUPA_TERNO')).ok).toBe(true);
+    expect(await saldo(banco, tec.jogadorId, quando)).toBe(80);
+    expect((await comprar(tec.jogadorId, 'CHUTEIRA_AZUL')).mensagem).toBe('Esse Item é do boneco do Jogador.');
+    expect((await comprar(jog, 'BONE_DO_TIME')).mensagem).toBe('Esse Item é do boneco do Técnico.');
+    const c = await carteiraDoJogador(banco, tec.jogadorId, quando);
+    expect(c.loja).toMatchObject({ tecnico: true, goleiro: false, equipados: { BONE: 'BONE_DO_TIME', ROUPA: 'ROUPA_TERNO' } });
+  });
+
+  it('a Escalação congela o Técnico a partir da Rodada 4; antes, a beira não aparece', async () => {
+    const { aprovarTecnico } = await import('../src/tecnico.js');
+    const { beiraDaPartida } = await import('../src/beiraDoCampo.js');
+    const t = await criarTemporada(banco, { numero: 3, primeiraRodada: '2026-11-30', seed: 4, series });
+    await aprovarTecnico(banco, { username: 'seu.tonho', time: 'CAP', agora: new Date('2026-11-28T12:00:00Z'), naJanela: true });
+    const partidaDa = async (numero: number) =>
+      (await banco.query<{ id: number; mandante_id: TimeId }>(`SELECT p.id, p.mandante_id FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND r.fase = 'LIGA' AND r.numero = $2 AND 'CAP' IN (p.mandante_id, p.visitante_id) LIMIT 1`, [t, numero])).rows[0]!;
+    const cedo = await partidaDa(1);
+    await escalarPartida(banco, cedo.id);
+    expect(await beiraDaPartida(banco, cedo.id)).toBeNull();
+    const r4 = await partidaDa(4);
+    await escalarPartida(banco, r4.id);
+    const beira = (await beiraDaPartida(banco, r4.id))!;
+    const lado = r4.mandante_id === 'CAP' ? 'mandante' : 'visitante';
+    expect(beira.tecnicos[lado]).toMatchObject({ nome: 'seu.tonho' });
+    expect(beira.tecnicos[lado === 'mandante' ? 'visitante' : 'mandante']).toBeUndefined();
+  });
+});

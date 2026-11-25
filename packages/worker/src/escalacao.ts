@@ -29,6 +29,7 @@ import { FORMACAO, OVR_BASE, habilidadesDe } from './regras.js';
 import { comSeloT1 } from './recompensaT1.js';
 import { capitaoEmCampo, confirmados, formacoesDaPartida, suspensos } from './temporada2.js';
 import { planosDaPartida } from './planoDoTime.js';
+import { congelarTecnicos } from './beiraDoCampo.js';
 
 /** O Corte mora no shared: o site usa o mesmo número na escalação provável. */
 export { CORTE_MINUTOS } from '@liga/shared';
@@ -437,6 +438,8 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
         if (c) await b.query(`UPDATE escalacao SET capitao = true WHERE partida_id = $1 AND time_id = $2 AND jogador_id = $3`, [partidaId, time, c]);
       }
     }
+    // Técnico à beira do campo (ADR-0111): fica congelado na Escalação, com os Itens dele.
+    if (temRegrasT3(p.numero)) await congelarTecnicos(b, partidaId, [p.mandante_id, p.visitante_id], new Date(p.apito_inicial));
     await b.query(`UPDATE partida SET status = 'ESCALADA' WHERE id = $1`, [partidaId]);
     const doBanco = (m: EscalacaoMontada) => (m.nomesDoBanco ?? []).map((nome, k) => ({ nome, apelido: m.apelidosDoBanco?.[k] ?? null, numero: m.numerosDoBanco?.[k] ?? null, itens: m.itensDoBanco?.[k] ?? null }));
     return {

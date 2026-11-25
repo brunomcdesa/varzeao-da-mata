@@ -333,6 +333,10 @@ _Avoid_: hino, música
 A faixa de Capitão no braço do boneco em campo (ADR-0112).
 _Avoid_: faixa, tarja
 
+**Área técnica**:
+O pedaço da beira do campo, logo abaixo da faixa do Time na Arquibancada, com o Banco de madeira e o boneco do Técnico. Aparece a partir da Rodada 4 da Liga da T3; sem Técnico, fica vazia (ADR-0111).
+_Avoid_: banco de reservas, casinha
+
 **Postura**:
 A atitude do Time numa Partida (Ofensiva, Equilibrada ou Defensiva), escolhida em segredo pelo Capitão até o Corte. Sem escolha, é Equilibrada.
 _Avoid_: tática, estratégia, esquema
