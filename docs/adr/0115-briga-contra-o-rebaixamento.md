@@ -1,6 +1,6 @@
 # Briga contra o Rebaixamento na última Rodada
 
-Status: proposto em 25/11/2026 (aguardando aprovação do dono). Complementa o ADR-0053.
+Status: decidido em 25/11/2026. Com dúvida dupla (pode classificar e pode cair), o Mata-mata tem prioridade e a plaquinha segue o placar do momento. Complementa o ADR-0053.
 
 Na última Rodada, as plaquinhas embaixo do placar só falavam do Mata-mata: quem já estava fora
 ficava "Já eliminado" ou "Assim: fora", mesmo brigando para não cair. Na T2 caem 4 de cada Grupo
