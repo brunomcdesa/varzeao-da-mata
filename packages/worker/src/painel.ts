@@ -7,7 +7,7 @@
 import type { Formacao, Posicao, Postura, TimeId } from '@liga/shared';
 import type { Banco } from './banco.js';
 import { LIMITE_POR_POSICAO } from './coletar.js';
-import { planosDaPartida } from './planoDoTime.js';
+import { fixadosNoJogoAnterior, planosDaPartida } from './planoDoTime.js';
 import { cargoDe, quemDecide, tecnicoDoTime, vezNaFila } from './tecnico.js';
 import { capitaoDaPartida, proximaPartidaDoTime } from './temporada2.js';
 
@@ -30,6 +30,8 @@ export interface PainelDoTime {
     postura: Postura;
     formacao: Formacao;
     fixados: string[];
+    /** Fixados no jogo anterior: neste jogo, só pela Presença. */
+    descanso: string[];
     escanteio: string[];
     /** Só para o próprio Time (segredo para o rival). */
     marcacao: { marcador: string; alvo: string } | null;
@@ -104,6 +106,8 @@ export async function painelDoTime(b: Banco, pessoaId: string, agora: Date, comV
       postura: pl?.postura ?? 'EQUILIBRADA',
       formacao: pl?.formacao ?? '2-2-2',
       fixados: pl?.fixados ?? [],
+      // Uma vez a cada 2 jogos (ADR-0111): quem foi fixado no jogo anterior não pode ser fixado agora.
+      descanso: [...(await fixadosNoJogoAnterior(b, time, p.id))],
       escanteio: pl?.escanteio ?? [],
       marcacao: pl?.marcacao ?? null,
       sugestao: tec ? sug : null,

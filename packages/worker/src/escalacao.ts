@@ -28,7 +28,7 @@ import type { Banco } from './banco.js';
 import { FORMACAO, OVR_BASE, habilidadesDe } from './regras.js';
 import { comSeloT1 } from './recompensaT1.js';
 import { capitaoEmCampo, confirmados, formacoesDaPartida, suspensos } from './temporada2.js';
-import { planosDaPartida } from './planoDoTime.js';
+import { fixadosNoJogoAnterior, planosDaPartida } from './planoDoTime.js';
 import { congelarTecnicos } from './beiraDoCampo.js';
 
 /** O Corte mora no shared: o site usa o mesmo número na escalação provável. */
@@ -381,6 +381,15 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
     const formacoes = temRegrasT2(p.numero) ? await formacoesDaPartida(b, partidaId, p.mandante_id, p.visitante_id) : null;
     // T3 (ADR-0111): titulares fixados pelo Técnico (ou pelo Capitão).
     const planos = temRegrasT3(p.numero) ? await planosDaPartida(b, partidaId) : null;
+    // Uma vez a cada 2 jogos (ADR-0111): quem foi fixado no jogo anterior entra pelo rodízio.
+    if (planos) {
+      for (const time of [p.mandante_id, p.visitante_id]) {
+        const pl = planos.get(time);
+        if (!pl?.fixados.length) continue;
+        const descanso = await fixadosNoJogoAnterior(b, time, partidaId);
+        pl.fixados = pl.fixados.filter((id) => !descanso.has(id));
+      }
+    }
     const regras = async (time: TimeId, formacao: Formacao | undefined): Promise<RegrasDaEscalacao | undefined> =>
       temRegrasT2(p.numero)
         ? {

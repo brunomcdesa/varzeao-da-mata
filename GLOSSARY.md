@@ -294,7 +294,7 @@ Deixar de jogar para virar Técnico. O Jogador sai do Elenco quando o dono aprov
 _Avoid_: aposentar, parar
 
 **Titular fixado**:
-Um dos até 3 Jogadores que o Técnico (ou o Capitão, sem Técnico) garante no próximo jogo, mesmo sem Presença; as outras vagas seguem o rodízio (ADR-0111).
+Um dos até 3 Jogadores que o Técnico (ou o Capitão, sem Técnico) garante no próximo jogo, mesmo sem Presença; as outras vagas seguem o rodízio. O mesmo Jogador só pode ser fixado uma vez a cada 2 jogos do Time (ADR-0111).
 _Avoid_: titular absoluto, intocável
 
 **Sugestão do Capitão**:

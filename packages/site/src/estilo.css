@@ -5267,3 +5267,7 @@ body.com-folha .abas-app {
 .escalacao .tecnico-da-escalacao span,
 .escalacao .marcacao-da-escalacao span { display: inline-block; padding: 1px 6px; margin-right: 4px; background: var(--tabua-escura, #6b4a2b); color: #fff8e6; font-size: 0.85em; }
 .escalacao .fixado-tag { justify-self: start; align-self: flex-start; width: auto; max-width: max-content; display: inline-block; margin-left: 6px; padding: 0 5px; border: 2px solid #20140b; background: #f6c400; color: #20140b; font-size: 0.75em; font-weight: 700; vertical-align: middle; }
+
+/* Fixado no jogo anterior (ADR-0111): não dá para fixar de novo neste jogo. */
+.opcao-t2.descansa { opacity: 0.55; cursor: not-allowed; }
+.opcao-t2.descansa small { font-style: italic; }

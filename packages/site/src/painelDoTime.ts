@@ -32,6 +32,8 @@ export interface PainelDoTime {
     postura: Postura;
     formacao: Formacao;
     fixados: string[];
+    /** Fixados no jogo anterior (ADR-0111): neste jogo, só pela Presença. */
+    descanso?: string[];
     escanteio: string[];
     marcacao: { marcador: string; alvo: string } | null;
     sugestao: { postura?: Postura; formacao?: Formacao; fixados?: string[] } | null;
@@ -127,9 +129,12 @@ function formulariosDoPlano(p: PainelDoTime, sugere: boolean): Html {
       <p><button type="submit" class="botao">${eu} a Postura</button></p>${estado()}
     </form>
     <form class="escolha-t2" data-tipo="FIXADOS">
-      <p><strong>Titulares fixados</strong>: até 3 que entram mesmo sem Presença.${sugere ? ' O Capitão não sugere a si mesmo.' : ''}</p>
+      <p><strong>Titulares fixados</strong>: até 3 que entram mesmo sem Presença. Quem foi fixado no jogo anterior descansa neste: joga só pela Presença.${sugere ? ' O Capitão não sugere a si mesmo.' : ''}</p>
       <fieldset class="opcoes-t2">${ORDEM.flatMap((pos) =>
-        p.elenco.filter((x) => x.posicao === pos).map((x) => html`<label class="opcao-t2"><input type="checkbox" name="valor" value="${x.id}" ${fixados.has(x.id) ? 'checked' : ''} /><span><strong>${x.nome}</strong><small>${NOME_DA_POSICAO[pos]} · OVR ${x.ovr}</small></span></label>`),
+        p.elenco.filter((x) => x.posicao === pos).map((x) => {
+          const descansa = pl.descanso?.includes(x.id) ?? false;
+          return html`<label class="opcao-t2${descansa ? ' descansa' : ''}"><input type="checkbox" name="valor" value="${x.id}" ${fixados.has(x.id) && !descansa ? 'checked' : ''} ${descansa ? 'disabled' : ''} /><span><strong>${x.nome}</strong><small>${NOME_DA_POSICAO[pos]} · OVR ${x.ovr}${descansa ? ' · fixado no jogo anterior' : ''}</small></span></label>`;
+        }),
       )}</fieldset>
       <p><button type="submit" class="botao">${eu} os titulares</button></p>${estado()}
     </form>
