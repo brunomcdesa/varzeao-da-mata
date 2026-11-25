@@ -138,8 +138,17 @@ export interface TemporadaNaHistoria {
   final: { partidaId: number; mandante: TimeId; visitante: TimeId; placar: { mandante: number; visitante: number; penaltis?: { mandante: number; visitante: number } } } | null;
   craque: JogadorResumido | null;
   artilheiro: (JogadorResumido & { gols: number }) | null;
+  /** Mais assistências na Temporada (ADR-0113; desempate do artilheiro). Opcional para o liga.json antigo. */
+  assistente?: (JogadorResumido & { assistencias: number }) | null;
   /** Maior nota média entre os goleiros com pelo menos 3 jogos (desempate: menos gols sofridos por jogo). */
   goleiro: (JogadorResumido & { notaMedia: number; jogos: number; defesas: number; golsSofridos: number }) | null;
+  /**
+   * Melhor zagueiro e melhor meia (ADR-0113): maior nota média na Posição com pelo menos 3 jogos, a mesma
+   * regra do Carrapato e do Garçom da Seleção da Temporada (ADR-0041). Com duas Séries, os da A.
+   * `desarmes` soma desarmes e bloqueios (o número do Carrapato). Opcionais para o liga.json antigo.
+   */
+  zagueiro?: (JogadorResumido & { notaMedia: number; jogos: number; desarmes: number }) | null;
+  meia?: (JogadorResumido & { notaMedia: number; jogos: number; assistencias: number }) | null;
   /** Tabela da Fase de Liga (parcial enquanto a Temporada corre). Com duas Séries, a da A. */
   tabela: LinhaTabelaPublica[];
   /** Copa (ADR-0088): campeão, vice e Final. */

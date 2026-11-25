@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Estatisticas, JogadorPublico, LigaPublica, PartidaNoCalendario } from '@liga/shared';
-import { artilharia, assistencias, ataqueEDefesa, encerradas, goleiros, maiorGoleada, panorama } from '../src/temporada.js';
+import { artilharia, assistencias, ataqueEDefesa, desarmes, encerradas, goleiros, maiorGoleada, panorama } from '../src/temporada.js';
 
 const est = (e: Partial<Estatisticas>): Estatisticas => ({ jogos: 0, gols: 0, assistencias: 0, desarmes: 0, defesas: 0, golsSofridos: 0, dribles: 0, bloqueios: 0, notaMedia: null, melhorNota: null, vitorias: 0, empates: 0, derrotas: 0, ...e });
 const jog = (id: string, posicao: JogadorPublico['posicao'], e: Partial<Estatisticas>) => ({ id, username: `j${id}`, time: 'CAP', posicao, nestaTemporada: est(e) }) as unknown as JogadorPublico;
@@ -20,6 +20,15 @@ describe('Líderes da Temporada', () => {
   it('assistências: quem não deu nenhuma fica de fora', () => {
     const js = [jog('1', 'MEI', { assistencias: 2, jogos: 3 }), jog('2', 'ATA', { assistencias: 0, jogos: 3 })];
     expect(assistencias(js).map((l) => [l.jogador.id, l.valor])).toEqual([['1', 2]]);
+  });
+  it('desarmes (ADR-0113): desarmes + bloqueios, de qualquer Posição; empate vai para quem tem menos jogos', () => {
+    const js = [
+      jog('1', 'ZAG', { desarmes: 5, bloqueios: 2, jogos: 4 }),
+      jog('2', 'ZAG', { desarmes: 6, bloqueios: 1, jogos: 3 }),
+      jog('3', 'MEI', { desarmes: 3, jogos: 4 }),
+      jog('4', 'ATA', { desarmes: 0, bloqueios: 0, jogos: 4 }),
+    ];
+    expect(desarmes(js).map((l) => [l.jogador.id, l.valor])).toEqual([['2', 7], ['1', 7], ['3', 3]]);
   });
   it('goleiros: só GOL com pelo menos 3 jogos; menos gols sofridos por jogo, empate vai para a maior nota', () => {
     const js = [

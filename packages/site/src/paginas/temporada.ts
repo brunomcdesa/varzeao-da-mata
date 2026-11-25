@@ -1,7 +1,7 @@
-/** Temporada: o panorama da Temporada atual — líder, últimos jogos, artilharia, assistências, goleiros e números dos Times. */
+/** Temporada: o panorama da Temporada atual — líder, últimos jogos, artilharia, assistências, desarmes, goleiros e números dos Times. */
 import { IDENTIDADE, nomeDaRodada, type LigaPublica, type Serie } from '@liga/shared';
 import { formaDosTimes, jogadores, liga, rodadaAtual, serieDaPartida, serieDoTime, seriesDaLiga, tabelaDaSerie, temSeries } from '../dados.js';
-import { aproveitamento, artilharia, assistencias, ataqueEDefesa, encerradas, goleiros, maiorGoleada, panorama, MIN_JOGOS_GOLEIRO, type Lider } from '../temporada.js';
+import { aproveitamento, artilharia, assistencias, ataqueEDefesa, desarmes, encerradas, goleiros, maiorGoleada, panorama, MIN_JOGOS_GOLEIRO, type Lider } from '../temporada.js';
 import { bonecoImg, curto, escudoImg, formaHtml, html, nota, type Html } from '../ui.js';
 import { linhaDePartida } from './comum.js';
 import type { Pagina } from './tipos.js';
@@ -140,6 +140,15 @@ export const paginaTemporada: Pagina = async (main) => {
     <div class="temporada-grade">
       ${ranking('Artilharia', 'titulo-artilharia', artilharia(js), (x) => html`${x.valor}<small>${x.valor === 1 ? 'gol' : 'gols'}</small>`, l, 'Ninguém marcou ainda.')}
       ${ranking('Assistências', 'titulo-assistencias', assistencias(js), (x) => html`${x.valor}<small>${x.valor === 1 ? 'assist.' : 'assists.'}</small>`, l, 'Nenhuma assistência ainda.')}
+      ${ranking(
+        'Desarmes',
+        'titulo-desarmes',
+        desarmes(js),
+        (x) => html`${x.valor}<small>${x.valor === 1 ? 'desarme' : 'desarmes'}</small>`,
+        l,
+        'Nenhum desarme ainda.',
+        'Bolas roubadas + chutes bloqueados.',
+      )}
       ${ranking(
         'Goleiros',
         'titulo-goleiros',

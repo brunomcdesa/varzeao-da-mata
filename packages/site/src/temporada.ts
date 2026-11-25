@@ -35,6 +35,18 @@ export function assistencias(js: JogadorPublico[], n = 5): Lider[] {
     .map((j) => ({ jogador: j, valor: j.nestaTemporada.assistencias, jogos: j.nestaTemporada.jogos }));
 }
 
+/** Desarmes da Temporada (ADR-0113): desarmes + bloqueios, o mesmo número do Carrapato (ADR-0041). */
+export const desarmesDe = (j: JogadorPublico): number => j.nestaTemporada.desarmes + j.nestaTemporada.bloqueios;
+
+/** Líderes em desarmes (desarmes + bloqueios) na Temporada, de qualquer Posição. */
+export function desarmes(js: JogadorPublico[], n = 5): Lider[] {
+  return js
+    .filter((j) => desarmesDe(j) > 0)
+    .sort((a, b) => desarmesDe(b) - desarmesDe(a) || desempate(a, b))
+    .slice(0, n)
+    .map((j) => ({ jogador: j, valor: desarmesDe(j), jogos: j.nestaTemporada.jogos }));
+}
+
 /**
  * Goleiros: menos gols sofridos por jogo, com pelo menos 3 jogos; desempate: maior nota média,
  * depois mais jogos, depois quem se inscreveu antes. `valor` é a média de gols sofridos por jogo.

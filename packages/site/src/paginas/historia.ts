@@ -1,4 +1,4 @@
-/** História da Liga: cada Temporada com campeão, vice, Final, Craque e artilheiro, e a galeria de títulos. */
+/** História da Liga: cada Temporada com campeão, vice, Final, Craque, artilheiro, assistências, melhor goleiro, zagueiro e meia, e a galeria de títulos. */
 import { IDENTIDADE, TIMES, type TemporadaNaHistoria, type TimeId } from '@liga/shared';
 import { liga } from '../dados.js';
 import { bonecoImg, curto, escudoImg, html, nota, taca, type Html } from '../ui.js';
@@ -26,8 +26,21 @@ function linhaDaTemporada(t: TemporadaNaHistoria): Html {
   if (t.artilheiro) {
     fatos.push(html`<div><dt>Artilheiro</dt><dd><a class="fato-jogador" href="#/jogador/${t.artilheiro.jogadorId}">${bonecoImg(t.artilheiro.time, t.artilheiro.posicao, t.artilheiro.username, 1.5)} ${t.artilheiro.apelido || `@${t.artilheiro.username}`}</a><small>${t.artilheiro.gols} gols</small></dd></div>`);
   }
+  if (t.assistente) {
+    const a = t.assistente;
+    fatos.push(html`<div><dt>Mais assistências</dt><dd><a class="fato-jogador" href="#/jogador/${a.jogadorId}">${bonecoImg(a.time, a.posicao, a.username, 1.5)} ${a.apelido || `@${a.username}`}</a><small>${a.assistencias} ${a.assistencias === 1 ? 'assistência' : 'assistências'}</small></dd></div>`);
+  }
   if (t.goleiro) {
     fatos.push(html`<div><dt>Melhor goleiro</dt><dd><a class="fato-jogador" href="#/jogador/${t.goleiro.jogadorId}">${bonecoImg(t.goleiro.time, t.goleiro.posicao, t.goleiro.username, 1.5)} ${t.goleiro.apelido || `@${t.goleiro.username}`}</a><small>nota média ${nota(t.goleiro.notaMedia)} · ${t.goleiro.defesas} defesas · ${t.goleiro.golsSofridos} gols sofridos</small></dd></div>`);
+  }
+  // Melhor zagueiro e melhor meia (ADR-0113): a regra do Carrapato e do Garçom.
+  if (t.zagueiro) {
+    const z = t.zagueiro;
+    fatos.push(html`<div><dt>Melhor zagueiro</dt><dd><a class="fato-jogador" href="#/jogador/${z.jogadorId}">${bonecoImg(z.time, z.posicao, z.username, 1.5)} ${z.apelido || `@${z.username}`}</a><small>nota média ${nota(z.notaMedia)} · ${z.desarmes} ${z.desarmes === 1 ? 'desarme' : 'desarmes'}</small></dd></div>`);
+  }
+  if (t.meia) {
+    const m = t.meia;
+    fatos.push(html`<div><dt>Melhor meia</dt><dd><a class="fato-jogador" href="#/jogador/${m.jogadorId}">${bonecoImg(m.time, m.posicao, m.username, 1.5)} ${m.apelido || `@${m.username}`}</a><small>nota média ${nota(m.notaMedia)} · ${m.assistencias} ${m.assistencias === 1 ? 'assistência' : 'assistências'}</small></dd></div>`);
   }
   // Série B (ADR-0017): campeão, Final e Craque da B.
   const b = t.serieB;

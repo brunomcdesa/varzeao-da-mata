@@ -121,3 +121,33 @@ describe('Time da época na História (ADR-0077)', () => {
     expect(artilheiro.time).not.toBe('JAC');
   });
 });
+
+describe('Melhor zagueiro e melhor meia na História (ADR-0113)', () => {
+  it('meia de maior nota média com 3+ jogos; sem zagueiro inscrito (só a Base), fica vazio', async () => {
+    const vazio = await exportar(new Date(partidas.at(-1)!.apito.getTime() + DURACAO_AO_VIVO_MS + minuto));
+    // Com 1 Rodada ninguém tem 3 jogos.
+    expect(vazio.liga.temporadas.find((t) => t.numero === 1)!.meia).toBeNull();
+    let ultimo = partidas.at(-1)!.apito;
+    for (const numero of [2, 3]) {
+      const r = (await banco.query<{ id: number }>(`SELECT id FROM rodada WHERE numero = $1`, [numero])).rows[0]!.id;
+      const ps = (await banco.query<{ id: number; apito_inicial: string | Date }>(`SELECT id, apito_inicial FROM partida WHERE rodada_id = $1 ORDER BY apito_inicial`, [r])).rows;
+      for (const p of ps) {
+        await rodarPartida(banco, p.id, { seed: p.id * 7 });
+        ultimo = new Date(p.apito_inicial);
+      }
+    }
+    const { liga, jogadores } = await exportar(new Date(ultimo.getTime() + DURACAO_AO_VIVO_MS + minuto));
+    const t1 = liga.temporadas.find((t) => t.numero === 1)!;
+    expect(t1.zagueiro).toBeNull();
+    const meia = t1.meia!;
+    expect(meia.posicao).toBe('MEI');
+    expect(meia.jogos).toBeGreaterThanOrEqual(3);
+    const media = (j: JogadorPublico) => j.historico.reduce((s, h) => s + h.nota, 0) / j.historico.length;
+    const meias = jogadores.filter((j) => j.posicao === 'MEI' && j.historico.length >= 3);
+    const melhor = Math.max(...meias.map(media));
+    expect(meia.notaMedia).toBeCloseTo(melhor, 2);
+    expect(meia.assistencias).toBe(jogadores.find((j) => j.id === meia.jogadorId)!.assistencias);
+    // Mais assistências: o maior número da Temporada.
+    expect(t1.assistente!.assistencias).toBe(Math.max(...jogadores.map((j) => j.assistencias)));
+  });
+});

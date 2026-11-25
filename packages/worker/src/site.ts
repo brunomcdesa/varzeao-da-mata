@@ -542,18 +542,22 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     const b = comSeries(t.id) ? desfecho('B') : null;
     const craqueB = b ? craqueDa('B', t.craque_b_jogador_id) : null;
     // Artilheiro: mais gols na Temporada (desempate: menos jogos, depois quem se inscreveu antes).
-    const gols = new Map<string, { gols: number; jogos: number }>();
+    const gols = new Map<string, { gols: number; assistencias: number; jogos: number }>();
     for (const p of ps.filter(encerrada)) {
       for (const d of p.resultado!.desempenhos) {
         if (!d.jogadorId) continue;
-        const g = gols.get(d.jogadorId) ?? { gols: 0, jogos: 0 };
+        const g = gols.get(d.jogadorId) ?? { gols: 0, assistencias: 0, jogos: 0 };
         g.gols += d.gols;
+        g.assistencias += d.assistencias;
         g.jogos++;
         gols.set(d.jogadorId, g);
       }
     }
     const [topo] = [...gols.entries()].filter(([, g]) => g.gols > 0).sort((a, b) => b[1].gols - a[1].gols || a[1].jogos - b[1].jogos || Number(a[0]) - Number(b[0]));
     const artilheiro = topo && resumidoNa(topo[0]) ? { ...resumidoNa(topo[0])!, gols: topo[1].gols } : null;
+    // Mais assistências (ADR-0113): o mesmo desempate do artilheiro.
+    const [topoAssist] = [...gols.entries()].filter(([, g]) => g.assistencias > 0).sort((a, b) => b[1].assistencias - a[1].assistencias || a[1].jogos - b[1].jogos || Number(a[0]) - Number(b[0]));
+    const assistente = topoAssist && resumidoNa(topoAssist[0]) ? { ...resumidoNa(topoAssist[0])!, assistencias: topoAssist[1].assistencias } : null;
     // Melhor goleiro: maior nota média com pelo menos 3 jogos no gol.
     const goleiros = new Map<string, { notas: number[]; defesas: number; sofridos: number }>();
     for (const p of ps.filter(encerrada)) {
@@ -574,6 +578,18 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       melhorGoleiro && resumidoNa(melhorGoleiro[0])
         ? { ...resumidoNa(melhorGoleiro[0])!, notaMedia: Math.round(mediaDe(melhorGoleiro[1].notas) * 100) / 100, jogos: melhorGoleiro[1].notas.length, defesas: melhorGoleiro[1].defesas, golsSofridos: melhorGoleiro[1].sofridos }
         : null;
+    // Melhor zagueiro e melhor meia (ADR-0113): a regra do Carrapato e do Garçom (ADR-0041), em todas as
+    // Temporadas e já durante a Temporada (como o goleiro). Com duas Séries, os da A.
+    const porPosicao = destaquesDaTemporada(desempenhosDasPartidas(ps.filter((p) => p.resultado && encerrada(p)).map((p) => ({ resultado: p.resultado!, serie: p.serie })), comSeries(t.id)));
+    const daPosicao = (posicao: 'ZAG' | 'MEI') => {
+      const d = porPosicao.find((x) => x.posicao === posicao && (x.serie ?? 'A') === 'A');
+      const r = d ? resumidoNa(d.jogadorId) : null;
+      return d && r ? { r: { ...r, posicao }, d } : null;
+    };
+    const zag = daPosicao('ZAG');
+    const mei = daPosicao('MEI');
+    const zagueiro = zag ? { ...zag.r, notaMedia: zag.d.nota, jogos: zag.d.jogos, desarmes: zag.d.numero.valor } : null;
+    const meia = mei ? { ...mei.r, notaMedia: mei.d.nota, jogos: mei.d.jogos, assistencias: mei.d.numero.valor } : null;
     historia.push({
       numero: t.numero,
       status: t.status,
@@ -583,7 +599,10 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       final: final && rf ? { partidaId: final.id, mandante: final.mandante_id, visitante: final.visitante_id, placar: placarDe(rf) } : null,
       craque,
       artilheiro,
+      assistente,
       goleiro,
+      zagueiro,
+      meia,
       tabela: tabelaDa(ps, t.id, 'A'),
       ...(finalDaCopa
         ? {
