@@ -33,3 +33,9 @@ ativas na Liga.
   do dono da troca por atividade.
 - Com Técnico, o Capitão também precisa mexer no que é dele (Batedores, escanteio, Marcação,
   Grito, Chamada ou Sugestão) para manter a faixa.
+
+## Divulgação (25/11/2026)
+
+- A regra entra no Reels de Novidades da T3, Parte 5 (Capitão e Batedores, domingo 29/11 às 18h):
+  cartela "Capitão parado?" com fala da Rita, e uma linha na legenda. A mesma cartela lembra que o
+  Técnico parado 3 jogos perde o cargo (ADR-0111).

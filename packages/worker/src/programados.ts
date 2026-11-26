@@ -11,7 +11,7 @@ import { DIAS_DA_COPA, MOEDAS, MOEDAS_DO_NIVEL, PRECO_DO_ITEM, FALA_DO_TIME, PIS
 import type { Banco } from './banco.js';
 import { gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
 import type { Instagram } from './instagram.js';
-import type { DadosDoAgradecimentoT1, DadosDoPerfilDoTime, DadosDoRebalanceamentoT2 } from '@liga/renderer';
+import type { DadosDoAgradecimentoT1, DadosDoAgradecimentoT2, DadosDoPerfilDoTime, DadosDoRebalanceamentoT2 } from '@liga/renderer';
 import { TIME_PRIMO } from './rebalanceamento.js';
 import { seriesDaTemporada } from './series.js';
 import { PARAMETROS_T2 } from '@liga/sim';
@@ -42,6 +42,8 @@ const ESTREIA_PREVISTA: Record<string, { temporada: number; estreia: string }> =
   'rebalanceamento-t2': { temporada: 2, estreia: '2026-11-19' },
   'perfil-do-time': { temporada: 2, estreia: '2026-11-19' },
   'mudanca-de-endereco': { temporada: 2, estreia: '2026-11-19' },
+  // Fim da T2 (ADR-0117): a "estreia" é a da T3, o 1º dia da Copa, que o Reels chama.
+  'agradecimento-t2': { temporada: 3, estreia: '2026-11-30' },
   // T3 (ADR-0088): a estreia é o 1º dia da Copa (a Final da T2 é sexta 27/11; a T3 começa 3 dias depois).
   'abertura-t3': { temporada: 3, estreia: '2026-11-30' },
   'novidades-t3-campo': { temporada: 3, estreia: '2026-11-30' },
@@ -55,6 +57,7 @@ const ESTREIA_PREVISTA: Record<string, { temporada: number; estreia: string }> =
 /** Legenda de cada Programado. */
 async function legendaDe(banco: Banco, p: ReelsProgramado, temporada: number, estreia: string): Promise<string> {
   if (p.id === 'agradecimento-t1') return legendaDoAgradecimentoT1(await dadosDoAgradecimentoT1(banco, { publicarEm: p.publicarEm }));
+  if (p.id === 'agradecimento-t2') return legendaDoAgradecimentoT2(await dadosDoAgradecimentoT2(banco, { publicarEm: p.publicarEm, copaEm: estreia }));
   if (p.id.startsWith('novidades-t3-')) return legendaDasNovidadesT3(p.id, estreia, p.publicarEm);
   if (p.id.startsWith('novidades-')) return legendaDasNovidades(p.id, estreia, p.publicarEm);
   if (p.id === 'abertura-t3') {
@@ -249,6 +252,8 @@ export function legendaDasNovidadesT3(id: string, estreia: string, publicarEm: s
       'O Capitão escolhe a ordem dos 5 primeiros batedores da disputa de pênaltis, junto com a Formação e a Postura, até o Corte.',
       'Quem não está em campo é pulado; depois dos 5, segue a ordem automática.',
       'E agora dá para escolher tudo também na página do Time. Os companheiros com Vínculo veem o plano; os rivais, não.',
+      '',
+      '⏳ Capitão que passa 3 jogos do Time sem escolher nada perde a faixa para o próximo da lista que está ativo. Só confirmar a Presença não conta. Com o Técnico é igual: 3 jogos parado e ele perde o cargo.',
     ],
   };
   const linhas = corpo[id];
@@ -373,6 +378,67 @@ export function legendaDoAgradecimentoT1(d?: Pick<DadosDoAgradecimentoT1, 'abert
     `📈 Ninguém da T1 começa a T2 com OVR abaixo de ${PISO_DA_TEMPORADA_1}.`,
     `⚡ Nas ${RODADAS_DO_BONUS_T1} primeiras Rodadas da T2, suas Habilidades sobem ${bonus}% mais rápido (e soma com a Resenha).`,
     d?.aberturaAs !== undefined ? `👀 Hoje, às ${d.aberturaAs}h, sai a Abertura da Temporada 2. Ativa as notificações!` : '👀 A Temporada 2 vem aí, com muita novidade. Ativa as notificações!',
+    '',
+    '#varzeaodamata #futebol #varzea',
+  ].join('\n');
+}
+
+/** O mesmo dia (Brasília), com `depois` mais tarde que `antes`: devolve a hora de `depois`. */
+function horaNoMesmoDiaDepois(antes: number, depois: number): number | undefined {
+  const local = (ms: number) => new Date(ms - 3 * 3600_000);
+  if (!Number.isFinite(antes) || !Number.isFinite(depois) || depois <= antes) return undefined;
+  return local(depois).toISOString().slice(0, 10) === local(antes).toISOString().slice(0, 10) ? local(depois).getUTCHours() : undefined;
+}
+
+/**
+ * Números do Reels de Fim da Temporada 2 (ADR-0117): Jogadores que entraram em campo (o critério do
+ * Bônus de largada, ADR-0087), Partidas jogadas e gols (sem os pênaltis da disputa). Com jogo da T2
+ * ainda sem resultado, não grava: o job tenta de novo na próxima chamada.
+ */
+export async function numerosDaTemporada2(banco: Banco): Promise<{ jogadores: number; jogos: number; gols: number }> {
+  const j = (
+    await banco.query<{ jogos: number; gols: number; pendentes: number }>(
+      `SELECT count(*) FILTER (WHERE p.gols_mandante IS NOT NULL AND p.gols_visitante IS NOT NULL)::int AS jogos,
+              coalesce(sum(p.gols_mandante + p.gols_visitante), 0)::int AS gols,
+              count(*) FILTER (WHERE p.gols_mandante IS NULL OR p.gols_visitante IS NULL)::int AS pendentes
+         FROM partida p JOIN rodada r ON r.id = p.rodada_id JOIN temporada t ON t.id = r.temporada_id
+        WHERE t.numero = 2`,
+    )
+  ).rows[0]!;
+  if (!j.jogos) throw new Error('A Temporada 2 ainda não tem jogos.');
+  if (j.pendentes) throw new Error(`A Temporada 2 ainda tem ${j.pendentes} jogo(s) sem resultado: o Reels de Fim da T2 espera.`);
+  const jogadores = (
+    await banco.query<{ n: number }>(
+      `SELECT count(DISTINCT e.jogador_id)::int AS n FROM escalacao e JOIN partida p ON p.id = e.partida_id JOIN rodada r ON r.id = p.rodada_id
+         JOIN temporada t ON t.id = r.temporada_id JOIN jogador_todos j ON j.id = e.jogador_id
+        WHERE t.numero = 2 AND e.jogador_id IS NOT NULL AND e.nota IS NOT NULL AND NOT j.banido`,
+    )
+  ).rows[0]!.n;
+  return { jogadores, jogos: j.jogos, gols: j.gols };
+}
+
+/** Dados do Reels de Fim da Temporada 2 (ADR-0117), lidos na hora de gravar. */
+export async function dadosDoAgradecimentoT2(banco: Banco, o: { publicarEm?: string; copaEm?: string } = {}): Promise<DadosDoAgradecimentoT2> {
+  const numeros = await numerosDaTemporada2(banco);
+  const nosso = Date.parse(o.publicarEm ?? REELS_PROGRAMADOS.find((p) => p.id === 'agradecimento-t2')?.publicarEm ?? '');
+  const aberturaAs = horaNoMesmoDiaDepois(nosso, Date.parse(REELS_PROGRAMADOS.find((p) => p.id === 'abertura-t3')?.publicarEm ?? ''));
+  return { ...numeros, ...(aberturaAs !== undefined ? { aberturaAs } : {}), ...(o.copaEm ? { copaEm: o.copaEm } : {}) };
+}
+
+/** Legenda do Reels de Fim da Temporada 2 (ADR-0117). */
+export function legendaDoAgradecimentoT2(d: DadosDoAgradecimentoT2): string {
+  const bonus = MOEDAS.BONUS_POR_TEMPORADA;
+  let copa = '';
+  if (d.copaEm) {
+    const [a, m, dia] = d.copaEm.split('-').map(Number) as [number, number, number];
+    copa = ` E a Copa começa ${DIAS[new Date(Date.UTC(a, m - 1, dia, 12)).getUTCDay()]!}, ${String(dia).padStart(2, '0')}/${String(m).padStart(2, '0')}!`;
+  }
+  return [
+    '🏆 Fim da Temporada 2! Obrigado a cada um que comentou, confirmou Presença, escolheu a Formação e torceu pelo seu Time.',
+    '',
+    `📊 ${d.jogadores} Jogadores em campo, ${d.jogos} jogos e ${d.gols} gols, tudo nos comentários de vocês.`,
+    `🪙 Presente: na Temporada 3 chegam as Moedas, e quem jogou já começa com ${bonus} Moedas por Temporada jogada (jogou a T1 e a T2: ${2 * bonus}). Já estão na sua sacola, no site e no App, para gastar na Loja do boneco.`,
+    d.aberturaAs !== undefined ? `👀 Hoje, às ${d.aberturaAs}h, sai a Abertura da Temporada 3.${copa} Ativa as notificações!` : `👀 A Temporada 3 vem aí.${copa} Ativa as notificações!`,
     '',
     '#varzeaodamata #futebol #varzea',
   ].join('\n');

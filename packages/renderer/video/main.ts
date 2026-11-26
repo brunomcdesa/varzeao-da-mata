@@ -35,6 +35,7 @@ import { RoteiroAnuncio, desenharQuadroAnuncio, type TelaDoSite } from '../src/a
 import { RoteiroExplicacao, desenharQuadroExplicacao, type DadosDaExplicacao } from '../src/explicacaoEscalacao.js';
 import { RoteiroExplicacaoOvr, desenharQuadroExplicacaoOvr, type DadosDaExplicacaoOvr } from '../src/explicacaoOvr.js';
 import { RoteiroAgradecimentoT1, desenharQuadroAgradecimentoT1, type DadosDoAgradecimentoT1 } from '../src/agradecimentoT1.js';
+import { RoteiroAgradecimentoT2, desenharQuadroAgradecimentoT2, type DadosDoAgradecimentoT2 } from '../src/agradecimentoT2.js';
 import { RoteiroRebalanceamentoT2, desenharQuadroRebalanceamentoT2, type DadosDoRebalanceamentoT2 } from '../src/rebalanceamentoT2.js';
 import { RoteiroPerfilDoTime, desenharQuadroPerfilDoTime, type DadosDoPerfilDoTime } from '../src/perfilDoTime.js';
 import { RoteiroMudancaDeEndereco, desenharQuadroMudancaDeEndereco } from '../src/mudancaDeEndereco.js';
@@ -66,6 +67,7 @@ let explicacao: RoteiroExplicacao | null = null;
 /** Quando preenchido, a página grava o Reels que explica o OVR. */
 let explicacaoOvr: RoteiroExplicacaoOvr | null = null;
 let agradecimento: RoteiroAgradecimentoT1 | null = null;
+let agradecimentoT2: RoteiroAgradecimentoT2 | null = null;
 let rebalanceamento: RoteiroRebalanceamentoT2 | null = null;
 /** Quando preenchido, a página grava o Reels do Perfil do Time (ADR-0100). */
 let perfilDoTime: RoteiroPerfilDoTime | null = null;
@@ -100,6 +102,7 @@ async function prepararAnuncio(minimos: Record<number, { antes?: number }> = {},
   explicacao = null;
   explicacaoOvr = null;
   agradecimento = null;
+  agradecimentoT2 = null;
   rebalanceamento = null;
   perfilDoTime = null;
   mudancaDeEndereco = null;
@@ -133,6 +136,7 @@ async function preparar(dados: PartidaParaVideo, quadrosPorSegundo = 30): Promis
   explicacao = null;
   explicacaoOvr = null;
   agradecimento = null;
+  agradecimentoT2 = null;
   rebalanceamento = null;
   perfilDoTime = null;
   mudancaDeEndereco = null;
@@ -173,6 +177,7 @@ async function prepararResumo(
   explicacao = null;
   explicacaoOvr = null;
   agradecimento = null;
+  agradecimentoT2 = null;
   rebalanceamento = null;
   perfilDoTime = null;
   mudancaDeEndereco = null;
@@ -196,6 +201,7 @@ async function prepararApresentacao(
   explicacao = null;
   explicacaoOvr = null;
   agradecimento = null;
+  agradecimentoT2 = null;
   rebalanceamento = null;
   perfilDoTime = null;
   mudancaDeEndereco = null;
@@ -218,6 +224,7 @@ async function prepararAberturaDaTemporada(
   explicacaoOvr = null;
   apresentacao = null;
   agradecimento = null;
+  agradecimentoT2 = null;
   rebalanceamento = null;
   perfilDoTime = null;
   mudancaDeEndereco = null;
@@ -241,6 +248,7 @@ async function prepararExplicacao(
   anuncio = null;
   explicacaoOvr = null;
   agradecimento = null;
+  agradecimentoT2 = null;
   rebalanceamento = null;
   perfilDoTime = null;
   mudancaDeEndereco = null;
@@ -262,6 +270,7 @@ async function prepararExplicacaoOvr(
   anuncio = null;
   explicacao = null;
   agradecimento = null;
+  agradecimentoT2 = null;
   rebalanceamento = null;
   perfilDoTime = null;
   mudancaDeEndereco = null;
@@ -287,8 +296,33 @@ async function prepararAgradecimentoT1(
   rebalanceamento = null;
   perfilDoTime = null;
   mudancaDeEndereco = null;
+  agradecimentoT2 = null;
   agradecimento = new RoteiroAgradecimentoT1(dados, minimos);
   return { duracao: agradecimento.duracao, totalQuadros: agradecimento.totalQuadros(fps) };
+}
+
+/** Reels de Fim da Temporada 2 (ADR-0117). */
+async function prepararAgradecimentoT2(
+  dados: DadosDoAgradecimentoT2,
+  minimos: Record<number, { antes?: number }> = {},
+  quadrosPorSegundo = 30,
+): Promise<{ duracao: number; totalQuadros: number }> {
+  await Promise.all([fontesProntas, escudoPronto]);
+  fps = quadrosPorSegundo;
+  novidades = null;
+  roteiro = null;
+  resumo = null;
+  apresentacao = null;
+  anuncio = null;
+  explicacao = null;
+  explicacaoOvr = null;
+  abertura = null;
+  agradecimento = null;
+  rebalanceamento = null;
+  perfilDoTime = null;
+  mudancaDeEndereco = null;
+  agradecimentoT2 = new RoteiroAgradecimentoT2(dados, minimos);
+  return { duracao: agradecimentoT2.duracao, totalQuadros: agradecimentoT2.totalQuadros(fps) };
 }
 
 async function prepararRebalanceamentoT2(
@@ -307,6 +341,7 @@ async function prepararRebalanceamentoT2(
   explicacaoOvr = null;
   abertura = null;
   agradecimento = null;
+  agradecimentoT2 = null;
   perfilDoTime = null;
   mudancaDeEndereco = null;
   rebalanceamento = new RoteiroRebalanceamentoT2(dados, minimos);
@@ -329,6 +364,7 @@ async function prepararNovidades(
   explicacaoOvr = null;
   abertura = null;
   agradecimento = null;
+  agradecimentoT2 = null;
   rebalanceamento = null;
   perfilDoTime = null;
   mudancaDeEndereco = null;
@@ -352,6 +388,7 @@ async function prepararPerfilDoTime(
   explicacaoOvr = null;
   abertura = null;
   agradecimento = null;
+  agradecimentoT2 = null;
   rebalanceamento = null;
   mudancaDeEndereco = null;
   perfilDoTime = new RoteiroPerfilDoTime(dados, minimos);
@@ -370,6 +407,7 @@ async function prepararMudancaDeEndereco(minimos: Record<number, { antes?: numbe
   explicacaoOvr = null;
   abertura = null;
   agradecimento = null;
+  agradecimentoT2 = null;
   rebalanceamento = null;
   perfilDoTime = null;
   mudancaDeEndereco = new RoteiroMudancaDeEndereco(minimos);
@@ -381,6 +419,7 @@ function desenhar(n: number): void {
   if (perfilDoTime) return desenharQuadroPerfilDoTime(ctx, perfilDoTime, n / fps, { escudo });
   if (novidades) return desenharQuadroNovidades(ctx, novidades, n / fps, { escudo, emojis });
   if (agradecimento) return desenharQuadroAgradecimentoT1(ctx, agradecimento, n / fps, { escudo });
+  if (agradecimentoT2) return desenharQuadroAgradecimentoT2(ctx, agradecimentoT2, n / fps, { escudo });
   if (rebalanceamento) return desenharQuadroRebalanceamentoT2(ctx, rebalanceamento, n / fps, { escudo });
   if (explicacaoOvr) return desenharQuadroExplicacaoOvr(ctx, explicacaoOvr, n / fps, { escudo });
   if (explicacao) return desenharQuadroExplicacao(ctx, explicacao, n / fps, { escudo });
@@ -414,6 +453,7 @@ function segmentos(): { tipo: string; inicio: number; fim: number; resolucao?: n
   if (perfilDoTime) return perfilDoTime.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
   if (novidades) return novidades.segmentos.map((s) => ({ tipo: s.cena.id, inicio: s.inicio, fim: s.fim }));
   if (agradecimento) return agradecimento.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
+  if (agradecimentoT2) return agradecimentoT2.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
   if (rebalanceamento) return rebalanceamento.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
   if (explicacaoOvr) return explicacaoOvr.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
   if (explicacao) return explicacao.segmentos.map((s) => ({ tipo: s.cartela, inicio: s.inicio, fim: s.fim }));
@@ -452,5 +492,5 @@ async function storyDoDestaque(story: Story, campeao?: CampeaoNoDestaque): Promi
   return canvas.toDataURL('image/jpeg', 0.95).slice('data:image/jpeg;base64,'.length);
 }
 
-const api: VarzeaApi = { preparar, prepararResumo, prepararApresentacao, prepararAberturaDaTemporada, prepararAnuncio, prepararExplicacao, prepararExplicacaoOvr, prepararAgradecimentoT1, prepararRebalanceamentoT2, prepararNovidades, prepararPerfilDoTime, prepararMudancaDeEndereco, desenhar, capturar, capa, segmentos, escudoPng, capaDoDestaque, storyDoDestaque, times: () => [...TIMES] };
+const api: VarzeaApi = { preparar, prepararResumo, prepararApresentacao, prepararAberturaDaTemporada, prepararAnuncio, prepararExplicacao, prepararExplicacaoOvr, prepararAgradecimentoT1, prepararAgradecimentoT2, prepararRebalanceamentoT2, prepararNovidades, prepararPerfilDoTime, prepararMudancaDeEndereco, desenhar, capturar, capa, segmentos, escudoPng, capaDoDestaque, storyDoDestaque, times: () => [...TIMES] };
 window.varzea = api;

@@ -326,6 +326,12 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
           ['O Capitão escolhe ali', 'Formação, Postura e Batedores,\ntambém na página do Time.'],
           ['O Time vê o plano', 'Quem tem Vínculo com o Time\nvê. Os rivais, não.'],
         ], 'E o capitão pode escolher tudo também na página do time: formação, postura e batedores. Os companheiros com vínculo veem o plano. Os rivais não veem nada.', 'Escolhe até o Corte', 8),
+        // Capitão ativo (ADR-0114) e o Técnico que fica parado (ADR-0111).
+        lista('capitao-parado', 'Capitão parado?', [
+          ['3 jogos sem escolher', 'Nenhuma escolha de Capitão em\n3 jogos do Time: a faixa passa.'],
+          ['Quem recebe', 'O próximo da lista com Vínculo\nque está ativo no Time.'],
+          ['Só a Presença?', 'Não segura a faixa: precisa\nfazer alguma escolha de Capitão.'],
+        ], 'E atenção, capitão: passou três jogos do time sem escolher nada, a faixa vai pro próximo da lista que está ativo. Só confirmar a presença não segura a faixa. E com o técnico é igual: três jogos parado, ele perde o cargo.', 'Técnico parado 3 jogos também sai', 10),
         c('chamada', 5, `A temporada três começa ${estreia}, com a Copa! Entra no site e confere tudo. Link na bio!`, { cartela: 'CHAMADA' }, 'animado'),
       ];
       break;

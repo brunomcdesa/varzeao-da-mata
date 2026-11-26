@@ -34,6 +34,9 @@ export const REELS_PROGRAMADOS: readonly ReelsProgramado[] = [
   // Mudança de Endereço (ADR-0104): o site e o App foram para varzeaodamata.com.br. Segunda 23/11,
   // 22h10 de Brasília, logo depois de aprovado (o dono pediu para postar já; gravação disparada à mão).
   { id: 'mudanca-de-endereco', ref: 2015, publicarEm: '2026-11-24T01:10:00Z' },
+  // Fim da Temporada 2 (ADR-0117): sábado 28/11, 20h de Brasília, entre o Resumo da Temporada 2
+  // (19h) e a Abertura da T3 (21h). O Bônus de largada já está pago: a T3 nasce na sexta à noite.
+  { id: 'agradecimento-t2', ref: 2017, publicarEm: '2026-11-28T23:00:00Z' },
   // Abertura da Temporada 3, com a Copa (ADRs 0088 e 0092): sábado 28/11, 21h de Brasília, depois
   // do Resumo da Temporada 2 (19h). A T3 nasce na sexta à noite, quando sai o Craque da Temporada.
   { id: 'abertura-t3', ref: 2009, publicarEm: '2026-11-29T00:00:00Z' },

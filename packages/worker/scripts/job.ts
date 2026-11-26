@@ -11,7 +11,7 @@
  */
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AgendaNaMemoria, dadosDoAgradecimentoT1, dadosDoRebalanceamentoT2, dadosDoPerfilDoTime, estrelasNoBanco, Instagram, PastaLocal, conectar, jobBoasVindas, jobColetar, jobEscalar, postsDeInscricao, jobPartida, jobProgramados, jobResumo, nuvemDoAmbiente, prepararBanco, tokenGuardado, type ContextoDoJob } from '../src/index.js';
+import { AgendaNaMemoria, dadosDoAgradecimentoT1, dadosDoAgradecimentoT2, dadosDoRebalanceamentoT2, dadosDoPerfilDoTime, estrelasNoBanco, Instagram, PastaLocal, conectar, jobBoasVindas, jobColetar, jobEscalar, postsDeInscricao, jobPartida, jobProgramados, jobResumo, nuvemDoAmbiente, prepararBanco, tokenGuardado, type ContextoDoJob } from '../src/index.js';
 import { bancoLocal } from './banco-local.js';
 import { REELS_PROGRAMADOS } from '@liga/shared';
 
@@ -96,6 +96,7 @@ try {
           await gravacao!.gravarAberturaDaTemporada(dadosDaAberturaT3({ serieA: s.A, serieB: s.B, estreia: o.estreia, estreiaDaLiga, estrelas: await estrelasNoBanco(banco) }), { saida, crf: 18 });
         }
         else if (id === 'agradecimento-t1') await gravacao!.gravarAgradecimentoT1(await dadosDoAgradecimentoT1(banco), { saida, crf: 18 });
+        else if (id === 'agradecimento-t2') await gravacao!.gravarAgradecimentoT2(await dadosDoAgradecimentoT2(banco, { copaEm: o.estreia }), { saida, crf: 18 });
         else if (id === 'rebalanceamento-t2') await gravacao!.gravarRebalanceamentoT2(await dadosDoRebalanceamentoT2(banco, o.estreia), { saida, crf: 18 });
         else if (id === 'perfil-do-time') await gravacao!.gravarPerfilDoTime(await dadosDoPerfilDoTime(banco), { saida, crf: 18 });
         else if (id === 'mudanca-de-endereco') await gravacao!.gravarMudancaDeEndereco({ saida, crf: 18 });

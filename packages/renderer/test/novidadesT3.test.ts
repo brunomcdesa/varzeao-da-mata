@@ -28,6 +28,16 @@ describe('Novidades da T3 (ADR-0092)', () => {
     expect(tudo('T3_PALPITE')).toContain('dez moedas de palpite por dia');
     expect(tudo('T3_CAPITAO')).toContain('cinco primeiros na disputa de pênaltis');
   });
+  it('a Parte 5 avisa do Capitão parado (ADR-0114) e do Técnico parado (ADR-0111)', () => {
+    const cenas = cenasDasNovidades(dados('T3_CAPITAO'));
+    const parado = cenas.find((c) => c.id === 'capitao-parado')!;
+    expect(parado.fala).toContain('três jogos do time sem escolher nada, a faixa vai pro próximo da lista que está ativo');
+    expect(parado.fala).toContain('Só confirmar a presença não segura a faixa');
+    expect(parado.fala).toContain('três jogos parado, ele perde o cargo');
+    // Antes da chamada final.
+    expect(cenas.at(-1)!.id).toBe('chamada');
+    expect(cenas.at(-2)!.id).toBe('capitao-parado');
+  });
   it('sem os trechos de jogo, as cenas de jogo saem', () => {
     expect(cenasDasNovidades(dados('T3_CAMPO')).map((c) => c.id)).toEqual(['abertura', 'juiz', 'chamada']);
   });
