@@ -162,3 +162,23 @@ describe('Supercopa (ADR-0118)', () => {
     expect(legenda).toContain('A Temporada 4 começa em 15/12, com a Copa.');
   });
 });
+
+describe('Supercopa e o Técnico que pendurou (ADR-0118 + ADR-0111)', () => {
+  it('quem pendurou na T3 só volta a jogar na Janela da T4, que abre depois da Supercopa', async () => {
+    const { aprovarTecnico } = await import('../src/tecnico.js');
+    const t3 = await criarTemporada(banco, { numero: 3, primeiraRodada: '2026-11-30', seed: 4, series });
+    await inscrever('bruninho', 'TATU', '2026-11-29T12:00:00Z');
+    await aprovarTecnico(banco, { username: 'bruninho', time: 'TAT', agora: new Date('2026-12-05T12:00:00Z'), naJanela: false });
+    const final = (await banco.query<{ id: number }>(`INSERT INTO rodada (temporada_id, numero, fase, data) VALUES ($1, $2, 'MATA_MATA', '2026-12-11') RETURNING id`, [t3, estruturaDaLiga(7).rodadaDaFinal])).rows[0]!.id;
+    await banco.query(`INSERT INTO partida (rodada_id, mandante_id, visitante_id, apito_inicial, serie) VALUES ($1, 'ONC', 'TAT', '2026-12-11T21:00:00Z', 'A')`, [final]);
+    await banco.query(`UPDATE temporada SET status = 'ENCERRADA', campeao_id = 'ONC', campeao_copa_id = 'SAG' WHERE id = $1`, [t3]);
+    await criarT4();
+    const comentar = (em: string) =>
+      processarComentario(banco, { igCommentId: `c${++n}`, igMediaId: 'm', igUserId: 'bruninho', username: 'bruninho', texto: 'ENTRO TATU ATA', comentadoEm: new Date(em) }, { rodadaEmVotacao: null });
+    // Sábado 12/12, 20h de Brasília: a T4 nasceu, mas a Janela só abre depois da Supercopa (domingo 18h).
+    expect(await comentar('2026-12-12T23:00:00Z')).toBe('TECNICO_FORA');
+    // Domingo 13/12, 19h: a Supercopa acabou, a Janela está aberta (fecha no Corte do 1º jogo da Copa, terça).
+    expect(await comentar('2026-12-13T22:00:00Z')).not.toBe('TECNICO_FORA');
+    expect((await banco.query(`SELECT 1 FROM jogador WHERE username = 'bruninho'`)).rows).toHaveLength(1);
+  });
+});

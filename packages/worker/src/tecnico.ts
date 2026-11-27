@@ -16,6 +16,7 @@ import { avisarPessoas, avisoDaTransferencia } from './avisosPessoais.js';
 import type { Banco } from './banco.js';
 import { FECHADO_ATE_A_SUPERCOPA, FECHADO_NA_COPA, LIMITE_POR_POSICAO, transferirJogador, trocasFechadasAgora, type Resultado } from './coletar.js';
 import { seriesAtivas, seriesDaTemporada } from './series.js';
+import { antesDoFimDaSupercopa } from './supercopa.js';
 import { capitaoDaPartida, ordemDoCapitao, proximaPartidaDoTime, suspensos } from './temporada2.js';
 
 /** O Técnico tem 24 horas para responder (ou até o Corte, se vier antes). */
@@ -251,12 +252,13 @@ export async function tecnicoQuerJogar(
   if (!p) return null;
   if (p.nunca_jogou) return { jogadorId: p.id, nuncaJogou: true, podeVoltar: true };
   const t = (
-    await b.query<{ numero: number; status: string; primeiro: Date | string | null }>(
-      `SELECT t.numero, t.status, (SELECT min(pa.apito_inicial) FROM partida pa JOIN rodada r ON r.id = pa.rodada_id WHERE r.temporada_id = t.id) AS primeiro
+    await b.query<{ id: number; numero: number; status: string; primeiro: Date | string | null }>(
+      // A Supercopa (ADR-0118) não é o "primeiro jogo": a Janela abre depois dela e fecha no Corte do primeiro jogo da Copa.
+      `SELECT t.id, t.numero, t.status, (SELECT min(pa.apito_inicial) FROM partida pa JOIN rodada r ON r.id = pa.rodada_id WHERE r.temporada_id = t.id AND pa.copa_etapa IS DISTINCT FROM 'SUPERCOPA') AS primeiro
          FROM temporada t WHERE t.status IN ('PRE_TEMPORADA', 'EM_ANDAMENTO') ORDER BY t.status = 'EM_ANDAMENTO' DESC, t.numero LIMIT 1`,
     )
   ).rows[0];
-  const naJanela = !!t && (t.primeiro ? agora.getTime() < new Date(t.primeiro).getTime() - CORTE_MS : t.status === 'PRE_TEMPORADA');
+  const naJanela = !!t && !(await antesDoFimDaSupercopa(b, t.id, agora)) && (t.primeiro ? agora.getTime() < new Date(t.primeiro).getTime() - CORTE_MS : t.status === 'PRE_TEMPORADA');
   const seguinte = !!t && (p.pendurou_na_temporada === null || t.numero > p.pendurou_na_temporada);
   if (naJanela && seguinte) return { jogadorId: p.id, nuncaJogou: false, podeVoltar: true };
   return {

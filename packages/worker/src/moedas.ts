@@ -9,6 +9,7 @@ import {
   MOEDAS_DO_NIVEL,
   destaquesDaRodada,
   duracaoAoVivoMs,
+  etapaDa,
   ehClassico,
   pontosDoPalpite,
   temMoedas,
@@ -120,11 +121,11 @@ export async function pagarRodada(b: Banco, rodadaId: number): Promise<void> {
     await b.query<{ id: number; numero: number; fase: 'LIGA' | 'MATA_MATA' }>(`SELECT id, numero, fase FROM rodada WHERE temporada_id = $1 AND data < $2 ORDER BY data DESC LIMIT 1`, [r.temporada_id, diaTexto(r.dia)])
   ).rows[0];
   if (anterior) {
-    // O Craque do dia da Copa (ADR-0088) é um só; no extrato, "Craque do dia da Copa".
-    const daCopa = anterior.fase === 'MATA_MATA' && anterior.numero >= 100;
+    // O Craque do dia da Copa (ADR-0088) e o da Supercopa (ADR-0118) são um só; no extrato, o nome do dia.
+    const etapa = etapaDa(anterior.fase, anterior.numero);
     for (const serie of ['A', 'B'] as const) {
       const c = await craqueDaRodada(b, anterior.id, serie);
-      if (c) await lancar(b, { jogadorId: c.id, tipo: 'CRAQUE_RODADA', referencia: `r${anterior.id}`, valor: MOEDAS.CRAQUE_RODADA, descricao: daCopa ? 'Craque do dia da Copa' : 'Craque da Rodada', visivelEm });
+      if (c) await lancar(b, { jogadorId: c.id, tipo: 'CRAQUE_RODADA', referencia: `r${anterior.id}`, valor: MOEDAS.CRAQUE_RODADA, descricao: etapa === 'COPA' ? 'Craque do dia da Copa' : etapa === 'SUPERCOPA' ? 'Craque da Supercopa' : 'Craque da Rodada', visivelEm });
     }
   }
 }
