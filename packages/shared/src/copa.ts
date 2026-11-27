@@ -107,7 +107,7 @@ export const DIAS_DA_COPA = 3;
 export const HORARIOS_DA_COPA: Record<EtapaDaCopa, readonly number[]> = {
   OITAVAS: [11, 12, 13, 14, 15, 16, 17, 18],
   QUARTAS: [11, 12, 13, 14],
-  SEMIFINAL: [16, 17],
+  SEMIFINAL: [17, 18],
   FINAL: [18],
   CLASSICO: [],
   REPESCAGEM: [],

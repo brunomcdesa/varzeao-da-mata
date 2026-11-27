@@ -86,6 +86,33 @@ describe('Técnico (ADR-0111)', () => {
 });
 
 describe('Pedido de Transferência (ADR-0111)', () => {
+  it('Pedido feito na Janela e aceito durante a Copa cai, com aviso (a troca não acontece no meio da Copa, ADR-0088)', async () => {
+    await comentar('gabi', 'ENTRO Tatu meia');
+    const tec = await aprovarTecnico(banco, { username: 'seu.tonho', time: 'ONC', agora: PRE, naJanela: true });
+    expect(await comentar('gabi', 'TRANSFERIR Onça', '2026-11-28T14:00:00Z')).toBe('PEDIDO_ENVIADO');
+    const p = (await banco.query<{ id: number }>(`SELECT id FROM pedido_transferencia WHERE status = 'ABERTO'`)).rows[0]!;
+    // Segunda 30/11, 12h de Brasília: a Copa já começou.
+    const r = await decidirPedido(banco, tec.jogadorId, p.id, true, new Date('2026-11-30T15:00:00Z'), new Set());
+    expect(r).toMatchObject({ ok: true, mensagem: 'Não deu para aceitar: o pedido caiu.' });
+    expect(r.aviso?.mensagem).toContain('a Copa começou');
+    expect(await timeDe('gabi')).toBe('TAT');
+    expect((await banco.query<{ status: string }>(`SELECT status FROM pedido_transferencia WHERE id = $1`, [p.id])).rows[0]!.status).toBe('CAIU');
+  });
+
+  it('durante a Copa, Convite e Troca casada nem nascem', async () => {
+    const tec = await aprovarTecnico(banco, { username: 'seu.tonho', time: 'ONC', agora: PRE, naJanela: true });
+    await comentar('nina', 'ENTRO Capivara meia');
+    await comentar('lia', 'ENTRO Onça meia');
+    const [nina, lia] = [await idDe('nina'), await idDe('lia')];
+    const naCopa = new Date('2026-11-30T15:00:00Z');
+    const convite = await convidar(banco, { autorId: tec.jogadorId, jogadorId: nina, agora: naCopa, comVinculo: new Set([nina]) });
+    expect(convite).toMatchObject({ ok: false });
+    expect(convite.mensagem).toContain('Copa');
+    const troca = await proporTroca(banco, { autorId: nina, jogadorA: nina, jogadorB: lia, agora: naCopa, comVinculo: new Set([nina, lia]), trocaUsada: async () => false });
+    expect(troca).toMatchObject({ ok: false });
+    expect(troca.mensagem).toContain('Copa');
+  });
+
   it('com Técnico no destino, o TRANSFERIR vira Pedido; recusado não gasta a troca', async () => {
     await comentar('gabi', 'ENTRO Tatu meia');
     const tec = await aprovarTecnico(banco, { username: 'seu.tonho', time: 'ONC', agora: PRE, naJanela: true });

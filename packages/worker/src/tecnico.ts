@@ -14,7 +14,7 @@ const NOME_DA_POSICAO: Record<Posicao, string> = { GOL: 'goleiro', ZAG: 'zagueir
 const doTimeCurto = (t: TimeId) => `d${FALA_DO_TIME[t].artigo} ${FALA_DO_TIME[t].curto}`;
 import { avisarPessoas, avisoDaTransferencia } from './avisosPessoais.js';
 import type { Banco } from './banco.js';
-import { LIMITE_POR_POSICAO, transferirJogador, type Resultado } from './coletar.js';
+import { FECHADO_NA_COPA, LIMITE_POR_POSICAO, transferirJogador, trocasFechadasPelaCopa, type Resultado } from './coletar.js';
 import { seriesAtivas, seriesDaTemporada } from './series.js';
 import { capitaoDaPartida, ordemDoCapitao, proximaPartidaDoTime, suspensos } from './temporada2.js';
 
@@ -353,17 +353,19 @@ async function avisarTransferencias(b: Banco, avisos: readonly AvisoDoPedido[]):
 
 /** Aplica um Pedido aceito: a Transferência de verdade, conferindo tudo de novo. */
 async function efetivarPedido(b: Banco, p: PedidoAberto, agora: Date, comoAceito: string): Promise<AvisoDoPedido> {
-  const r = await transferirJogador(b, p.jogador_id, { times: [p.para_time], posicao: p.posicao }, { quando: new Date(p.pedido_em), ref: p.ref, semAceite: true, origemFila: true });
+  // A Janela vale pela hora do pedido; a Copa em andamento, pela hora do aceite (ADR-0088).
+  const r = await transferirJogador(b, p.jogador_id, { times: [p.para_time], posicao: p.posicao }, { quando: new Date(p.pedido_em), efetivaEm: agora, ref: p.ref, semAceite: true, origemFila: true });
   const ok = r.resultado === 'TRANSFERIDO';
   await b.query(`UPDATE pedido_transferencia SET status = $2, decidido_em = $3, motivo = $4 WHERE id = $1`, [p.id, ok ? 'ACEITO' : 'CAIU', iso(agora), ok ? comoAceito : r.resultado]);
   return {
     jogadorId: p.jogador_id,
     ref: p.ref,
-    mensagem: ok ? `o pedido foi aceito: ${r.mensagem ?? ''}`.trim() : `o pedido para o time ${p.para_time} caiu (${motivoDaQueda(r.resultado)}). Não gastou a sua troca. ⚽`,
+    mensagem: ok ? `o pedido foi aceito: ${r.mensagem ?? ''}`.trim() : `o pedido para o time ${p.para_time} caiu (${motivoDaQueda(r.resultado, r.mensagem)}). Não gastou a sua troca. ⚽`,
   };
 }
 
-function motivoDaQueda(r: Resultado): string {
+function motivoDaQueda(r: Resultado, mensagem?: string): string {
+  if (mensagem === FECHADO_NA_COPA) return 'a Copa começou: durante a Copa ninguém troca de time, dá para pedir de novo depois da Final da Copa';
   if (r === 'DESTINO_CHEIO') return 'a vaga acabou enquanto esperava';
   if (r === 'TRANSFERENCIA_USADA') return 'você já tinha usado a troca';
   if (r === 'TRANSFERENCIA_FECHADA') return 'as transferências fecharam';
@@ -441,6 +443,7 @@ export async function convidar(
   const alvo = (await b.query<{ time_id: TimeId; posicao: Posicao; banido: boolean }>(`SELECT time_id, posicao, banido FROM jogador WHERE id = $1`, [o.jogadorId])).rows[0];
   if (!alvo || alvo.banido) return { ok: false, mensagem: 'Jogador não encontrado.' };
   if (!o.comVinculo.has(o.jogadorId)) return { ok: false, mensagem: 'Só dá para convidar quem tem Vínculo (para aceitar pelo site).' };
+  if (await trocasFechadasPelaCopa(b, o.agora)) return { ok: false, mensagem: 'Durante a Copa ninguém troca de time: os Convites voltam depois da Final da Copa.' };
   const cargo = await cargoDe(b, o.autorId);
   const time =
     cargo?.time ?? (await b.query<{ time_id: TimeId }>(`SELECT time_id FROM jogador WHERE id = $1`, [o.autorId])).rows[0]?.time_id;
@@ -504,6 +507,7 @@ export async function proporTroca(
   if (a.time_id === bb.time_id) return { ok: false, mensagem: 'Os dois já são do mesmo Time.' };
   if (a.posicao !== bb.posicao) return { ok: false, mensagem: 'A Troca casada é entre Jogadores da mesma Posição.' };
   if (!o.comVinculo.has(a.id) || !o.comVinculo.has(bb.id)) return { ok: false, mensagem: 'Os dois precisam ter Vínculo para aceitar pelo site.' };
+  if (await trocasFechadasPelaCopa(b, o.agora)) return { ok: false, mensagem: 'Durante a Copa ninguém troca de time: as Trocas casadas voltam depois da Final da Copa.' };
   const ehJogador = o.autorId === a.id || o.autorId === bb.id;
   if (!ehJogador) {
     const [da, db] = await Promise.all([quemDecide(b, a.time_id, o.agora, o.comVinculo), quemDecide(b, bb.time_id, o.agora, o.comVinculo)]);
@@ -574,30 +578,37 @@ export async function responderTroca(
   if (campos.some((c) => c.startsWith('time'))) await marcarDecisao(b, o.pessoaId, o.agora);
   const atual = (await b.query<TrocaAberta>(`${SELECT_TROCA} WHERE id = $1`, [t.id])).rows[0]!;
   if (atual.aceite_a && atual.aceite_b && atual.time_a_ok === true && atual.time_b_ok === true) {
-    const avisos = await fazerTroca(b, atual, o.agora);
+    const { feita, avisos } = await fazerTroca(b, atual, o.agora);
     await avisarTransferencias(b, avisos);
-    return { ok: true, mensagem: 'Troca casada feita.', avisos };
+    return feita ? { ok: true, mensagem: 'Troca casada feita.', avisos } : { ok: false, mensagem: avisos[0]?.mensagem ?? 'A Troca casada caiu.', avisos };
   }
   return { ok: true, mensagem: 'Resposta salva. A troca acontece quando todos aceitarem (ou no prazo, se os Times não responderem).' };
 }
 
-/** Faz a Troca casada: cada um vai para o Time do outro, gastando a troca de cada um. */
-async function fazerTroca(b: Banco, t: TrocaAberta, agora: Date): Promise<AvisoDoPedido[]> {
+/**
+ * Faz a Troca casada: cada um vai para o Time do outro, gastando a troca de cada um. Se cair
+ * (por exemplo, durante a Copa), os dois Jogadores são avisados.
+ */
+async function fazerTroca(b: Banco, t: TrocaAberta, agora: Date): Promise<{ feita: boolean; avisos: AvisoDoPedido[] }> {
   // As vagas se compensam: cada Time perde e ganha um Jogador da mesma Posição. Primeiro um
   // sai (vai temporariamente sem conferir a vaga), depois o outro entra no lugar.
   const ref = `troca:${t.id}`;
   const ra = await transferirJogador(b, t.jogador_a, { times: [t.time_b], posicao: t.posicao }, { quando: agora, ref, semAceite: true, ignorarLimite: true });
   if (ra.resultado !== 'TRANSFERIDO') {
     await b.query(`UPDATE troca_casada SET status = 'CAIU', decidida_em = $2 WHERE id = $1`, [t.id, iso(agora)]);
-    return [];
+    const mensagem = `a Troca casada caiu (${motivoDaQueda(ra.resultado, ra.mensagem)}). Não gastou a sua troca. ⚽`;
+    return { feita: false, avisos: [t.jogador_a, t.jogador_b].map((jogadorId) => ({ jogadorId, ref, mensagem })) };
   }
   const rb = await transferirJogador(b, t.jogador_b, { times: [t.time_a], posicao: t.posicao }, { quando: agora, ref, semAceite: true, ignorarLimite: true });
   if (rb.resultado !== 'TRANSFERIDO') throw new Error(`Troca casada ${t.id}: a segunda metade não passou (${rb.resultado}).`);
   await b.query(`UPDATE troca_casada SET status = 'FEITA', decidida_em = $2 WHERE id = $1`, [t.id, iso(agora)]);
-  return [
-    { jogadorId: t.jogador_a, ref, mensagem: `Troca casada feita: ${ra.mensagem ?? ''}`.trim() },
-    { jogadorId: t.jogador_b, ref, mensagem: `Troca casada feita: ${rb.mensagem ?? ''}`.trim() },
-  ];
+  return {
+    feita: true,
+    avisos: [
+      { jogadorId: t.jogador_a, ref, mensagem: `Troca casada feita: ${ra.mensagem ?? ''}`.trim() },
+      { jogadorId: t.jogador_b, ref, mensagem: `Troca casada feita: ${rb.mensagem ?? ''}`.trim() },
+    ],
+  };
 }
 
 /** Prazo da Troca casada: os dois Jogadores de acordo e os Times sem recusar, ela acontece. */
@@ -605,7 +616,7 @@ async function resolverTrocasVencidas(b: Banco, agora: Date): Promise<AvisoDoPed
   const vencidas = (await b.query<TrocaAberta>(`${SELECT_TROCA} WHERE status = 'ABERTA' AND expira_em <= $1 ORDER BY id`, [iso(agora)])).rows;
   const avisos: AvisoDoPedido[] = [];
   for (const t of vencidas) {
-    if (t.aceite_a && t.aceite_b && t.time_a_ok !== false && t.time_b_ok !== false) avisos.push(...(await fazerTroca(b, t, agora)));
+    if (t.aceite_a && t.aceite_b && t.time_a_ok !== false && t.time_b_ok !== false) avisos.push(...(await fazerTroca(b, t, agora)).avisos);
     else await b.query(`UPDATE troca_casada SET status = 'EXPIRADA', decidida_em = $2 WHERE id = $1`, [t.id, iso(agora)]);
   }
   return avisos;

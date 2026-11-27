@@ -351,6 +351,17 @@ export interface PartidaEscalada {
  * isto é, quem se inscreveu até o Corte desse jogo. Quem entra depois fica no Elenco e estreia
  * na próxima Temporada. Sem jogo na Fase de Liga, null (vale só o Corte da Partida).
  */
+/** Até quando a inscrição vale para a Copa (ADR-0088): o fechamento da Janela, no Corte do primeiro jogo dela. */
+export async function fimDaInscricaoNaCopa(b: Banco, temporadaId: number): Promise<Date | null> {
+  const r = (
+    await b.query<{ apito: string | Date | null }>(
+      `SELECT min(p.apito_inicial) AS apito FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND p.copa_etapa IS NOT NULL`,
+      [temporadaId],
+    )
+  ).rows[0];
+  return r?.apito ? new Date(new Date(r.apito).getTime() - CORTE_MINUTOS * 60_000) : null;
+}
+
 export async function fimDaInscricaoNoMataMata(b: Banco, temporadaId: number, time: TimeId): Promise<Date | null> {
   const r = (
     await b.query<{ apito: string | Date | null }>(
@@ -410,8 +421,9 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
     // Bônus da Temporada 1 (ADR-0047): só nas primeiras Rodadas da Fase de Liga da T2.
     const bonusT1 = temBonusT1(p.numero, p.rodada, p.fase) ? await comSeloT1(b) : new Set<string>();
     // Mata-mata (ADR-0057): quem chegou depois do último jogo do Time na Fase de Liga estreia na próxima Temporada.
-    // A Copa (ADR-0088) vem antes da Fase de Liga: nela joga todo mundo do Elenco.
-    const limite = async (time: TimeId) => (p.fase === 'MATA_MATA' && !ehRodadaDaCopa(p.rodada) ? await fimDaInscricaoNoMataMata(b, p.temporada_id, time) : null);
+    // A Copa (ADR-0088): só joga quem se inscreveu até a Janela fechar; quem chega durante a Copa estreia na Liga.
+    const limite = async (time: TimeId) =>
+      p.fase !== 'MATA_MATA' ? null : ehRodadaDaCopa(p.rodada) ? await fimDaInscricaoNaCopa(b, p.temporada_id) : await fimDaInscricaoNoMataMata(b, p.temporada_id, time);
     const limiteM = await limite(p.mandante_id);
     const limiteV = await limite(p.visitante_id);
     const mandante = await montarEscalacao(b, { time: p.mandante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, resenha: resenhaM, bonusT1, classico, ...(regrasM ? { t2: regrasM } : {}), ...(limiteM ? { inscritosAte: limiteM } : {}) });

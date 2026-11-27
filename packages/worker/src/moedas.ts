@@ -125,7 +125,7 @@ export async function pagarRodada(b: Banco, rodadaId: number): Promise<void> {
   }
 }
 
-/** Títulos das Séries (ADR-0087): quem jogou pelo campeão na Temporada; A 50, B 30. */
+/** Títulos das Séries (ADR-0087): quem jogou pelo campeão na Série (a Copa não conta, ADR-0088); A 50, B 30. */
 export async function pagarTitulos(b: Banco, temporadaId: number): Promise<void> {
   const t = (await b.query<{ numero: number; a: TimeId | null; b: TimeId | null }>(`SELECT numero, campeao_id AS a, campeao_b_id AS b FROM temporada WHERE id = $1`, [temporadaId])).rows[0];
   if (!t || !temMoedas(t.numero)) return;
@@ -159,12 +159,12 @@ export async function pagarTituloDaCopa(b: Banco, temporadaId: number): Promise<
   await atualizarConquistas(b);
 }
 
-/** Quem entrou em campo pelo Time na Temporada (na Copa, só nos jogos dela). */
+/** Quem entrou em campo pelo Time na Temporada: na Copa, só nos jogos dela; na Série, só nos da Série. */
 async function quemJogouPor(b: Banco, temporadaId: number, time: TimeId, soCopa: boolean): Promise<string[]> {
   return (
     await b.query<{ id: string }>(
       `SELECT DISTINCT e.jogador_id::text AS id FROM escalacao e JOIN partida p ON p.id = e.partida_id JOIN rodada r ON r.id = p.rodada_id
-       WHERE r.temporada_id = $1 AND e.time_id = $2 AND e.jogador_id IS NOT NULL AND e.nota IS NOT NULL ${soCopa ? 'AND p.copa_etapa IS NOT NULL' : ''}`,
+       WHERE r.temporada_id = $1 AND e.time_id = $2 AND e.jogador_id IS NOT NULL AND e.nota IS NOT NULL ${soCopa ? 'AND p.copa_etapa IS NOT NULL' : 'AND p.copa_etapa IS NULL'}`,
       [temporadaId, time],
     )
   ).rows.map((r) => r.id);

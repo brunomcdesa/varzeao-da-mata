@@ -14,7 +14,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, IDENTIDADE, TIMES_DA_EXPANSAO, doTime, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, temMoedas, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, etapaDa, nomeDaRodada, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, RODADA_DA_COPA, TIMES_DA_EXPANSAO, doTime, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, temMoedas, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, ehRodadaDaCopa, etapaDa, nomeDaRodada, nomeDaRodadaDaCopa, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
 import { temExpansao } from './expansao.js';
 import { colaboradoresDaPartida, perfisDosTimes } from './perfilDoTime.js';
 import { momentosDoAoVivo } from '@liga/renderer';
@@ -281,7 +281,7 @@ export function legendaDaPartida(d: DadosDoVideo, rodada: number): string {
     autores.length ? `Gols: ${[...new Set(autores)].join(', ')}` : '',
     'Replay e escalações no site (link na bio).',
     '',
-    `#varzeaodamata #rodada${rodada} #${IDENTIDADE[mandante].bicho} #${IDENTIDADE[visitante].bicho}`,
+    `#varzeaodamata ${ehRodadaDaCopa(rodada) ? '#copa' : `#rodada${rodada}`} #${IDENTIDADE[mandante].bicho} #${IDENTIDADE[visitante].bicho}`,
   ];
   return linhas.filter((l, i, a) => l !== '' || a[i - 1] !== '').join('\n');
 }
@@ -572,8 +572,19 @@ export async function jobPartida(c: ContextoDoJob, o: { janelaMin?: number; espe
 
 // ------------------------------------------------------------------ resumo
 
+/** O nome do dia da Copa sem o prefixo: "Oitavas de Clássico", "Quartas e Semifinais", "Final". */
+const diaDaCopa = (rodada: number) => nomeDaRodadaDaCopa(rodada).replace(/^Copa: /, '');
+
+/** "da Rodada 3", "da Copa (Oitavas de Clássico)", "das Semifinais", "da Final". */
+function doDia(fase: 'LIGA' | 'MATA_MATA', rodada: number): string {
+  const e = etapaDa(fase, rodada);
+  return e === 'LIGA' ? `da Rodada ${rodada}` : e === 'COPA' ? `da Copa (${diaDaCopa(rodada)})` : e === 'SEMIFINAL' ? 'das Semifinais' : 'da Final';
+}
+
 export function legendaDoResumo(d: DadosDoResumo): string {
   const etapa = etapaDa(d.fase, d.rodada);
+  // Na Copa (ADR-0088), os jogos são das duas Séries juntas: os placares não se dividem por Série.
+  const copa = etapa === 'COPA';
   const comSeries = !!d.tabelaB;
   const placar = (p: DadosDoResumo['placares'][number]) =>
     `${p.hora}h  ${FALA_DO_TIME[p.mandante].curto} ${p.golsMandante} × ${p.golsVisitante} ${FALA_DO_TIME[p.visitante].curto}${p.penaltis ? ` (pênaltis ${p.penaltis.mandante}–${p.penaltis.visitante})` : ''}`;
@@ -583,7 +594,9 @@ export function legendaDoResumo(d: DadosDoResumo): string {
   const series: Serie[] = comSeries ? ['A', 'B'] : ['A'];
   // Na Final, o campeão de cada Série (com duas Séries, a Final da B também está nos placares).
   const campeoes = etapa === 'FINAL' ? series.flatMap((serie) => daSerie(d.placares, serie).slice(0, 1).map((p) => ({ serie, time: vencedor(p) }))) : [];
-  const placares = comSeries ? series.flatMap((serie) => [`Série ${serie}`, ...daSerie(d.placares, serie).map(placar)]) : d.placares.map(placar);
+  const placares = comSeries && !copa ? series.flatMap((serie) => [`Série ${serie}`, ...daSerie(d.placares, serie).map(placar)]) : d.placares.map(placar);
+  // No último dia da Copa, o campeão da Copa (a votação do Craque do dia segue).
+  const campeaoDaCopa = d.campeaoCopa ?? (copa && d.rodada === RODADA_DA_COPA.FINAL && d.placares.length ? vencedor(d.placares[d.placares.length - 1]!) : null);
   // Sem @: a lista não marca ninguém (ADR-0011).
   const candidato = (c: DadosDoResumo['candidatos'][number], i: number) => `${c.rotulo ?? c.numero ?? i + 1} · ${c.username} (${FALA_DO_TIME[c.time].curto})`;
   const candidatos = comSeries
@@ -593,15 +606,16 @@ export function legendaDoResumo(d: DadosDoResumo): string {
       })
     : d.candidatos.map(candidato);
   const linhas = [
-    `📋 ${etapa === 'LIGA' ? `Resumo da Rodada ${d.rodada}` : etapa === 'SEMIFINAL' ? 'Resumo das Semifinais' : 'Resumo da Final'} da Temporada ${d.temporada}`,
+    `📋 ${etapa === 'LIGA' ? `Resumo da Rodada ${d.rodada}` : copa ? `Resumo da Copa (${diaDaCopa(d.rodada)})` : etapa === 'SEMIFINAL' ? 'Resumo das Semifinais' : 'Resumo da Final'} da Temporada ${d.temporada}`,
     ...placares,
     '',
+    ...(campeaoDaCopa ? [`🏆 ${IDENTIDADE[campeaoDaCopa].nome} é campeão da Copa da Temporada ${d.temporada}!`, ''] : []),
     // Anúncio do Craque da Rodada anterior: aqui o @ marca o eleito (é parabéns, não voto).
     ...[d.craqueDaRodada ? ['A', d.craqueDaRodada] : null, d.craqueDaRodadaB ? ['B', d.craqueDaRodadaB] : null].flatMap((x) => {
       if (!x) return [];
       const [serie, c] = x as [Serie, NonNullable<DadosDoResumo['craqueDaRodada']>];
       return [
-        `⭐ Craque ${c.fase === 'LIGA' ? `da Rodada ${c.rodada}` : 'das Semifinais'}${comSeries ? ` da Série ${serie}` : ''}: ${c.apelido ? `${c.apelido} (@${c.username})` : `@${c.username}`}, ${FALA_DO_TIME[c.time].curto}${c.votos ? `, com ${c.votos} ${c.votos === 1 ? 'voto' : 'votos'}` : ''}. Parabéns!`,
+        `⭐ Craque ${doDia(c.fase, c.rodada)}${comSeries && !ehRodadaDaCopa(c.rodada) ? ` da Série ${serie}` : ''}: ${c.apelido ? `${c.apelido} (@${c.username})` : `@${c.username}`}, ${FALA_DO_TIME[c.time].curto}${c.votos ? `, com ${c.votos} ${c.votos === 1 ? 'voto' : 'votos'}` : ''}. Parabéns!`,
       ];
     }),
     ...(d.craqueDaRodada || d.craqueDaRodadaB ? [''] : []),
@@ -612,8 +626,8 @@ export function legendaDoResumo(d: DadosDoResumo): string {
         ]
       : [
           comSeries
-            ? `Quem é o Craque ${etapa === 'FINAL' ? 'da Temporada' : 'da Rodada'} em cada Série? Comente a letra e o número (A3, B3), ou vote no site (link na bio):`
-            : `Quem é o Craque ${etapa === 'FINAL' ? 'da Temporada' : 'da Rodada'}? Comente só o número do seu escolhido, ou vote no site (link na bio):`,
+            ? `Quem é o Craque ${etapa === 'FINAL' ? 'da Temporada' : copa ? 'do dia' : 'da Rodada'} em cada Série? Comente a letra e o número (A3, B3), ou vote no site (link na bio):`
+            : `Quem é o Craque ${etapa === 'FINAL' ? 'da Temporada' : copa ? 'do dia' : 'da Rodada'}? Comente só o número do seu escolhido, ou vote no site (link na bio):`,
           ...candidatos,
           comSeries ? 'Um voto por perfil em cada Série (vale o último) e um por aparelho no site.' : 'Um voto por perfil (vale o último) e um por aparelho no site.',
         ]),
@@ -621,7 +635,7 @@ export function legendaDoResumo(d: DadosDoResumo): string {
     O_QUE_E,
     d.totalNovos ? `${d.totalNovos} ${d.totalNovos === 1 ? 'novo contratado' : 'novos contratados'} hoje. Quer jogar? Comente ENTRO + Time + posição.` : 'Quer jogar? Comente ENTRO + Time + posição.',
     '',
-    etapa === 'LIGA' ? `#varzeaodamata #rodada${d.rodada}` : `#varzeaodamata #matamata`,
+    etapa === 'LIGA' ? `#varzeaodamata #rodada${d.rodada}` : copa ? '#varzeaodamata #copa' : `#varzeaodamata #matamata`,
   ];
   return linhas.join('\n');
 }

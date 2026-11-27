@@ -99,3 +99,31 @@ describe('Resumo das Semifinais: cartela "A Final" (ADR-0048)', () => {
     expect(new RoteiroResumo(base).segmentos.map((s) => s.cartela)).not.toContain('FINALISTAS');
   });
 });
+
+describe('Resumo do último dia da Copa: cartela do campeão da Copa (ADR-0088)', () => {
+  const base: DadosDoResumo = {
+    temporada: 3,
+    rodada: 103,
+    fase: 'MATA_MATA',
+    placares: [{ mandante: 'ONC', visitante: 'TAT', golsMandante: 1, golsVisitante: 1, penaltis: { mandante: 3, visitante: 5 }, hora: 18 }],
+    tabela: [],
+    novosContratados: [],
+    totalNovos: 0,
+    candidatos: [],
+  };
+
+  it('o campeão da Copa ganha a cartela de campeão, com a fala da Copa, e os placares não se dividem por Série', () => {
+    const r = new RoteiroResumo({ ...base, campeaoCopa: 'TAT' });
+    const cartelas = r.segmentos.map((s) => s.cartela);
+    expect(cartelas).toContain('CAMPEAO');
+    expect(r.segmentos.filter((s) => s.cartela === 'PLACARES')).toHaveLength(1);
+    const falas = narracaoDoResumo(r).map((f) => f.texto);
+    expect(falas[0]).toBe('Acabou a Final da Copa do Varzeão da Mata!');
+    expect(falas.some((f) => f.includes('é campeão da Copa da Temporada 3!'))).toBe(true);
+    expect(falas.join(' ')).not.toContain('Na Série A');
+  });
+
+  it('nos outros dias da Copa, sem cartela de campeão', () => {
+    expect(new RoteiroResumo({ ...base, rodada: 101 }).segmentos.map((s) => s.cartela)).not.toContain('CAMPEAO');
+  });
+});

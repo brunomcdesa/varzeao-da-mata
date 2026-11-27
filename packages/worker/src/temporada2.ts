@@ -57,22 +57,25 @@ async function temporadaAtual(b: Banco): Promise<{ id: number; numero: number; s
 
 /**
  * Suspensos para esta Partida (ADR-0021): quem foi expulso no jogo anterior do Time, ou quem
- * nele completou dois amarelos na Temporada (a cada dois, uma Partida fora).
+ * nele completou dois amarelos na Temporada (a cada dois, uma Partida fora). Copa e Séries
+ * contam em separado (ADR-0088): o cartão da Copa só vale na Copa, e o da Série, só na Série.
  */
 export async function suspensos(b: Banco, time: TimeId, partidaId: number): Promise<Set<string>> {
   // Uma consulta só (ADR-0094): o jogo anterior do Time na mesma Temporada e os cartões dele.
   const linhas = (
     await b.query<{ jogador_id: string; expulso: boolean; amarelos: number | null; antes: string }>(
       `WITH atual AS (
-         SELECT r.temporada_id, p.apito_inicial FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE p.id = $1
+         SELECT r.temporada_id, p.apito_inicial, p.copa_etapa IS NOT NULL AS copa FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE p.id = $1
        ), anterior AS (
-         SELECT p.id, p.apito_inicial, a.temporada_id FROM partida p JOIN rodada r ON r.id = p.rodada_id JOIN atual a ON r.temporada_id = a.temporada_id
+         SELECT p.id, p.apito_inicial, a.temporada_id, a.copa FROM partida p JOIN rodada r ON r.id = p.rodada_id JOIN atual a ON r.temporada_id = a.temporada_id
          WHERE (p.mandante_id = $2 OR p.visitante_id = $2) AND p.apito_inicial < a.apito_inicial AND p.resultado IS NOT NULL
+           AND (p.copa_etapa IS NOT NULL) = a.copa
          ORDER BY p.apito_inicial DESC LIMIT 1
        )
        SELECT e.jogador_id::text AS jogador_id, e.expulso, e.amarelos,
               (SELECT coalesce(sum(x.amarelos), 0) FROM escalacao x JOIN partida q ON q.id = x.partida_id JOIN rodada s ON s.id = q.rodada_id
-                WHERE x.jogador_id = e.jogador_id AND s.temporada_id = an.temporada_id AND NOT x.expulso AND q.apito_inicial < an.apito_inicial) AS antes
+                WHERE x.jogador_id = e.jogador_id AND s.temporada_id = an.temporada_id AND NOT x.expulso AND q.apito_inicial < an.apito_inicial
+                  AND (q.copa_etapa IS NOT NULL) = an.copa) AS antes
        FROM escalacao e JOIN anterior an ON an.id = e.partida_id WHERE e.time_id = $2 AND e.jogador_id IS NOT NULL`,
       [partidaId, time],
     )
@@ -87,18 +90,19 @@ export async function suspensos(b: Banco, time: TimeId, partidaId: number): Prom
 
 /**
  * Pendurados antes desta Partida (ADR-0116): dos `ids`, quem chega com amarelos ímpares na
- * Temporada. Um amarelo a mais e ele está fora do próximo jogo; o Narrador avisa no cartão.
+ * Temporada (na Copa, só os da Copa; nas Séries, só os das Séries; ADR-0088). Um amarelo a
+ * mais e ele está fora do próximo jogo; o Narrador avisa no cartão.
  */
 export async function penduradosAntesDa(b: Banco, partidaId: number, ids: readonly string[]): Promise<Set<string>> {
   if (!ids.length) return new Set();
   const linhas = (
     await b.query<{ jogador_id: string; amarelos: string }>(
       `WITH atual AS (
-         SELECT r.temporada_id, p.apito_inicial FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE p.id = $1
+         SELECT r.temporada_id, p.apito_inicial, p.copa_etapa IS NOT NULL AS copa FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE p.id = $1
        )
        SELECT x.jogador_id::text AS jogador_id, coalesce(sum(x.amarelos), 0) AS amarelos
        FROM escalacao x JOIN partida q ON q.id = x.partida_id JOIN rodada s ON s.id = q.rodada_id JOIN atual a ON s.temporada_id = a.temporada_id
-       WHERE x.jogador_id::text = ANY($2) AND NOT x.expulso AND q.apito_inicial < a.apito_inicial
+       WHERE x.jogador_id::text = ANY($2) AND NOT x.expulso AND q.apito_inicial < a.apito_inicial AND (q.copa_etapa IS NOT NULL) = a.copa
        GROUP BY x.jogador_id`,
       [partidaId, ids],
     )
