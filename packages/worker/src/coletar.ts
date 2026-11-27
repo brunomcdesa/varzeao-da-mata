@@ -485,6 +485,9 @@ export async function transferirJogador(
   if (!temporada) {
     return { resultado: 'TRANSFERENCIA_FECHADA', mensagem: 'as transferências estão fechadas: só valem na Fase de Liga. Elas reabrem na próxima temporada. ⚽' };
   }
+  if (await copaEmAndamento(b, temporada, o.quando)) {
+    return { resultado: 'TRANSFERENCIA_FECHADA', mensagem: 'durante a Copa ninguém troca de time. As transferências reabrem depois da Final da Copa, antes da Fase de Liga. ⚽' };
+  }
   // Janela de Transferências (T2, ADR-0022): na Pré-temporada, a troca não gasta a da Temporada.
   const janela = await emJanela(b, temporada, o.quando);
   // Para um Time da Expansão antes do primeiro jogo dele (ADR-0093): de graça e vira Fundador.
@@ -740,6 +743,24 @@ async function temporadaDaTransferencia(b: Banco, agora: Date): Promise<number |
   if (!t) return null;
   if (t.ultimo_da_liga && agora.getTime() >= new Date(t.ultimo_da_liga).getTime() - CORTE_MS) return null;
   return t.id;
+}
+
+/**
+ * Copa em andamento (ADR-0088): da hora em que a Janela fecha (Corte do primeiro jogo da Copa)
+ * até a Copa ter campeão, ninguém troca de Time. Assim quem cai na Copa não vai jogar o resto
+ * dela por outro Time.
+ */
+async function copaEmAndamento(b: Banco, temporadaId: number, agora: Date): Promise<boolean> {
+  const r = (
+    await b.query<{ primeiro: Date | string | null; campeao: string | null }>(
+      `SELECT (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id AND p.copa_etapa IS NOT NULL) AS primeiro,
+              t.campeao_copa_id AS campeao
+         FROM temporada t WHERE t.id = $1`,
+      [temporadaId],
+    )
+  ).rows[0];
+  if (!r?.primeiro || r.campeao) return false;
+  return agora.getTime() >= new Date(r.primeiro).getTime() - CORTE_MS;
 }
 
 /** Voto no Craque: "3" e "A3" são o 3 da Série A; "B3" é o 3 da Série B (ADR-0017). */

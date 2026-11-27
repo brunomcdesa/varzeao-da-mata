@@ -14,6 +14,8 @@ A partir da T3 a Liga tem Série A e Série B com 8 Times cada, e um Clássico s
 - **Oitavas de Clássico:** as oitavas são os 8 segundos Clássicos do ADR-0066 (Onça×Leão, Capivara×Sucuri, Tatu×Jacaré, Tamanduá×Lobo-guará, Preguiça×Tartaruga, Arara×Boto, Sagui×Besouro, Tucano×Coruja), que cobrem os 16 Times. Valem como Clássico completo: dobro na Habilidade e no teto, Rei do Clássico e a prioridade da Resenha.
 - **Jogo único**, com Disputa de pênaltis no empate. Cada Partida tem Ao Vivo, Replay e Reels como na Fase de Liga.
 - **Tudo vale:** Habilidade evolui, prêmios por feito pagam Moedas, Cartões dão Suspensão que só vale dentro da Copa.
+- **Cartões em separado (27/11/2026):** a conta de amarelos e a Suspensão da Copa ficam na Copa; as das Séries, nas Séries. Um vermelho na Copa não tira ninguém da Fase de Liga, e os amarelos da Copa não deixam ninguém pendurado nela.
+- **Ninguém troca de Time durante a Copa (27/11/2026):** do fechamento da Janela (Corte do primeiro jogo da Copa) até a Copa ter campeão. Quem cai na Copa não joga o resto dela por outro Time; a transferência da Temporada reabre depois da Final da Copa.
 - **Prêmio:** Título da Copa no Time e na Carreira de quem entrou em campo, estrela **bronze** no escudo (ao lado das douradas da A e das pratas da B) e 40 Moedas para cada Jogador campeão que entrou em campo.
 - A primeira Copa abre a T3.
 
