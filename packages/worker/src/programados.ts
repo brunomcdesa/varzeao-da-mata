@@ -236,20 +236,20 @@ export function legendaDasNovidadesT3(id: string, estreia: string, publicarEm: s
       'Cada Time pode ter um Técnico: um seguidor que não joga e cuida do Time de fora do campo. Para virar Técnico, peça na DM (vale o primeiro pedido de cada Time). Quem já joga pode pendurar as chuteiras pelo site.',
       'O Técnico decide a Postura, a Formação e até 3 titulares fixados, que entram mesmo sem Presença. Cada Jogador só pode ser fixado uma vez a cada 2 jogos do Time: no jogo seguinte, ele joga pela Presença, como todo mundo.',
       '',
-      '🔁 Quero jogar aqui: peça a transferência com TRANSFERIR no comentário ou no botão da página do Time. O Técnico tem 24 horas (ou até o Corte) para responder; sem resposta, vale como aceito. Recusou? Não gasta a sua troca.',
+      '🔁 Quero jogar aqui: peça a transferência com TRANSFERIR no comentário ou no botão da página do Time. O Técnico tem 24 horas (ou até o Corte) para responder; sem resposta, vale como aceito. Recusou? Não gasta a sua troca. Agora na Janela, o pedido precisa ser aceito até a Janela fechar: durante a Copa ninguém troca de time, e o pedido que sobrar cai (dá para pedir de novo depois da Final da Copa).',
       '✉️ Convite: o Técnico chama quem tem Vínculo. Aceitou, troca na hora.',
       '🤝 Posição cheia? Troca casada entre dois da mesma Posição, ou a Fila de espera por ordem de chegada.',
       '',
       '©️ Sem Técnico, o Capitão assume tudo. Com Técnico, o Capitão fica com a Braçadeira, os Batedores, o cobrador de escanteio, a Marcação individual e o Grito da Temporada.',
       '',
-      '⏳ A Janela de transferências vai até o Corte do primeiro jogo da Copa.',
+      '⏳ A Janela de transferências vai até o Corte do primeiro jogo da Copa (segunda, 30/11, às 10h30). Durante a Copa ninguém troca de time; as trocas voltam depois da Final da Copa.',
       '',
       'Ao meio-dia: Dentro de campo.',
     ],
     'novidades-t3-capitao': [
       '©️ Novidades da Temporada 3 (5/5): Capitão e Batedores!',
       '',
-      'O Capitão escolhe a ordem dos 5 primeiros batedores da disputa de pênaltis, junto com a Formação e a Postura, até o Corte.',
+      'O Capitão escolhe a ordem dos 5 primeiros batedores da disputa de pênaltis até o Corte (e, se o Time não tem Técnico, também a Formação e a Postura).',
       'Quem não está em campo é pulado; depois dos 5, segue a ordem automática.',
       'E agora dá para escolher tudo também na página do Time. Os companheiros com Vínculo veem o plano; os rivais, não.',
       '',
@@ -420,6 +420,10 @@ export async function numerosDaTemporada2(banco: Banco): Promise<{ jogadores: nu
 /** Dados do Reels de Fim da Temporada 2 (ADR-0117), lidos na hora de gravar. */
 export async function dadosDoAgradecimentoT2(banco: Banco, o: { publicarEm?: string; copaEm?: string } = {}): Promise<DadosDoAgradecimentoT2> {
   const numeros = await numerosDaTemporada2(banco);
+  // A legenda diz que as Moedas "já estão na sacola": o Bônus de largada é pago quando a T3 nasce.
+  if (!(await banco.query(`SELECT 1 FROM temporada WHERE numero = 3`)).rows.length) {
+    throw new Error('A Temporada 3 ainda não nasceu (o Bônus de largada ainda não foi pago): o Reels de Fim da T2 espera.');
+  }
   const nosso = Date.parse(o.publicarEm ?? REELS_PROGRAMADOS.find((p) => p.id === 'agradecimento-t2')?.publicarEm ?? '');
   const aberturaAs = horaNoMesmoDiaDepois(nosso, Date.parse(REELS_PROGRAMADOS.find((p) => p.id === 'abertura-t3')?.publicarEm ?? ''));
   return { ...numeros, ...(aberturaAs !== undefined ? { aberturaAs } : {}), ...(o.copaEm ? { copaEm: o.copaEm } : {}) };

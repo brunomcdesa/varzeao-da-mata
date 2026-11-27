@@ -178,6 +178,23 @@ describe('Copa A+B na Pré-temporada (ADR-0088)', () => {
     expect(candidatos).not.toContain(doisNaSerie);
   });
 
+  it('Resumo da Rodada 1 da Liga (depois da Copa): novos contratados só desde o Resumo anterior', async () => {
+    const t = await criarTemporada(banco, { numero: 3, primeiraRodada: '2026-11-30', seed: 4, series });
+    for (const [quem, em] of [['antigo', '2026-11-29T12:00:00Z'], ['da-copa', '2026-12-02T12:00:00Z'], ['novo', '2026-12-03T12:00:00Z']] as const) {
+      await processarComentario(banco, { igCommentId: `c-${quem}`, igMediaId: 'm', igUserId: quem, username: quem, texto: 'ENTRO TATU MEIA', comentadoEm: new Date(em) }, { rodadaEmVotacao: null });
+    }
+    // A Copa inteira (as Rodadas de Quartas/Semis e da Final nascem quando a chave avança).
+    await jogar(await jogosDaCopa(t));
+    for (let k = 0; k < 3; k++) {
+      await avancarCopa(banco, t);
+      await jogar((await jogosDaCopa(t)).filter((j) => j.rodada > 101));
+    }
+    const r1 = (await banco.query<{ id: number }>(`SELECT id FROM rodada WHERE temporada_id = $1 AND numero = 1`, [t])).rows[0]!.id;
+    const d = await dadosDoResumo(banco, r1);
+    expect(d.novosContratados.map((n) => n.username)).toEqual(['novo']);
+    expect(d.totalNovos).toBe(1);
+  });
+
   it('Cartões da Copa só valem na Copa: suspendem no jogo seguinte da Copa, não na Fase de Liga', async () => {
     const t = await criarTemporada(banco, { numero: 3, primeiraRodada: '2026-11-30', seed: 4, series });
     // Dois Jogadores em cada lado de Onça × Leão.

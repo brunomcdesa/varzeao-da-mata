@@ -367,8 +367,15 @@ async function agendar(c: ContextoDoJob, o: { tipo: ItemDaAgenda['tipo']; ref: n
 
 /** O Craque da Rodada anterior da mesma Série, que tem a vaga garantida na Escalação (ADR-0017). */
 async function craqueDaVez(banco: Banco, p: LinhaJob): Promise<{ id: string } | null> {
-  const anterior = (await banco.query<{ id: number }>(`SELECT s.id FROM rodada s JOIN rodada r ON r.temporada_id = s.temporada_id AND s.data = (SELECT max(x.data) FROM rodada x WHERE x.temporada_id = r.temporada_id AND x.data < r.data) WHERE r.id = $1`, [p.rodada_id])).rows[0];
-  return anterior ? craqueDaRodada(banco, anterior.id, p.serie) : null;
+  const anterior = (
+    await banco.query<{ id: number; fase: 'LIGA' | 'MATA_MATA'; numero: number }>(
+      `SELECT s.id, s.fase, s.numero FROM rodada s JOIN rodada r ON r.temporada_id = s.temporada_id AND s.data = (SELECT max(x.data) FROM rodada x WHERE x.temporada_id = r.temporada_id AND x.data < r.data) WHERE r.id = $1`,
+      [p.rodada_id],
+    )
+  ).rows[0];
+  if (!anterior) return null;
+  // O Craque do dia da Copa (ADR-0088) é um só, das duas Séries (guardado como A): vale em qualquer jogo.
+  return craqueDaRodada(banco, anterior.id, etapaDa(anterior.fase, anterior.numero) === 'COPA' ? 'A' : p.serie);
 }
 
 /**

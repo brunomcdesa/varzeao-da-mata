@@ -67,6 +67,11 @@ function figurinha(titulo: string, c: { jogadorId: string; username: string; ape
 
 /** O que se comenta para votar num Candidato: "3", ou "A3"/"B3" com duas Séries. */
 const rotuloDe = (c: { numero: number; rotulo?: string }) => c.rotulo ?? String(c.numero);
+/** Dia da Copa (ADR-0088): Rodadas 100 em diante do Mata-mata. */
+const ehDiaDaCopa = (r: { fase: string; numero: number }) => r.fase === 'MATA_MATA' && r.numero >= 100;
+/** "da Rodada 3", "da Copa: Oitavas de Clássico", "das Semifinais". */
+const doDiaDoCraque = (r: { fase: 'LIGA' | 'MATA_MATA'; numero: number }) =>
+  r.fase === 'LIGA' ? `da Rodada ${r.numero}` : ehDiaDaCopa(r) ? `da ${nomeDaRodada(r.fase, r.numero)}` : 'das Semifinais';
 
 function votacao(l: LigaPublica): Html {
   const comSeries = temSeries(l);
@@ -81,6 +86,8 @@ function votacao(l: LigaPublica): Html {
   const aberta = [...l.rodadas].reverse().find((r) => r.candidatos.length && !r.craque && !r.craqueB);
   const ultimoCraque = [...l.rodadas].reverse().find((r) => r.craque || r.craqueB);
   if (aberta) {
+    // No dia da Copa, uma lista só, votada pelo número (sem Série).
+    const comSeries = temSeries(l) && !ehDiaDaCopa(aberta);
     const temporada = aberta.votacao === 'TEMPORADA';
     const noSite = votoNoSiteDisponivel();
     // Personagem vinculado (ADR-0013): vota como o @, e pode mudar o voto (vale o último).
@@ -90,7 +97,7 @@ function votacao(l: LigaPublica): Html {
     const rotuloDoNumero = (n: number) => rotuloDe(aberta.candidatos.find((c) => c.numero === n) ?? { numero: n });
     const comoComentar = comSeries ? 'a letra e o número (A3, B3) do seu escolhido' : 'só o número do seu escolhido';
     return html`<section class="placa votacao" aria-labelledby="titulo-votacao" data-rodada="${aberta.id}">
-      <h2 id="titulo-votacao">${temporada ? 'Quem é o Craque da Temporada?' : `Craque ${aberta.fase === 'LIGA' ? `da Rodada ${aberta.numero}` : 'das Semifinais'}`}</h2>
+      <h2 id="titulo-votacao">${temporada ? 'Quem é o Craque da Temporada?' : `Craque ${doDiaDoCraque(aberta)}`}</h2>
       <p>${
         temporada
           ? html`Os 5 com a maior nota média da Temporada${comSeries ? ', em cada Série' : ''}. ${noSite ? 'Vote aqui ou comente' : 'Comente'} ${comoComentar} no post do Resumo da Final no ${perfil()}, até amanhã às 18h. O resultado sai às 19h.`
@@ -125,10 +132,10 @@ function votacao(l: LigaPublica): Html {
     </section>`;
   }
   if (ultimoCraque) {
-    const nome = `Craque ${ultimoCraque.fase === 'LIGA' ? `da Rodada ${ultimoCraque.numero}` : 'das Semifinais'}`;
+    const nome = `Craque ${doDiaDoCraque(ultimoCraque)}`;
     const cartao = (c: NonNullable<typeof ultimoCraque.craque>, s: Serie, id: string) => {
       const cand = ultimoCraque.candidatos.find((x) => x.jogadorId === c.jogadorId);
-      return figurinha(`${nome}${daSerie(s)}`, { ...c, ...(cand ? { posicao: cand.posicao } : {}) }, `${curto(c.time)}${cand ? ` · nota ${nota(cand.nota)}` : ''}, escolhido pelos seguidores`, id);
+      return figurinha(`${nome}${ehDiaDaCopa(ultimoCraque) ? '' : daSerie(s)}`, { ...c, ...(cand ? { posicao: cand.posicao } : {}) }, `${curto(c.time)}${cand ? ` · nota ${nota(cand.nota)}` : ''}, escolhido pelos seguidores`, id);
     };
     return html`${ultimoCraque.craque ? cartao(ultimoCraque.craque, 'A', 'titulo-votacao') : ''}${ultimoCraque.craqueB ? cartao(ultimoCraque.craqueB, 'B', 'titulo-votacao-b') : ''}`;
   }

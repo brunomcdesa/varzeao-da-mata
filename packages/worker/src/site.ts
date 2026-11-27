@@ -24,6 +24,7 @@ import { horaDeBrasilia } from './briga.js';
 import { habilidadesDe } from './regras.js';
 import { beirasDasPartidas, bracadeiraDosJogadores } from './beiraDoCampo.js';
 import { CORTE_MINUTOS, gritoDoTime, ovrDasHabilidades } from '@liga/shared';
+import { faseDaLoja } from './loja.js';
 import { capitaoDaPartida, capitaoSemPartida, proximaPartidaDoTime, tamanhoDosElencos } from './temporada2.js';
 
 /** Duração do Ao Vivo de uma Partida (5 min; 7 no Mata-mata, por causa dos pênaltis). */
@@ -712,6 +713,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       : {}),
     // Ranking de Palpites (ADR-0089): só Partidas já encerradas (o fim do Ao Vivo passou).
     ...(temporada && temMoedas(temporada.numero) ? { palpites: await rankingDePalpites(banco, temporada.id, agora) } : {}),
+    ...(temporada && temMoedas(temporada.numero) ? { faseDaLoja: await faseDaLoja(banco, agora) } : {}),
     rodadas: temporada ? (rodadasPorTemporada.get(temporada.id) ?? []) : [],
     campeao: atual?.campeao ?? null,
     craqueDaTemporada: atual?.craque ?? null,

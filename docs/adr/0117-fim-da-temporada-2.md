@@ -7,7 +7,8 @@
 A T1 teve o Reels de agradecimento (ADR-0047) entre o Resumo da Temporada e a Abertura da T2. A T2
 acaba na sexta 27/11 (Final), o Resumo da Temporada sai no sábado 28/11 às 19h e a Abertura da T3
 às 21h. Na T3 chegam as Moedas (ADR-0087), e quem jogou a T1 e/ou a T2 começa com o Bônus de
-largada, pago quando a T3 nasce, na sexta à noite.
+largada, pago quando a T3 nasce: no sábado 28/11, por volta das 18h10, quando o job do Resumo fecha a votação
+do Craque da Temporada (o código cria a T3 nessa hora, não na sexta à noite).
 
 ## Decisão
 

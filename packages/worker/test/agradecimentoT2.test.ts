@@ -44,6 +44,9 @@ describe('Reels de Fim da Temporada 2 (ADR-0117)', () => {
     await banco.query(`UPDATE partida SET gols_mandante = 1, gols_visitante = 0 WHERE id = ANY($1)`, [ps.filter((p) => p.id !== daOnca.id).map((p) => p.id)]);
     expect(await numerosDaTemporada2(banco)).toEqual({ jogadores: 1, jogos: ps.length, gols: ps.length - 1 + r.gols.mandante + r.gols.visitante });
 
+    // Antes de a T3 nascer (o Bônus de largada sai junto), não grava: a legenda diz "já estão na sua sacola".
+    await expect(dadosDoAgradecimentoT2(banco, { copaEm: '2026-11-30' })).rejects.toThrow('ainda não nasceu');
+    await criarTemporada(banco, { numero: 3, primeiraRodada: '2026-11-30', seed: 9, series: { A: TIMES_FUNDADORES, B: TIMES_NOVOS } });
     const d = await dadosDoAgradecimentoT2(banco, { copaEm: '2026-11-30' });
     expect(d.aberturaAs).toBe(21);
     expect(d.copaEm).toBe('2026-11-30');

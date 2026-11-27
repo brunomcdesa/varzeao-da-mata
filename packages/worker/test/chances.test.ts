@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { chancesDaTabela, porcentagem, primeiraRodadaDasChances, resumoMostraChances, textoDaQueda, textoDaSemifinal, type TimeId } from '@liga/shared';
+import { TIMES_FUNDADORES, TIMES_NOVOS, chancesDaTabela, porcentagem, primeiraRodadaDasChances, resumoMostraChances, textoDaQueda, textoDaSemifinal, type TimeId } from '@liga/shared';
 import { RoteiroResumo, falaDasChances, falaDoFimDaFaseDeLiga } from '../../renderer/src/resumo.js';
 import type { Banco } from '../src/banco.js';
 import { criarTemporada } from '../src/calendario.js';
@@ -114,5 +114,35 @@ describe('Chances no Resumo (banco)', () => {
     const d = await dadosDoResumo(banco, await jogarAte(6));
     expect(d.chances).toHaveLength(1);
     expect(d.fimDaFaseDeLiga).toBeUndefined();
+  });
+});
+
+describe('Chances com Série A e Série B (T3, ADR-0099)', () => {
+  let banco: Banco;
+  let t3: number;
+  beforeEach(async () => {
+    banco = await bancoDeTeste();
+    t3 = await criarTemporada(banco, { numero: 3, primeiraRodada: '2026-11-30', seed: 4, series: { A: TIMES_FUNDADORES, B: TIMES_NOVOS } });
+  });
+  afterEach(async () => {
+    await banco.fechar();
+  });
+
+  it('da metade da Liga em diante: um bloco por Série; na A, 4 na semi e 2 caem; na B ninguém cai pela tabela', async () => {
+    const ps = (await banco.query<{ id: number }>(`SELECT p.id FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND r.fase = 'LIGA' AND r.numero <= 4`, [t3])).rows;
+    for (const p of ps) await banco.query(`UPDATE partida SET gols_mandante = $2, gols_visitante = $3 WHERE id = $1`, [p.id, p.id % 3, (p.id * 7) % 3]);
+    const r4 = (await banco.query<{ id: number }>(`SELECT id FROM rodada WHERE temporada_id = $1 AND fase = 'LIGA' AND numero = 4`, [t3])).rows[0]!.id;
+    const d = await dadosDoResumo(banco, r4);
+    expect(d.chances?.map((b) => b.serie)).toEqual(['A', 'B']);
+    const [a, b] = d.chances!;
+    expect(a!.times).toHaveLength(8);
+    expect(b!.times).toHaveLength(8);
+    expect(a!.caem).toBe(2);
+    expect(b!.caem).toBe(0);
+    expect(a!.times.reduce((s, c) => s + c.semifinal, 0)).toBeCloseTo(4, 5);
+    expect(a!.times.reduce((s, c) => s + c.queda, 0)).toBeCloseTo(2, 5);
+    expect(b!.times.every((c) => c.queda === 0)).toBe(true);
+    expect(a!.times.map((c) => c.time)).toEqual(d.tabela.map((l) => l.time));
+    expect(b!.times.map((c) => c.time)).toEqual(d.tabelaB!.map((l) => l.time));
   });
 });

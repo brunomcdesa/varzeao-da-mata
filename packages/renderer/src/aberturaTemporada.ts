@@ -172,7 +172,7 @@ export function narracaoDaAbertura(roteiro: RoteiroAberturaDaTemporada): Fala[] 
       SERIES: `Agora são duas séries de oito times. Na Série A: ${lista(d.serieA.map(curto))}. E estreia a Série B, com ${lista(d.serieB.map(curto))}.`,
       ACESSO: `Em cada série, todos contra todos, em ${NUMERO_FALADO[d.rodadas.A] ?? d.rodadas.A} rodadas. Os quatro primeiros vão pra semifinal. E no fim, os dois últimos da Série A caem, e os dois finalistas da Série B sobem.`,
       COPA: `Mas antes, tem Copa! Os dezesseis times juntos, das duas séries, em mata-mata, em três dias. As oitavas são clássicos, como ${curto(p1![0])} contra ${curto(p1![1])}, e ${curto(p2![0])} contra ${curto(p2![1])}. Jogo único, com pênaltis no empate. E o campeão ganha a estrela de bronze no escudo e ${NUMERO_FALADO[c.moedas] ?? c.moedas} moedas pra cada jogador que entrou em campo.`,
-      NOVIDADES: `E tem muita novidade: dentro de campo, salário e loja, palpite e conquistas, e pro capitão. ${quando} sai um Reels explicando cada uma.`,
+      NOVIDADES: `E tem muita novidade: o técnico, dentro de campo, salário e loja, palpite e conquistas, e pro capitão. ${quando} sai um Reels explicando cada uma.`,
       ENTRAR: `Quer jogar? Comenta ENTRO, o time e a posição. Tipo: ENTRO ${curto(ex.time)} ${POSICAO_FALADA[ex.posicao]}. Vale qualquer time, da Série A ou da B. E quem já joga continua com o seu jogador.`,
       AGENDA: `A Copa começa ${semana === 'sábado' || semana === 'domingo' ? 'no' : 'na'} ${semana}, dia ${NUMERO_FALADO[dia] ?? dia}. E a fase de liga começa ${liga.semana === 'sábado' || liga.semana === 'domingo' ? 'no' : 'na'} ${liga.semana}, dia ${NUMERO_FALADO[liga.dia] ?? liga.dia}: a Série B joga ${faixa(d.horarios.B)}, e a Série A, ${faixa(d.horarios.A)}. Um jogo por hora.`,
       CHAMADA: `As inscrições estão abertas. Comenta aí e garante a sua vaga na Temporada ${n}!`,
@@ -574,7 +574,7 @@ export function desenharQuadroAbertura(ctx: CanvasRenderingContext2D, roteiro: R
             blocosT2[0]!,
             ['Salário e Loja', moeda],
             ['Palpite e Conquistas', celularzinho],
-            ['Capitão e Batedores', blocosT2[1]![1]],
+            ['Técnico e Capitão', blocosT2[1]![1]],
           ]
         : blocosT2;
       blocos.forEach(([nome, icone], k) => {
