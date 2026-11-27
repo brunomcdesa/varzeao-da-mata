@@ -24,8 +24,11 @@ funciona em 27/11/2026, depois de uma rodada de perguntas sobre lacunas.
   (inscrito até o Corte dela). Quem chega depois entra no Elenco, mas estreia na Copa.
 - **Jogo:** jogo único, com Disputa de pênaltis no empate. Vale Clássico só pela regra de sempre
   (os dois rivais). Cartões não valem nada fora dela: ninguém fica suspenso nem pendurado pela
-  Supercopa, e ninguém cumpre Suspensão nela. Ela não conta para o Capitão ativo (ADR-0114), nem
-  para o Craque e a Seleção da Temporada, nem para o Título da Série.
+  Supercopa, e ninguém cumpre Suspensão nela. Ela não conta para o Craque e a Seleção da
+  Temporada, nem para o Título da Série. Conta para o Capitão ativo (ADR-0114) e para a
+  inatividade do Técnico (ADR-0111): quem decide precisa estar ativo em qualquer jogo. Gols e
+  notas somam na Carreira, na artilharia e no melhor goleiro, como os da Copa.
+- **Mando:** o campeão da Série A manda o jogo.
 - **Prêmio:** Título da Supercopa no Time e na Carreira (troféu próprio no site) e 20 Moedas
   para quem entrou em campo pelo campeão e para o Técnico ativo dele. Sem estrela no escudo.
 - **Divulgação:** Reels do jogo (#supercopa) e Resumo do dia com o Craque da Supercopa, numa

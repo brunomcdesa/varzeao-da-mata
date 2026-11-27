@@ -659,8 +659,8 @@ async function chamarFila(b: Banco, agora: Date): Promise<AvisoDoPedido[]> {
   await b.query(`UPDATE fila_espera f SET status = 'SAIU' FROM temporada t WHERE t.id = f.temporada_id AND f.status = 'ESPERANDO' AND t.status = 'ENCERRADA'`);
   const grupos = (await b.query<{ time_id: TimeId; posicao: Posicao }>(`SELECT DISTINCT time_id, posicao FROM fila_espera WHERE status = 'ESPERANDO'`)).rows;
   const avisos: AvisoDoPedido[] = [];
-  // Durante a Copa (ADR-0088) ninguém troca de Time: o veterano da vez espera, com o lugar guardado.
-  const copa = grupos.length > 0 && (await trocasFechadasPelaCopa(b, agora));
+  // Durante a Copa (ADR-0088) e antes da Supercopa (ADR-0118) ninguém troca de Time: o veterano da vez espera, com o lugar guardado.
+  const copa = grupos.length > 0 && (await trocasFechadasAgora(b, agora)) !== null;
   for (const g of grupos) {
     if (await posicaoCheia(b, g.time_id, g.posicao)) continue;
     // Já existe um pedido da Fila esperando o Técnico nessa vaga: espera ele.

@@ -375,8 +375,9 @@ async function craqueDaVez(banco: Banco, p: LinhaJob): Promise<{ id: string } | 
     )
   ).rows[0];
   if (!anterior) return null;
-  // O Craque do dia da Copa (ADR-0088) é um só, das duas Séries (guardado como A): vale em qualquer jogo.
-  return craqueDaRodada(banco, anterior.id, etapaDa(anterior.fase, anterior.numero) === 'COPA' ? 'A' : p.serie);
+  // O Craque do dia da Copa (ADR-0088) e o da Supercopa (ADR-0118) são um só, das duas Séries (guardado como A): vale em qualquer jogo.
+  const etapa = etapaDa(anterior.fase, anterior.numero);
+  return craqueDaRodada(banco, anterior.id, etapa === 'COPA' || etapa === 'SUPERCOPA' ? 'A' : p.serie);
 }
 
 /**
@@ -629,7 +630,7 @@ export function legendaDoResumo(d: DadosDoResumo): string {
       if (!x) return [];
       const [serie, c] = x as [Serie, NonNullable<DadosDoResumo['craqueDaRodada']>];
       return [
-        `⭐ Craque ${doDia(c.fase, c.rodada)}${comSeries && !ehRodadaDaCopa(c.rodada) ? ` da Série ${serie}` : ''}: ${c.apelido ? `${c.apelido} (@${c.username})` : `@${c.username}`}, ${FALA_DO_TIME[c.time].curto}${c.votos ? `, com ${c.votos} ${c.votos === 1 ? 'voto' : 'votos'}` : ''}. Parabéns!`,
+        `⭐ Craque ${doDia(c.fase, c.rodada)}${comSeries && etapaDa(c.fase, c.rodada) !== 'COPA' && etapaDa(c.fase, c.rodada) !== 'SUPERCOPA' ? ` da Série ${serie}` : ''}: ${c.apelido ? `${c.apelido} (@${c.username})` : `@${c.username}`}, ${FALA_DO_TIME[c.time].curto}${c.votos ? `, com ${c.votos} ${c.votos === 1 ? 'voto' : 'votos'}` : ''}. Parabéns!`,
       ];
     }),
     ...(d.craqueDaRodada || d.craqueDaRodadaB ? [''] : []),
