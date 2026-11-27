@@ -1,0 +1,24 @@
+# Todo dia às 05h30 UTC (02h30 em Brasília): guarda a audiência do site dos últimos dias
+# (Cloudflare Web Analytics) no banco. O histórico do Cloudflare é limitado, então guardar
+# dia a dia mantém os números para o futuro (ADR-0119). Também roda à mão.
+name: audiencia-site
+on:
+  schedule:
+    - cron: '30 5 * * *'
+  workflow_dispatch:
+concurrency: audiencia-site
+jobs:
+  audiencia-site:
+    runs-on: ubuntu-latest
+    environment: PROD
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      # Token só de leitura (Account Analytics: Read), separado do CF_API_TOKEN do KV/R2.
+      CF_ANALYTICS_TOKEN: ${{ secrets.CF_ANALYTICS_TOKEN }}
+      CF_WEB_ANALYTICS_SITE_TAG: ${{ vars.CF_WEB_ANALYTICS_SITE_TAG }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/preparar
+      - run: pnpm --filter @liga/worker exec tsx scripts/audiencia-site.ts
