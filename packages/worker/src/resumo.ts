@@ -137,7 +137,13 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
   const dia = typeof r.data === 'string' ? r.data.slice(0, 10) : r.data.toISOString().slice(0, 10);
   const [a, m, d] = dia.split('-').map(Number) as [number, number, number];
   const ate = new Date(Date.UTC(a, m - 1, d, HORA_DO_RESUMO - FUSO_BRASILIA));
-  const desde = r.numero === 1 ? new Date(0) : new Date(ate.getTime() - 24 * 3600_000);
+  // Desde o Resumo anterior (o dia de Rodada anterior, de qualquer Temporada; com a Copa, a
+  // Rodada 1 não é mais o primeiro dia). Sem dia anterior (o primeiro da Liga), desde sempre.
+  const anterior = (await banco.query<{ data: string | Date | null }>(`SELECT max(data) AS data FROM rodada WHERE data < $1`, [dia])).rows[0]?.data;
+  const diaAnterior = anterior ? (typeof anterior === 'string' ? anterior.slice(0, 10) : anterior.toISOString().slice(0, 10)) : null;
+  const desde = diaAnterior
+    ? (([a0, m0, d0]) => new Date(Date.UTC(a0!, m0! - 1, d0!, HORA_DO_RESUMO - FUSO_BRASILIA)))(diaAnterior.split('-').map(Number))
+    : new Date(0);
   const novos = (
     await banco.query<{ username: string; time_id: TimeId; posicao: Posicao }>(
       `SELECT username, time_id, posicao FROM jogador

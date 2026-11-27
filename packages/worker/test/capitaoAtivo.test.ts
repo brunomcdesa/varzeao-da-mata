@@ -56,7 +56,7 @@ describe('Capitão ativo (ADR-0114)', () => {
     expect(a1).not.toBe(a2);
   });
 
-  it('jogos da Copa não contam: só 3 jogos da Série sem escolha tiram a faixa (ADR-0088)', async () => {
+  it('jogos da Copa contam como os da Série: 3 jogos do Time sem escolha tiram a faixa (ADR-0088)', async () => {
     for (let k = 0; k < 3; k++) await comentar(`d${k}`, 'ENTRO Onça atacante');
     const d0 = await idDe('d0');
     const vinc = new Set([d0, await idDe('d1')]);
@@ -65,11 +65,10 @@ describe('Capitão ativo (ADR-0114)', () => {
     await conferirCapitaes(banco, PRE, vinc);
     await copa.terminar(0);
     await liga.terminar(0);
+    expect(await conferirCapitaes(banco, liga.depois(0), vinc)).toEqual([]);
+    // O 3º jogo do Time sem escolha (um da Copa e dois da Série): a faixa sai.
     await liga.terminar(1);
-    // 3 jogos do Time terminados, mas um é da Copa: a faixa fica.
-    expect(await conferirCapitaes(banco, liga.depois(1), vinc)).toEqual([]);
-    await liga.terminar(2);
-    expect(await conferirCapitaes(banco, liga.depois(2), vinc)).toMatchObject([{ saiu: d0 }]);
+    expect(await conferirCapitaes(banco, liga.depois(1), vinc)).toMatchObject([{ saiu: d0 }]);
   });
 
   it('uma escolha de Capitão segura a faixa; a conta recomeça a partir dela', async () => {

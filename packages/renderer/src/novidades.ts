@@ -345,9 +345,9 @@ export function cenasDasNovidades(d: DadosDasNovidades): CenaNovidade[] {
         ], 'Cada time pode ter um técnico: um seguidor que não joga e cuida do time de fora do campo. Pra virar técnico, é só pedir na DM. E quem já joga pode pendurar as chuteiras pelo site. O técnico decide a postura, a formação, e pode fixar até três titulares.', 'Um por Time: vale o primeiro pedido', 10),
         lista('pedido', 'Quero jogar aqui', [
           ['O Pedido', 'TRANSFERIR no comentário, ou o\nbotão na página do Time.'],
-          ['24 horas', 'O Técnico aceita ou recusa.\nSem resposta, vale aceito.'],
+          ['24 horas', 'Sem resposta, vale aceito.\nNa Copa, o pedido cai.'],
           ['Recusou?', 'Não gasta a sua troca:\ndá para pedir outro Time.'],
-        ], 'Quer jogar em outro time? Pede! Pelo comentário, com transferir, ou no botão da página do time. O técnico tem vinte e quatro horas pra responder. Se ficar em silêncio, vale como aceito. E se recusar, a sua troca não é gasta: dá pra pedir outro time.', 'Ou até o Corte, o que vier antes', 10),
+        ], 'Quer jogar em outro time? Pede! Pelo comentário, com transferir, ou no botão da página do time. O técnico tem vinte e quatro horas pra responder. Se ficar em silêncio, vale como aceito. Mas durante a Copa ninguém troca de time: pedido sem resposta até a Janela fechar cai. E recusa não gasta a sua troca.', 'Na Copa, ninguém troca de time', 10),
         lista('convite', 'O Time chama você', [
           ['Convite', 'O Técnico convida quem tem\nVínculo. Até 3 abertos.'],
           ['Aceitou?', 'Troca na hora, usando\na sua troca.'],

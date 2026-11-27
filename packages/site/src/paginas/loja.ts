@@ -32,7 +32,7 @@ export const paginaLoja: Pagina = async (main) => {
   // Técnico (ADR-0111): o Time dele vem dos dados da Liga.
   const timeDoTecnico = carteira?.loja?.tecnico ? l.times?.find((t) => t.tecnico?.id === carteira.jogadorId) ?? null : null;
   const tecnico = timeDoTecnico ? { time: timeDoTecnico.id, nome: `@${timeDoTecnico.tecnico!.username}`, apelido: timeDoTecnico.tecnico!.apelido ?? null } : null;
-  let estado: EstadoDaLoja = estadoDe(carteira, eu);
+  let estado: EstadoDaLoja = estadoDe(carteira, eu, l.faseDaLoja);
   let selecionado: string | null = null;
   let quadro = 0;
   let timer = 0;
@@ -113,7 +113,7 @@ export const paginaLoja: Pagina = async (main) => {
     // Com a resposta na hora, relê a Carteira (saldo e Itens) e o topo.
     const nova = r.aplicada ? await carteiraDoVinculo() : null;
     if (nova) {
-      estado = estadoDe(nova, eu);
+      estado = estadoDe(nova, eu, l.faseDaLoja);
       atualizarCarteiraDoTopo(nova.saldo);
     }
     render({ texto: r.mensagem, ok: r.ok });
@@ -135,13 +135,13 @@ export const paginaLoja: Pagina = async (main) => {
   };
 };
 
-function estadoDe(c: Carteira | null, eu: JogadorPublico | null): EstadoDaLoja {
+function estadoDe(c: Carteira | null, eu: JogadorPublico | null, faseDaLiga: 1 | 2 = 1): EstadoDaLoja {
   return {
     saldo: c ? c.saldo : null,
     donos: c?.loja?.donos ?? [],
     equipados: c?.loja?.equipados ?? {},
     goleiro: c?.loja?.goleiro ?? eu?.posicao === 'GOL',
-    fase: c?.loja?.fase ?? 1,
+    fase: c?.loja?.fase ?? faseDaLiga,
     ...(c?.loja?.tecnico ? { tecnico: true } : {}),
   };
 }

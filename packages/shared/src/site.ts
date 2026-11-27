@@ -108,6 +108,8 @@ export interface LigaPublica {
   calendario: PartidaNoCalendario[];
   /** Copa em andamento (ADR-0088): da hora em que a Janela fecha até a Copa ter campeão, ninguém troca de Time. */
   trocasFechadasNaCopa?: boolean;
+  /** Fase da Loja agora (ADR-0101), para quem vê a Loja sem Vínculo (sem a Carteira). */
+  faseDaLoja?: 1 | 2;
   rodadas: RodadaPublica[];
   /** Só depois que o Ao Vivo da Final termina. Com duas Séries, é o campeão da A. */
   campeao: TimeId | null;

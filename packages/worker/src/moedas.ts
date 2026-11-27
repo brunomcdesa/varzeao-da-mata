@@ -109,18 +109,22 @@ export async function pagarRodada(b: Banco, rodadaId: number): Promise<void> {
   ).rows;
   for (const t of tecnicos) await lancar(b, { jogadorId: t.id, tipo: 'SALARIO', referencia: ref, valor: MOEDAS.SALARIO, descricao: 'Salário de Técnico', visivelEm });
   // Seleção da Rodada: a mesma conta do Resumo (por Série).
-  const partidas = (await b.query<{ resultado: ResultadoPartida; serie: Serie }>(`SELECT resultado, serie FROM partida WHERE rodada_id = $1 AND resultado IS NOT NULL`, [rodadaId])).rows;
-  for (const d of destaquesDaRodada(desempenhosDasPartidas(partidas, true))) {
+  const partidas = (await b.query<{ resultado: ResultadoPartida; serie: Serie; copa: boolean }>(`SELECT resultado, serie, copa_etapa IS NOT NULL AS copa FROM partida WHERE rodada_id = $1 AND resultado IS NOT NULL`, [rodadaId])).rows;
+  // Dia da Copa (ADR-0088): uma Seleção só, das duas Séries juntas (igual ao Resumo do dia).
+  const diaDaCopa = partidas.some((p) => p.copa);
+  for (const d of destaquesDaRodada(desempenhosDasPartidas(partidas, !diaDaCopa))) {
     await lancar(b, { jogadorId: d.jogadorId, tipo: 'SELECAO_RODADA', referencia: ref, valor: MOEDAS.SELECAO_RODADA, descricao: 'Seleção da Rodada', visivelEm });
   }
   // Craque da Rodada anterior (pela data), de cada Série.
   const anterior = (
-    await b.query<{ id: number }>(`SELECT id FROM rodada WHERE temporada_id = $1 AND data < $2 ORDER BY data DESC LIMIT 1`, [r.temporada_id, diaTexto(r.dia)])
+    await b.query<{ id: number; numero: number; fase: 'LIGA' | 'MATA_MATA' }>(`SELECT id, numero, fase FROM rodada WHERE temporada_id = $1 AND data < $2 ORDER BY data DESC LIMIT 1`, [r.temporada_id, diaTexto(r.dia)])
   ).rows[0];
   if (anterior) {
+    // O Craque do dia da Copa (ADR-0088) é um só; no extrato, "Craque do dia da Copa".
+    const daCopa = anterior.fase === 'MATA_MATA' && anterior.numero >= 100;
     for (const serie of ['A', 'B'] as const) {
       const c = await craqueDaRodada(b, anterior.id, serie);
-      if (c) await lancar(b, { jogadorId: c.id, tipo: 'CRAQUE_RODADA', referencia: `r${anterior.id}`, valor: MOEDAS.CRAQUE_RODADA, descricao: 'Craque da Rodada', visivelEm });
+      if (c) await lancar(b, { jogadorId: c.id, tipo: 'CRAQUE_RODADA', referencia: `r${anterior.id}`, valor: MOEDAS.CRAQUE_RODADA, descricao: daCopa ? 'Craque do dia da Copa' : 'Craque da Rodada', visivelEm });
     }
   }
 }

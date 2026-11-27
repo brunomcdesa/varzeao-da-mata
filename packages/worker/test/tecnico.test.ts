@@ -165,6 +165,21 @@ describe('Fila de espera, Convite e Troca casada (ADR-0111)', () => {
     expect(await timeDe('gabi')).toBe('ONC');
   });
 
+  it('durante a Copa, o veterano da Fila não é chamado: guarda o lugar e entra depois da Final da Copa (ADR-0088)', async () => {
+    for (let k = 0; k < 4; k++) await comentar(`ata${k}`, 'ENTRO Onça atacante');
+    await comentar('gabi', 'ENTRO Tatu atacante');
+    expect(await comentar('gabi', 'TRANSFERIR Onça', '2026-11-28T14:00:00Z')).toBe('NA_FILA');
+    // Abre vaga no meio da Copa (um atacante da Onça sai do Elenco).
+    await banco.query(`UPDATE jogador SET banido = true WHERE username = 'ata0'`);
+    await resolverPrazos(banco, new Date('2026-11-30T15:00:00Z'));
+    expect(await timeDe('gabi')).toBe('TAT');
+    expect((await banco.query<{ status: string }>(`SELECT status FROM fila_espera WHERE username = 'gabi'`)).rows[0]!.status).toBe('ESPERANDO');
+    // A Copa tem campeão: a Fila anda.
+    await banco.query(`UPDATE temporada SET campeao_copa_id = 'ONC' WHERE id = $1`, [t3]);
+    await resolverPrazos(banco, new Date('2026-12-02T23:00:00Z'));
+    expect(await timeDe('gabi')).toBe('ONC');
+  });
+
   it('Convite aceito: o Jogador troca na hora; só para quem tem Vínculo, até 3 abertos', async () => {
     const tec = await aprovarTecnico(banco, { username: 'seu.tonho', time: 'ONC', agora: PRE, naJanela: true });
     await comentar('nina', 'ENTRO Capivara meia');

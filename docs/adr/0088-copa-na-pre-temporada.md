@@ -19,7 +19,8 @@ A partir da T3 a Liga tem Série A e Série B com 8 Times cada, e um Clássico s
 - **Pedido, Convite e Troca casada na Copa (27/11/2026):** o Pedido feito na Janela e aceito (ou vencido) durante a Copa cai, com aviso para pedir de novo; Convite e Troca casada nem nascem, e o site mostra "fechado durante a Copa". A mudança à mão do dono continua valendo, com aviso no log.
 - **Inscrição durante a Copa (27/11/2026):** quem se inscreve depois de a Janela fechar entra no Elenco, mas só joga a partir da Fase de Liga. Virar Técnico continua permitido.
 - **Craque do dia da Copa (27/11/2026):** uma lista só, com os 5 melhores do dia das duas Séries juntas, votada pelo número. O Resumo do dia (legenda e vídeo) não se divide por Série, e o último dia tem a cartela do campeão da Copa.
-- **Copa fora das contas da Série (27/11/2026):** o Craque da Temporada e a Seleção da Temporada de cada Série, o Título da Série (troféu e Moedas) e o Capitão ativo (ADR-0114) usam só jogos da Série. A Carreira, a artilharia e as estatísticas somam tudo.
+- **Copa fora das contas da Série (27/11/2026):** o Craque da Temporada e a Seleção da Temporada de cada Série, e o Título da Série (troféu e Moedas) usam só jogos da Série. A Carreira, a artilharia e as estatísticas somam tudo.
+- **Atividade conta em qualquer jogo (27/11/2026, revisto no mesmo dia):** Capitão ativo (ADR-0114) e inatividade do Técnico (ADR-0111) contam os jogos da Copa como os da Série: quem decide precisa estar ativo na Liga, seja Copa ou Série.
 - **Semifinais às 17h e 18h (27/11/2026):** no formato de 16 Times, para dar cerca de 2h entre o fim das Quartas e o Corte da primeira Semi.
 - **Prêmio:** Título da Copa no Time e na Carreira de quem entrou em campo, estrela **bronze** no escudo (ao lado das douradas da A e das pratas da B) e 40 Moedas para cada Jogador campeão que entrou em campo.
 - A primeira Copa abre a T3.
