@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { INTERVALO_REACAO_MS, LOTE_REACOES_MS, lerMensagemParaSala, textoDoPublico, type MensagemDaSala } from '@liga/shared';
-import { FIM_DO_AO_VIVO, SalaAoVivo, aceitaReacao, loteSem, type Conexao, type EstadoDaSala } from '../src/salaAoVivo.js';
+import { FIM_DO_AO_VIVO, SalaAoVivo, aceitaReacao, loteSem, medir, resumir, type Conexao, type EstadoDaSala } from '../src/salaAoVivo.js';
 import { responder, type Env } from '../src/index.js';
 
 class ConexaoFalsa implements Conexao {
@@ -140,6 +140,41 @@ describe('SalaAoVivo', () => {
     await sala.alarm();
     expect(a.fechada).toEqual({ codigo: FIM_DO_AO_VIVO.codigo, motivo: FIM_DO_AO_VIVO.motivo });
     expect(e.guardado.size).toBe(0);
+  });
+
+  it('no fim grava no KV o resumo da audiência: pico, média e entradas', async () => {
+    let agora = 0;
+    const e = estado();
+    const kv = new Map<string, { v: string; ttl: number | undefined }>();
+    const env = { AGENDA: { put: async (k: string, v: string, o?: { expirationTtl?: number }) => void kv.set(k, { v, ttl: o?.expirationTtl }) } };
+    const sala = new SalaAoVivo(e, env, () => agora);
+    const [a, b] = [new ConexaoFalsa(), new ConexaoFalsa()];
+    await sala.entrar(a, 1000, '42'); // t=0: 1 conexão
+    agora = 200;
+    await sala.entrar(b, 1000); // t=200: 2
+    agora = 600;
+    await sala.webSocketClose(b); // t=600: 1
+    agora = 1000;
+    await sala.alarm();
+    const r = JSON.parse(kv.get('audiencia/42')!.v);
+    expect(r).toMatchObject({ partidaId: '42', pico: 2, entradas: 2, primeiraConexao: 0, fim: 1000 });
+    expect(r.media).toBeCloseTo((1 * 200 + 2 * 400 + 1 * 400) / 1000, 5);
+    expect(kv.get('audiencia/42')!.ttl).toBeGreaterThan(0);
+    expect(e.guardado.size).toBe(0);
+  });
+
+  it('sem KV ou sem ninguém, o fim do Ao Vivo segue sem erro', async () => {
+    const e = estado();
+    const sala = new SalaAoVivo(e, { AGENDA: { put: async () => { throw new Error('kv fora'); } } }, () => FIM);
+    await sala.entrar(new ConexaoFalsa(), FIM, '7');
+    await expect(sala.alarm()).resolves.toBeUndefined();
+    expect(e.guardado.size).toBe(0);
+  });
+
+  it('medir e resumir são puras', () => {
+    const m = medir(medir(undefined, 0, 1, true), 100, 3, true);
+    expect(m).toMatchObject({ pico: 3, entradas: 2, area: 100 });
+    expect(resumir(m, 'p', 100).media).toBe(1);
   });
 
   it('recusa quem chega depois do fim ou sem WebSocket', async () => {

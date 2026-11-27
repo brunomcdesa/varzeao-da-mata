@@ -25,7 +25,7 @@ import { bancoDeLeitura, comBanco } from './banco.js';
 import { completarMetadadosDasSessoes, jogadoresVinculados, rotasDoVinculo, sessaoDe } from './vinculo.js';
 import { rotaDoWebhook, type EnvWebhook } from './webhook.js';
 import { rodarAvisos, rotaDosAvisos } from './avisos.js';
-import { CABECALHO_FIM } from './salaAoVivo.js';
+import { CABECALHO_FIM, CABECALHO_PARTIDA } from './salaAoVivo.js';
 
 export { SalaAoVivo } from './salaAoVivo.js';
 
@@ -263,6 +263,7 @@ async function entrarNaSala(req: Request, env: Env, id: string, agora: Date): Pr
   if (agora.getTime() >= fim) return json({ erro: 'O Ao Vivo acabou' }, 410);
   const cabecalhos = new Headers(req.headers);
   cabecalhos.set(CABECALHO_FIM, String(fim));
+  cabecalhos.set(CABECALHO_PARTIDA, id);
   return env.SALAS.get(env.SALAS.idFromName(`partida-${id}`)).fetch(new Request(req.url, { headers: cabecalhos }));
 }
 

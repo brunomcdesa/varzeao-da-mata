@@ -3,12 +3,18 @@
  * repassa as Reações, em lotes. Usa a API de hibernação do WebSocket: parada, a sala não
  * gasta duração. Quando o Ao Vivo acaba, fecha todas as conexões.
  *
- * Público e Reações não vão para o banco nem para o Replay: valem só enquanto a sala existe.
+ * As Reações não vão para o banco nem para o Replay: valem só enquanto a sala existe.
+ * O Público também some com a sala, mas no fim ela deixa UM resumo (pico, média, entradas) no
+ * KV `audiencia/<partida>`, só números agregados, sem ninguém identificável (ADR-0118).
  */
 import { INTERVALO_REACAO_MS, LOTE_REACOES_MS, lerMensagemParaSala, type ContagemDeReacoes, type MensagemDaSala } from '@liga/shared';
 
 /** Cabeçalho com que a rota da borda diz à sala quando o Ao Vivo acaba (ms desde 1970). */
 export const CABECALHO_FIM = 'x-fim-ao-vivo';
+/** Cabeçalho com o id da Partida, para o resumo de audiência saber onde se gravar. */
+export const CABECALHO_PARTIDA = 'x-partida-ao-vivo';
+/** Por quanto tempo o resumo fica no KV até a coleta levá-lo ao banco. */
+export const VALIDADE_AUDIENCIA_S = 45 * 24 * 3600;
 /** Fechamento normal, com o motivo que o site entende. */
 export const FIM_DO_AO_VIVO = { codigo: 1000, motivo: 'fim do Ao Vivo' };
 
@@ -37,6 +43,57 @@ export interface EstadoDaSala {
     getAlarm(): Promise<number | null>;
     setAlarm(t: number): Promise<void>;
     deleteAll(): Promise<void>;
+  };
+}
+
+/** Acumulador do público da sala: guardado no storage, sobrevive à hibernação. */
+export interface Medicao {
+  /** Maior número de conexões ao mesmo tempo. */
+  pico: number;
+  /** Quantas conexões entraram ao todo (reconexões contam; não é gente única). */
+  entradas: number;
+  /** Primeira conexão. */
+  primeiro: number;
+  /** Instante e valor da última mudança de público. */
+  desde: number;
+  atual: number;
+  /** Soma de público × milissegundos até `desde`. */
+  area: number;
+}
+
+/** Registra uma mudança de público em `agora`. Pura: devolve a nova medição. */
+export function medir(m: Medicao | undefined, agora: number, publico: number, entrou: boolean): Medicao {
+  if (!m) return { pico: publico, entradas: entrou ? 1 : 0, primeiro: agora, desde: agora, atual: publico, area: 0 };
+  return {
+    pico: Math.max(m.pico, publico),
+    entradas: m.entradas + (entrou ? 1 : 0),
+    primeiro: m.primeiro,
+    desde: agora,
+    atual: publico,
+    area: m.area + m.atual * Math.max(0, agora - m.desde),
+  };
+}
+
+/** O resumo gravado no fim: média = público médio entre a primeira conexão e o fim. */
+export interface ResumoDeAudiencia {
+  partidaId: string;
+  pico: number;
+  entradas: number;
+  media: number;
+  primeiraConexao: number;
+  fim: number;
+}
+
+export function resumir(m: Medicao, partidaId: string, fim: number): ResumoDeAudiencia {
+  const fechada = medir(m, fim, 0, false);
+  const duracao = fim - m.primeiro;
+  return {
+    partidaId,
+    pico: m.pico,
+    entradas: m.entradas,
+    media: duracao > 0 ? Math.round((fechada.area / duracao) * 100) / 100 : m.pico,
+    primeiraConexao: m.primeiro,
+    fim,
   };
 }
 
@@ -74,7 +131,7 @@ export class SalaAoVivo {
 
   constructor(
     private readonly ctx: EstadoDaSala,
-    _env?: unknown,
+    private readonly env?: { AGENDA?: { put(k: string, v: string, o?: { expirationTtl?: number }): Promise<void> } },
     private readonly relogio: () => number = Date.now,
   ) {}
 
@@ -84,21 +141,27 @@ export class SalaAoVivo {
     const agora = this.relogio();
     if (!Number.isFinite(fim) || agora >= fim) return new Response('o Ao Vivo acabou', { status: 410 });
     if (!(await this.ctx.storage.get<number>('fim'))) await this.ctx.storage.put('fim', fim);
+    const partida = req.headers.get(CABECALHO_PARTIDA);
+    if (partida && !(await this.ctx.storage.get<string>('partida'))) await this.ctx.storage.put('partida', partida);
 
     const { 0: cliente, 1: servidor } = new WebSocketPair();
     const ws = servidor as unknown as Conexao;
     ws.serializeAttachment({ id: crypto.randomUUID(), ultima: 0 } satisfies Assento);
     this.ctx.acceptWebSocket(ws);
+    await this.contar(agora, this.ctx.getWebSockets().length, true);
     await this.agendar(agora);
     return new Response(null, { status: 101, webSocket: cliente });
   }
 
   /** Para os testes (sem WebSocketPair): entra uma conexão já pronta. */
-  async entrar(ws: Conexao, fim: number): Promise<void> {
+  async entrar(ws: Conexao, fim: number, partida?: string): Promise<void> {
     if (!(await this.ctx.storage.get<number>('fim'))) await this.ctx.storage.put('fim', fim);
+    if (partida) await this.ctx.storage.put('partida', partida);
     ws.serializeAttachment({ id: crypto.randomUUID(), ultima: 0 } satisfies Assento);
     this.ctx.acceptWebSocket(ws);
-    await this.agendar(this.relogio());
+    const agora = this.relogio();
+    await this.contar(agora, this.ctx.getWebSockets().length, true);
+    await this.agendar(agora);
   }
 
   async webSocketMessage(ws: Conexao, mensagem: string | ArrayBuffer): Promise<void> {
@@ -120,11 +183,29 @@ export class SalaAoVivo {
     } catch {
       /* já fechada */
     }
-    await this.agendar(this.relogio());
+    const agora = this.relogio();
+    await this.contar(agora, this.ctx.getWebSockets().filter((c) => c !== ws).length, false);
+    await this.agendar(agora);
   }
 
   async webSocketError(ws: Conexao): Promise<void> {
     await this.webSocketClose(ws);
+  }
+
+  private async contar(agora: number, publico: number, entrou: boolean): Promise<void> {
+    await this.ctx.storage.put('medicao', medir(await this.ctx.storage.get<Medicao>('medicao'), agora, publico, entrou));
+  }
+
+  /** Deixa o resumo no KV antes de a sala se apagar. Falhar aqui nunca pode travar o fim do Ao Vivo. */
+  private async gravarResumo(fim: number): Promise<void> {
+    try {
+      const m = await this.ctx.storage.get<Medicao>('medicao');
+      const partida = await this.ctx.storage.get<string>('partida');
+      if (!m || !partida || !this.env?.AGENDA) return;
+      await this.env.AGENDA.put(`audiencia/${partida}`, JSON.stringify(resumir(m, partida, fim)), { expirationTtl: VALIDADE_AUDIENCIA_S });
+    } catch {
+      /* só se perde a estatística daquele jogo */
+    }
   }
 
   /** O próximo lote sai em até LOTE_REACOES_MS; não adia um alarme que já vem antes. */
@@ -147,6 +228,7 @@ export class SalaAoVivo {
         }
       }
       this.pendentes.clear();
+      await this.gravarResumo(fim);
       await this.ctx.storage.deleteAll();
       return;
     }
