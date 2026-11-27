@@ -8,7 +8,7 @@
  */
 export const CHAVE_PENDENCIAS = 'pendencias';
 
-export const TIPOS_DE_PENDENCIA = ['votos', 'perfis', 'escolhas', 'pedidos', 'vinculos', 'publicados'] as const;
+export const TIPOS_DE_PENDENCIA = ['votos', 'perfis', 'escolhas', 'pedidos', 'vinculos', 'publicados', 'audiencia'] as const;
 export type TipoDePendencia = (typeof TIPOS_DE_PENDENCIA)[number];
 
 /** Cada tipo marcado guarda quando foi marcado pela primeira vez (ISO). */

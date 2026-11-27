@@ -7,6 +7,7 @@
  * O Público também some com a sala, mas no fim ela deixa UM resumo (pico, média, entradas) no
  * KV `audiencia/<partida>`, só números agregados, sem ninguém identificável (ADR-0118).
  */
+import { marcarPendencia } from './pendencias.js';
 import { INTERVALO_REACAO_MS, LOTE_REACOES_MS, lerMensagemParaSala, type ContagemDeReacoes, type MensagemDaSala } from '@liga/shared';
 
 /** Cabeçalho com que a rota da borda diz à sala quando o Ao Vivo acaba (ms desde 1970). */
@@ -131,7 +132,7 @@ export class SalaAoVivo {
 
   constructor(
     private readonly ctx: EstadoDaSala,
-    private readonly env?: { AGENDA?: { put(k: string, v: string, o?: { expirationTtl?: number }): Promise<void> } },
+    private readonly env?: { AGENDA?: Pick<KVNamespace, 'get' | 'put'> },
     private readonly relogio: () => number = Date.now,
   ) {}
 
@@ -203,6 +204,7 @@ export class SalaAoVivo {
       const partida = await this.ctx.storage.get<string>('partida');
       if (!m || !partida || !this.env?.AGENDA) return;
       await this.env.AGENDA.put(`audiencia/${partida}`, JSON.stringify(resumir(m, partida, fim)), { expirationTtl: VALIDADE_AUDIENCIA_S });
+      await marcarPendencia(this.env.AGENDA, 'audiencia', new Date(this.relogio()));
     } catch {
       /* só se perde a estatística daquele jogo */
     }
