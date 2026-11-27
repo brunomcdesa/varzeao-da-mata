@@ -23,7 +23,7 @@ import { classificar } from './tabela.js';
 import { horaDeBrasilia } from './briga.js';
 import { habilidadesDe } from './regras.js';
 import { beirasDasPartidas, bracadeiraDosJogadores } from './beiraDoCampo.js';
-import { gritoDoTime, ovrDasHabilidades } from '@liga/shared';
+import { CORTE_MINUTOS, gritoDoTime, ovrDasHabilidades } from '@liga/shared';
 import { capitaoDaPartida, capitaoSemPartida, proximaPartidaDoTime, tamanhoDosElencos } from './temporada2.js';
 
 /** Duração do Ao Vivo de uma Partida (5 min; 7 no Mata-mata, por causa dos pênaltis). */
@@ -288,7 +288,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     const vencedor = vencedorDa('A');
     const vencedorB = vencedorDa('B');
     const timeDoCandidato = (c: { jogador_id: string; time_id: TimeId }) => timeNaRodada.get(`${base.rodada_id}:${c.jogador_id}`) ?? c.time_id;
-    const series = comSeries(base.temporada_id);
+    // No dia da Copa (ADR-0088), uma lista só de Candidatos, votada pelo número.
+    const series = comSeries(base.temporada_id) && etapaDa(base.fase, base.rodada) !== 'COPA';
     const lista = rodadasPorTemporada.get(base.temporada_id) ?? [];
     lista.push({
       id: base.rodada_id,
@@ -415,7 +416,8 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
         somar(j.nestaTemporada, d, r);
         notasDaTemporada.set(j.id, [...(notasDaTemporada.get(j.id) ?? []), d.nota]);
       }
-      jogouPor.add(`${p.temporada_id}:${r.times[d.slot.lado]}:${j.id}`);
+      // Título da Série: só quem jogou pela Série (a Copa tem o Título dela, ADR-0088).
+      if (!p.copa_etapa) jogouPor.add(`${p.temporada_id}:${r.times[d.slot.lado]}:${j.id}`);
       temporadasDe.set(j.id, (temporadasDe.get(j.id) ?? new Set()).add(p.temporada_id));
       const outro = d.slot.lado === 'mandante' ? 'visitante' : 'mandante';
       j.historico.push({
@@ -525,11 +527,12 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     for (const rodadaId of new Set(ps.map((p) => p.rodada_id))) {
       const doDia = ps.filter((p) => p.rodada_id === rodadaId);
       if (doDia[0]!.resumo_status !== 'PUBLICADO') continue;
-      const ds = desempenhosDasPartidas(doDia.map((p) => ({ resultado: p.resultado!, serie: p.serie })), series);
+      const ds = desempenhosDasPartidas(doDia.map((p) => ({ resultado: p.resultado!, serie: p.serie })), series && !doDia[0]!.copa_etapa);
       dar('SELECAO_RODADA', destaquesDaRodada(ds), ds, doDia[0]!);
     }
     if (t.craque_revelado_em) {
-      const ds = desempenhosDasPartidas(ps.map((p) => ({ resultado: p.resultado!, serie: p.serie })), series);
+      // Só jogos da Série: a Copa fica fora da Seleção da Temporada (ADR-0088).
+      const ds = desempenhosDasPartidas(ps.filter((p) => !p.copa_etapa).map((p) => ({ resultado: p.resultado!, serie: p.serie })), series);
       dar('SELECAO_TEMPORADA', destaquesDaTemporada(ds), ds);
     }
   }
@@ -700,6 +703,13 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       : {}),
     ...(atual?.serieB && temporada ? { tabelaB: atual.serieB.tabela, series: { A: [...seriesDe.get(temporada.id)!.A], B: [...seriesDe.get(temporada.id)!.B] } } : {}),
     calendario,
+    // Copa em andamento (ADR-0088): o site esconde Transferência, Convite e Troca casada.
+    ...(temporadas.some((t) => {
+      const primeiro = todas.filter((p) => p.temporada_id === t.id && p.copa_etapa).map((p) => apito(p).getTime());
+      return !t.campeao_copa_id && primeiro.length > 0 && agora.getTime() >= Math.min(...primeiro) - CORTE_MINUTOS * 60_000;
+    })
+      ? { trocasFechadasNaCopa: true }
+      : {}),
     // Ranking de Palpites (ADR-0089): só Partidas já encerradas (o fim do Ao Vivo passou).
     ...(temporada && temMoedas(temporada.numero) ? { palpites: await rankingDePalpites(banco, temporada.id, agora) } : {}),
     rodadas: temporada ? (rodadasPorTemporada.get(temporada.id) ?? []) : [],

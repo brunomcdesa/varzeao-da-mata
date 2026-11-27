@@ -106,6 +106,8 @@ export interface LigaPublica {
    */
   ativa?: { numero: number; times: TimeId[]; grupos?: Record<Grupo, TimeId[]> | null } | null;
   calendario: PartidaNoCalendario[];
+  /** Copa em andamento (ADR-0088): da hora em que a Janela fecha até a Copa ter campeão, ninguém troca de Time. */
+  trocasFechadasNaCopa?: boolean;
   rodadas: RodadaPublica[];
   /** Só depois que o Ao Vivo da Final termina. Com duas Séries, é o campeão da A. */
   campeao: TimeId | null;

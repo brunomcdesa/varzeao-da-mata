@@ -62,7 +62,7 @@ async function partidasEncerradas(banco: Banco, filtro: { rodadaId: number } | {
   return (
     await banco.query<{ resultado: ResultadoPartida; serie: Serie }>(
       `SELECT p.resultado, p.serie FROM partida p JOIN rodada r ON r.id = p.rodada_id
-       WHERE ${onde} AND p.resultado IS NOT NULL AND p.gols_mandante IS NOT NULL ORDER BY p.apito_inicial`,
+       WHERE ${onde} AND p.resultado IS NOT NULL AND p.gols_mandante IS NOT NULL ${'temporadaId' in filtro ? 'AND p.copa_etapa IS NULL' : ''} ORDER BY p.apito_inicial`,
       [valor],
     )
   ).rows;
@@ -75,7 +75,7 @@ export async function destaquesDaRodadaNoBanco(banco: Banco, rodadaId: number, t
   return comNomes(banco, destaquesDaRodada(ds), ds);
 }
 
-/** Destaques da Temporada (maior Nota média por Posição), por Série. Vazio antes da T2. */
+/** Destaques da Temporada (maior Nota média por Posição), por Série, só com jogos da Série (a Copa fica fora, ADR-0088). Vazio antes da T2. */
 export async function destaquesDaTemporadaNoBanco(banco: Banco, temporadaId: number, temporada: number, comSeries: boolean): Promise<DestaqueDoResumo[]> {
   if (temporada < TEMPORADA_DOS_DESTAQUES) return [];
   const ds = desempenhosDasPartidas(await partidasEncerradas(banco, { temporadaId }), comSeries);

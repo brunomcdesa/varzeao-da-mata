@@ -20,9 +20,10 @@ export type { DadosDoResumo } from '@liga/renderer';
 /** Para concorrer a Craque da Temporada é preciso ter jogado pelo menos isso. */
 export const MIN_JOGOS_CRAQUE_DA_TEMPORADA = 3;
 
-async function ehFinal(banco: Banco, rodadaId: number): Promise<{ final: boolean; temporadaId: number }> {
+async function ehFinal(banco: Banco, rodadaId: number): Promise<{ final: boolean; copa: boolean; temporadaId: number }> {
   const r = (await banco.query<{ fase: 'LIGA' | 'MATA_MATA'; numero: number; temporada_id: number }>(`SELECT fase, numero, temporada_id FROM rodada WHERE id = $1`, [rodadaId])).rows[0]!;
-  return { final: etapaDa(r.fase, r.numero) === 'FINAL', temporadaId: r.temporada_id };
+  const etapa = etapaDa(r.fase, r.numero);
+  return { final: etapa === 'FINAL', copa: etapa === 'COPA', temporadaId: r.temporada_id };
 }
 
 /** As Séries que jogaram na Rodada (A, ou A e B). */
@@ -34,17 +35,34 @@ async function seriesDaRodada(banco: Banco, rodadaId: number): Promise<Serie[]> 
 /**
  * Candidatos a Craque, em cada Série: as 5 maiores Notas da Rodada entre Jogadores (a Base
  * não concorre). Na Final, os Candidatos são a Craque da Temporada: as 5 maiores notas médias
- * da Temporada na Série entre quem jogou nela pelo menos MIN_JOGOS_CRAQUE_DA_TEMPORADA vezes.
+ * da Temporada na Série entre quem jogou nela pelo menos MIN_JOGOS_CRAQUE_DA_TEMPORADA vezes
+ * (só jogos da Série: a Copa não conta, ADR-0088). No dia da Copa, uma lista só com as 5 maiores
+ * Notas do dia, das duas Séries juntas (guardada como Série A, votada só pelo número).
  */
 export async function fecharRodada(banco: Banco, rodadaId: number): Promise<void> {
-  const { final, temporadaId } = await ehFinal(banco, rodadaId);
+  const { final, copa, temporadaId } = await ehFinal(banco, rodadaId);
+  if (copa) {
+    await banco.query(
+      `INSERT INTO candidato (rodada_id, jogador_id, nota, serie)
+       SELECT $1, e.jogador_id, max(e.nota), 'A'
+       FROM escalacao e JOIN partida p ON p.id = e.partida_id
+       WHERE p.rodada_id = $1 AND e.jogador_id IS NOT NULL AND e.nota IS NOT NULL
+       GROUP BY e.jogador_id
+       ORDER BY max(e.nota) DESC, e.jogador_id
+       LIMIT $2
+       ON CONFLICT DO NOTHING`,
+      [rodadaId, CANDIDATOS_POR_RODADA],
+    );
+    await numerarCandidatos(banco, rodadaId, 'A');
+    return;
+  }
   for (const serie of await seriesDaRodada(banco, rodadaId)) {
     if (final) {
       await banco.query(
         `INSERT INTO candidato (rodada_id, jogador_id, nota, serie)
          SELECT $1, e.jogador_id, round(avg(e.nota), 2), $5
          FROM escalacao e JOIN partida p ON p.id = e.partida_id JOIN rodada r ON r.id = p.rodada_id
-         WHERE r.temporada_id = $2 AND p.serie = $5 AND e.jogador_id IS NOT NULL AND e.nota IS NOT NULL
+         WHERE r.temporada_id = $2 AND p.serie = $5 AND p.copa_etapa IS NULL AND e.jogador_id IS NOT NULL AND e.nota IS NOT NULL
          GROUP BY e.jogador_id
          HAVING count(*) >= $4
          ORDER BY avg(e.nota) DESC, count(*) DESC, e.jogador_id
@@ -98,7 +116,7 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
   const placares = (
     await banco.query<{ mandante_id: TimeId; visitante_id: TimeId; gols_mandante: number; gols_visitante: number; penaltis: { placar: { mandante: number; visitante: number } } | null; apito_inicial: string | Date; serie: Serie }>(
       `SELECT mandante_id, visitante_id, gols_mandante, gols_visitante, penaltis, apito_inicial, serie
-       FROM partida WHERE rodada_id = $1 AND gols_mandante IS NOT NULL ORDER BY serie, apito_inicial`,
+       FROM partida WHERE rodada_id = $1 AND gols_mandante IS NOT NULL ORDER BY (copa_etapa IS NULL AND serie = 'B'), apito_inicial`,
       [rodadaId],
     )
   ).rows.map((p) => ({
@@ -110,7 +128,10 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
     hora: horaBrasilia(new Date(p.apito_inicial)),
     serie: p.serie,
   }));
-  const comSeries = (await seriesDaTemporada(banco, r.temporada_id)).B.length > 0;
+  // Na Copa (ADR-0088), as duas Séries jogam juntas: o Resumo do dia não se divide por Série.
+  const copa = etapaDa(r.fase, r.numero) === 'COPA';
+  if (copa) for (const p of placares) delete (p as { serie?: Serie }).serie;
+  const comSeries = !copa && (await seriesDaTemporada(banco, r.temporada_id)).B.length > 0;
 
   // Novos Contratados: inscritos desde o Resumo anterior (19h do dia anterior) até este.
   const dia = typeof r.data === 'string' ? r.data.slice(0, 10) : r.data.toISOString().slice(0, 10);
@@ -137,7 +158,7 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
        WHERE c.rodada_id = $1 ORDER BY c.numero NULLS LAST, c.nota DESC, j.id`,
       [rodadaId, etapaDa(r.fase, r.numero) === 'FINAL', r.temporada_id],
     )
-  ).rows.map((c, i) => ({ numero: c.numero ?? i + 1, rotulo: rotuloDoCandidato(c.numero ?? i + 1, comSeries), serie: c.serie, username: c.username, apelido: c.apelido ?? null, time: c.time_id, posicao: c.posicao, nota: Number(c.nota), gols: Number(c.gols) }));
+  ).rows.map((c, i) => ({ numero: c.numero ?? i + 1, rotulo: rotuloDoCandidato(c.numero ?? i + 1, comSeries), ...(comSeries ? { serie: c.serie } : {}), username: c.username, apelido: c.apelido ?? null, time: c.time_id, posicao: c.posicao, nota: Number(c.nota), gols: Number(c.gols) }));
 
   const max = o.maxNovos ?? 12;
   const final = etapaDa(r.fase, r.numero) === 'FINAL';
@@ -146,6 +167,15 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
     : undefined;
   const campeao = campeoes?.campeao_id;
   const campeaoB = campeoes?.campeao_b_id;
+  // Último dia da Copa: o vencedor da Final da Copa (pelos pênaltis, se precisou).
+  const campeaoCopa = copa
+    ? ((
+        await banco.query<{ t: TimeId | null }>(
+          `SELECT resultado->'times'->>(resultado->>'vencedor') AS t FROM partida WHERE rodada_id = $1 AND copa_etapa = 'FINAL' AND resultado IS NOT NULL`,
+          [rodadaId],
+        )
+      ).rows[0]?.t ?? null)
+    : null;
   // Anúncio do Craque da Rodada anterior, um por Série (ADR-0017).
   const craqueAnterior = await anuncioDoCraque(banco, r.temporada_id, r.numero, 'A');
   const craqueAnteriorB = comSeries ? await anuncioDoCraque(banco, r.temporada_id, r.numero, 'B') : null;
@@ -173,6 +203,7 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
     ...(final ? { votacao: 'TEMPORADA' as const } : {}),
     ...(campeao ? { campeao } : {}),
     ...(campeaoB ? { campeaoB } : {}),
+    ...(campeaoCopa ? { campeaoCopa } : {}),
     ...(jogosDaFinal.length ? { final: jogosDaFinal } : {}),
     temporada: r.temporada,
     rodada: r.numero,

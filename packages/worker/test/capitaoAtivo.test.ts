@@ -22,9 +22,14 @@ afterEach(async () => {
   await banco.fechar();
 });
 
-/** Os jogos da Onça em ordem e um jeito de dar o jogo por terminado. */
-async function jogosDaOnca() {
-  const jogos = (await banco.query<{ id: number; apito: Date }>(`SELECT id, apito_inicial AS apito FROM partida WHERE mandante_id = 'ONC' OR visitante_id = 'ONC' ORDER BY apito_inicial`)).rows;
+/** Os jogos da Onça em ordem (só os da Série; com `copa`, só os da Copa) e um jeito de dar o jogo por terminado. */
+async function jogosDaOnca(copa = false) {
+  const jogos = (
+    await banco.query<{ id: number; apito: Date }>(
+      `SELECT id, apito_inicial AS apito FROM partida WHERE (mandante_id = 'ONC' OR visitante_id = 'ONC') AND (copa_etapa IS NOT NULL) = $1 ORDER BY apito_inicial`,
+      [copa],
+    )
+  ).rows;
   const terminar = (k: number) => banco.query(`UPDATE partida SET status = 'SIMULADA', resultado = '{}'::jsonb WHERE id = $1`, [jogos[k]!.id]);
   const depois = (k: number) => new Date(new Date(jogos[k]!.apito).getTime() + 3 * 3_600_000);
   return { jogos, terminar, depois };
@@ -49,6 +54,22 @@ describe('Capitão ativo (ADR-0114)', () => {
     const avisos = (await banco.query<{ jogador_id: string; titulo: string }>(`SELECT jogador_id::text AS jogador_id, titulo FROM aviso_pessoal ORDER BY id`)).rows;
     expect(avisos).toEqual([{ jogador_id: a2, titulo: 'A faixa é sua' }, { jogador_id: a0, titulo: 'Você perdeu a faixa' }]);
     expect(a1).not.toBe(a2);
+  });
+
+  it('jogos da Copa não contam: só 3 jogos da Série sem escolha tiram a faixa (ADR-0088)', async () => {
+    for (let k = 0; k < 3; k++) await comentar(`d${k}`, 'ENTRO Onça atacante');
+    const d0 = await idDe('d0');
+    const vinc = new Set([d0, await idDe('d1')]);
+    const copa = await jogosDaOnca(true);
+    const liga = await jogosDaOnca();
+    await conferirCapitaes(banco, PRE, vinc);
+    await copa.terminar(0);
+    await liga.terminar(0);
+    await liga.terminar(1);
+    // 3 jogos do Time terminados, mas um é da Copa: a faixa fica.
+    expect(await conferirCapitaes(banco, liga.depois(1), vinc)).toEqual([]);
+    await liga.terminar(2);
+    expect(await conferirCapitaes(banco, liga.depois(2), vinc)).toMatchObject([{ saiu: d0 }]);
   });
 
   it('uma escolha de Capitão segura a faixa; a conta recomeça a partir dela', async () => {

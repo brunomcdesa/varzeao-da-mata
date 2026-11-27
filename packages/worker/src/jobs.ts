@@ -596,7 +596,7 @@ export function legendaDoResumo(d: DadosDoResumo): string {
   const campeoes = etapa === 'FINAL' ? series.flatMap((serie) => daSerie(d.placares, serie).slice(0, 1).map((p) => ({ serie, time: vencedor(p) }))) : [];
   const placares = comSeries && !copa ? series.flatMap((serie) => [`Série ${serie}`, ...daSerie(d.placares, serie).map(placar)]) : d.placares.map(placar);
   // No último dia da Copa, o campeão da Copa (a votação do Craque do dia segue).
-  const campeaoDaCopa = copa && d.rodada === RODADA_DA_COPA.FINAL && d.placares.length ? vencedor(d.placares[d.placares.length - 1]!) : null;
+  const campeaoDaCopa = d.campeaoCopa ?? (copa && d.rodada === RODADA_DA_COPA.FINAL && d.placares.length ? vencedor(d.placares[d.placares.length - 1]!) : null);
   // Sem @: a lista não marca ninguém (ADR-0011).
   const candidato = (c: DadosDoResumo['candidatos'][number], i: number) => `${c.rotulo ?? c.numero ?? i + 1} · ${c.username} (${FALA_DO_TIME[c.time].curto})`;
   const candidatos = comSeries
@@ -615,7 +615,7 @@ export function legendaDoResumo(d: DadosDoResumo): string {
       if (!x) return [];
       const [serie, c] = x as [Serie, NonNullable<DadosDoResumo['craqueDaRodada']>];
       return [
-        `⭐ Craque ${doDia(c.fase, c.rodada)}${comSeries ? ` da Série ${serie}` : ''}: ${c.apelido ? `${c.apelido} (@${c.username})` : `@${c.username}`}, ${FALA_DO_TIME[c.time].curto}${c.votos ? `, com ${c.votos} ${c.votos === 1 ? 'voto' : 'votos'}` : ''}. Parabéns!`,
+        `⭐ Craque ${doDia(c.fase, c.rodada)}${comSeries && !ehRodadaDaCopa(c.rodada) ? ` da Série ${serie}` : ''}: ${c.apelido ? `${c.apelido} (@${c.username})` : `@${c.username}`}, ${FALA_DO_TIME[c.time].curto}${c.votos ? `, com ${c.votos} ${c.votos === 1 ? 'voto' : 'votos'}` : ''}. Parabéns!`,
       ];
     }),
     ...(d.craqueDaRodada || d.craqueDaRodadaB ? [''] : []),

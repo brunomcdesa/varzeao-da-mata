@@ -225,7 +225,11 @@ export function abaContratacoes(p: PainelDoTime, agora = Date.now()): Html {
  * Para quem tem Vínculo e é de outro Time: as vagas por Posição e o pedido para jogar aqui; para
  * quem decide noutro Time, Convidar e propor Troca casada com o Elenco deste.
  */
-export function blocoDoOutroTime(time: TimeId, eu: JogadorPublico | null, meuPainel: PainelDoTime | null, elenco: JogadorPublico[], filas: Partial<Record<Posicao, number>>, tecnico: string | null, limite: Record<Posicao, number>): Html {
+export function blocoDoOutroTime(time: TimeId, eu: JogadorPublico | null, meuPainel: PainelDoTime | null, elenco: JogadorPublico[], filas: Partial<Record<Posicao, number>>, tecnico: string | null, limite: Record<Posicao, number>, fechadoNaCopa = false): Html {
+  // Copa em andamento (ADR-0088): ninguém troca de Time; os pedidos voltam depois da Final da Copa.
+  if (fechadoNaCopa && (eu || (meuPainel && meuPainel.pedidos !== undefined))) {
+    return html`<section class="placa jogar-aqui"><h2 class="secao">Trocas de Time</h2><p>Durante a Copa ninguém troca de time: pedidos, Convites e Trocas casadas voltam depois da Final da Copa.</p></section>`;
+  }
   const n = (pos: Posicao) => elenco.filter((x) => x.posicao === pos).length;
   const decide = meuPainel && meuPainel.pedidos !== undefined;
   const pedir = eu

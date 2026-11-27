@@ -347,7 +347,7 @@ export const paginaJogador: Pagina = async (main, [id]) => {
   // T3 (ADR-0111): os Convites e Trocas casadas que chegaram, só para o dono.
   const lugarDoMercado = main.querySelector<HTMLElement>('[data-mercado]');
   if (lugarDoMercado && jogadorVinculado() === j.id && temRegrasT3(temporadaDoApp(l) ?? 0)) ligarMercado(lugarDoMercado, j.id);
-  return ligarMeuPersonagem(main, j, todos, timesAtivos(l), temRegrasT2(temporadaDoApp(l) ?? 0), temMoedas(temporadaDoApp(l) ?? 0));
+  return ligarMeuPersonagem(main, j, todos, timesAtivos(l), temRegrasT2(temporadaDoApp(l) ?? 0), temMoedas(temporadaDoApp(l) ?? 0), !!l.trocasFechadasNaCopa);
 };
 
 function numeros(e: Estatisticas, j: JogadorPublico): Html {

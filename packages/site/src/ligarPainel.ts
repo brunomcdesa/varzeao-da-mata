@@ -90,7 +90,7 @@ export function ligarPainelDoTime(main: HTMLElement, o: { time: TimeId; l: LigaP
     if (!doTime) {
       const eu = o.todos.find((x) => x.id === r.jogadorId) ?? null;
       const tecnico = o.l.times.find((x) => x.id === o.time)?.tecnico;
-      const bloco = html`<div class="painel-outro-time">${blocoDoOutroTime(o.time, eu, p, o.elenco, o.l.times.find((x) => x.id === o.time)?.fila ?? {}, tecnico ? (tecnico.apelido ?? `@${tecnico.username}`) : null, LIMITE)}${
+      const bloco = html`<div class="painel-outro-time">${blocoDoOutroTime(o.time, eu, p, o.elenco, o.l.times.find((x) => x.id === o.time)?.fila ?? {}, tecnico ? (tecnico.apelido ?? `@${tecnico.username}`) : null, LIMITE, !!o.l.trocasFechadasNaCopa)}${
         eu && !tecnico ? blocoSerTecnico(o.time) : ''
       }</div>`;
       main.querySelector('.time-colunas')?.insertAdjacentHTML('beforebegin', bloco.s);

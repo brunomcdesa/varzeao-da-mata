@@ -468,6 +468,11 @@ export async function transferirJogador(
     ignorarLimite?: boolean;
     /** Chamado pela Fila: Posição cheia de novo não volta para a Fila. */
     origemFila?: boolean;
+    /**
+     * Quando a troca acontece de fato (o aceite de um Pedido), se for depois de `quando` (a hora
+     * do pedido). A Janela vale pela hora do pedido; a Copa em andamento, pela hora da troca.
+     */
+    efetivaEm?: Date;
   },
 ): Promise<{ resultado: Resultado; mensagem?: string }> {
   const j = (await b.query<{ time_id: TimeId; posicao: Posicao; ovr: number; habilidades: Habilidades | string | null; ig_user_id: string; username: string }>(`SELECT time_id, posicao, ovr, habilidades, ig_user_id, username FROM jogador WHERE id = $1`, [jogadorId])).rows[0];
@@ -485,8 +490,8 @@ export async function transferirJogador(
   if (!temporada) {
     return { resultado: 'TRANSFERENCIA_FECHADA', mensagem: 'as transferências estão fechadas: só valem na Fase de Liga. Elas reabrem na próxima temporada. ⚽' };
   }
-  if (await copaEmAndamento(b, temporada, o.quando)) {
-    return { resultado: 'TRANSFERENCIA_FECHADA', mensagem: 'durante a Copa ninguém troca de time. As transferências reabrem depois da Final da Copa, antes da Fase de Liga. ⚽' };
+  if (await copaEmAndamento(b, temporada, o.efetivaEm ?? o.quando)) {
+    return { resultado: 'TRANSFERENCIA_FECHADA', mensagem: FECHADO_NA_COPA };
   }
   // Janela de Transferências (T2, ADR-0022): na Pré-temporada, a troca não gasta a da Temporada.
   const janela = await emJanela(b, temporada, o.quando);
@@ -750,7 +755,7 @@ async function temporadaDaTransferencia(b: Banco, agora: Date): Promise<number |
  * até a Copa ter campeão, ninguém troca de Time. Assim quem cai na Copa não vai jogar o resto
  * dela por outro Time.
  */
-async function copaEmAndamento(b: Banco, temporadaId: number, agora: Date): Promise<boolean> {
+export async function copaEmAndamento(b: Banco, temporadaId: number, agora: Date): Promise<boolean> {
   const r = (
     await b.query<{ primeiro: Date | string | null; campeao: string | null }>(
       `SELECT (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id AND p.copa_etapa IS NOT NULL) AS primeiro,
@@ -762,6 +767,15 @@ async function copaEmAndamento(b: Banco, temporadaId: number, agora: Date): Prom
   if (!r?.primeiro || r.campeao) return false;
   return agora.getTime() >= new Date(r.primeiro).getTime() - CORTE_MS;
 }
+
+/** As trocas de Time estão fechadas agora por causa da Copa (Convite e Troca casada nem nascem). */
+export async function trocasFechadasPelaCopa(b: Banco, agora: Date): Promise<boolean> {
+  const t = await temporadaDaTransferencia(b, agora);
+  return t !== null && (await copaEmAndamento(b, t, agora));
+}
+
+/** A mensagem de quando a troca não vale porque a Copa está em andamento. */
+export const FECHADO_NA_COPA = 'durante a Copa ninguém troca de time. As transferências reabrem depois da Final da Copa, antes da Fase de Liga. ⚽';
 
 /** Voto no Craque: "3" e "A3" são o 3 da Série A; "B3" é o 3 da Série B (ADR-0017). */
 async function votar(b: Banco, c: Comentario, voto: { numero: number; serie?: Serie }, ctx: Contexto): Promise<Resultado> {

@@ -1,7 +1,7 @@
 /**
  * Capitão ativo (ADR-0114): o Capitão precisa mexer no Time. Quem fica com a faixa 3 jogos do
  * Time sem nenhuma escolha de Capitão perde a faixa (mesmo a posta à mão) e sai da ordem até a
- * Temporada seguinte. A faixa vai para o próximo da ordem que está ativo: com Vínculo e que
+ * Temporada seguinte. Jogos da Copa (ADR-0088) não entram nessa conta. A faixa vai para o próximo da ordem que está ativo: com Vínculo e que
  * confirmou Presença (ou fez escolha de Capitão) nos últimos 3 jogos do Time; sem ninguém
  * assim, segue a ordem normal. Quem recebe e quem perdeu ganham Aviso no App. A Temporada
  * que conta é a em andamento (ou a mais nova, na Pré-temporada).
@@ -76,7 +76,8 @@ export async function conferirCapitaes(b: Banco, agora: Date, comVinculo: Readon
     const jogos = Number(
       (
         await b.query<{ n: string }>(
-          `SELECT count(*) AS n FROM partida WHERE (mandante_id = $1 OR visitante_id = $1) AND resultado IS NOT NULL AND apito_inicial > $2 AND apito_inicial <= $3`,
+          // Jogos da Copa não contam (ADR-0088): 4 jogos em 3 dias não dão tempo de reagir.
+          `SELECT count(*) AS n FROM partida WHERE (mandante_id = $1 OR visitante_id = $1) AND resultado IS NOT NULL AND copa_etapa IS NULL AND apito_inicial > $2 AND apito_inicial <= $3`,
           [time, iso(desde), iso(agora)],
         )
       ).rows[0]!.n,

@@ -38,7 +38,8 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { FALA_DO_TIME, IDENTIDADE, TIMES, type Posicao, type TimeId } from '@liga/shared';
+import { CORTE_MINUTOS, FALA_DO_TIME, IDENTIDADE, TIMES, type Posicao, type TimeId } from '@liga/shared';
+import { trocasFechadasPelaCopa } from '../src/coletar.js';
 import { criarRng } from '@liga/sim';
 import {
   conectar,
@@ -349,6 +350,8 @@ async function main(): Promise<void> {
         const usuario = (process.env.USUARIO ?? '').replace(/^@/, '').trim();
         const pedido = interpretar(`ENTRO ${process.env.TIME ?? ''} ${process.env.POSICAO ?? ''}`.trim());
         if (!usuario || pedido.tipo !== 'INSCRICAO') throw new Error('Use: USUARIO=fulano TIME=onca POSICAO=zagueiro pnpm liga mover');
+        // Ferramenta do dono: vale mesmo durante a Copa (ADR-0088), mas avisa.
+        if (await trocasFechadasPelaCopa(banco, new Date())) console.log('Atenção: a Copa está em andamento, e para os Jogadores as trocas de Time estão fechadas. A mudança à mão vale mesmo assim.');
         const r = await moverJogador(banco, usuario, pedido.time, pedido.posicao, process.env.ID || undefined);
         console.log(`Movido: @${usuario} de ${r.de} para ${r.posicao} do ${r.para}, OVR ${r.ovr}.${r.perdeuCamisa ? ' A camisa já tinha dono no Time novo e foi liberada.' : ''}`);
         break;
@@ -483,7 +486,7 @@ async function main(): Promise<void> {
           `SELECT t.status, (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id) AS primeiro
              FROM temporada t WHERE t.status IN ('PRE_TEMPORADA', 'EM_ANDAMENTO') ORDER BY t.status = 'EM_ANDAMENTO' DESC, t.numero LIMIT 1`,
         )).rows[0];
-        const naJanela = !!t && (t.primeiro ? Date.now() < new Date(t.primeiro).getTime() - 20 * 60_000 : t.status === 'PRE_TEMPORADA');
+        const naJanela = !!t && (t.primeiro ? Date.now() < new Date(t.primeiro).getTime() - CORTE_MINUTOS * 60_000 : t.status === 'PRE_TEMPORADA');
         const token = (await tokenGuardado(banco))?.token ?? process.env.IG_ACCESS_TOKEN;
         const ig = process.env.IG_USER_ID && token ? new Instagram({ userId: process.env.IG_USER_ID, token }) : null;
         const ultima = ig ? await ig.ultimaMensagemDe(usuario).catch(() => null) : null;

@@ -212,7 +212,7 @@ export const blocoDoDono = () => (vinculoDisponivel() ? html`<section class="meu
  * `t2`: a Temporada atual tem as regras da Temporada 2 (ADRs 0020 a 0024). Sem ela, o painel
  * é exatamente o da T1: nada de Presença, Postura, Especialização, Treino ou Canto.
  */
-export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: JogadorPublico[], ativos: readonly TimeId[] = TIMES, t2 = false, moedas = false): () => void {
+export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: JogadorPublico[], ativos: readonly TimeId[] = TIMES, t2 = false, moedas = false, fechadoNaCopa = false): () => void {
   const achada = raiz.querySelector<HTMLElement>('.meu-personagem');
   if (!achada) return () => {};
   const caixa: HTMLElement = achada;
@@ -325,6 +325,8 @@ export function ligarMeuPersonagem(raiz: HTMLElement, j: JogadorPublico, todos: 
       ${resultado}
       ${pendente
         ? html`<p>Pedido enviado: ${estado.time ? html`ir para ${curto(estado.time)}` : ''}${estado.time && estado.posicao ? ' como ' : ''}${estado.posicao ? NOME_DA_POSICAO[estado.posicao].toLowerCase() : ''}. A Liga aplica em 1 ou 2 minutos.</p>`
+        : fechadoNaCopa && estado.resultado !== 'TRANSFERIDO'
+          ? html`<p>Durante a Copa ninguém troca de time. As transferências reabrem depois da Final da Copa, antes da Fase de Liga.</p>`
         : j.transferenciaUsada || estado.resultado === 'TRANSFERIDO'
           ? estado.resultado === 'TRANSFERIDO'
             ? html`<p class="legenda">A página do Jogador atualiza na próxima publicação do site, em alguns minutos.</p>`
