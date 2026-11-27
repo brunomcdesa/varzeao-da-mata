@@ -154,7 +154,7 @@ export async function pagarTituloDaCopa(b: Banco, temporadaId: number): Promise<
   const t = (await b.query<{ numero: number; copa: TimeId | null }>(`SELECT numero, campeao_copa_id AS copa FROM temporada WHERE id = $1`, [temporadaId])).rows[0];
   if (!t?.copa || !temMoedas(t.numero)) return;
   const fim = (
-    await b.query<{ fim: Date | string }>(`SELECT max(p.apito_inicial) AS fim FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND p.copa_etapa IS NOT NULL`, [temporadaId])
+    await b.query<{ fim: Date | string }>(`SELECT max(p.apito_inicial) AS fim FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND p.copa_etapa IS NOT NULL AND p.copa_etapa <> 'SUPERCOPA'`, [temporadaId])
   ).rows[0]!.fim;
   const visivelEm = new Date(new Date(fim).getTime() + duracaoAoVivoMs('MATA_MATA'));
   for (const j of [...(await quemJogouPor(b, temporadaId, t.copa, true)), ...(await tecnicoDoTitulo(b, t.copa))]) {
@@ -168,7 +168,7 @@ async function quemJogouPor(b: Banco, temporadaId: number, time: TimeId, soCopa:
   return (
     await b.query<{ id: string }>(
       `SELECT DISTINCT e.jogador_id::text AS id FROM escalacao e JOIN partida p ON p.id = e.partida_id JOIN rodada r ON r.id = p.rodada_id
-       WHERE r.temporada_id = $1 AND e.time_id = $2 AND e.jogador_id IS NOT NULL AND e.nota IS NOT NULL ${soCopa ? 'AND p.copa_etapa IS NOT NULL' : 'AND p.copa_etapa IS NULL'}`,
+       WHERE r.temporada_id = $1 AND e.time_id = $2 AND e.jogador_id IS NOT NULL AND e.nota IS NOT NULL ${soCopa ? "AND p.copa_etapa IS NOT NULL AND p.copa_etapa <> 'SUPERCOPA'" : 'AND p.copa_etapa IS NULL'}`,
       [temporadaId, time],
     )
   ).rows.map((r) => r.id);
@@ -221,7 +221,11 @@ export async function atualizarConquistas(b: Banco): Promise<number> {
        WHERE p.resultado IS NOT NULL ORDER BY p.apito_inicial, p.id`,
     )
   ).rows;
-  const temporadas = (await b.query<{ id: number; a: TimeId | null; b: TimeId | null; copa: TimeId | null }>(`SELECT id, campeao_id AS a, campeao_b_id AS b, campeao_copa_id AS copa FROM temporada`)).rows;
+  const temporadas = (
+    await b.query<{ id: number; a: TimeId | null; b: TimeId | null; copa: TimeId | null; supercopa: TimeId | null }>(
+      `SELECT id, campeao_id AS a, campeao_b_id AS b, campeao_copa_id AS copa, campeao_supercopa_id AS supercopa FROM temporada`,
+    )
+  ).rows;
   const campeaoDa = new Map(temporadas.map((t) => [t.id, t]));
   // Quem jogou por qual Time em cada Temporada (para os Títulos), e na Copa.
   const jogouPor = new Set<string>();
@@ -229,8 +233,9 @@ export async function atualizarConquistas(b: Banco): Promise<number> {
   for (const p of partidas) {
     for (const d of p.resultado.desempenhos) {
       if (!d.jogadorId) continue;
-      jogouPor.add(`${p.temporada_id}:${p.resultado.times[d.slot.lado]}:${d.jogadorId}`);
-      if (p.copa_etapa) jogouNaCopa.add(`${p.temporada_id}:${p.resultado.times[d.slot.lado]}:${d.jogadorId}`);
+      // Título da Série: só jogos da Série; da Copa: só os da Copa (a Supercopa é o próprio jogo, ADR-0118).
+      if (!p.copa_etapa) jogouPor.add(`${p.temporada_id}:${p.resultado.times[d.slot.lado]}:${d.jogadorId}`);
+      else if (p.copa_etapa !== 'SUPERCOPA') jogouNaCopa.add(`${p.temporada_id}:${p.resultado.times[d.slot.lado]}:${d.jogadorId}`);
     }
   }
   const todos = new Set(partidas.flatMap((p) => p.resultado.desempenhos.flatMap((d) => (d.jogadorId ? [d.jogadorId] : []))));
@@ -262,10 +267,13 @@ export async function atualizarConquistas(b: Banco): Promise<number> {
         goleiroSemSofrer: d.posicao === 'GOL' && d.golsSofridos === 0,
       });
     }
-    // Títulos: na Final de uma Série (quem jogou pelo campeão na Temporada) e na Final da Copa.
+    // Títulos: na Final de uma Série (quem jogou pelo campeão na Temporada), na Final da Copa e na
+    // Supercopa (quem entrou em campo nela pelo campeão).
     const c = campeaoDa.get(p.temporada_id);
     const campeaoDaPartida = vencedor ? r.times[vencedor] : null;
-    if (c && campeaoDaPartida && (p.copa_etapa === 'FINAL' ? c.copa === campeaoDaPartida : p.etapa_final && (c.a === campeaoDaPartida || c.b === campeaoDaPartida))) {
+    if (c && campeaoDaPartida && p.copa_etapa === 'SUPERCOPA' && c.supercopa === campeaoDaPartida) {
+      for (const d of r.desempenhos) if (d.jogadorId && r.times[d.slot.lado] === campeaoDaPartida) de(d.jogadorId).titulos++;
+    } else if (c && campeaoDaPartida && (p.copa_etapa === 'FINAL' ? c.copa === campeaoDaPartida : p.etapa_final && (c.a === campeaoDaPartida || c.b === campeaoDaPartida))) {
       for (const id of todos) {
         const chave = `${p.temporada_id}:${campeaoDaPartida}:${id}`;
         if (p.copa_etapa ? jogouNaCopa.has(chave) : jogouPor.has(chave)) {

@@ -6,6 +6,7 @@
 import type { Habilidades, Posicao, TimeId } from '@liga/shared';
 import { CANDIDATOS_POR_SERIE, TIMES_DA_EXPANSAO, TIMES_POR_SERIE, temRegrasT3, doTime, numeroDoCandidato, ovrDasHabilidades, temRegrasT2, type Serie } from '@liga/shared';
 import type { Banco } from './banco.js';
+import { antesDoFimDaSupercopa } from './supercopa.js';
 import { soltarFaixa } from './aMao.js';
 import { CONTA_DA_LIGA, citacoes, interpretar, type Comando } from './comandos.js';
 import { PREFIXO_SEM_ID } from './instagram.js';
@@ -493,6 +494,9 @@ export async function transferirJogador(
   if (await copaEmAndamento(b, temporada, o.efetivaEm ?? o.quando)) {
     return { resultado: 'TRANSFERENCIA_FECHADA', mensagem: FECHADO_NA_COPA };
   }
+  if (await antesDoFimDaSupercopa(b, temporada, o.efetivaEm ?? o.quando)) {
+    return { resultado: 'TRANSFERENCIA_FECHADA', mensagem: FECHADO_ATE_A_SUPERCOPA };
+  }
   // Janela de Transferências (T2, ADR-0022): na Pré-temporada, a troca não gasta a da Temporada.
   const janela = await emJanela(b, temporada, o.quando);
   // Para um Time da Expansão antes do primeiro jogo dele (ADR-0093): de graça e vira Fundador.
@@ -700,12 +704,14 @@ export async function moverJogador(
 async function emJanela(b: Banco, temporadaId: number, quando: Date): Promise<boolean> {
   const t = (
     await b.query<{ numero: number; status: string; primeiro: Date | string | null }>(
-      `SELECT t.numero, t.status, (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id) AS primeiro
+      `SELECT t.numero, t.status, (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id AND p.copa_etapa IS DISTINCT FROM 'SUPERCOPA') AS primeiro
          FROM temporada t WHERE t.id = $1`,
       [temporadaId],
     )
   ).rows[0];
   if (!t || !temRegrasT2(t.numero)) return false;
+  // Com Supercopa (ADR-0118), a Janela só abre quando ela termina.
+  if (await antesDoFimDaSupercopa(b, temporadaId, quando)) return false;
   if (!t.primeiro) return t.status === 'PRE_TEMPORADA';
   return quando.getTime() < new Date(t.primeiro).getTime() - CORTE_MS;
 }
@@ -758,7 +764,7 @@ async function temporadaDaTransferencia(b: Banco, agora: Date): Promise<number |
 export async function copaEmAndamento(b: Banco, temporadaId: number, agora: Date): Promise<boolean> {
   const r = (
     await b.query<{ primeiro: Date | string | null; campeao: string | null }>(
-      `SELECT (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id AND p.copa_etapa IS NOT NULL) AS primeiro,
+      `SELECT (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id AND p.copa_etapa IS NOT NULL AND p.copa_etapa <> 'SUPERCOPA') AS primeiro,
               t.campeao_copa_id AS campeao
          FROM temporada t WHERE t.id = $1`,
       [temporadaId],
@@ -768,14 +774,26 @@ export async function copaEmAndamento(b: Banco, temporadaId: number, agora: Date
   return agora.getTime() >= new Date(r.primeiro).getTime() - CORTE_MS;
 }
 
-/** As trocas de Time estão fechadas agora por causa da Copa (Convite e Troca casada nem nascem). */
-export async function trocasFechadasPelaCopa(b: Banco, agora: Date): Promise<boolean> {
+/**
+ * Por que as trocas de Time estão fechadas agora: a Copa em andamento (ADR-0088) ou a Supercopa
+ * ainda por jogar (ADR-0118). Convite e Troca casada nem nascem. null: não estão fechadas por isso.
+ */
+export async function trocasFechadasAgora(b: Banco, agora: Date): Promise<'COPA' | 'SUPERCOPA' | null> {
   const t = await temporadaDaTransferencia(b, agora);
-  return t !== null && (await copaEmAndamento(b, t, agora));
+  if (t === null) return null;
+  if (await antesDoFimDaSupercopa(b, t, agora)) return 'SUPERCOPA';
+  return (await copaEmAndamento(b, t, agora)) ? 'COPA' : null;
+}
+
+/** As trocas de Time estão fechadas agora pela Copa ou pela Supercopa? */
+export async function trocasFechadasPelaCopa(b: Banco, agora: Date): Promise<boolean> {
+  return (await trocasFechadasAgora(b, agora)) !== null;
 }
 
 /** A mensagem de quando a troca não vale porque a Copa está em andamento. */
 export const FECHADO_NA_COPA = 'durante a Copa ninguém troca de time. As transferências reabrem depois da Final da Copa, antes da Fase de Liga. ⚽';
+/** A mensagem de quando a troca não vale porque a Supercopa ainda não acabou (ADR-0118). */
+export const FECHADO_ATE_A_SUPERCOPA = 'a Janela abre depois da Supercopa (domingo, 18h). Até lá ninguém troca de time. ⚽';
 
 /** Voto no Craque: "3" e "A3" são o 3 da Série A; "B3" é o 3 da Série B (ADR-0017). */
 async function votar(b: Banco, c: Comentario, voto: { numero: number; serie?: Serie }, ctx: Contexto): Promise<Resultado> {

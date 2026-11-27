@@ -629,6 +629,12 @@ export function aberturaDoMataMata(m: MataMataDaPartida, mandante: TimeId, visit
   const rng = criarRng(((seed >>> 0) ^ 0x27d4eb2f) >>> 0);
   const confronto = `${FALA_DO_TIME[mandante].curto} contra ${FALA_DO_TIME[visitante].curto}`;
   const classico = nomeDoClassico(mandante, visitante);
+  // Supercopa (ADR-0118): o campeão da Série A contra o campeão da Copa, abrindo a Temporada.
+  if (m.supercopa) {
+    return classico
+      ? `É o ${classico} na Supercopa! ${confronto}, abrindo a Temporada ${m.temporada} valendo taça!`
+      : rng.pick([`É a Supercopa do Varzeão! ${confronto}, abrindo a Temporada ${m.temporada} valendo taça!`, `Campeão contra campeão! Supercopa no Varzeão: ${confronto}!`]);
+  }
   // Copa (ADR-0088): Times das duas Séries; perdeu, tá fora.
   if (m.copa) {
     const etapa = NOME_DA_ETAPA_DA_COPA[m.copa];
@@ -785,6 +791,7 @@ export function desfechoDaBriga(b: BrigaPeloMataMata, times: Times, placar: Plac
 /** O que a vitória vale, no fim da Partida do Mata-mata: vaga na Final ou o Título. */
 export function desfechoDoMataMata(m: MataMataDaPartida, vencedor: TimeId): string {
   const quem = `${cap(artigoDe(vencedor))} ${FALA_DO_TIME[vencedor].curto}`;
+  if (m.supercopa) return `${quem} é campeão da Supercopa do Varzeão da Mata!`;
   if (m.copa) return m.copa === 'FINAL' ? `${quem} é campeão da Copa do Varzeão da Mata!` : m.copa === 'SEMIFINAL' ? `${quem} está na Final da Copa!` : `${quem} avança na Copa!`;
   return m.etapa === 'SEMIFINAL' ? `${quem} está na Final${daSerie(m)}!` : `${quem} é campeão${daSerie(m)} da Temporada ${m.temporada} do Varzeão da Mata!`;
 }

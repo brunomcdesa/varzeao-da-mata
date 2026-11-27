@@ -100,6 +100,23 @@ export function quartasComRepescagem(melhoresSeis: readonly TimeId[], daRepescag
 }
 export const ehRodadaDaCopa = (numero: number): boolean => numero >= RODADA_DA_COPA.OITAVAS;
 
+/**
+ * Supercopa (ADR-0118): jogo único entre o campeão da Série A e o campeão da Copa da Temporada
+ * anterior (mesmo Time nos dois: entra o vice da Série A), abrindo a Temporada. Mora na Rodada
+ * 100 do Mata-mata, com `partida.copa_etapa = 'SUPERCOPA'`; não é jogo da Copa nem da Série.
+ */
+export const RODADA_DA_SUPERCOPA = 100;
+export const ETAPA_SUPERCOPA = 'SUPERCOPA' as const;
+export const ehRodadaDaSupercopa = (numero: number): boolean => numero === RODADA_DA_SUPERCOPA;
+/** Horário da Supercopa (Brasília) e quantos dias antes do primeiro dia da Copa ela cai (o domingo). */
+export const HORA_DA_SUPERCOPA = 18;
+export const DIAS_DA_SUPERCOPA_ANTES_DA_COPA = 2;
+/** A primeira Temporada com Supercopa: a seguinte à primeira Copa. */
+export const PRIMEIRA_TEMPORADA_COM_SUPERCOPA = PRIMEIRA_TEMPORADA_COM_COPA + 1;
+export function temSupercopa(numeroDaTemporada: number): boolean {
+  return numeroDaTemporada >= PRIMEIRA_TEMPORADA_COM_SUPERCOPA;
+}
+
 /** Dias da Copa: a Fase de Liga começa no dia seguinte à Final da Copa. */
 export const DIAS_DA_COPA = 3;
 

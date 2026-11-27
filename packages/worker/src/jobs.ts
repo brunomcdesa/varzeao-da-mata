@@ -14,7 +14,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FALA_DO_TIME, IDENTIDADE, RODADA_DA_COPA, TIMES_DA_EXPANSAO, doTime, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, temMoedas, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, ehRodadaDaCopa, etapaDa, nomeDaRodada, nomeDaRodadaDaCopa, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
+import { FALA_DO_TIME, IDENTIDADE, RODADA_DA_COPA, TIMES_DA_EXPANSAO, doTime, ehRodadaDaSupercopa, PRIMEIRA_TEMPORADA_COM_REGRAS_T2, temMoedas, type LigaPublica, type PartidaPublica, duracaoAoVivoMs, ehRodadaDaCopa, etapaDa, nomeDaRodada, nomeDaRodadaDaCopa, nomeDoClassico, type Posicao, type Serie, type TimeId } from '@liga/shared';
 import { temExpansao } from './expansao.js';
 import { colaboradoresDaPartida, perfisDosTimes } from './perfilDoTime.js';
 import { momentosDoAoVivo } from '@liga/renderer';
@@ -31,6 +31,7 @@ import { Instagram, ErroInstagram } from './instagram.js';
 import { CHAVE_TOKEN, gravarNaAgenda, type Agenda, type Armazenamento, type ItemDaAgenda } from './nuvem.js';
 import { avancarMataMata, estrelasNoBanco, estruturaDaTemporada } from './mataMata.js';
 import { avancarCopaPendente } from './copa.js';
+import { fecharSupercopaPendente, haveraSupercopa, supercopaDaTemporada } from './supercopa.js';
 import { pagarRodada, pagarTitulos } from './moedas.js';
 import { rebalancear } from './rebalanceamento.js';
 import { destaquesDaTemporadaNoBanco } from './destaques.js';
@@ -281,7 +282,7 @@ export function legendaDaPartida(d: DadosDoVideo, rodada: number): string {
     autores.length ? `Gols: ${[...new Set(autores)].join(', ')}` : '',
     'Replay e escalações no site (link na bio).',
     '',
-    `#varzeaodamata ${ehRodadaDaCopa(rodada) ? '#copa' : `#rodada${rodada}`} #${IDENTIDADE[mandante].bicho} #${IDENTIDADE[visitante].bicho}`,
+    `#varzeaodamata ${ehRodadaDaSupercopa(rodada) ? '#supercopa' : ehRodadaDaCopa(rodada) ? '#copa' : `#rodada${rodada}`} #${IDENTIDADE[mandante].bicho} #${IDENTIDADE[visitante].bicho}`,
   ];
   return linhas.filter((l, i, a) => l !== '' || a[i - 1] !== '').join('\n');
 }
@@ -428,6 +429,8 @@ export async function jobEscalar(c: ContextoDoJob, o: { janelaMin?: number; espe
   // Copa (ADR-0088): a etapa seguinte nasce assim que a anterior termina (Semifinais no mesmo dia das Quartas).
   const copa = await avancarCopaPendente(c.banco);
   if (copa !== 'NADA') logDe(c)(`Copa: ${copa}.`);
+  const supercopa = await c.banco.transacao((b) => fecharSupercopaPendente(b));
+  if (supercopa) logDe(c)(`Supercopa: campeão ${supercopa}.`);
   const pendentes = await partidasPendentes(c.banco, agoraDe(c), o.janelaMin ?? 60);
   const p = pendentes.find((q) => q.status === 'PENDENTE');
   if (!p) {
@@ -585,13 +588,15 @@ const diaDaCopa = (rodada: number) => nomeDaRodadaDaCopa(rodada).replace(/^Copa:
 /** "da Rodada 3", "da Copa (Oitavas de Clássico)", "das Semifinais", "da Final". */
 function doDia(fase: 'LIGA' | 'MATA_MATA', rodada: number): string {
   const e = etapaDa(fase, rodada);
-  return e === 'LIGA' ? `da Rodada ${rodada}` : e === 'COPA' ? `da Copa (${diaDaCopa(rodada)})` : e === 'SEMIFINAL' ? 'das Semifinais' : 'da Final';
+  return e === 'LIGA' ? `da Rodada ${rodada}` : e === 'COPA' ? `da Copa (${diaDaCopa(rodada)})` : e === 'SUPERCOPA' ? 'da Supercopa' : e === 'SEMIFINAL' ? 'das Semifinais' : 'da Final';
 }
 
 export function legendaDoResumo(d: DadosDoResumo): string {
   const etapa = etapaDa(d.fase, d.rodada);
   // Na Copa (ADR-0088), os jogos são das duas Séries juntas: os placares não se dividem por Série.
-  const copa = etapa === 'COPA';
+  // A Supercopa (ADR-0118) segue a Copa: jogo das duas Séries, sem divisão por Série.
+  const supercopa = etapa === 'SUPERCOPA';
+  const copa = etapa === 'COPA' || supercopa;
   const comSeries = !!d.tabelaB;
   const placar = (p: DadosDoResumo['placares'][number]) =>
     `${p.hora}h  ${FALA_DO_TIME[p.mandante].curto} ${p.golsMandante} × ${p.golsVisitante} ${FALA_DO_TIME[p.visitante].curto}${p.penaltis ? ` (pênaltis ${p.penaltis.mandante}–${p.penaltis.visitante})` : ''}`;
@@ -603,7 +608,8 @@ export function legendaDoResumo(d: DadosDoResumo): string {
   const campeoes = etapa === 'FINAL' ? series.flatMap((serie) => daSerie(d.placares, serie).slice(0, 1).map((p) => ({ serie, time: vencedor(p) }))) : [];
   const placares = comSeries && !copa ? series.flatMap((serie) => [`Série ${serie}`, ...daSerie(d.placares, serie).map(placar)]) : d.placares.map(placar);
   // No último dia da Copa, o campeão da Copa (a votação do Craque do dia segue).
-  const campeaoDaCopa = d.campeaoCopa ?? (copa && d.rodada === RODADA_DA_COPA.FINAL && d.placares.length ? vencedor(d.placares[d.placares.length - 1]!) : null);
+  const campeaoDaCopa = d.campeaoCopa ?? (copa && !supercopa && d.rodada === RODADA_DA_COPA.FINAL && d.placares.length ? vencedor(d.placares[d.placares.length - 1]!) : null);
+  const campeaoDaSupercopa = d.campeaoSupercopa ?? (supercopa && d.placares.length ? vencedor(d.placares[0]!) : null);
   // Sem @: a lista não marca ninguém (ADR-0011).
   const candidato = (c: DadosDoResumo['candidatos'][number], i: number) => `${c.rotulo ?? c.numero ?? i + 1} · ${c.username} (${FALA_DO_TIME[c.time].curto})`;
   const candidatos = comSeries
@@ -613,10 +619,11 @@ export function legendaDoResumo(d: DadosDoResumo): string {
       })
     : d.candidatos.map(candidato);
   const linhas = [
-    `📋 ${etapa === 'LIGA' ? `Resumo da Rodada ${d.rodada}` : copa ? `Resumo da Copa (${diaDaCopa(d.rodada)})` : etapa === 'SEMIFINAL' ? 'Resumo das Semifinais' : 'Resumo da Final'} da Temporada ${d.temporada}`,
+    `📋 ${etapa === 'LIGA' ? `Resumo da Rodada ${d.rodada}` : supercopa ? 'Resumo da Supercopa' : copa ? `Resumo da Copa (${diaDaCopa(d.rodada)})` : etapa === 'SEMIFINAL' ? 'Resumo das Semifinais' : 'Resumo da Final'} da Temporada ${d.temporada}`,
     ...placares,
     '',
     ...(campeaoDaCopa ? [`🏆 ${IDENTIDADE[campeaoDaCopa].nome} é campeão da Copa da Temporada ${d.temporada}!`, ''] : []),
+    ...(campeaoDaSupercopa ? [`🏆 ${IDENTIDADE[campeaoDaSupercopa].nome} é campeão da Supercopa da Temporada ${d.temporada}! A Janela de Transferências está aberta.`, ''] : []),
     // Anúncio do Craque da Rodada anterior: aqui o @ marca o eleito (é parabéns, não voto).
     ...[d.craqueDaRodada ? ['A', d.craqueDaRodada] : null, d.craqueDaRodadaB ? ['B', d.craqueDaRodadaB] : null].flatMap((x) => {
       if (!x) return [];
@@ -633,8 +640,8 @@ export function legendaDoResumo(d: DadosDoResumo): string {
         ]
       : [
           comSeries
-            ? `Quem é o Craque ${etapa === 'FINAL' ? 'da Temporada' : copa ? 'do dia' : 'da Rodada'} em cada Série? Comente a letra e o número (A3, B3), ou vote no site (link na bio):`
-            : `Quem é o Craque ${etapa === 'FINAL' ? 'da Temporada' : copa ? 'do dia' : 'da Rodada'}? Comente só o número do seu escolhido, ou vote no site (link na bio):`,
+            ? `Quem é o Craque ${etapa === 'FINAL' ? 'da Temporada' : supercopa ? 'da Supercopa' : copa ? 'do dia' : 'da Rodada'} em cada Série? Comente a letra e o número (A3, B3), ou vote no site (link na bio):`
+            : `Quem é o Craque ${etapa === 'FINAL' ? 'da Temporada' : supercopa ? 'da Supercopa' : copa ? 'do dia' : 'da Rodada'}? Comente só o número do seu escolhido, ou vote no site (link na bio):`,
           ...candidatos,
           comSeries ? 'Um voto por perfil em cada Série (vale o último) e um por aparelho no site.' : 'Um voto por perfil (vale o último) e um por aparelho no site.',
         ]),
@@ -642,7 +649,7 @@ export function legendaDoResumo(d: DadosDoResumo): string {
     O_QUE_E,
     d.totalNovos ? `${d.totalNovos} ${d.totalNovos === 1 ? 'novo contratado' : 'novos contratados'} hoje. Quer jogar? Comente ENTRO + Time + posição.` : 'Quer jogar? Comente ENTRO + Time + posição.',
     '',
-    etapa === 'LIGA' ? `#varzeaodamata #rodada${d.rodada}` : copa ? '#varzeaodamata #copa' : `#varzeaodamata #matamata`,
+    etapa === 'LIGA' ? `#varzeaodamata #rodada${d.rodada}` : supercopa ? '#varzeaodamata #supercopa' : copa ? '#varzeaodamata #copa' : `#varzeaodamata #matamata`,
   ];
   return linhas.join('\n');
 }
@@ -670,8 +677,9 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
 
   // Os votos comentados desde a última coleta (ela roda de hora em hora) entram antes de contar.
   await lerVotosAteOFechamento(c, t.final_id, fechaEm);
-  // A próxima Temporada já nasce aqui: Rodada 1 dois dias depois deste anúncio.
-  const proxima = await garantirProximaTemporada(c.banco, t.numero, somarDias(dia, 3));
+  // A próxima Temporada já nasce aqui: Rodada 1 dois dias depois deste anúncio. Com Supercopa
+  // (ADR-0118), ela é no dia seguinte (domingo) e a Copa começa um dia depois (terça).
+  const proxima = await garantirProximaTemporada(c.banco, t.numero, somarDias(dia, (await haveraSupercopa(c.banco, t.numero + 1)) ? 4 : 3));
   // Ao abrir a Pré-temporada da T2, sozinhos: Rebalanceamento dentro da Série A (ADR-0058:
   // ninguém desce para a B) e Recompensa da Temporada 1 (ADR-0047), antes do Reels de
   // agradecimento (Programado, ADR-0051).
@@ -736,7 +744,7 @@ export async function jobCraqueDaTemporada(c: ContextoDoJob): Promise<number | n
         ref: t.id,
         videoUrl: c.armazenamento.urlPublica(chave),
         capaEmMs: CAPA_DO_RESUMO_MS,
-        legenda: legendaDoFimDaTemporada(t.numero, historia, { username: s.username, time: s.time_id, jogos: Number(s.jogos), gols, media: Number(s.media), votos: Number(s.votos) }, proxima, craqueB, await temExpansao(c.banco, t.id)),
+        legenda: legendaDoFimDaTemporada(t.numero, historia, { username: s.username, time: s.time_id, jogos: Number(s.jogos), gols, media: Number(s.media), votos: Number(s.votos) }, proxima, craqueB, await temExpansao(c.banco, t.id), await supercopaDaTemporada(c.banco, proxima.numero)),
         containerAtual: null,
         publicarEm,
         salvarContainer: async () => {},
@@ -801,6 +809,8 @@ export function legendaDoFimDaTemporada(
   craqueB: { username: string; time: TimeId } | null = null,
   /** A Temporada marcou a Expansão (ADR-0093): a legenda anuncia os 4 Times novos. */
   expansao = false,
+  /** A Supercopa que abre a próxima (ADR-0118): o jogo e o dia. */
+  supercopa: { mandante: TimeId; visitante: TimeId; dia: string } | null = null,
 ): string {
   const nome = (t: TimeId) => FALA_DO_TIME[t].curto;
   const [, mes, dia] = proxima.inicio.split('-');
@@ -817,7 +827,10 @@ export function legendaDoFimDaTemporada(
       ? `🐾 A Liga cresceu! Na Temporada ${proxima.numero} entram 4 Times novos na Série B: ${TIMES_DA_EXPANSAO.map((t) => IDENTIDADE[t].nome).join(', ').replace(/, ([^,]*)$/, ' e $1')}. Desta vez ninguém cai da A, 2 sobem da B, e as duas Séries ficam com 10 Times. Quem começar num Time novo vira Fundador, e quem já joga pode trocar para eles de graça na Janela.`
       : '',
     '',
-    `🏁 A Temporada ${proxima.numero} começa em ${dia}/${mes}. Quer jogar? Comente ENTRO + Time + posição.`,
+    supercopa
+      ? `⚡ Supercopa: ${nome(supercopa.mandante)} × ${nome(supercopa.visitante)}, domingo ${supercopa.dia.slice(8, 10)}/${supercopa.dia.slice(5, 7)} às 18h, abrindo a Temporada ${proxima.numero}. A Janela de Transferências abre depois dela.`
+      : '',
+    `🏁 A Temporada ${proxima.numero} começa em ${dia}/${mes}${supercopa ? ', com a Copa' : ''}. Quer jogar? Comente ENTRO + Time + posição.`,
     O_QUE_E,
     '',
     '#varzeaodamata #craquedatemporada',
@@ -881,6 +894,8 @@ export async function jobResumo(c: ContextoDoJob): Promise<number | null> {
   // Copa (ADR-0088): avança antes de escolher a Rodada, para o Resumo do dia das Quartas sair com as Semifinais.
   const copa = await avancarCopaPendente(c.banco);
   if (copa !== 'NADA') log(`Copa: ${copa}.`);
+  const supercopa = await c.banco.transacao((b) => fecharSupercopaPendente(b));
+  if (supercopa) log(`Supercopa: campeão ${supercopa}.`);
   // A Rodada mais recente com todas as Partidas simuladas e o Resumo ainda não agendado.
   const r = (
     await c.banco.query<{ id: number; temporada_id: number; numero: number; data: string | Date; resumo_status: string }>(

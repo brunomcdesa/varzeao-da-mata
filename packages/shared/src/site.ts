@@ -110,6 +110,8 @@ export interface LigaPublica {
   trocasFechadasNaCopa?: boolean;
   /** Fase da Loja agora (ADR-0101), para quem vê a Loja sem Vínculo (sem a Carteira). */
   faseDaLoja?: 1 | 2;
+  /** Antes da Supercopa (ADR-0118): a Janela só abre quando ela termina. */
+  trocasFechadasAteASupercopa?: boolean;
   rodadas: RodadaPublica[];
   /** Só depois que o Ao Vivo da Final termina. Com duas Séries, é o campeão da A. */
   campeao: TimeId | null;
@@ -156,6 +158,8 @@ export interface TemporadaNaHistoria {
   meia?: (JogadorResumido & { notaMedia: number; jogos: number; assistencias: number }) | null;
   /** Tabela da Fase de Liga (parcial enquanto a Temporada corre). Com duas Séries, a da A. */
   tabela: LinhaTabelaPublica[];
+  /** Supercopa (ADR-0118): o jogo que abriu a Temporada. */
+  supercopa?: { campeao: TimeId | null; partidaId: number; mandante: TimeId; visitante: TimeId; placar: { mandante: number; visitante: number; penaltis?: { mandante: number; visitante: number } } | null };
   /** Copa (ADR-0088): campeão, vice e Final. */
   copa?: {
     campeao: TimeId | null;
@@ -188,9 +192,9 @@ export interface Estatisticas {
   derrotas: number;
 }
 
-export type TipoTrofeu = 'CAMPEAO' | 'CAMPEAO_COPA' | 'CRAQUE_TEMPORADA' | 'SELECAO_TEMPORADA' | 'CRAQUE_RODADA' | 'SELECAO_RODADA' | 'REI_DO_CLASSICO';
+export type TipoTrofeu = 'CAMPEAO' | 'CAMPEAO_COPA' | 'CAMPEAO_SUPERCOPA' | 'CRAQUE_TEMPORADA' | 'SELECAO_TEMPORADA' | 'CRAQUE_RODADA' | 'SELECAO_RODADA' | 'REI_DO_CLASSICO';
 /** Ordem em que os troféus aparecem no site. */
-export const ORDEM_DOS_TROFEUS: readonly TipoTrofeu[] = ['CAMPEAO', 'CAMPEAO_COPA', 'CRAQUE_TEMPORADA', 'SELECAO_TEMPORADA', 'CRAQUE_RODADA', 'SELECAO_RODADA', 'REI_DO_CLASSICO'];
+export const ORDEM_DOS_TROFEUS: readonly TipoTrofeu[] = ['CAMPEAO', 'CAMPEAO_COPA', 'CAMPEAO_SUPERCOPA', 'CRAQUE_TEMPORADA', 'SELECAO_TEMPORADA', 'CRAQUE_RODADA', 'SELECAO_RODADA', 'REI_DO_CLASSICO'];
 
 export interface Trofeu {
   tipo: TipoTrofeu;

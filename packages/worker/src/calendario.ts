@@ -8,13 +8,14 @@
  * (8 Times) faz turno e returno em 14 Rodadas, para as duas terminarem juntas.
  * O Mata-mata é criado depois, quando a Fase de Liga termina.
  */
-import { DIAS_DA_COPA, GRUPOS, TIMES_FUNDADORES, temCopa, temMoedas, type Serie, type TimeId } from '@liga/shared';
+import { DIAS_DA_COPA, DIAS_DA_SUPERCOPA_ANTES_DA_COPA, GRUPOS, HORA_DA_SUPERCOPA, RODADA_DA_SUPERCOPA, TIMES_FUNDADORES, temCopa, temMoedas, type Serie, type TimeId } from '@liga/shared';
 import { criarRng } from '@liga/sim';
 import type { Banco } from './banco.js';
 import { gravarSeries, gruposPara, seriesDaProximaTemporada, seriesComTimes, type GruposDaTemporada, type SeriesDaTemporada } from './series.js';
 import { tabela } from './tabela.js';
 import { cabeACopa, criarOitavas, formatoDaCopa } from './copa.js';
 import { pagarBonusDeLargada } from './moedas.js';
+import { timesDaSupercopa } from './supercopa.js';
 
 export const HORARIOS = [12, 14, 16, 18] as const;
 /** Com duas Séries (ADR-0050): a B joga antes, a A fecha o dia. */
@@ -178,6 +179,8 @@ export async function criarTemporada(banco: Banco, o: { numero: number; primeira
     // Copa A+B (ADR-0088): da T3 em diante, os 3 primeiros dias são dela; a Fase de Liga vem depois.
     const comCopa = temCopa(o.numero) && !!series && comSeries && cabeACopa([...series.A, ...series.B]);
     if (comCopa) await criarOitavas(b, temporadaId, o.primeiraRodada, (t) => (series!.B.includes(t) ? 'B' : 'A'), formatoDaCopa([...series!.A, ...series!.B])!);
+    // Supercopa (ADR-0118): campeão da Série A × campeão da Copa da anterior, 2 dias antes da Copa (o domingo).
+    if (comCopa) await criarSupercopa(b, temporadaId, o.numero, o.primeiraRodada);
     const inicioDaLiga = comCopa ? somarDias(o.primeiraRodada, DIAS_DA_COPA) : o.primeiraRodada;
     // Moedas (ADR-0087): a primeira Temporada com elas abre a Loja com o bônus de largada dos veteranos.
     if (temMoedas(o.numero) && !temMoedas(o.numero - 1)) await pagarBonusDeLargada(b, new Date());
@@ -203,4 +206,26 @@ export async function criarTemporada(banco: Banco, o: { numero: number; primeira
     }
     return temporadaId;
   });
+}
+
+/**
+ * Cria a Supercopa (dentro da criação da Temporada): Rodada 100 no dia `DIAS_DA_SUPERCOPA_ANTES_DA_COPA`
+ * antes do primeiro dia da Copa, às 18h. O campeão da Série A manda o jogo.
+ */
+export async function criarSupercopa(b: Banco, temporadaId: number, numero: number, primeiroDiaDaCopa: string): Promise<boolean> {
+  const times = await timesDaSupercopa(b, numero);
+  if (!times) return false;
+  const dia = somarDias(primeiroDiaDaCopa, -DIAS_DA_SUPERCOPA_ANTES_DA_COPA);
+  const rodadaId = (
+    await b.query<{ id: number }>(`INSERT INTO rodada (temporada_id, numero, fase, data) VALUES ($1, $2, 'MATA_MATA', $3) RETURNING id`, [temporadaId, RODADA_DA_SUPERCOPA, dia])
+  ).rows[0]!.id;
+  const serie = (await b.query<{ serie: 'A' | 'B' }>(`SELECT serie FROM serie_do_time WHERE temporada_id = $1 AND time_id = $2`, [temporadaId, times[0]])).rows[0]?.serie ?? 'A';
+  await b.query(`INSERT INTO partida (rodada_id, mandante_id, visitante_id, apito_inicial, serie, copa_etapa) VALUES ($1, $2, $3, $4, $5, 'SUPERCOPA')`, [
+    rodadaId,
+    times[0],
+    times[1],
+    apitoInicial(dia, HORA_DA_SUPERCOPA).toISOString(),
+    serie,
+  ]);
+  return true;
 }

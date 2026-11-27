@@ -25,6 +25,7 @@ import {
   type TimeId,
 } from '@liga/shared';
 import type { Banco } from './banco.js';
+import { fimDaInscricaoNaSupercopa } from './supercopa.js';
 import { FORMACAO, OVR_BASE, habilidadesDe } from './regras.js';
 import { comSeloT1 } from './recompensaT1.js';
 import { capitaoEmCampo, confirmados, formacoesDaPartida, suspensos } from './temporada2.js';
@@ -33,7 +34,7 @@ import { congelarTecnicos } from './beiraDoCampo.js';
 
 /** O Corte mora no shared: o site usa o mesmo número na escalação provável. */
 export { CORTE_MINUTOS } from '@liga/shared';
-import { CORTE_MINUTOS, ehRodadaDaCopa, itensValidos, temRegrasT3, type ItensEquipados } from '@liga/shared';
+import { CORTE_MINUTOS, ehRodadaDaCopa, ehRodadaDaSupercopa, itensValidos, temRegrasT3, type ItensEquipados } from '@liga/shared';
 
 /**
  * Limite de Partidas Fora (ADR-0043): quem ficou esse número de Partidas seguidas do próprio
@@ -355,7 +356,7 @@ export interface PartidaEscalada {
 export async function fimDaInscricaoNaCopa(b: Banco, temporadaId: number): Promise<Date | null> {
   const r = (
     await b.query<{ apito: string | Date | null }>(
-      `SELECT min(p.apito_inicial) AS apito FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND p.copa_etapa IS NOT NULL`,
+      `SELECT min(p.apito_inicial) AS apito FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = $1 AND p.copa_etapa IS NOT NULL AND p.copa_etapa <> 'SUPERCOPA'`,
       [temporadaId],
     )
   ).rows[0];
@@ -422,8 +423,15 @@ export async function escalarPartida(banco: Banco, partidaId: number, o: { craqu
     const bonusT1 = temBonusT1(p.numero, p.rodada, p.fase) ? await comSeloT1(b) : new Set<string>();
     // Mata-mata (ADR-0057): quem chegou depois do último jogo do Time na Fase de Liga estreia na próxima Temporada.
     // A Copa (ADR-0088): só joga quem se inscreveu até a Janela fechar; quem chega durante a Copa estreia na Liga.
+    // A Supercopa (ADR-0118): só o Elenco da Final da Série A da Temporada anterior.
     const limite = async (time: TimeId) =>
-      p.fase !== 'MATA_MATA' ? null : ehRodadaDaCopa(p.rodada) ? await fimDaInscricaoNaCopa(b, p.temporada_id) : await fimDaInscricaoNoMataMata(b, p.temporada_id, time);
+      p.fase !== 'MATA_MATA'
+        ? null
+        : ehRodadaDaSupercopa(p.rodada)
+          ? await fimDaInscricaoNaSupercopa(b, p.temporada_id)
+          : ehRodadaDaCopa(p.rodada)
+            ? await fimDaInscricaoNaCopa(b, p.temporada_id)
+            : await fimDaInscricaoNoMataMata(b, p.temporada_id, time);
     const limiteM = await limite(p.mandante_id);
     const limiteV = await limite(p.visitante_id);
     const mandante = await montarEscalacao(b, { time: p.mandante_id, temporadaId: p.temporada_id, corte, craque: o.craque ?? null, resenha: resenhaM, bonusT1, classico, ...(regrasM ? { t2: regrasM } : {}), ...(limiteM ? { inscritosAte: limiteM } : {}) });

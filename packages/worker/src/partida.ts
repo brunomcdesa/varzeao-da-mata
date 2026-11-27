@@ -73,7 +73,7 @@ interface LinhaPartida {
   serie: Serie;
   temporada_id: number;
   temporada: number;
-  copa_etapa: EtapaDaCopa | null;
+  copa_etapa: EtapaDaCopa | 'SUPERCOPA' | null;
 }
 
 async function lerPartida(b: Banco, id: number): Promise<LinhaPartida> {
@@ -186,7 +186,7 @@ async function mataMataDe(banco: Banco, p: LinhaPartida): Promise<MataMataDaPart
 }
 
 /** "Rodada 3, jogo das 14h" (ou "Semifinal…" no Mata-mata). `ultima`: última Rodada da Liga da Série. */
-export function subtituloDaPartida(rodada: number, fase: 'LIGA' | 'MATA_MATA', apito: Date, ultima = false, copa: EtapaDaCopa | null = null): string {
+export function subtituloDaPartida(rodada: number, fase: 'LIGA' | 'MATA_MATA', apito: Date, ultima = false, copa: EtapaDaCopa | 'SUPERCOPA' | null = null): string {
   const hora = (apito.getUTCHours() + FUSO_BRASILIA + 24) % 24;
   const nome = nomeDaEtapa(fase, rodada, copa);
   if (fase === 'LIGA' && ultima) return `Última Rodada, jogo das ${hora}h`;
