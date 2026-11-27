@@ -24,7 +24,7 @@ import { horaDeBrasilia } from './briga.js';
 import { habilidadesDe } from './regras.js';
 import { beirasDasPartidas, bracadeiraDosJogadores } from './beiraDoCampo.js';
 import { gritoDoTime, ovrDasHabilidades } from '@liga/shared';
-import { capitaoDaPartida, proximaPartidaDoTime, tamanhoDosElencos } from './temporada2.js';
+import { capitaoDaPartida, capitaoSemPartida, proximaPartidaDoTime, tamanhoDosElencos } from './temporada2.js';
 
 /** Duração do Ao Vivo de uma Partida (5 min; 7 no Mata-mata, por causa dos pênaltis). */
 export const DURACAO_AO_VIVO_MS = duracaoAoVivoMs('LIGA');
@@ -440,12 +440,20 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   // T2: o Capitão atual de cada Time (o do próximo jogo aberto; sem jogo aberto, o da última
   // Escalação), com a faixa "C" no site para todo mundo (ADR-0020).
   if (comRegrasT2 && temporada) {
+    const maoDesde = new Map(
+      (await banco.query<{ time_id: TimeId; escolhido_em: Date | string }>(`SELECT time_id, escolhido_em FROM capitao_a_mao`)).rows.map((r) => [r.time_id, new Date(r.escolhido_em)]),
+    );
     for (const time of TIMES) {
       const proxima = await proximaPartidaDoTime(banco, time, agora);
       let id = proxima ? await capitaoDaPartida(banco, proxima.id, time, o.vinculos ?? new Set()) : null;
       if (!proxima) {
         const ultima = [...escalacoes].reverse().find((e) => e.time_id === time && e.capitao && partidas.some((p) => p.id === e.partida_id));
         id = ultima?.jogador_id ?? null;
+        // Capitão à mão (ADR-0079) posto depois da última Escalação: sem jogo aberto, o site já
+        // mostra a escolha do dono (senão ela só apareceria quando o Time tivesse jogo de novo).
+        const mao = maoDesde.get(time);
+        const apitoDaUltima = ultima ? partidasEmOrdem.get(ultima.partida_id)?.apito_inicial : undefined;
+        if (mao && (!apitoDaUltima || mao > new Date(apitoDaUltima))) id = await capitaoSemPartida(banco, time, o.vinculos ?? new Set());
       }
       const j = id ? porJogador.get(id) : undefined;
       if (j && j.time === time) j.capitao = true;

@@ -136,6 +136,14 @@ export async function capitaoDaPartida(b: Banco, partidaId: number, time: TimeId
   return escolherCapitao(ordem, fora, comVinculo);
 }
 
+/**
+ * Capitão do Time sem jogo aberto (eliminado ou fim da Temporada): a mesma regra, sem
+ * suspensão (não há jogo para cumpri-la).
+ */
+export async function capitaoSemPartida(b: Banco, time: TimeId, comVinculo: ReadonlySet<string>): Promise<string | null> {
+  return escolherCapitao(await ordemDoCapitao(b, time), new Set(), comVinculo);
+}
+
 /** A regra do Capitão sobre a ordem já lida: o primeiro não suspenso com Vínculo; senão, o primeiro não suspenso. */
 function escolherCapitao(ordem: readonly string[], fora: ReadonlySet<string>, comVinculo: ReadonlySet<string>): string | null {
   const aptos = ordem.filter((id) => !fora.has(id));

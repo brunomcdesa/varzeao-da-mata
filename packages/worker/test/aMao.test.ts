@@ -54,6 +54,24 @@ describe('Capitão à mão (ADR-0079)', () => {
     expect(await capitaoDaPartida(banco, p.id, 'ONC', new Set([veterano]))).toBe(veterano);
   });
 
+  it('sem jogo aberto, o site mostra o Capitão à mão posto depois da última Escalação', async () => {
+    const t2 = await novaT2();
+    const veterano = await inscrever('ONC', 'MEI', 'veterano', '2026-11-10T12:00:00Z');
+    const novato = await inscrever('ONC', 'ATA', 'novato', '2026-11-12T12:00:00Z');
+    const vinculos = new Set([veterano, novato]);
+    const p = await primeiraPartida(t2, 'ONC');
+    await rodarPartida(banco, p.id, { seed: 9, vinculos });
+    // Bem depois de todos os jogos: o Time não tem jogo aberto.
+    const depois = new Date('2027-06-01T12:00:00Z');
+    const capitaesDoSite = async () =>
+      ((await exportarSite(banco, depois, { vinculos })).arquivos.get('jogadores.json') as { id: string; capitao?: true }[]).filter((j) => j.capitao).map((j) => j.id);
+    expect(await capitaesDoSite()).toContain(veterano);
+    await forcarCapitao(banco, 'novato', { gravar: true, agora: new Date('2027-05-01T12:00:00Z') });
+    const agora = await capitaesDoSite();
+    expect(agora).toContain(novato);
+    expect(agora).not.toContain(veterano);
+  });
+
   it('um por Time: o novo substitui o anterior; tirar devolve a faixa à regra de mais Partidas', async () => {
     await novaT2();
     const veterano = await inscrever('ONC', 'MEI', 'veterano', '2026-11-10T12:00:00Z');
