@@ -490,7 +490,7 @@ function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number
   if (mm?.etapa === 'FINAL' && vencedor) confete(pin, vencedor, tVideo);
 
   desenharTabuaDoPlacar(pin, COLUNAS / 2, 22, 1.12, r.times, r.gols, display);
-  const titulo = mm && vencedor ? (mm.etapa === 'FINAL' ? (mm.copa ? 'Campeão da Copa!' : 'Campeão!') : mm.copa && mm.copa !== 'SEMIFINAL' ? `${FALA_DO_TIME[vencedor].curto} avança!` : `${FALA_DO_TIME[vencedor].curto} na Final!`) : 'Fim de jogo';
+  const titulo = mm && vencedor ? (mm.etapa === 'FINAL' ? (mm.supercopa ? 'Campeão da Supercopa!' : mm.copa ? 'Campeão da Copa!' : 'Campeão!') : mm.copa && mm.copa !== 'SEMIFINAL' ? `${FALA_DO_TIME[vencedor].curto} avança!` : `${FALA_DO_TIME[vencedor].curto} na Final!`) : 'Fim de jogo';
   pin.texto(titulo, COLUNAS / 2, mm?.etapa === 'FINAL' ? 82 : 78, pin.caber(titulo, 240, mm?.etapa === 'FINAL' ? 32 : 22, display), display, COR.amarelo, { contorno: COR.mata });
   const detalhes = [
     ...(o.briga ? desfechoDaBrigaNaTela(o.briga, r) : []),
@@ -509,7 +509,7 @@ function desenharFim(pin: Pincel, r: ResultadoPartida, p: number, tVideo: number
     desenharEscudo(pin, vencedor, COLUNAS / 2 - (LARGURA_ESCUDO * escala) / 2, 116 - (1 - a) * 16, escala);
     const nome = IDENTIDADE[vencedor].nome;
     pin.texto(nome, COLUNAS / 2, 236, pin.caber(nome, 230, 30, display), display, COR.placa, { contorno: COR.contorno });
-    pin.texto(mm.copa ? `Campeão da Copa da Temporada ${mm.temporada}` : `Campeão${mm.serie ? ` da Série ${mm.serie}` : ''} da Temporada ${mm.temporada}`, COLUNAS / 2, 260, 10, texto, COR.amarelo, { peso: 700 });
+    pin.texto(mm.supercopa ? `Campeão da Supercopa da Temporada ${mm.temporada}` : mm.copa ? `Campeão da Copa da Temporada ${mm.temporada}` : `Campeão${mm.serie ? ` da Série ${mm.serie}` : ''} da Temporada ${mm.temporada}`, COLUNAS / 2, 260, 10, texto, COR.amarelo, { peso: 700 });
   }
 
   // Melhor em campo: maior Nota da Partida, com o boneco grande.

@@ -34,6 +34,6 @@ A partir da T3 a Liga tem Série A e Série B com 8 Times cada, e um Clássico s
 
 ## Consequências
 
-- A Supercopa (campeão da Liga × campeão da Copa) só faz sentido depois da primeira Copa: fica para a T4.
+- A Supercopa (campeão da Liga × campeão da Copa) só faz sentido depois da primeira Copa: fica para a T4. Decidida no ADR-0118: abre a Temporada no domingo antes da Copa, que passa a começar na terça.
 - O calendário da Pré-temporada, o site (tabela da Copa) e o Resumo ganham a Copa.
 - Os 4 Clássicos originais (por exemplo, Onça × Capivara) continuam só na Fase de Liga, quando os dois estão na mesma Série.

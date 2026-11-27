@@ -14,8 +14,9 @@ const NOME_DA_POSICAO: Record<Posicao, string> = { GOL: 'goleiro', ZAG: 'zagueir
 const doTimeCurto = (t: TimeId) => `d${FALA_DO_TIME[t].artigo} ${FALA_DO_TIME[t].curto}`;
 import { avisarPessoas, avisoDaTransferencia } from './avisosPessoais.js';
 import type { Banco } from './banco.js';
-import { FECHADO_NA_COPA, LIMITE_POR_POSICAO, transferirJogador, trocasFechadasPelaCopa, type Resultado } from './coletar.js';
+import { FECHADO_ATE_A_SUPERCOPA, FECHADO_NA_COPA, LIMITE_POR_POSICAO, transferirJogador, trocasFechadasAgora, type Resultado } from './coletar.js';
 import { seriesAtivas, seriesDaTemporada } from './series.js';
+import { antesDoFimDaSupercopa } from './supercopa.js';
 import { capitaoDaPartida, ordemDoCapitao, proximaPartidaDoTime, suspensos } from './temporada2.js';
 
 /** O Técnico tem 24 horas para responder (ou até o Corte, se vier antes). */
@@ -251,12 +252,13 @@ export async function tecnicoQuerJogar(
   if (!p) return null;
   if (p.nunca_jogou) return { jogadorId: p.id, nuncaJogou: true, podeVoltar: true };
   const t = (
-    await b.query<{ numero: number; status: string; primeiro: Date | string | null }>(
-      `SELECT t.numero, t.status, (SELECT min(pa.apito_inicial) FROM partida pa JOIN rodada r ON r.id = pa.rodada_id WHERE r.temporada_id = t.id) AS primeiro
+    await b.query<{ id: number; numero: number; status: string; primeiro: Date | string | null }>(
+      // A Supercopa (ADR-0118) não é o "primeiro jogo": a Janela abre depois dela e fecha no Corte do primeiro jogo da Copa.
+      `SELECT t.id, t.numero, t.status, (SELECT min(pa.apito_inicial) FROM partida pa JOIN rodada r ON r.id = pa.rodada_id WHERE r.temporada_id = t.id AND pa.copa_etapa IS DISTINCT FROM 'SUPERCOPA') AS primeiro
          FROM temporada t WHERE t.status IN ('PRE_TEMPORADA', 'EM_ANDAMENTO') ORDER BY t.status = 'EM_ANDAMENTO' DESC, t.numero LIMIT 1`,
     )
   ).rows[0];
-  const naJanela = !!t && (t.primeiro ? agora.getTime() < new Date(t.primeiro).getTime() - CORTE_MS : t.status === 'PRE_TEMPORADA');
+  const naJanela = !!t && !(await antesDoFimDaSupercopa(b, t.id, agora)) && (t.primeiro ? agora.getTime() < new Date(t.primeiro).getTime() - CORTE_MS : t.status === 'PRE_TEMPORADA');
   const seguinte = !!t && (p.pendurou_na_temporada === null || t.numero > p.pendurou_na_temporada);
   if (naJanela && seguinte) return { jogadorId: p.id, nuncaJogou: false, podeVoltar: true };
   return {
@@ -366,6 +368,7 @@ async function efetivarPedido(b: Banco, p: PedidoAberto, agora: Date, comoAceito
 
 function motivoDaQueda(r: Resultado, mensagem?: string): string {
   if (mensagem === FECHADO_NA_COPA) return 'a Copa começou: durante a Copa ninguém troca de time, dá para pedir de novo depois da Final da Copa';
+  if (mensagem === FECHADO_ATE_A_SUPERCOPA) return 'a Janela só abre depois da Supercopa';
   if (r === 'DESTINO_CHEIO') return 'a vaga acabou enquanto esperava';
   if (r === 'TRANSFERENCIA_USADA') return 'você já tinha usado a troca';
   if (r === 'TRANSFERENCIA_FECHADA') return 'as transferências fecharam';
@@ -443,7 +446,8 @@ export async function convidar(
   const alvo = (await b.query<{ time_id: TimeId; posicao: Posicao; banido: boolean }>(`SELECT time_id, posicao, banido FROM jogador WHERE id = $1`, [o.jogadorId])).rows[0];
   if (!alvo || alvo.banido) return { ok: false, mensagem: 'Jogador não encontrado.' };
   if (!o.comVinculo.has(o.jogadorId)) return { ok: false, mensagem: 'Só dá para convidar quem tem Vínculo (para aceitar pelo site).' };
-  if (await trocasFechadasPelaCopa(b, o.agora)) return { ok: false, mensagem: 'Durante a Copa ninguém troca de time: os Convites voltam depois da Final da Copa.' };
+  const fechadas = await trocasFechadasAgora(b, o.agora);
+  if (fechadas) return { ok: false, mensagem: fechadas === 'COPA' ? 'Durante a Copa ninguém troca de time: os Convites voltam depois da Final da Copa.' : 'A Janela abre depois da Supercopa: os Convites começam quando ela terminar.' };
   const cargo = await cargoDe(b, o.autorId);
   const time =
     cargo?.time ?? (await b.query<{ time_id: TimeId }>(`SELECT time_id FROM jogador WHERE id = $1`, [o.autorId])).rows[0]?.time_id;
@@ -507,7 +511,8 @@ export async function proporTroca(
   if (a.time_id === bb.time_id) return { ok: false, mensagem: 'Os dois já são do mesmo Time.' };
   if (a.posicao !== bb.posicao) return { ok: false, mensagem: 'A Troca casada é entre Jogadores da mesma Posição.' };
   if (!o.comVinculo.has(a.id) || !o.comVinculo.has(bb.id)) return { ok: false, mensagem: 'Os dois precisam ter Vínculo para aceitar pelo site.' };
-  if (await trocasFechadasPelaCopa(b, o.agora)) return { ok: false, mensagem: 'Durante a Copa ninguém troca de time: as Trocas casadas voltam depois da Final da Copa.' };
+  const fechadas = await trocasFechadasAgora(b, o.agora);
+  if (fechadas) return { ok: false, mensagem: fechadas === 'COPA' ? 'Durante a Copa ninguém troca de time: as Trocas casadas voltam depois da Final da Copa.' : 'A Janela abre depois da Supercopa: as Trocas casadas começam quando ela terminar.' };
   const ehJogador = o.autorId === a.id || o.autorId === bb.id;
   if (!ehJogador) {
     const [da, db] = await Promise.all([quemDecide(b, a.time_id, o.agora, o.comVinculo), quemDecide(b, bb.time_id, o.agora, o.comVinculo)]);
@@ -656,8 +661,8 @@ async function chamarFila(b: Banco, agora: Date): Promise<AvisoDoPedido[]> {
   await b.query(`UPDATE fila_espera f SET status = 'SAIU' FROM temporada t WHERE t.id = f.temporada_id AND f.status = 'ESPERANDO' AND t.status = 'ENCERRADA'`);
   const grupos = (await b.query<{ time_id: TimeId; posicao: Posicao }>(`SELECT DISTINCT time_id, posicao FROM fila_espera WHERE status = 'ESPERANDO'`)).rows;
   const avisos: AvisoDoPedido[] = [];
-  // Durante a Copa (ADR-0088) ninguém troca de Time: o veterano da vez espera, com o lugar guardado.
-  const copa = grupos.length > 0 && (await trocasFechadasPelaCopa(b, agora));
+  // Durante a Copa (ADR-0088) e antes da Supercopa (ADR-0118) ninguém troca de Time: o veterano da vez espera, com o lugar guardado.
+  const copa = grupos.length > 0 && (await trocasFechadasAgora(b, agora)) !== null;
   for (const g of grupos) {
     if (await posicaoCheia(b, g.time_id, g.posicao)) continue;
     // Já existe um pedido da Fila esperando o Técnico nessa vaga: espera ele.

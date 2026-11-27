@@ -12,7 +12,7 @@
 
 **Para a T4:**
 
-- **Supercopa:** jogo único entre o campeão da Liga e o campeão da Copa, abrindo a Temporada. Só existe campeão da Copa no fim da T3.
+- **Supercopa:** jogo único entre o campeão da Liga e o campeão da Copa, abrindo a Temporada. Só existe campeão da Copa no fim da T3. Regras no ADR-0118.
 - **Lenda do Time:** galeria dos maiores Jogadores de cada Time. Fica melhor com mais Temporadas de história.
 - **Chat do Ao Vivo:** as regras já decididas ficam no ADR-0046.
 - **Prêmios da Temporada:** Artilheiro e afins, com troféu na Carreira. Precisa de nomes que não se confundam com a Seleção da Temporada.

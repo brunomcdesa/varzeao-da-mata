@@ -45,6 +45,8 @@ export interface DadosDoResumo {
   campeaoB?: TimeId;
   /** Último dia da Copa (ADR-0088): o campeão da Copa ganha a cartela de campeão. */
   campeaoCopa?: TimeId;
+  /** Supercopa (ADR-0118): o campeão dela ganha a cartela de campeão. */
+  campeaoSupercopa?: TimeId;
   /** Na Final os Candidatos são da Temporada inteira (nota = nota média). */
   votacao?: 'RODADA' | 'TEMPORADA';
   /**
@@ -133,7 +135,7 @@ export class RoteiroResumo {
       if (dados.craqueDaRodada || dados.craqueDaRodadaB) cartelas.push('CRAQUE');
       if (dados.placares.length) cartelas.push('PLACARES');
       if (dados.final?.length) cartelas.push('FINALISTAS');
-      if (dados.campeao || dados.campeaoCopa) cartelas.push('CAMPEAO');
+      if (dados.campeao || dados.campeaoCopa || dados.campeaoSupercopa) cartelas.push('CAMPEAO');
       if (dados.fase === 'LIGA') cartelas.push('TABELA');
       if (dados.fase === 'LIGA' && dados.chances?.length) cartelas.push('CHANCES');
       if (dados.totalNovos > 0) cartelas.push('NOVOS');
@@ -212,6 +214,8 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
           ? `Acabou a Temporada ${d.temporada} do Varzeão da Mata! Bora pro resumo!`
           : d.craqueDaTemporada
           ? `Chegou a hora! Quem é o Craque da Temporada ${d.temporada} do Varzeão da Mata?`
+          : d.campeaoSupercopa
+            ? 'Acabou a Supercopa do Varzeão da Mata!'
           : d.campeaoCopa
             ? 'Acabou a Final da Copa do Varzeão da Mata!'
           : d.campeao
@@ -232,9 +236,11 @@ export function narracaoDoResumo(roteiro: RoteiroResumo): Fala[] {
         break;
       }
       case 'CAMPEAO': {
-        const t = s.serie === 'B' ? d.campeaoB! : (d.campeao ?? d.campeaoCopa!);
+        const t = s.serie === 'B' ? d.campeaoB! : (d.campeao ?? d.campeaoCopa ?? d.campeaoSupercopa!);
         texto = s.serie === 'B'
           ? `Na Série B, ${artigo(t)} ${curto(t)} é campeão! ${FALA_DO_TIME[t].bordao}`
+          : !d.campeao && !d.campeaoCopa && d.campeaoSupercopa
+            ? `${artigo(t, true)} ${curto(t)} é campeão da Supercopa da Temporada ${d.temporada}! ${FALA_DO_TIME[t].bordao}`
           : !d.campeao && d.campeaoCopa
             ? `${artigo(t, true)} ${curto(t)} é campeão da Copa da Temporada ${d.temporada}! ${FALA_DO_TIME[t].bordao}`
             : `${artigo(t, true)} ${curto(t)} é campeão da Temporada ${d.temporada}! ${FALA_DO_TIME[t].bordao}`;
@@ -754,7 +760,8 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
     }
     case 'CAMPEAO': {
       const daCopa = !d.campeao && !!d.campeaoCopa;
-      const t = serie === 'B' ? d.campeaoB! : (d.campeao ?? d.campeaoCopa!);
+      const daSupercopa = !d.campeao && !d.campeaoCopa && !!d.campeaoSupercopa;
+      const t = serie === 'B' ? d.campeaoB! : (d.campeao ?? d.campeaoCopa ?? d.campeaoSupercopa!);
       const id = IDENTIDADE[t];
       const a = entre(q.tempo, 0.2, 0.9);
       // Confete nas cores do Time, caindo devagar (determinístico pelo tempo).
@@ -765,7 +772,7 @@ export function desenharQuadroResumo(ctx: CanvasRenderingContext2D, roteiro: Rot
       }
       pin.ctx.globalAlpha = a;
       pin.texto('Campeão!', COLUNAS / 2, 96, 44, display, COR.amarelo, { contorno: COR.contorno, espessura: 1.5 });
-      if (serie || daCopa) pin.texto(daCopa ? 'Copa' : `Série ${serie}`, COLUNAS / 2, 60, 16, display, COR.placa, { contorno: COR.contorno });
+      if (serie || daCopa || daSupercopa) pin.texto(daSupercopa ? 'Supercopa' : daCopa ? 'Copa' : `Série ${serie}`, COLUNAS / 2, 60, 16, display, COR.placa, { contorno: COR.contorno });
       desenharEscudo(pin, t, COLUNAS / 2 - 50, 130 - (1 - a) * 20, 5, { estrelas: false }); // o título fica logo acima
       pin.texto(curto(t), COLUNAS / 2, 280, pin.caber(curto(t), 220, 40, display), display, COR.placa, { contorno: COR.contorno });
       pin.texto(`Temporada ${d.temporada}`, COLUNAS / 2, 312, 11, texto, COR.placa, { peso: 600 });

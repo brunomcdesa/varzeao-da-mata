@@ -198,7 +198,7 @@ export async function escolherGrito(b: Banco, pessoaId: string, opcao: number, a
   if (!papel?.capitao) return { ok: false, mensagem: 'Só o Capitão escolhe o Grito.' };
   const t = (
     await b.query<{ id: number; primeiro: Date | string | null }>(
-      `SELECT t.id, (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id) AS primeiro
+      `SELECT t.id, (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id AND p.copa_etapa IS DISTINCT FROM 'SUPERCOPA') AS primeiro
          FROM temporada t WHERE t.status IN ('PRE_TEMPORADA', 'EM_ANDAMENTO') ORDER BY t.status = 'EM_ANDAMENTO' DESC, t.numero LIMIT 1`,
     )
   ).rows[0];

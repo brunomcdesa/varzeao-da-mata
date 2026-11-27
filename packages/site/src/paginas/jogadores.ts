@@ -128,6 +128,7 @@ function medalhas(j: JogadorPublico): [string, number][] {
 const NOME_DO_TROFEU: Record<TipoTrofeu, string> = {
   CAMPEAO: 'Campeão',
   CAMPEAO_COPA: 'Campeão da Copa',
+  CAMPEAO_SUPERCOPA: 'Campeão da Supercopa',
   CRAQUE_TEMPORADA: 'Craque da Temporada',
   SELECAO_TEMPORADA: 'Seleção da Temporada',
   CRAQUE_RODADA: 'Craque da Rodada',
@@ -140,13 +141,13 @@ function salaDeTrofeus(j: JogadorPublico): Html {
   const tipos = ORDEM_DOS_TROFEUS.filter((t) => j.trofeus.some((x) => x.tipo === t));
   const quando = (t: Trofeu) =>
     (t.posicao ? `${DESTAQUE_DA_POSICAO[t.posicao]} · ` : '') +
-    (t.tipo === 'CAMPEAO' || t.tipo === 'CAMPEAO_COPA' || t.tipo === 'CRAQUE_TEMPORADA' || t.tipo === 'SELECAO_TEMPORADA' ? `Temporada ${t.temporada}` : `${t.rodada && t.fase ? nomeDaEtapa(t.fase, t.rodada) : ''}, T${t.temporada}`);
+    (t.tipo === 'CAMPEAO' || t.tipo === 'CAMPEAO_COPA' || t.tipo === 'CAMPEAO_SUPERCOPA' || t.tipo === 'CRAQUE_TEMPORADA' || t.tipo === 'SELECAO_TEMPORADA' ? `Temporada ${t.temporada}` : `${t.rodada && t.fase ? nomeDaEtapa(t.fase, t.rodada) : ''}, T${t.temporada}`);
   return html`<section class="sala" aria-labelledby="titulo-sala">
     <h2 id="titulo-sala" class="secao">Sala de troféus</h2>
     <ul class="sala-lista">${tipos.map((tipo) => {
       const deste = j.trofeus.filter((t) => t.tipo === tipo);
       return html`<li class="sala-item sala-${tipo.toLowerCase()}">
-        <span class="sala-icone">${tipo === 'CAMPEAO' || tipo === 'CAMPEAO_COPA' ? taca(30, 'trofeu') : html`<span class="estrela" aria-hidden="true"></span>`}</span>
+        <span class="sala-icone">${tipo === 'CAMPEAO' || tipo === 'CAMPEAO_COPA' || tipo === 'CAMPEAO_SUPERCOPA' ? taca(30, 'trofeu') : html`<span class="estrela" aria-hidden="true"></span>`}</span>
         <span class="sala-nome">${NOME_DO_TROFEU[tipo]}<b>${deste.length}</b></span>
         <span class="sala-quando">${deste.map((t) => (t.partidaId ? html`<a href="#/partida/${t.partidaId}">${quando(t)}</a>` : html`<span>${quando(t)}</span>`))}</span>
       </li>`;
@@ -347,7 +348,7 @@ export const paginaJogador: Pagina = async (main, [id]) => {
   // T3 (ADR-0111): os Convites e Trocas casadas que chegaram, só para o dono.
   const lugarDoMercado = main.querySelector<HTMLElement>('[data-mercado]');
   if (lugarDoMercado && jogadorVinculado() === j.id && temRegrasT3(temporadaDoApp(l) ?? 0)) ligarMercado(lugarDoMercado, j.id);
-  return ligarMeuPersonagem(main, j, todos, timesAtivos(l), temRegrasT2(temporadaDoApp(l) ?? 0), temMoedas(temporadaDoApp(l) ?? 0), !!l.trocasFechadasNaCopa);
+  return ligarMeuPersonagem(main, j, todos, timesAtivos(l), temRegrasT2(temporadaDoApp(l) ?? 0), temMoedas(temporadaDoApp(l) ?? 0), l.trocasFechadasAteASupercopa ? 'SUPERCOPA' : l.trocasFechadasNaCopa ? 'COPA' : null);
 };
 
 function numeros(e: Estatisticas, j: JogadorPublico): Html {

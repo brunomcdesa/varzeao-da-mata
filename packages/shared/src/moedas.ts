@@ -20,6 +20,8 @@ export const MOEDAS = {
   TITULO_A: 50,
   TITULO_B: 30,
   TITULO_COPA: 40,
+  /** Supercopa (ADR-0118): jogo único, metade da Copa. */
+  TITULO_SUPERCOPA: 20,
   /** Técnico (ADR-0111): por vitória do Time dele. */
   VITORIA_DO_TECNICO: 3,
   BONUS_POR_TEMPORADA: 20,
@@ -37,6 +39,7 @@ export const TIPOS_DE_LANCAMENTO = [
   'CRAQUE_RODADA',
   'TITULO',
   'TITULO_COPA',
+  'TITULO_SUPERCOPA',
   'BONUS_LARGADA',
   'PALPITE',
   'CONQUISTA',
@@ -53,6 +56,7 @@ export const NOME_DO_LANCAMENTO: Record<TipoDeLancamento, string> = {
   CRAQUE_RODADA: 'Craque da Rodada',
   TITULO: 'Título',
   TITULO_COPA: 'Título da Copa',
+  TITULO_SUPERCOPA: 'Título da Supercopa',
   BONUS_LARGADA: 'Bônus de largada',
   PALPITE: 'Palpite',
   CONQUISTA: 'Conquista',

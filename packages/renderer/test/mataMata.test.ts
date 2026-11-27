@@ -127,3 +127,30 @@ describe('Resumo do último dia da Copa: cartela do campeão da Copa (ADR-0088)'
     expect(new RoteiroResumo({ ...base, rodada: 101 }).segmentos.map((s) => s.cartela)).not.toContain('CAMPEAO');
   });
 });
+
+describe('Supercopa (ADR-0118): narração do jogo e cartela do campeão no Resumo', () => {
+  const supercopa: MataMataDaPartida = { etapa: 'FINAL', temporada: 4, serie: null, supercopa: true };
+
+  it('a abertura e o fim falam da Supercopa, não do título da Temporada', () => {
+    expect(aberturaDoMataMata(supercopa, 'ONC', 'TAT', 1)).toMatch(/Supercopa|Campeão contra campeão/);
+    expect(desfechoDoMataMata(supercopa, 'TAT')).toBe('O Tatu é campeão da Supercopa do Varzeão da Mata!');
+  });
+
+  it('o Resumo do domingo tem a cartela do campeão da Supercopa', () => {
+    const r = new RoteiroResumo({
+      temporada: 4,
+      rodada: 100,
+      fase: 'MATA_MATA',
+      placares: [{ mandante: 'ONC', visitante: 'TAT', golsMandante: 2, golsVisitante: 1, penaltis: null, hora: 18 }],
+      tabela: [],
+      novosContratados: [],
+      totalNovos: 0,
+      candidatos: [],
+      campeaoSupercopa: 'ONC',
+    });
+    expect(r.segmentos.map((s) => s.cartela)).toContain('CAMPEAO');
+    const falas = narracaoDoResumo(r).map((f) => f.texto);
+    expect(falas[0]).toBe('Acabou a Supercopa do Varzeão da Mata!');
+    expect(falas.some((f) => f.includes('é campeão da Supercopa da Temporada 4!'))).toBe(true);
+  });
+});

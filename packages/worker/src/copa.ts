@@ -96,7 +96,7 @@ export async function avancarCopa(banco: Banco, temporadaId: number): Promise<Pa
     const jogos = (
       await b.query<JogoDaCopa>(
         `SELECT p.copa_etapa AS etapa, r.data, p.apito_inicial AS apito, p.resultado FROM partida p JOIN rodada r ON r.id = p.rodada_id
-         WHERE r.temporada_id = $1 AND p.copa_etapa IS NOT NULL ORDER BY p.apito_inicial`,
+         WHERE r.temporada_id = $1 AND p.copa_etapa IS NOT NULL AND p.copa_etapa <> 'SUPERCOPA' ORDER BY p.apito_inicial`,
         [temporadaId],
       )
     ).rows;
@@ -150,7 +150,7 @@ export async function avancarCopaPendente(banco: Banco): Promise<PassoDaCopa> {
   const t = (
     await banco.query<{ id: number }>(
       `SELECT t.id FROM temporada t WHERE t.campeao_copa_id IS NULL
-         AND EXISTS (SELECT 1 FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id AND p.copa_etapa IS NOT NULL)
+         AND EXISTS (SELECT 1 FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id AND p.copa_etapa IS NOT NULL AND p.copa_etapa <> 'SUPERCOPA')
        ORDER BY t.numero LIMIT 1`,
     )
   ).rows[0];

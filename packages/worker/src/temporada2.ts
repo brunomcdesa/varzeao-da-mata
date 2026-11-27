@@ -29,6 +29,7 @@ import {
 } from '@liga/shared';
 import { ESCOLHAS_DE_CAPITAO, marcarEscolhaDoCapitao } from './capitaoAtivo.js';
 import type { Banco } from './banco.js';
+import { antesDoFimDaSupercopa } from './supercopa.js';
 import { registrarPalpite } from './carteira.js';
 import { comprarItem, equiparItem, tirarItem } from './loja.js';
 import { CORTE_MINUTOS } from './escalacao.js';
@@ -58,24 +59,25 @@ async function temporadaAtual(b: Banco): Promise<{ id: number; numero: number; s
 /**
  * Suspensos para esta Partida (ADR-0021): quem foi expulso no jogo anterior do Time, ou quem
  * nele completou dois amarelos na Temporada (a cada dois, uma Partida fora). Copa e Séries
- * contam em separado (ADR-0088): o cartão da Copa só vale na Copa, e o da Série, só na Série.
+ * contam em separado (ADR-0088): o cartão da Copa só vale na Copa, e o da Série, só na Série. Na
+ * Supercopa (ADR-0118), cartão não vale nada: ninguém fica suspenso por ela nem nela.
  */
 export async function suspensos(b: Banco, time: TimeId, partidaId: number): Promise<Set<string>> {
   // Uma consulta só (ADR-0094): o jogo anterior do Time na mesma Temporada e os cartões dele.
   const linhas = (
     await b.query<{ jogador_id: string; expulso: boolean; amarelos: number | null; antes: string }>(
       `WITH atual AS (
-         SELECT r.temporada_id, p.apito_inicial, p.copa_etapa IS NOT NULL AS copa FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE p.id = $1
+         SELECT r.temporada_id, p.apito_inicial, CASE WHEN p.copa_etapa IS NULL THEN 'SERIE' WHEN p.copa_etapa = 'SUPERCOPA' THEN 'SUPERCOPA' ELSE 'COPA' END AS comp FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE p.id = $1
        ), anterior AS (
-         SELECT p.id, p.apito_inicial, a.temporada_id, a.copa FROM partida p JOIN rodada r ON r.id = p.rodada_id JOIN atual a ON r.temporada_id = a.temporada_id
+         SELECT p.id, p.apito_inicial, a.temporada_id, a.comp FROM partida p JOIN rodada r ON r.id = p.rodada_id JOIN atual a ON r.temporada_id = a.temporada_id
          WHERE (p.mandante_id = $2 OR p.visitante_id = $2) AND p.apito_inicial < a.apito_inicial AND p.resultado IS NOT NULL
-           AND (p.copa_etapa IS NOT NULL) = a.copa
+           AND CASE WHEN p.copa_etapa IS NULL THEN 'SERIE' WHEN p.copa_etapa = 'SUPERCOPA' THEN 'SUPERCOPA' ELSE 'COPA' END = a.comp AND a.comp <> 'SUPERCOPA'
          ORDER BY p.apito_inicial DESC LIMIT 1
        )
        SELECT e.jogador_id::text AS jogador_id, e.expulso, e.amarelos,
               (SELECT coalesce(sum(x.amarelos), 0) FROM escalacao x JOIN partida q ON q.id = x.partida_id JOIN rodada s ON s.id = q.rodada_id
                 WHERE x.jogador_id = e.jogador_id AND s.temporada_id = an.temporada_id AND NOT x.expulso AND q.apito_inicial < an.apito_inicial
-                  AND (q.copa_etapa IS NOT NULL) = an.copa) AS antes
+                  AND CASE WHEN q.copa_etapa IS NULL THEN 'SERIE' WHEN q.copa_etapa = 'SUPERCOPA' THEN 'SUPERCOPA' ELSE 'COPA' END = an.comp) AS antes
        FROM escalacao e JOIN anterior an ON an.id = e.partida_id WHERE e.time_id = $2 AND e.jogador_id IS NOT NULL`,
       [partidaId, time],
     )
@@ -98,11 +100,11 @@ export async function penduradosAntesDa(b: Banco, partidaId: number, ids: readon
   const linhas = (
     await b.query<{ jogador_id: string; amarelos: string }>(
       `WITH atual AS (
-         SELECT r.temporada_id, p.apito_inicial, p.copa_etapa IS NOT NULL AS copa FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE p.id = $1
+         SELECT r.temporada_id, p.apito_inicial, CASE WHEN p.copa_etapa IS NULL THEN 'SERIE' WHEN p.copa_etapa = 'SUPERCOPA' THEN 'SUPERCOPA' ELSE 'COPA' END AS comp FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE p.id = $1
        )
        SELECT x.jogador_id::text AS jogador_id, coalesce(sum(x.amarelos), 0) AS amarelos
        FROM escalacao x JOIN partida q ON q.id = x.partida_id JOIN rodada s ON s.id = q.rodada_id JOIN atual a ON s.temporada_id = a.temporada_id
-       WHERE x.jogador_id::text = ANY($2) AND NOT x.expulso AND q.apito_inicial < a.apito_inicial AND (q.copa_etapa IS NOT NULL) = a.copa
+       WHERE x.jogador_id::text = ANY($2) AND NOT x.expulso AND q.apito_inicial < a.apito_inicial AND CASE WHEN q.copa_etapa IS NULL THEN 'SERIE' WHEN q.copa_etapa = 'SUPERCOPA' THEN 'SUPERCOPA' ELSE 'COPA' END = a.comp AND a.comp <> 'SUPERCOPA'
        GROUP BY x.jogador_id`,
       [partidaId, ids],
     )
@@ -525,15 +527,18 @@ async function escolhaDoTecnico(
   }
 }
 
-/** A Janela de Transferências está aberta agora (Pré-temporada até o Corte do primeiro jogo)? */
+/**
+ * A Janela de Transferências está aberta agora (Pré-temporada até o Corte do primeiro jogo, sem
+ * contar a Supercopa; com Supercopa, só depois que ela termina, ADR-0118)?
+ */
 async function naJanela(b: Banco, agora: Date): Promise<boolean> {
   const t = (
-    await b.query<{ status: string; primeiro: Date | string | null }>(
-      `SELECT t.status, (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id) AS primeiro
+    await b.query<{ id: number; status: string; primeiro: Date | string | null }>(
+      `SELECT t.id, t.status, (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id AND p.copa_etapa IS DISTINCT FROM 'SUPERCOPA') AS primeiro
          FROM temporada t WHERE t.status IN ('PRE_TEMPORADA', 'EM_ANDAMENTO') ORDER BY t.status = 'EM_ANDAMENTO' DESC, t.numero LIMIT 1`,
     )
   ).rows[0];
-  if (!t) return false;
+  if (!t || (await antesDoFimDaSupercopa(b, t.id, agora))) return false;
   return t.primeiro ? agora.getTime() < new Date(t.primeiro).getTime() - CORTE_MINUTOS * 60_000 : t.status === 'PRE_TEMPORADA';
 }
 

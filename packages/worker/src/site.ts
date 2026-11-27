@@ -45,7 +45,7 @@ interface LinhaPartida {
   narracao_url: string | null;
   vantagem_do_empate: 'mandante' | 'visitante' | null;
   serie: Serie;
-  copa_etapa: EtapaDaCopa | null;
+  copa_etapa: EtapaDaCopa | 'SUPERCOPA' | null;
 }
 
 /** Itens da Escalação (ADR-0101) para a página pública da Partida. */
@@ -80,6 +80,10 @@ interface LinhaEscalacao {
   /** Fora de posição (ADR-0044): a Posição de inscrição de quem ocupou a vaga. */
   posicao_de_origem: Posicao | null;
 }
+
+/** De qual conta é a Partida (Cartões, ADR-0088 e ADR-0118): da Série, da Copa ou da Supercopa. */
+type Competicao = 'SERIE' | 'COPA' | 'SUPERCOPA';
+const competicaoDe = (p: { copa_etapa: EtapaDaCopa | 'SUPERCOPA' | null }): Competicao => (!p.copa_etapa ? 'SERIE' : p.copa_etapa === 'SUPERCOPA' ? 'SUPERCOPA' : 'COPA');
 
 export interface ExportacaoDoSite {
   /** Caminho relativo → conteúdo JSON. */
@@ -193,20 +197,21 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   // Cartões (ADR-0116): os jogos de cada Jogador, em ordem, só das Partidas já encerradas
   // (não estraga o Ao Vivo). Servem para Suspensão e Pendurado no site. Copa e Séries contam
   // em separado (ADR-0088): `copa` diz de qual das duas é o jogo.
-  const cartoesDe = new Map<string, (CartoesNoJogo & { partidaId: number; temporadaId: number; apito: number; time: TimeId; copa: boolean })[]>();
+  const cartoesDe = new Map<string, (CartoesNoJogo & { partidaId: number; temporadaId: number; apito: number; time: TimeId; comp: Competicao })[]>();
+  // A Supercopa (ADR-0118) é uma conta à parte que não vale nada: nem suspende nem deixa pendurado.
   const partidasEmOrdem = new Map(todas.map((p) => [p.id, p]));
   for (const e of [...escalacoes].sort((x, y) => new Date(partidasEmOrdem.get(x.partida_id)?.apito_inicial ?? 0).getTime() - new Date(partidasEmOrdem.get(y.partida_id)?.apito_inicial ?? 0).getTime())) {
     const p = partidasEmOrdem.get(e.partida_id);
     if (!e.jogador_id || !p || !encerrada(p)) continue;
     const l = cartoesDe.get(e.jogador_id) ?? [];
-    l.push({ partidaId: p.id, temporadaId: p.temporada_id, apito: apito(p).getTime(), time: e.time_id, copa: !!p.copa_etapa, amarelos: e.amarelos ?? 0, expulso: e.expulso ?? false });
+    l.push({ partidaId: p.id, temporadaId: p.temporada_id, apito: apito(p).getTime(), time: e.time_id, comp: competicaoDe(p), amarelos: e.amarelos ?? 0, expulso: e.expulso ?? false });
     cartoesDe.set(e.jogador_id, l);
   }
-  const jogosNaTemporada = (jogadorId: string, temporadaId: number, copa: boolean, antesDe = Infinity) =>
-    (cartoesDe.get(jogadorId) ?? []).filter((c) => c.temporadaId === temporadaId && c.copa === copa && c.apito < antesDe);
+  const jogosNaTemporada = (jogadorId: string, temporadaId: number, comp: Competicao, antesDe = Infinity) =>
+    (cartoesDe.get(jogadorId) ?? []).filter((c) => c.temporadaId === temporadaId && c.comp === comp && c.apito < antesDe);
   /** A última Partida encerrada do Time na Temporada (na Copa ou nas Séries) antes de `antesDe`. */
-  const anteriorDoTime = (time: TimeId, temporadaId: number, copa: boolean, antesDe: number) =>
-    [...todas].reverse().find((p) => p.temporada_id === temporadaId && !!p.copa_etapa === copa && (p.mandante_id === time || p.visitante_id === time) && apito(p).getTime() < antesDe && encerrada(p)) ?? null;
+  const anteriorDoTime = (time: TimeId, temporadaId: number, comp: Competicao, antesDe: number) =>
+    [...todas].reverse().find((p) => p.temporada_id === temporadaId && competicaoDe(p) === comp && (p.mandante_id === time || p.visitante_id === time) && apito(p).getTime() < antesDe && encerrada(p)) ?? null;
   // Time pelo qual cada Jogador jogou em cada Rodada e em cada Temporada (o último da Temporada).
   // A História e os troféus mostram esse Time, não o atual: quem foi remanejado no Rebalanceamento
   // ou trocou na Janela continua no Time em que jogou (ADR-0077).
@@ -248,7 +253,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       ...(r && p.fase === 'MATA_MATA' && r.vencedor ? { classificado: r.times[r.vencedor] } : {}),
       ...(r ? { placar: placarDe(r) } : {}),
       ...(temporada && comSeries(temporada.id) ? { serie: p.serie } : {}),
-      ...(p.copa_etapa ? { copa: p.copa_etapa } : {}),
+      ...(p.copa_etapa && p.copa_etapa !== 'SUPERCOPA' ? { copa: p.copa_etapa } : {}),
     };
   });
   const tabelaDa = (ps: LinhaPartida[], temporadaId: number, serie: Serie = 'A') =>
@@ -290,7 +295,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     const vencedorB = vencedorDa('B');
     const timeDoCandidato = (c: { jogador_id: string; time_id: TimeId }) => timeNaRodada.get(`${base.rodada_id}:${c.jogador_id}`) ?? c.time_id;
     // No dia da Copa (ADR-0088), uma lista só de Candidatos, votada pelo número.
-    const series = comSeries(base.temporada_id) && etapaDa(base.fase, base.rodada) !== 'COPA';
+    const series = comSeries(base.temporada_id) && etapaDa(base.fase, base.rodada) !== 'COPA' && etapaDa(base.fase, base.rodada) !== 'SUPERCOPA';
     const lista = rodadasPorTemporada.get(base.temporada_id) ?? [];
     lista.push({
       id: base.rodada_id,
@@ -471,9 +476,11 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       const doTime = partidas.filter((p) => p.mandante_id === j.time || p.visitante_id === j.time);
       const proximo = doTime.find((p) => !encerrada(p));
       const haProximo = !!proximo;
-      const copa = !!(proximo ?? [...doTime].reverse().find((p) => encerrada(p)))?.copa_etapa;
-      const ultimo = anteriorDoTime(j.time, temporada.id, copa, Infinity);
-      const c = situacaoDosCartoes(jogosNaTemporada(j.id, temporada.id, copa), ultimo?.id ?? null, haProximo);
+      const referencia = proximo ?? [...doTime].reverse().find((p) => encerrada(p));
+      const comp = referencia ? competicaoDe(referencia) : 'SERIE';
+      if (comp === 'SUPERCOPA') continue;
+      const ultimo = anteriorDoTime(j.time, temporada.id, comp, Infinity);
+      const c = situacaoDosCartoes(jogosNaTemporada(j.id, temporada.id, comp), ultimo?.id ?? null, haProximo);
       if (c) j.cartoes = c;
     }
   }
@@ -579,13 +586,25 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     const campeaoCopa = rfCopa?.vencedor ? rfCopa.times[rfCopa.vencedor] : null;
     if (campeaoCopa) {
       const naCopa = new Set(
-        ps.filter((p) => p.copa_etapa && encerrada(p)).flatMap((p) => p.resultado!.desempenhos.filter((d) => d.jogadorId && p.resultado!.times[d.slot.lado] === campeaoCopa).map((d) => d.jogadorId!)),
+        ps.filter((p) => p.copa_etapa && p.copa_etapa !== 'SUPERCOPA' && encerrada(p)).flatMap((p) => p.resultado!.desempenhos.filter((d) => d.jogadorId && p.resultado!.times[d.slot.lado] === campeaoCopa).map((d) => d.jogadorId!)),
       );
       for (const id of naCopa) {
         const j = porJogador.get(id);
         if (!j) continue;
         j.titulos++;
         j.trofeus.push({ tipo: 'CAMPEAO_COPA', temporada: t.numero, time: campeaoCopa, partidaId: finalDaCopa!.id });
+      }
+    }
+    // Supercopa (ADR-0118): o Título é de quem entrou em campo pelo campeão nela.
+    const jogoDaSupercopa = ps.find((p) => p.copa_etapa === 'SUPERCOPA');
+    const rfSupercopa = jogoDaSupercopa && encerrada(jogoDaSupercopa) ? jogoDaSupercopa.resultado : null;
+    const campeaoSupercopa = rfSupercopa?.vencedor ? rfSupercopa.times[rfSupercopa.vencedor] : null;
+    if (campeaoSupercopa && rfSupercopa) {
+      for (const d of rfSupercopa.desempenhos) {
+        const j = d.jogadorId && rfSupercopa.times[d.slot.lado] === campeaoSupercopa ? porJogador.get(d.jogadorId) : undefined;
+        if (!j) continue;
+        j.titulos++;
+        j.trofeus.push({ tipo: 'CAMPEAO_SUPERCOPA', temporada: t.numero, time: campeaoSupercopa, partidaId: jogoDaSupercopa!.id });
       }
     }
     const craque = craqueDa('A', t.craque_jogador_id);
@@ -654,6 +673,17 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
       zagueiro,
       meia,
       tabela: tabelaDa(ps, t.id, 'A'),
+      ...(jogoDaSupercopa
+        ? {
+            supercopa: {
+              campeao: campeaoSupercopa,
+              partidaId: jogoDaSupercopa.id,
+              mandante: jogoDaSupercopa.mandante_id,
+              visitante: jogoDaSupercopa.visitante_id,
+              placar: rfSupercopa ? placarDe(rfSupercopa) : null,
+            },
+          }
+        : {}),
       ...(finalDaCopa
         ? {
             copa: {
@@ -706,10 +736,14 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
     calendario,
     // Copa em andamento (ADR-0088): o site esconde Transferência, Convite e Troca casada.
     ...(temporadas.some((t) => {
-      const primeiro = todas.filter((p) => p.temporada_id === t.id && p.copa_etapa).map((p) => apito(p).getTime());
+      const primeiro = todas.filter((p) => p.temporada_id === t.id && p.copa_etapa && p.copa_etapa !== 'SUPERCOPA').map((p) => apito(p).getTime());
       return !t.campeao_copa_id && primeiro.length > 0 && agora.getTime() >= Math.min(...primeiro) - CORTE_MINUTOS * 60_000;
     })
       ? { trocasFechadasNaCopa: true }
+      : {}),
+    // Antes da Supercopa terminar (ADR-0118): a Janela ainda não abriu.
+    ...(todas.some((p) => p.copa_etapa === 'SUPERCOPA' && agora.getTime() < apito(p).getTime() + duracaoAoVivoMs('MATA_MATA'))
+      ? { trocasFechadasAteASupercopa: true }
       : {}),
     // Ranking de Palpites (ADR-0089): só Partidas já encerradas (o fim do Ao Vivo passou).
     ...(temporada && temMoedas(temporada.numero) ? { palpites: await rankingDePalpites(banco, temporada.id, agora) } : {}),
@@ -759,9 +793,9 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
   for (const p of todas) {
     const linhas = escalacoesDe.get(p.id);
     // Cartões (ADR-0116): só nas Temporadas com Cartões (T2 em diante).
-    const comCartoes = temRegrasT2(numeroDa.get(p.temporada_id) ?? 0);
+    const daCopa = competicaoDe(p);
+    const comCartoes = temRegrasT2(numeroDa.get(p.temporada_id) ?? 0) && daCopa !== 'SUPERCOPA';
     const apitoDaP = apito(p).getTime();
-    const daCopa = !!p.copa_etapa;
     const pendurado = (e: LinhaEscalacao) => (comCartoes && e.jogador_id && estaPendurado(jogosNaTemporada(e.jogador_id, p.temporada_id, daCopa, apitoDaP)) ? { pendurado: true as const } : {});
     /** Quem cumpre Suspensão nesta Partida: saiu do jogo anterior do Time, já encerrado. */
     const suspensosDe = (time: TimeId, doTime: LinhaEscalacao[]): NonNullable<EscalacaoPublica['fora']> => {
@@ -827,7 +861,7 @@ export async function exportarSite(banco: Banco, agora = new Date(), o: { vincul
               });
         return b ? { briga: b } : {};
       })(),
-      ...(p.copa_etapa ? { copa: p.copa_etapa } : {}),
+      ...(p.copa_etapa && p.copa_etapa !== 'SUPERCOPA' ? { copa: p.copa_etapa } : {}),
       ...(temMoedas(temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0) ? { palpite: true as const } : {}),
       // Perfil do Juiz (T3, ADR-0094): aparece com a Escalação; sai do id da Partida, igual na simulação.
       ...(linhas && temRegrasT3(temporadas.find((t) => t.id === p.temporada_id)?.numero ?? 0) ? { juiz: perfilDoJuiz(p.id) } : {}),

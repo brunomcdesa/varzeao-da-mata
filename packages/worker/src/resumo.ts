@@ -23,7 +23,8 @@ export const MIN_JOGOS_CRAQUE_DA_TEMPORADA = 3;
 async function ehFinal(banco: Banco, rodadaId: number): Promise<{ final: boolean; copa: boolean; temporadaId: number }> {
   const r = (await banco.query<{ fase: 'LIGA' | 'MATA_MATA'; numero: number; temporada_id: number }>(`SELECT fase, numero, temporada_id FROM rodada WHERE id = $1`, [rodadaId])).rows[0]!;
   const etapa = etapaDa(r.fase, r.numero);
-  return { final: etapa === 'FINAL', copa: etapa === 'COPA', temporadaId: r.temporada_id };
+  // A Supercopa (ADR-0118) segue a Copa: uma lista só de Candidatos, das duas Séries.
+  return { final: etapa === 'FINAL', copa: etapa === 'COPA' || etapa === 'SUPERCOPA', temporadaId: r.temporada_id };
 }
 
 /** As Séries que jogaram na Rodada (A, ou A e B). */
@@ -128,8 +129,9 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
     hora: horaBrasilia(new Date(p.apito_inicial)),
     serie: p.serie,
   }));
-  // Na Copa (ADR-0088), as duas Séries jogam juntas: o Resumo do dia não se divide por Série.
-  const copa = etapaDa(r.fase, r.numero) === 'COPA';
+  // Na Copa (ADR-0088) e na Supercopa (ADR-0118), as duas Séries jogam juntas: o Resumo do dia não se divide por Série.
+  const supercopa = etapaDa(r.fase, r.numero) === 'SUPERCOPA';
+  const copa = etapaDa(r.fase, r.numero) === 'COPA' || supercopa;
   if (copa) for (const p of placares) delete (p as { serie?: Serie }).serie;
   const comSeries = !copa && (await seriesDaTemporada(banco, r.temporada_id)).B.length > 0;
 
@@ -173,15 +175,16 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
     : undefined;
   const campeao = campeoes?.campeao_id;
   const campeaoB = campeoes?.campeao_b_id;
-  // Último dia da Copa: o vencedor da Final da Copa (pelos pênaltis, se precisou).
-  const campeaoCopa = copa
-    ? ((
-        await banco.query<{ t: TimeId | null }>(
-          `SELECT resultado->'times'->>(resultado->>'vencedor') AS t FROM partida WHERE rodada_id = $1 AND copa_etapa = 'FINAL' AND resultado IS NOT NULL`,
-          [rodadaId],
-        )
-      ).rows[0]?.t ?? null)
-    : null;
+  // Último dia da Copa (ou a Supercopa): o vencedor da Final da Copa (ou da Supercopa), pelos pênaltis se precisou.
+  const vencedorDa = async (etapa: 'FINAL' | 'SUPERCOPA') =>
+    (
+      await banco.query<{ t: TimeId | null }>(
+        `SELECT resultado->'times'->>(resultado->>'vencedor') AS t FROM partida WHERE rodada_id = $1 AND copa_etapa = $2 AND resultado IS NOT NULL`,
+        [rodadaId, etapa],
+      )
+    ).rows[0]?.t ?? null;
+  const campeaoCopa = copa && !supercopa ? await vencedorDa('FINAL') : null;
+  const campeaoSupercopa = supercopa ? await vencedorDa('SUPERCOPA') : null;
   // Anúncio do Craque da Rodada anterior, um por Série (ADR-0017).
   const craqueAnterior = await anuncioDoCraque(banco, r.temporada_id, r.numero, 'A');
   const craqueAnteriorB = comSeries ? await anuncioDoCraque(banco, r.temporada_id, r.numero, 'B') : null;
@@ -210,6 +213,7 @@ export async function dadosDoResumo(banco: Banco, rodadaId: number, o: { maxNovo
     ...(campeao ? { campeao } : {}),
     ...(campeaoB ? { campeaoB } : {}),
     ...(campeaoCopa ? { campeaoCopa } : {}),
+    ...(campeaoSupercopa ? { campeaoSupercopa } : {}),
     ...(jogosDaFinal.length ? { final: jogosDaFinal } : {}),
     temporada: r.temporada,
     rodada: r.numero,

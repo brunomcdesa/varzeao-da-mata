@@ -1,4 +1,4 @@
-import { NOME_DA_ETAPA_DA_COPA, RODADA_DA_COPA, ehRodadaDaCopa, nomeDaRodadaDaCopa, type EtapaDaCopa } from './copa.js';
+import { NOME_DA_ETAPA_DA_COPA, RODADA_DA_COPA, ehRodadaDaCopa, ehRodadaDaSupercopa, nomeDaRodadaDaCopa, type EtapaDaCopa } from './copa.js';
 
 /**
  * A Temporada tem uma Rodada por dia: a Fase de Liga, depois as Semifinais e a Final, cada uma
@@ -28,7 +28,7 @@ export function sqlRodadaDaFinal(ultima: string): string {
  */
 export const RODADAS_DA_LIGA_POSSIVEIS = [7, 15] as const;
 
-export type Etapa = 'LIGA' | 'SEMIFINAL' | 'FINAL' | 'COPA';
+export type Etapa = 'LIGA' | 'SEMIFINAL' | 'FINAL' | 'COPA' | 'SUPERCOPA';
 
 /**
  * A etapa de uma Rodada pelo número: a Final é sempre 2 dias depois da última Rodada da Liga. As
@@ -37,6 +37,7 @@ export type Etapa = 'LIGA' | 'SEMIFINAL' | 'FINAL' | 'COPA';
 export function etapaDa(fase: 'LIGA' | 'MATA_MATA', numero: number): Etapa {
   if (fase === 'LIGA') return 'LIGA';
   if (ehRodadaDaCopa(numero)) return 'COPA';
+  if (ehRodadaDaSupercopa(numero)) return 'SUPERCOPA';
   return RODADAS_DA_LIGA_POSSIVEIS.some((l) => numero === estruturaDaLiga(l).rodadaDaFinal) ? 'FINAL' : 'SEMIFINAL';
 }
 
@@ -44,12 +45,14 @@ export function etapaDa(fase: 'LIGA' | 'MATA_MATA', numero: number): Etapa {
 export function nomeDaRodada(fase: 'LIGA' | 'MATA_MATA', numero: number): string {
   const e = etapaDa(fase, numero);
   if (e === 'COPA') return nomeDaRodadaDaCopa(numero);
+  if (e === 'SUPERCOPA') return 'Supercopa';
   return e === 'LIGA' ? `Rodada ${numero}` : e === 'SEMIFINAL' ? 'Semifinais' : 'Final';
 }
 
 /** "Rodada 3", "Semifinal", "Final", "Copa · Quartas de final" (uma Partida; a da Copa diz a etapa). */
-export function nomeDaEtapa(fase: 'LIGA' | 'MATA_MATA', numero: number, copa?: EtapaDaCopa | null): string {
+export function nomeDaEtapa(fase: 'LIGA' | 'MATA_MATA', numero: number, copa?: EtapaDaCopa | 'SUPERCOPA' | null): string {
   const e = etapaDa(fase, numero);
+  if (e === 'SUPERCOPA' || copa === 'SUPERCOPA') return 'Supercopa';
   if (e === 'COPA') return copa ? `Copa · ${NOME_DA_ETAPA_DA_COPA[copa]}` : nomeDaRodadaDaCopa(numero);
   return e === 'LIGA' ? `Rodada ${numero}` : e === 'SEMIFINAL' ? 'Semifinal' : 'Final';
 }
@@ -64,14 +67,17 @@ export interface MataMataDaPartida {
   serie: 'A' | 'B' | null;
   /** Copa (ADR-0088): a etapa dela; a `etapa` acima é FINAL só na Final da Copa. Sem Série. */
   copa?: EtapaDaCopa;
+  /** Supercopa (ADR-0118): jogo único que vale taça (`etapa` FINAL), sem Série. */
+  supercopa?: true;
 }
 
 /** null na Fase de Liga. Na Copa, precisa da etapa da Partida. */
-export function mataMataDaPartida(o: { fase: 'LIGA' | 'MATA_MATA'; rodada: number; temporada: number; serie: 'A' | 'B'; comSeries: boolean; copa?: EtapaDaCopa | null }): MataMataDaPartida | null {
+export function mataMataDaPartida(o: { fase: 'LIGA' | 'MATA_MATA'; rodada: number; temporada: number; serie: 'A' | 'B'; comSeries: boolean; copa?: EtapaDaCopa | 'SUPERCOPA' | null }): MataMataDaPartida | null {
   const etapa = etapaDa(o.fase, o.rodada);
   if (etapa === 'LIGA') return null;
+  if (etapa === 'SUPERCOPA' || o.copa === 'SUPERCOPA') return { etapa: 'FINAL', temporada: o.temporada, serie: null, supercopa: true };
   if (etapa === 'COPA') {
-    const copa = o.copa ?? (o.rodada === RODADA_DA_COPA.FINAL ? 'FINAL' : o.rodada === RODADA_DA_COPA.OITAVAS ? 'OITAVAS' : 'QUARTAS');
+    const copa = (o.copa as EtapaDaCopa | null | undefined) ?? (o.rodada === RODADA_DA_COPA.FINAL ? 'FINAL' : o.rodada === RODADA_DA_COPA.OITAVAS ? 'OITAVAS' : 'QUARTAS');
     return { etapa: copa === 'FINAL' ? 'FINAL' : 'SEMIFINAL', temporada: o.temporada, serie: null, copa };
   }
   return { etapa, temporada: o.temporada, serie: o.comSeries ? o.serie : null };

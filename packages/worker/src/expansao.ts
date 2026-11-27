@@ -63,7 +63,7 @@ export async function temporadaDeFundacao(b: Banco, time: TimeId, quando: Date, 
   if (!TIMES_DA_EXPANSAO.includes(time)) return null;
   const t = (
     await b.query<{ id: number; numero: number; primeiro: Date | string | null }>(
-      `SELECT t.id, t.numero, (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id) AS primeiro
+      `SELECT t.id, t.numero, (SELECT min(p.apito_inicial) FROM partida p JOIN rodada r ON r.id = p.rodada_id WHERE r.temporada_id = t.id AND p.copa_etapa IS DISTINCT FROM 'SUPERCOPA') AS primeiro
          FROM temporada t WHERE t.status IN ('PRE_TEMPORADA', 'EM_ANDAMENTO') ORDER BY t.status = 'EM_ANDAMENTO' DESC, t.numero LIMIT 1`,
     )
   ).rows[0];
