@@ -25,5 +25,7 @@ perecível que temos: se não for guardado na hora, não dá para recalcular dep
 - **Muda o ADR-0046:** o Público continua fora do banco e do Replay, mas o resumo final passa a ser
   guardado. As Reações seguem sem ser guardadas.
 - "Entradas" não é gente única (sem cookie, sem login): é uma medida de volume.
-- O próximo PR (coleta) leva `audiencia/*` do KV para o Neon pelo mecanismo de pendências (ADR-0035),
-  numa tabela `audiencia_ao_vivo`.
+- A coleta leva `audiencia/*` do KV para a tabela `audiencia_ao_vivo` (migração 035) pelo mecanismo
+  de pendências (ADR-0035): a sala marca a pendência `audiencia` ao gravar o resumo, e a coleta só
+  lista o prefixo quando ela está marcada (ou na varredura de hora em hora). Chave com id fora do
+  padrão ou números implausíveis é descartada; reprocessar não duplica (`ON CONFLICT DO NOTHING`).

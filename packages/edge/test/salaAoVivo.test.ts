@@ -146,7 +146,7 @@ describe('SalaAoVivo', () => {
     let agora = 0;
     const e = estado();
     const kv = new Map<string, { v: string; ttl: number | undefined }>();
-    const env = { AGENDA: { put: async (k: string, v: string, o?: { expirationTtl?: number }) => void kv.set(k, { v, ttl: o?.expirationTtl }) } };
+    const env = { AGENDA: { get: async (k: string) => (kv.has(k) ? JSON.parse(kv.get(k)!.v) : null), put: async (k: string, v: string, o?: { expirationTtl?: number }) => void kv.set(k, { v, ttl: o?.expirationTtl }) } as unknown as KVNamespace };
     const sala = new SalaAoVivo(e, env, () => agora);
     const [a, b] = [new ConexaoFalsa(), new ConexaoFalsa()];
     await sala.entrar(a, 1000, '42'); // t=0: 1 conexão
@@ -160,12 +160,13 @@ describe('SalaAoVivo', () => {
     expect(r).toMatchObject({ partidaId: '42', pico: 2, entradas: 2, primeiraConexao: 0, fim: 1000 });
     expect(r.media).toBeCloseTo((1 * 200 + 2 * 400 + 1 * 400) / 1000, 5);
     expect(kv.get('audiencia/42')!.ttl).toBeGreaterThan(0);
+    expect(JSON.parse(kv.get('pendencias')!.v)).toHaveProperty('audiencia');
     expect(e.guardado.size).toBe(0);
   });
 
   it('sem KV ou sem ninguém, o fim do Ao Vivo segue sem erro', async () => {
     const e = estado();
-    const sala = new SalaAoVivo(e, { AGENDA: { put: async () => { throw new Error('kv fora'); } } }, () => FIM);
+    const sala = new SalaAoVivo(e, { AGENDA: { get: async () => null, put: async () => { throw new Error('kv fora'); } } as unknown as KVNamespace }, () => FIM);
     await sala.entrar(new ConexaoFalsa(), FIM, '7');
     await expect(sala.alarm()).resolves.toBeUndefined();
     expect(e.guardado.size).toBe(0);

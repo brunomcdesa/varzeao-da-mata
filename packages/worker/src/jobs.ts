@@ -43,6 +43,7 @@ import { jogadoresComVinculo } from './temporada2.js';
 import { conferirInatividade, resolverPrazos } from './tecnico.js';
 import { contextoDaVotacao, importarVotosDoSite, sincronizarVotacao } from './votoSite.js';
 import { processarPedidosDoSite } from './pedidosSite.js';
+import { coletarAudiencia } from './audiencia.js';
 import { tomarPendencias } from './pendencias.js';
 import { aparenciasEscolhidas } from './perfil.js';
 import { itensEquipadosAtuais } from './loja.js';
@@ -113,6 +114,8 @@ export interface RelatorioColeta {
   /** Pedidos feitos pelo site (Transferência) aplicados nesta coleta. */
   pedidosDoSite: number;
   publicados: number;
+  /** Resumos de audiência do Ao Vivo trazidos do KV nesta coleta. */
+  audiencia: number;
   arquivosDoSite: number;
 }
 
@@ -207,6 +210,7 @@ export async function jobColetar(c: ContextoDoJob): Promise<RelatorioColeta> {
   // Só lista no KV o que a borda marcou; uma vez por hora, tudo (ADR-0035).
   const pendente = await tomarPendencias(c.banco, c.agenda, agoraDe(c));
   const publicados = pendente('publicados') ? await sincronizarPublicados(c) : 0;
+  const audiencia = pendente('audiencia') ? await coletarAudiencia(c.banco, c.agenda) : 0;
   const comentarios = await coletarComentarios(c);
   const resultados: RelatorioColeta['resultados'] = {};
   // Quem tem Vínculo (ADR-0111): o Capitão só decide Pedido se tiver (a cópia guardada basta).
@@ -222,7 +226,7 @@ export async function jobColetar(c: ContextoDoJob): Promise<RelatorioColeta> {
   const arquivosDoSite = await publicarSite(c, { recarregarVinculos: pendente('vinculos') });
   // Avisos pessoais (ADR-0111) na fila: a borda manda no minuto seguinte.
   if (houveAvisoPessoal()) await c.agenda.gravar(CHAVE_AVISO_PESSOAL, '1', { validadeS: 86400 });
-  const rel = { comentarios: comentarios.length, resultados, votosDoSite: importados, pedidosDoSite, publicados, arquivosDoSite };
+  const rel = { comentarios: comentarios.length, resultados, votosDoSite: importados, pedidosDoSite, publicados, audiencia, arquivosDoSite };
   logDe(c)(`coletar: ${JSON.stringify(rel)}`);
   return rel;
 }

@@ -61,7 +61,7 @@ describe('Pendências do KV (ADR-0035)', () => {
   it('a varredura de hora em hora lista tudo mesmo sem marca', async () => {
     await tomarPendencias(banco, agenda, t0);
     const p = await tomarPendencias(banco, agenda, depois(60));
-    expect(['votos', 'perfis', 'escolhas', 'pedidos', 'vinculos', 'publicados'].every((t) => p(t as never))).toBe(true);
+    expect(['votos', 'perfis', 'escolhas', 'pedidos', 'vinculos', 'publicados', 'audiencia'].every((t) => p(t as never))).toBe(true);
   });
 
   it('quem tem Vínculo vem da cópia guardada, sem listar as sessões', async () => {
