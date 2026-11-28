@@ -128,6 +128,7 @@ export function zeradas(): Record<HabilidadeId, number> {
  * `ganhos` (Resenha, ADR-0034; Ganho maior da T2, ADR-0056): multiplica os ganhos de todas as Habilidades.
  * `referenciaGanho`: de onde o ganho começa a encolher (na T2, 70, ADR-0056). Com Treino, os
  * dois bônus somam na Habilidade de foco (1,5 e 1,5 viram 2).
+ * `semQueda` (Temporada 3, ADR-0120): Habilidade só sobe; o saldo negativo da Partida é descartado.
  */
 export function evoluir(
   antes: Habilidades,
@@ -136,6 +137,7 @@ export function evoluir(
   treino?: { hab: HabilidadeId; multiplicador: number },
   ganhos = 1,
   referenciaGanho: number = RITMO.referenciaGanho,
+  opcoes: { semQueda?: boolean } = {},
 ): { depois: Habilidades; delta: Record<HabilidadeId, number> } {
   const depois = { ...antes };
   const delta = zeradas();
@@ -144,7 +146,7 @@ export function evoluir(
   for (const hab of HABILIDADES) {
     const bonus = pontos[hab] > 0 ? ganhos + (treino && treino.hab === hab ? treino.multiplicador - 1 : 0) : 1;
     const p = pontos[hab] * mult * bonus;
-    if (p === 0) continue;
+    if (p === 0 || (opcoes.semQueda && p < 0)) continue;
     const bruto = p > 0 ? p * fatorDeGanho(antes[hab], referenciaGanho) : p * fatorDePerda(antes[hab]);
     const d = umaCasa(limitar(bruto, -teto, teto));
     depois[hab] = umaCasa(limitar(antes[hab] + d, HABILIDADE_MIN, HABILIDADE_MAX));

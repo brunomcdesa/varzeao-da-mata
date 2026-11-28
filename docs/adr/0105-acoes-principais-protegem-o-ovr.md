@@ -57,4 +57,4 @@ Média de OVR por jogo: ATA +0,20→+0,25, MEI +0,16→+0,23, ZAG +0,17→+0,30,
 ## Consequências
 
 - O Reels/explicação do OVR ganha uma frase: "fez gol, assistência ou foi a muralha do jogo? Não cai".
-- Decidido pelo dono (23/11/2026): na T3 a queda de OVR sai de vez (ADR próprio quando a T3 for montada). A Proteção vale já na T2.
+- Decidido pelo dono (23/11/2026): na T3 a queda de OVR sai de vez (ADR-0120). A Proteção vale já na T2.

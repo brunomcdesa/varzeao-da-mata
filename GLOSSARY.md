@@ -35,7 +35,7 @@ O resumo da força do Jogador: a média das suas Habilidades com pesos da Posiç
 _Avoid_: overall, nível, rating, força
 
 **Habilidade**:
-Cada uma das cinco notas de 1 a 99 que descrevem o Jogador: Finalização, Passe, Drible, Defesa e Goleiro. São elas que decidem os Duelos e sobem ou descem com as ações do próprio Jogador na Partida (um gol sobe Finalização, ser driblado desce Defesa), no máximo 2 pontos por Habilidade por Partida (4 no Clássico); quem está alto sobe mais devagar e quem está baixo desce mais devagar. Quem não joga não perde nada.
+Cada uma das cinco notas de 1 a 99 que descrevem o Jogador: Finalização, Passe, Drible, Defesa e Goleiro. São elas que decidem os Duelos e sobem ou descem com as ações do próprio Jogador na Partida (um gol sobe Finalização, ser driblado desce Defesa), no máximo 2 pontos por Habilidade por Partida (4 no Clássico); quem está alto sobe mais devagar e quem está baixo desce mais devagar. Quem não joga não perde nada. Da T3 em diante, Habilidade só sobe: o saldo negativo da Partida é descartado (ADR-0120).
 _Avoid_: atributo, status, stat
 
 **Proteção**:
