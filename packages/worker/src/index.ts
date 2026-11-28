@@ -25,3 +25,4 @@ export * from './tecnico.js';
 export * from './planoDoTime.js';
 export * from './painel.js';
 export * from './avisosPessoais.js';
+export * from './audienciaSite.js';
