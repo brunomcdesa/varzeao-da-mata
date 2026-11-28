@@ -958,7 +958,7 @@ export function simularPartida(entrada: EntradaPartida): ResultadoPartida {
       const treino = t2 && jogador.treino ? { hab: jogador.treino, multiplicador: PARAMETROS_T2.multiplicadorTreino } : undefined;
       // Ganho maior da T2 (ADR-0056), Resenha (ADR-0034) e Bônus da Temporada 1 (ADR-0047) somam.
       const ganhos = (t2 ? PARAMETROS_T2.multiplicadorGanho : 1) + (jogador.resenha ? PARAMETROS.multiplicadorResenha - 1 : 0) + (t2 && jogador.bonusT1 ? PARAMETROS_T2.multiplicadorBonusT1 - 1 : 0);
-      const { depois, delta } = daBase ? { depois: antes, delta: zeradas() } : evoluir(antes, t2 ? protegerPerdas(pontos[lado][indice]!, protecao[lado][indice]!, escalacoes[lado].jogadores[lugar]!.posicao) : pontos[lado][indice]!, classico, treino, ganhos, t2 ? PARAMETROS_T2.referenciaGanho : undefined);
+      const { depois, delta } = daBase ? { depois: antes, delta: zeradas() } : evoluir(antes, t2 ? protegerPerdas(pontos[lado][indice]!, protecao[lado][indice]!, escalacoes[lado].jogadores[lugar]!.posicao) : pontos[lado][indice]!, classico, treino, ganhos, t2 ? PARAMETROS_T2.referenciaGanho : undefined, { semQueda: t3 !== undefined });
       // A vaga do lugar: o reserva fora de posição joga com o OVR da vaga (como na Formação).
       const posicao = escalacoes[lado].jogadores[lugar]!.posicao;
       const ovrAntes = ovrDasHabilidades(posicao, antes);

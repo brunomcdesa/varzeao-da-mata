@@ -221,3 +221,19 @@ describe('Capitão em campo (ADR-0112)', () => {
     expect(com(7, { marcacao: { visitante: { marcador: 'R-1', alvo: 'NAO-EXISTE' } } })).toEqual(com(7, {}));
   });
 });
+
+describe('Temporada 3: OVR só sobe (ADR-0120)', () => {
+  const t3 = varias(400);
+  const t2 = varias(400, { t3: false });
+  const deltas = (rs: ResultadoPartida[]) => rs.flatMap((r) => r.desempenhos.flatMap((d) => Object.values(d.deltaHabilidades)));
+
+  it('com `t3`, nenhuma Habilidade desce, e algumas sobem', () => {
+    const d = deltas(t3);
+    expect(d.every((x) => x >= 0)).toBe(true);
+    expect(d.some((x) => x > 0)).toBe(true);
+  });
+
+  it('sem `t3` (T2), a queda continua existindo', () => {
+    expect(deltas(t2).some((x) => x < 0)).toBe(true);
+  });
+});
